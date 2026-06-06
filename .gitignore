@@ -1,0 +1,78 @@
+# Build artifacts
+/bin/
+/dist/
+/build/
+/out/
+/*.exe
+/*.dmg
+/*.pkg
+/*.msi
+/*.deb
+/*.rpm
+/*.AppImage
+*.test
+*.out
+coverage.out
+coverage.html
+coverage.txt
+
+# Go
+/vendor/
+*.pgo
+*.pprof
+
+# Node (for future Wails/TUI)
+node_modules/
+.next/
+.turbo/
+.pnpm-store/
+*.tsbuildinfo
+
+# Python (for future bridges)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+venv/
+.venv/
+*.pyoxidizer/
+
+# Secrets and local config
+.env
+.env.local
+*.key
+*.pem
+*.p12
+credentials.yaml
+secrets.yaml
+local.yaml
+config.local.yaml
+
+# Synaptic runtime (in user home, but ignore if created locally for testing)
+.synaptic/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+.Spotlight-V100/
+.Trashes/
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.iml
+
+# Test fixtures (large generated content)
+test/fixtures/screen_recordings/
+test/fixtures/generated/

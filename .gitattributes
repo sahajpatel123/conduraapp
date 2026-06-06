@@ -1,0 +1,29 @@
+# Synaptic source code
+*.go        text eol=lf
+*.tmpl      text eol=lf
+*.md        text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.sql       text eol=lf
+
+# Scripts
+*.sh        text eol=lf
+*.bash      text eol=lf
+Makefile    text eol=lf
+
+# Windows batch
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Generated
+go.sum      linguist-generated
+go.mod      linguist-generated
+
+# Vendored (if used)
+/vendor/    linguist-vendored
+node_modules/ linguist-vendored
+
+# Documentation
+docs/       linguist-documentation

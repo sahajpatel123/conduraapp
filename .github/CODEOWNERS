@@ -1,0 +1,20 @@
+# CODEOWNERS — Synaptic
+# Default owner for everything: the core team.
+# Specific areas get specific reviewers.
+
+*                          @synaptic/core
+
+# Safety-critical code requires extra scrutiny.
+/internal/safety/          @synaptic/core @synaptic/security
+/internal/perception/      @synaptic/core @synaptic/security
+/internal/agent/           @synaptic/core
+
+# IPC and authentication
+/internal/ipc/             @synaptic/core
+/internal/secrets/         @synaptic/core @synaptic/security
+/internal/api_key/         @synaptic/core
+
+# Source-of-truth docs (require explicit human approval to change)
+/CLAUDE.md                 @synaptic/core
+/LOGBOOK.md                @synaptic/core
+/EULA.md                   @synaptic/core

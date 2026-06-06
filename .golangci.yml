@@ -1,0 +1,181 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+  allow-serial-runners: true
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - gocritic
+    - gosec
+    - bodyclose
+    - errorlint
+    - gocognit
+    - gocyclo
+    - goimports
+    - goconst
+    - gomnd
+    - misspell
+    - nakedret
+    - nilerr
+    - nilnil
+    - noctx
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+
+  settings:
+    gosec:
+      # In Phase 1, we want gosec findings to be visible but not block.
+      # Switch to "strict" once we harden for v0.1.0.
+      severity: low
+      confidence: low
+      excludes:
+        - G104  # unhandled error: handled by errcheck
+        - G107  # URL parameterized: by design for LLM clients
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-tags:
+        - experimental
+    revive:
+      severity: warning
+      rules:
+        - name: var-naming
+          severity: warning
+        - name: package-comments
+          severity: warning
+        - name: exported
+          severity: warning
+        - name: error-strings
+          severity: warning
+        - name: error-returned
+          severity: warning
+        - name: error-naming
+          severity: warning
+        - name: if-return
+          severity: warning
+        - name: var-declaration
+          severity: warning
+        - name: range
+          severity: warning
+        - name: receiver-naming
+          severity: warning
+        - name: time-equal
+          severity: warning
+        - name: confusing-naming
+          severity: warning
+        - name: unchecked-type-assertions
+          severity: warning
+        - name: empty-struct
+          severity: warning
+        - name: superfluous-else
+          severity: warning
+        - name: unexported-return
+          severity: warning
+    gomnd:
+      # Allow common small numbers in tests
+      ignored-numbers:
+        - "0"
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "8"
+        - "10"
+        - "16"
+        - "32"
+        - "60"
+        - "100"
+        - "1000"
+        - "1024"
+      ignored-functions:
+        - "^strconv\\.Itoa$"
+        - "^strconv\\.FormatInt$"
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    goimports:
+      local-prefixes: github.com/synapticapp/synaptic
+    misspell:
+      locale: US
+    prealloc:
+      simple: true
+      range-loops: true
+    nolintlint:
+      allow-leading-space: false
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+
+  exclusions:
+    rules:
+      # In tests, allow parallel, t.Logf, etc.
+      - path: _test\.go
+        linters:
+          - gomnd
+          - gocognit
+          - gocyclo
+          - paralleltest
+          - tparallel
+          - dupl
+          - funlen
+      # Generated files
+      - path: \.pb\.go$
+        linters:
+          - all
+      # Test fixtures
+      - path: test/fixtures/
+        linters:
+          - all
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: github.com/synapticapp/synaptic
+  exclusions:
+    paths:
+      - vendor/
+      - test/fixtures/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+  exclude-rules:
+    - path: internal/llm/openai_compat/
+      text: "G107.*"
+      # We intentionally use URL parameters from config (e.g., custom OpenAI-compatible providers)
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
