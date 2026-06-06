@@ -1,0 +1,178 @@
+# Default Synaptic configuration.
+# Generated on first run; safe to edit. Comments show the YAML key path
+# for use with environment variable overrides (SYNAPTIC_<KEY>=value).
+#
+# This is the *default* config that gets written to ~/.synaptic/config.yaml
+# when the daemon initializes. Users can override any field in this file
+# or via env vars.
+
+version: 1
+
+general:
+  # install_id: stable UUID per install. Auto-generated on first run.
+  install_id: ""
+  # data_dir: root data directory. Default: ~/.synaptic/
+  data_dir: ~/.synaptic
+  # cache_dir: ephemeral caches.
+  cache_dir: ~/.synaptic/cache
+  # language: BCP-47 code. Supported: en-US, en-GB, es-ES, fr-FR, de-DE, hi-IN, ja-JP, zh-CN
+  language: en-US
+  # first_run: false after onboarding completes.
+  first_run: true
+
+daemon:
+  # auto_start: launch daemon on user login.
+  auto_start: true
+  # hotkey: global hotkey combo. Empty = user must set on first run.
+  # Suggested: "Cmd+Shift+Space" (mac), "Ctrl+Shift+Space" (win/linux)
+  hotkey: ""
+  # idle_timeout_minutes: pause background perception after N minutes idle. 0 = disabled.
+  idle_timeout_minutes: 15
+  # default_autonomy: supervised | warn | autonomous. Default: warn (cautious).
+  default_autonomy: warn
+
+logging:
+  # level: debug | info | warn | error
+  level: info
+  # format: text (dev) | json (prod)
+  format: text
+  # file: optional log file. Empty = stderr only.
+  file: ""
+  # add_source: include source file:line in entries.
+  add_source: false
+
+storage:
+  # path: SQLite file. Empty = use data_dir/synaptic.db.
+  path: ""
+  backup:
+    on_uninstall: true
+    dir: ""              # empty = use data_dir/backups
+    retention_days: 30
+  encryption:
+    enabled: true
+    columns:             # columns encrypted with AES-256-GCM (column-level)
+      - api_keys.encrypted_key
+      - oauth_tokens.encrypted_access_token
+      - oauth_tokens.encrypted_refresh_token
+      - user_model.value
+
+security:
+  kill_switch_hotkey: "Cmd+Shift+Escape"
+  audit_retention_days: 90
+  spend_limit_usd_per_day: 5.0
+  pii_redaction: true
+  sensitive_apps: []    # empty uses built-in defaults (banking, password managers, etc.)
+
+router:
+  strategy: hybrid       # cascade | pareto | hybrid | user
+  priorities:
+    chat:         [claude_code, openai, anthropic, google, xai, mistral, deepseek, openrouter, groq, together, fireworks, ollama, custom]
+    code:         [claude_code, codex, antigravity, ollama, openrouter, anthropic, openai, custom]
+    research:     [claude_code, hermes, gemini, openrouter, openai, anthropic, custom]
+    reasoning:    [claude_code, openai, antigravity, ollama, openrouter, anthropic, custom]
+    long_context: [google, ollama, openrouter, anthropic, custom]
+    vision:       [claude_code, openai, antigravity, google, ollama, openrouter, anthropic, custom]
+    image_gen:    [openai, antigravity, openrouter, custom]
+    tts:          [openai, elevenlabs, custom]
+    stt:          [whisper_local, openai, custom]
+    embedding:    [local, openai, ollama, custom]
+    tool_use:     [claude_code, codex, antigravity, openrouter, anthropic, openai, custom]
+    command:      [claude_code, codex, openrouter, anthropic, openai, custom]
+    browser:      [claude_code, codex, antigravity, openrouter, anthropic, openai, custom]
+  fallback_chain: [ollama, openrouter, groq]
+  memory_bias_weight: 0.3
+  min_samples_for_bias: 5
+
+llm:
+  providers:
+    anthropic:
+      enabled: false
+      base_url: https://api.anthropic.com
+      default_model: claude-sonnet-4-5
+      max_retries: 3
+      timeout_sec: 60
+    openai:
+      enabled: false
+      base_url: https://api.openai.com/v1
+      default_model: gpt-5.5
+      max_retries: 3
+      timeout_sec: 60
+    google:
+      enabled: false
+      base_url: https://generativelanguage.googleapis.com
+      default_model: gemini-3.1-pro
+      max_retries: 3
+      timeout_sec: 60
+    xai:
+      enabled: false
+      default_model: grok-4.3
+    mistral:
+      enabled: false
+      default_model: mistral-large-3
+    deepseek:
+      enabled: false
+      default_model: deepseek-v4
+    openrouter:
+      enabled: false
+      base_url: https://openrouter.ai/api/v1
+      default_model: anthropic/claude-sonnet-4-5
+    together:
+      enabled: false
+      base_url: https://api.together.xyz/v1
+    groq:
+      enabled: false
+      base_url: https://api.groq.com/openai/v1
+    fireworks:
+      enabled: false
+      base_url: https://api.fireworks.ai/inference/v1
+    custom:
+      enabled: false
+      base_url: ""
+      default_model: ""
+    ollama:
+      enabled: false
+      base_url: http://127.0.0.1:11434/v1
+      default_model: llama4
+  # Only providers that officially support user-facing OAuth.
+  # Today: only Google. Others can be added as they publish OAuth.
+  oauth_providers:
+    google:
+      client_id: ""
+      scopes:
+        - https://www.googleapis.com/auth/generative-language
+      auth_url: https://accounts.google.com/o/oauth2/v2/auth
+      token_url: https://oauth2.googleapis.com/token
+
+api_server:
+  host: 127.0.0.1
+  port: 7666
+  tls_enabled: false
+  auth_token: ""        # empty = local-only. Set for remote access.
+  allowed_origins: []
+
+autonomy:
+  default_level: warn   # supervised | warn | autonomous | block
+  per_app:
+    com.apple.Mail:       warn
+    com.tinyspeck.chatly: warn
+    com.google.Chrome:    autonomous
+    com.apple.finder:     autonomous
+    com.microsoft.VSCode: autonomous
+  per_task:
+    coding:           warn
+    file_operations:  warn
+    web_browsing:     warn
+    email:            warn
+    calendar:         warn
+    messaging:        warn
+    shell_commands:   warn
+    computer_use:     warn
+    research:         autonomous
+    image_generation: autonomous
+    code_review:      autonomous
+  show_warnings_for_read: false
+  max_consecutive_warns: 5
+
+telemetry:
+  enabled: false
+  crash_reports: false
