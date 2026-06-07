@@ -99,6 +99,15 @@ linters:
         - "^strconv\\.FormatInt$"
     gocyclo:
       min-complexity: 15
+    goconst:
+      # We consider it noise if a string appears only 2-3 times; usually
+      # those are YAML keys, model IDs in tests, or sensible call-site
+      # identifiers that don't benefit from being aliased. Bumping to 4
+      # surfaces only the repeated patterns that *do* benefit (provider
+      # names, autonomy levels, log levels).
+      min-occurrences: 4
+      ignore-tests: true
+      numbers: false
     gocognit:
       min-complexity: 20
     goimports:

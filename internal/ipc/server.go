@@ -40,6 +40,10 @@ type Response struct {
 	ID      json.RawMessage `json:"id"`
 }
 
+// ProtocolVersion is the JSON-RPC protocol version this package speaks.
+// It is the value of the `jsonrpc` field in every request and response.
+const ProtocolVersion = "2.0"
+
 // Error is a JSON-RPC 2.0 error.
 type Error struct {
 	Code    int    `json:"code"`
@@ -151,7 +155,7 @@ func (s *Server) Handle(ctx context.Context, req *Request) (*Response, error) {
 		}), nil
 	}
 	return &Response{
-		JSONRPC: "2.0",
+		JSONRPC: ProtocolVersion,
 		Result:  result,
 		ID:      req.ID,
 	}, nil
@@ -226,14 +230,14 @@ func errorResponse(req *Request, e *Error) *Response {
 	if req != nil {
 		id = req.ID
 	}
-	return &Response{JSONRPC: "2.0", Error: e, ID: id}
+	return &Response{JSONRPC: ProtocolVersion, Error: e, ID: id}
 }
 
 func marshalError(id json.RawMessage, e *Error) []byte {
 	if id == nil {
 		id = json.RawMessage("null")
 	}
-	resp := Response{JSONRPC: "2.0", Error: e, ID: id}
+	resp := Response{JSONRPC: ProtocolVersion, Error: e, ID: id}
 	b, _ := json.Marshal(resp)
 	return b
 }

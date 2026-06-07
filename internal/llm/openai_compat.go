@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+// Default values for OpenAICompat auth fields. Most OpenAI-compatible
+// providers send the API key as a Bearer token in the Authorization
+// header; named constants here let providers reference the defaults
+// without repeating string literals (goconst).
+const (
+	defaultAuthHeader = "Authorization"
+	defaultAuthPrefix = "Bearer "
+)
+
 // OpenAICompat is the base for all OpenAI-compatible chat completions APIs.
 // Most LLM providers expose an endpoint matching the OpenAI chat schema;
 // the only per-provider differences are base URL, model list, and auth.
@@ -26,9 +35,9 @@ type OpenAICompat struct {
 	APIKey     string
 	HTTPClient *http.Client
 	ModelsList []ModelInfo
-	// AuthHeader is the header used for the API key. Default "Authorization".
+	// AuthHeader is the header used for the API key. Default "Authorization". See defaultAuthHeader.
 	AuthHeader string
-	// AuthPrefix is the value prefix (default "Bearer "). Set to "" for
+	// AuthPrefix is the value prefix (default "Bearer "). See defaultAuthPrefix. Set to "" for
 	// providers that send the raw key in a custom header (e.g. OpenRouter
 	// uses the same Bearer format but Together uses Bearer too).
 	AuthPrefix string
@@ -43,8 +52,8 @@ func NewOpenAICompat(name, baseURL, apiKey string) *OpenAICompat {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 	}
 }
 
@@ -440,8 +449,8 @@ func NewOpenAI(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.openai.com/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -453,8 +462,8 @@ func NewOpenRouter(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://openrouter.ai/api/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ExtraHeaders: map[string]string{
 			"HTTP-Referer": "https://synaptic.app",
 			"X-Title":      "Synaptic",
@@ -470,8 +479,8 @@ func NewTogether(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.together.xyz/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -483,8 +492,8 @@ func NewGroq(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.groq.com/openai/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -496,8 +505,8 @@ func NewFireworks(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.fireworks.ai/inference/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -509,8 +518,8 @@ func NewDeepSeek(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.deepseek.com/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -522,8 +531,8 @@ func NewXAI(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.x.ai/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -535,8 +544,8 @@ func NewMistral(apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    "https://api.mistral.ai/v1",
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -551,8 +560,8 @@ func NewOllama(baseURL string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    baseURL,
 		APIKey:     "ollama", // Ollama ignores; some setups require any non-empty value
 		HTTPClient: &http.Client{Timeout: 10 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }
@@ -564,8 +573,8 @@ func NewCustom(name, baseURL, apiKey string, models []ModelInfo) *OpenAICompat {
 		BaseURL:    baseURL,
 		APIKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: 5 * time.Minute},
-		AuthHeader: "Authorization",
-		AuthPrefix: "Bearer ",
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
 		ModelsList: models,
 	}
 }

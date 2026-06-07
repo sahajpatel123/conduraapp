@@ -15,6 +15,43 @@ import (
 // Default config
 // -----------------------------------------------------------------------------
 
+// Canonical names for providers, autonomy levels, and log levels.
+// These appear in the default config, the priority lists, and the
+// validation functions, so we keep them as named constants to avoid
+// goconst noise and to make the magic values easy to find.
+const (
+	// Provider names. Order is meaningful: the priority lists in
+	// defaultRouter() read like "preferred first".
+	ProviderAnthropic   = "anthropic"
+	ProviderAntigravity = "antigravity"
+	ProviderOpenAI      = "openai"
+	ProviderGoogle      = "google"
+	ProviderXAI         = "xai"
+	ProviderMistral     = "mistral"
+	ProviderDeepSeek    = "deepseek"
+	ProviderOpenRouter  = "openrouter"
+	ProviderGroq        = "groq"
+	ProviderTogether    = "together"
+	ProviderFireworks   = "fireworks"
+	ProviderOllama      = "ollama"
+	ProviderCustom      = "custom"
+	ProviderClaudeCode  = "claude_code"
+	ProviderCodex       = "codex"
+
+	// Autonomy levels. Used as values for Autonomy.DefaultLevel,
+	// PerApp, and PerTask.
+	AutonomySupervised = "supervised"
+	AutonomyWarn       = "warn"
+	AutonomyAutonomous = "autonomous"
+	AutonomyBlock      = "block"
+
+	// Log levels.
+	LogLevelDebug = "debug"
+	LogLevelInfo  = "info"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
+)
+
 // Default returns a Config populated with sensible defaults.
 //
 // Note: Storage.Path and Storage.Backup.Dir are left empty in the returned
@@ -35,10 +72,10 @@ func Default() *Config {
 			AutoStart:          true,
 			Hotkey:             "", // user must set on first run
 			IdleTimeoutMinutes: 15,
-			DefaultAutonomy:    "warn",
+			DefaultAutonomy:    AutonomyWarn,
 		},
 		Logging: LoggingConfig{
-			Level:     "info",
+			Level:     LogLevelInfo,
 			Format:    "text",
 			File:      "",
 			AddSource: false,
@@ -70,21 +107,21 @@ func Default() *Config {
 		Router: RouterConfig{
 			Strategy: "hybrid",
 			Priorities: map[string][]string{
-				"chat":         {"claude_code", "openai", "anthropic", "google", "xai", "mistral", "deepseek", "openrouter", "groq", "together", "fireworks", "ollama", "custom"},
-				"code":         {"claude_code", "codex", "antigravity", "ollama", "openrouter", "anthropic", "openai", "custom"},
-				"research":     {"claude_code", "hermes", "gemini", "openrouter", "openai", "anthropic", "custom"},
-				"reasoning":    {"claude_code", "openai", "antigravity", "ollama", "openrouter", "anthropic", "custom"},
-				"long_context": {"google", "ollama", "openrouter", "anthropic", "custom"},
-				"vision":       {"claude_code", "openai", "antigravity", "google", "ollama", "openrouter", "anthropic", "custom"},
-				"image_gen":    {"openai", "antigravity", "openrouter", "custom"},
-				"tts":          {"openai", "elevenlabs", "custom"},
-				"stt":          {"whisper_local", "openai", "custom"},
-				"embedding":    {"local", "openai", "ollama", "custom"},
-				"tool_use":     {"claude_code", "codex", "antigravity", "openrouter", "anthropic", "openai", "custom"},
-				"command":      {"claude_code", "codex", "openrouter", "anthropic", "openai", "custom"},
-				"browser":      {"claude_code", "codex", "antigravity", "openrouter", "anthropic", "openai", "custom"},
+				"chat":         {ProviderClaudeCode, ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderXAI, ProviderMistral, ProviderDeepSeek, ProviderOpenRouter, ProviderGroq, ProviderTogether, ProviderFireworks, ProviderOllama, ProviderCustom},
+				"code":         {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
+				"research":     {ProviderClaudeCode, "hermes", "gemini", ProviderOpenRouter, ProviderOpenAI, ProviderAnthropic, ProviderCustom},
+				"reasoning":    {ProviderClaudeCode, ProviderOpenAI, ProviderAntigravity, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
+				"long_context": {ProviderGoogle, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
+				"vision":       {ProviderClaudeCode, ProviderOpenAI, ProviderAntigravity, ProviderGoogle, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
+				"image_gen":    {ProviderOpenAI, ProviderAntigravity, ProviderOpenRouter, ProviderCustom},
+				"tts":          {ProviderOpenAI, "elevenlabs", ProviderCustom},
+				"stt":          {"whisper_local", ProviderOpenAI, ProviderCustom},
+				"embedding":    {"local", ProviderOpenAI, ProviderOllama, ProviderCustom},
+				"tool_use":     {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
+				"command":      {ProviderClaudeCode, ProviderCodex, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
+				"browser":      {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
 			},
-			FallbackChain:     []string{"ollama", "openrouter", "groq"},
+			FallbackChain:     []string{ProviderOllama, ProviderOpenRouter, ProviderGroq},
 			MemoryBiasWeight:  0.3,
 			MinSamplesForBias: 5,
 		},
@@ -100,26 +137,26 @@ func Default() *Config {
 			AllowedOrigins: []string{},
 		},
 		Autonomy: AutonomyConfig{
-			DefaultLevel: "warn",
+			DefaultLevel: AutonomyWarn,
 			PerApp: map[string]string{
-				"com.apple.Mail":       "warn",
-				"com.tinyspeck.chatly": "warn",
-				"com.google.Chrome":    "autonomous",
-				"com.apple.finder":     "autonomous",
-				"com.microsoft.VSCode": "autonomous",
+				"com.apple.Mail":       AutonomyWarn,
+				"com.tinyspeck.chatly": AutonomyWarn,
+				"com.google.Chrome":    AutonomyAutonomous,
+				"com.apple.finder":     AutonomyAutonomous,
+				"com.microsoft.VSCode": AutonomyAutonomous,
 			},
 			PerTask: map[string]string{
-				"coding":           "warn",
-				"file_operations":  "warn",
-				"web_browsing":     "warn",
-				"email":            "warn",
-				"calendar":         "warn",
-				"messaging":        "warn",
-				"shell_commands":   "warn",
-				"computer_use":     "warn",
-				"research":         "autonomous",
-				"image_generation": "autonomous",
-				"code_review":      "autonomous",
+				"coding":           AutonomyWarn,
+				"file_operations":  AutonomyWarn,
+				"web_browsing":     AutonomyWarn,
+				"email":            AutonomyWarn,
+				"calendar":         AutonomyWarn,
+				"messaging":        AutonomyWarn,
+				"shell_commands":   AutonomyWarn,
+				"computer_use":     AutonomyWarn,
+				"research":         AutonomyAutonomous,
+				"image_generation": AutonomyAutonomous,
+				"code_review":      AutonomyAutonomous,
 			},
 			ShowWarningsForRead:                   false,
 			MaxConsecutiveWarnsBeforeAskingAnyway: 5,
@@ -211,27 +248,27 @@ func defaultProviders() map[string]ProviderConfig {
 		}
 	}
 	return map[string]ProviderConfig{
-		"anthropic": {
+		ProviderAnthropic: {
 			Enabled: false, BaseURL: "https://api.anthropic.com", DefaultModel: "claude-sonnet-4-5",
 			MaxRetries: 3, TimeoutSec: 60,
 		},
-		"openai": {
+		ProviderOpenAI: {
 			Enabled: false, BaseURL: "https://api.openai.com/v1", DefaultModel: "gpt-5.5",
 			MaxRetries: 3, TimeoutSec: 60,
 		},
-		"google": {
+		ProviderGoogle: {
 			Enabled: false, BaseURL: "https://generativelanguage.googleapis.com", DefaultModel: "gemini-3.1-pro",
 			MaxRetries: 3, TimeoutSec: 60,
 		},
-		"xai":        mk("grok-4.3"),
-		"mistral":    mk("mistral-large-3"),
-		"deepseek":   mk("deepseek-v4"),
-		"openrouter": mk("anthropic/claude-sonnet-4-5"),
-		"together":   mk("meta-llama/Llama-4-70b-chat-hf"),
-		"groq":       mk("llama-4-70b-chat"),
-		"fireworks":  mk("accounts/fireworks/models/llama-v4-70b-chat"),
-		"custom":     {Enabled: false, BaseURL: "", DefaultModel: "", MaxRetries: 3, TimeoutSec: 60},
-		"ollama":     {Enabled: false, BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "llama4", MaxRetries: 1, TimeoutSec: 120},
+		ProviderXAI:        mk("grok-4.3"),
+		ProviderMistral:    mk("mistral-large-3"),
+		ProviderDeepSeek:   mk("deepseek-v4"),
+		ProviderOpenRouter: mk("anthropic/claude-sonnet-4-5"),
+		ProviderTogether:   mk("meta-llama/Llama-4-70b-chat-hf"),
+		ProviderGroq:       mk("llama-4-70b-chat"),
+		ProviderFireworks:  mk("accounts/fireworks/models/llama-v4-70b-chat"),
+		ProviderCustom:     {Enabled: false, BaseURL: "", DefaultModel: "", MaxRetries: 3, TimeoutSec: 60},
+		ProviderOllama:     {Enabled: false, BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "llama4", MaxRetries: 1, TimeoutSec: 120},
 	}
 }
 
@@ -239,7 +276,7 @@ func defaultOAuthProviders() map[string]OAuthProviderConfig {
 	// Only Google has a clean official OAuth for end users today.
 	// Others can be added as they publish official OAuth.
 	return map[string]OAuthProviderConfig{
-		"google": {
+		ProviderGoogle: {
 			ClientID: "",
 			Scopes:   []string{"https://www.googleapis.com/auth/generative-language"},
 			AuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
@@ -381,7 +418,7 @@ func (l *Loader) Save(cfg *Config) error {
 //
 // Examples:
 //
-//	SYNAPTIC_LOGGING__LEVEL=debug                       -> logging.level = "debug"
+//	SYNAPTIC_LOGGING__LEVEL=debug                       -> logging.level = LogLevelDebug
 //	SYNAPTIC_DAEMON__AUTO_START=true                    -> daemon.auto_start = true
 //	SYNAPTIC_API_SERVER__PORT=9000                      -> api_server.port = 9000
 //	SYNAPTIC_SECURITY__SPEND_LIMIT_USD_PER_DAY=20.5     -> security.spend_limit_usd_per_day = 20.5
@@ -459,7 +496,7 @@ func (c *Config) Validate() error {
 		errs = append(errs, "daemon.idle_timeout_minutes must be >= 0")
 	}
 	switch c.Daemon.DefaultAutonomy {
-	case "supervised", "warn", "autonomous", "":
+	case AutonomySupervised, AutonomyWarn, AutonomyAutonomous, "":
 		// ok (empty -> use autonomy default)
 	default:
 		errs = append(errs, fmt.Sprintf("daemon.default_autonomy %q is invalid (supervised, warn, autonomous)", c.Daemon.DefaultAutonomy))
@@ -467,7 +504,7 @@ func (c *Config) Validate() error {
 
 	// Logging.
 	switch ParseLevel(c.Logging.Level) {
-	case "debug", "info", "warn", "error":
+	case LogLevelDebug, LogLevelInfo, AutonomyWarn, LogLevelError:
 		// ok
 	default:
 		errs = append(errs, fmt.Sprintf("logging.level %q is invalid", c.Logging.Level))
@@ -525,7 +562,7 @@ func (c *Config) Validate() error {
 
 func isValidAutonomy(level string) bool {
 	switch level {
-	case "supervised", "warn", "autonomous", "block":
+	case AutonomySupervised, AutonomyWarn, AutonomyAutonomous, AutonomyBlock:
 		return true
 	default:
 		return false
@@ -535,16 +572,16 @@ func isValidAutonomy(level string) bool {
 // ParseLevel is exposed here for use by the logger package and others.
 func ParseLevel(s string) string {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "debug":
-		return "debug"
-	case "info", "":
-		return "info"
-	case "warn", "warning":
-		return "warn"
-	case "error", "err":
-		return "error"
+	case LogLevelDebug:
+		return LogLevelDebug
+	case LogLevelInfo, "":
+		return LogLevelInfo
+	case AutonomyWarn, "warning":
+		return AutonomyWarn
+	case LogLevelError, "err":
+		return LogLevelError
 	default:
-		return "info"
+		return LogLevelInfo
 	}
 }
 

@@ -95,7 +95,7 @@ func (c *Client) Call(ctx context.Context, method string, params, out any) error
 	}
 	id := c.idCtr.Add(1)
 	req := Request{
-		JSONRPC: "2.0",
+		JSONRPC: ProtocolVersion,
 		ID:      json.RawMessage(fmt.Sprintf("%d", id)),
 		Method:  method,
 		Params:  paramsJSON,
