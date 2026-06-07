@@ -22,9 +22,8 @@ linters:
     - errorlint
     - gocognit
     - gocyclo
-    - goimports
     - goconst
-    - gomnd
+    - mnd
     - misspell
     - nakedret
     - nilerr
@@ -92,23 +91,9 @@ linters:
           severity: warning
         - name: unexported-return
           severity: warning
-    gomnd:
+    mnd:
       # Allow common small numbers in tests
-      ignored-numbers:
-        - "0"
-        - "1"
-        - "2"
-        - "3"
-        - "4"
-        - "5"
-        - "8"
-        - "10"
-        - "16"
-        - "32"
-        - "60"
-        - "100"
-        - "1000"
-        - "1024"
+      ignored-numbers: [0, 1, 2, 3, 4, 5, 8, 10, 16, 32, 60, 100, 1000, 1024]
       ignored-functions:
         - "^strconv\\.Itoa$"
         - "^strconv\\.FormatInt$"
@@ -134,7 +119,7 @@ linters:
       # In tests, allow parallel, t.Logf, etc.
       - path: _test\.go
         linters:
-          - gomnd
+          - mnd
           - gocognit
           - gocyclo
           - paralleltest
@@ -173,7 +158,7 @@ issues:
 
 output:
   formats:
-    - format: colored-line-number
+    colored-line-number:
       path: stdout
   print-issued-lines: true
   print-linter-name: true
