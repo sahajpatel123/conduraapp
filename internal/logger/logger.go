@@ -107,6 +107,13 @@ func init() {
 	slog.SetDefault(defaultLg)
 }
 
+// File mode for an optional log file. We pick owner-only because the
+// log may contain redacted-but-still-sensitive paths and IDs.
+const (
+	logDirPerm  = 0o700
+	logFilePerm = 0o600
+)
+
 // New returns a new logger with the given config.
 func New(cfg Config) *slog.Logger {
 	if cfg.Level == "" {
@@ -213,10 +220,10 @@ func boolPtr(b bool) *bool { return &b }
 
 func openFileOrStderr(path string, fallback io.Writer) io.Writer {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := os.MkdirAll(dir, logDirPerm); err != nil {
 		return fallback
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerm)
 	if err != nil {
 		return fallback
 	}

@@ -35,6 +35,14 @@ import (
 // Service is the keyring service name used for all Synaptic secrets.
 const Service = "synaptic"
 
+// File-mode bits for the local-encrypted-secrets file. We keep the
+// permissions strict (owner-only) because the file holds the master
+// encryption key and every API key in cleartext-AES-wrapped form.
+const (
+	secretsDirPerm  = 0o700 // owner-only: drwx------
+	secretsFilePerm = 0o600 // owner-only: -rw-------
+)
+
 // Backend identifies which backend is in use.
 type Backend string
 
@@ -220,16 +228,16 @@ func newFileManager(path string) (*fileManager, error) {
 	if path == "" {
 		return nil, fmt.Errorf("%w: file path is empty", ErrBackendFailed)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), secretsDirPerm); err != nil {
 		return nil, fmt.Errorf("create secrets dir: %w", err)
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.WriteFile(path, []byte(`{"version":1,"secrets":{}}`), 0o600); err != nil {
+		if err := os.WriteFile(path, []byte(`{"version":1,"secrets":{}}`), secretsFilePerm); err != nil {
 			return nil, fmt.Errorf("init secrets file: %w", err)
 		}
 	} else if err != nil {
 		return nil, fmt.Errorf("stat secrets file: %w", err)
-	} else if err := os.Chmod(path, 0o600); err != nil {
+	} else if err := os.Chmod(path, secretsFilePerm); err != nil {
 		return nil, fmt.Errorf("chmod secrets file: %w", err)
 	}
 	return &fileManager{path: path}, nil
@@ -260,7 +268,7 @@ func (f *fileManager) write(fd fileData) error {
 	}
 	// Atomic write: write to temp file, then rename.
 	tmp := f.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := os.WriteFile(tmp, data, secretsFilePerm); err != nil {
 		return fmt.Errorf("write temp: %w", err)
 	}
 	if err := os.Rename(tmp, f.path); err != nil {

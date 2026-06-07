@@ -67,13 +67,17 @@ type Config struct {
 	OnMigrate func(version int) error
 }
 
+// File mode for the SQLite database file. Owner-only because the
+// database contains API keys (encrypted), audit logs, and memory.
+const dbDirPerm = 0o700
+
 // Open opens (or creates) the SQLite database, applies migrations, and
 // returns a handle. The caller must call Close.
 func Open(ctx context.Context, cfg Config) (*DB, error) {
 	if cfg.Path == "" {
 		return nil, errors.New("storage: Path is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(cfg.Path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cfg.Path), dbDirPerm); err != nil {
 		return nil, fmt.Errorf("storage: create data dir: %w", err)
 	}
 

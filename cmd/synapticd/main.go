@@ -39,6 +39,11 @@ import (
 	"github.com/synapticapp/synaptic/internal/version"
 )
 
+// File mode for the synapticd.addr sidecar. Owner-only because it
+// contains a loopback port that the CLI reads to find the daemon;
+// leaking it isn't catastrophic, but no other user should need it.
+const addrFilePerm = 0o600
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
@@ -215,7 +220,7 @@ func run() error {
 	// without scanning a port range.
 	if len(listenAddrs) > 0 {
 		path := filepath.Join(cfg.General.DataDir, "synapticd.addr")
-		_ = os.WriteFile(path, []byte(listenAddrs[0]+"\n"), 0o600)
+		_ = os.WriteFile(path, []byte(listenAddrs[0]+"\n"), addrFilePerm)
 		log.Info("address file written", "path", path)
 	}
 

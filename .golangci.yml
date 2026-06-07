@@ -92,8 +92,35 @@ linters:
         - name: unexported-return
           severity: warning
     mnd:
-      # Allow common small numbers in tests
-      ignored-numbers: [0, 1, 2, 3, 4, 5, 8, 10, 16, 32, 60, 100, 1000, 1024]
+      # Allow common small numbers in tests and well-known idioms
+      # (HTTP status, buffer sizes, file modes, common ports).
+      ignored-numbers:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 8
+        - 10
+        - 16
+        - 30
+        - 32
+        - 60
+        - 64
+        - 100
+        - 200
+        - 300
+        - 400
+        - 500
+        - 1000
+        - 1024
+        - 4096
+        - 8192
+        - 65536
+        - "0600"
+        - "0700"
+        - "0755"
       ignored-functions:
         - "^strconv\\.Itoa$"
         - "^strconv\\.FormatInt$"
@@ -135,6 +162,18 @@ linters:
           - tparallel
           - dupl
           - funlen
+      # model_pricing.go is a static data table; the numbers there
+      # are prices and context windows, not magic values.
+      - path: internal/llm/model_pricing\.go
+        linters:
+          - mnd
+          - goconst
+      # The Default() factory and YAML tag names in config/loader.go
+      # are data declarations; the numbers are default values, not
+      # magic.
+      - path: internal/config/loader\.go
+        linters:
+          - mnd
       # Generated files
       - path: \.pb\.go$
         linters:
