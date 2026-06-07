@@ -122,7 +122,7 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	body := make([]byte, 0, 1024)
 	buf := make([]byte, 1024)
 	for {
@@ -162,7 +162,7 @@ func (t *ServerTransport) serveWebSocket(w http.ResponseWriter, r *http.Request)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	defer c.Close(websocket.StatusNormalClosure, "bye")
+	defer c.Close(websocket.StatusNormalClosure, "bye") //nolint:errcheck
 	for {
 		mt, data, err := c.Read(ctx)
 		if err != nil {

@@ -301,7 +301,7 @@ func (p *OpenAICompat) Chat(ctx context.Context, req ChatRequest) (ChatResponse,
 	if err != nil {
 		return ChatResponse{}, fmt.Errorf("llm: http: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		return ChatResponse{}, fmt.Errorf("llm: %s: %d: %s", p.NameVal, resp.StatusCode, string(body))
@@ -349,7 +349,7 @@ func (p *OpenAICompat) Stream(ctx context.Context, req ChatRequest) (<-chan Stre
 	cancel := make(chan struct{})
 	go func() {
 		defer close(out)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		reader := bufio.NewReaderSize(resp.Body, 64*1024)
 		var (
 			accumulated  strings.Builder

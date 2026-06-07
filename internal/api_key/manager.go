@@ -231,7 +231,7 @@ FROM api_keys ORDER BY provider, label`)
 	if err != nil {
 		return nil, fmt.Errorf("api_key: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []Key
 	for rows.Next() {
 		k, err := m.scanKey(rows)
@@ -252,7 +252,7 @@ FROM api_keys WHERE provider = ? ORDER BY label`, provider)
 	if err != nil {
 		return nil, fmt.Errorf("api_key: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []Key
 	for rows.Next() {
 		k, err := m.scanKey(rows)

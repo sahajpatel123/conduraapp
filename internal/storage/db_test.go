@@ -48,7 +48,7 @@ func TestOpen_DefaultPath(t *testing.T) {
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	assert.FileExists(t, db.Path())
 }
 
@@ -81,7 +81,7 @@ func TestOpen_CreatesDataDir(t *testing.T) {
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	info, err := os.Stat(nested)
 	require.NoError(t, err)
 	assert.True(t, info.IsDir())
@@ -98,7 +98,7 @@ func TestOpen_LoadsMasterKeyFromSecrets(t *testing.T) {
 		Secrets: sm,
 	})
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 }
 
 func TestOpen_GeneratesAndStoresMasterKey(t *testing.T) {
@@ -111,7 +111,7 @@ func TestOpen_GeneratesAndStoresMasterKey(t *testing.T) {
 		Secrets: sm,
 	})
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	// Master key should now exist in secrets.
 	mk, err := sm.Get(secrets.MasterKey)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestOpen_PersistsAcrossInstances(t *testing.T) {
 
 	db2, err := Open(context.Background(), Config{Path: path, MasterKey: testMasterKey})
 	require.NoError(t, err)
-	defer db2.Close()
+	defer func() { _ = db2.Close() }()
 }
 
 func TestClose_Idempotent(t *testing.T) {
@@ -242,7 +242,7 @@ func TestEncrypt_DifferentDBsCannotCrossDecrypt(t *testing.T) {
 		MasterKey: base64.StdEncoding.EncodeToString(make([]byte, 32)),
 	})
 	require.NoError(t, err)
-	defer db1.Close()
+	defer func() { _ = db1.Close() }()
 
 	db2 := newTestDB(t)
 
@@ -285,7 +285,7 @@ func TestMigrations_Idempotent(t *testing.T) {
 	// Re-open should not re-apply migrations.
 	db2, err := Open(context.Background(), cfg)
 	require.NoError(t, err)
-	defer db2.Close()
+	defer func() { _ = db2.Close() }()
 }
 
 func TestMigrations_OnMigrate(t *testing.T) {
@@ -303,7 +303,7 @@ func TestMigrations_OnMigrate(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mu.Lock()
 	defer mu.Unlock()
 	assert.Equal(t, []int{1}, called)

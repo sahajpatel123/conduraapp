@@ -153,7 +153,7 @@ func mustPing(ctx context.Context, gf *globalFlags) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out map[string]any
 	if err := c.Call(ctx, "ping", nil, &out); err != nil {
 		if ipc.IsConnRefused(err) {
@@ -172,7 +172,7 @@ func cmdPing(gf *globalFlags) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out map[string]any
 	if err := c.Call(ctx, "ping", nil, &out); err != nil {
 		if ipc.IsConnRefused(err) {
@@ -202,7 +202,7 @@ func cmdVersion(gf *globalFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out version.Info
 	if err := c.Call(ctx, "version", nil, &out); err != nil {
 		return err
@@ -224,7 +224,7 @@ func cmdStatus(gf *globalFlags) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := mustPing(ctx, gf); err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func cmdConfig(gf *globalFlags) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out any
 	if err := c.Call(ctx, "config.get", nil, &out); err != nil {
 		return err
@@ -324,7 +324,7 @@ func cmdLLMProviders(gf *globalFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out []any
 	if err := c.Call(ctx, "providers.list", nil, &out); err != nil {
 		return err
@@ -386,7 +386,7 @@ If <message> is "-" or omitted, the prompt is read from stdin.`) }
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	params := map[string]any{
 		"provider": *provider,
@@ -452,7 +452,7 @@ func cmdAPIKeysList(gf *globalFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out []map[string]any
 	if err := c.Call(ctx, "apikeys.list", nil, &out); err != nil {
 		return err
@@ -511,7 +511,7 @@ func cmdAPIKeysSet(gf *globalFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var out map[string]any
 	if err := c.Call(ctx, "apikeys.set", map[string]any{
 		"provider": *provider,
@@ -551,7 +551,7 @@ func cmdAPIKeysDelete(gf *globalFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := c.Call(ctx, "apikeys.delete", map[string]any{"id": id}, nil); err != nil {
 		return err
 	}

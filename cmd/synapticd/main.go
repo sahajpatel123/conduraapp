@@ -138,7 +138,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("init storage: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	log.Info("storage ready", "path", cfg.Storage.Path)
 
 	// Init api_key manager.

@@ -181,7 +181,7 @@ func (g *GoogleProvider) Revoke(ctx context.Context, token string) error {
 	if err != nil {
 		return fmt.Errorf("oauth/google: revoke: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("oauth/google: revoke: %d", resp.StatusCode)
 	}

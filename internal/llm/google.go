@@ -289,7 +289,7 @@ func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 	if err != nil {
 		return ChatResponse{}, fmt.Errorf("llm/google: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		return ChatResponse{}, fmt.Errorf("llm/google: %d: %s", resp.StatusCode, string(raw))
@@ -334,7 +334,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 	cancel := make(chan struct{})
 	go func() {
 		defer close(out)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		reader := bufio.NewReaderSize(resp.Body, 64*1024)
 		var (
 			accumulated  strings.Builder

@@ -293,7 +293,7 @@ func TestTransport_HTTP_GET(t *testing.T) {
 	s := NewServer()
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	addr := "http://" + st.Addr()
 	// GET / -> 405.
@@ -318,13 +318,13 @@ func TestTransport_HTTP_POST(t *testing.T) {
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	addr := "http://" + st.Addr()
 
 	resp, err := http.Post(addr+"/", "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","method":"echo","params":"hi","id":1}`))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Contains(t, string(body), `"hi"`)
@@ -337,12 +337,12 @@ func TestTransport_HTTP_POST_Notification(t *testing.T) {
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	resp, err := http.Post("http://"+st.Addr(), "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","method":"n"}`))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
@@ -353,7 +353,7 @@ func TestTransport_HTTP_TokenAuth(t *testing.T) {
 	})
 	st := &ServerTransport{S: s, Token: "secret"}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	addr := "http://" + st.Addr()
 
 	// No token -> 401.
@@ -369,7 +369,7 @@ func TestTransport_HTTP_TokenAuth(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer secret")
 	resp, err = http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
@@ -384,12 +384,12 @@ func TestTransport_WebSocket(t *testing.T) {
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	url := "ws://" + st.Addr() + "/"
 	ws, _, err := websocket.Dial(context.Background(), url, nil)
 	require.NoError(t, err)
-	defer ws.Close(websocket.StatusNormalClosure, "")
+	defer ws.Close(websocket.StatusNormalClosure, "") //nolint:errcheck
 
 	// Send a request.
 	var req map[string]any
@@ -411,11 +411,11 @@ func TestTransport_WebSocket_Notification(t *testing.T) {
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	ws, _, err := websocket.Dial(context.Background(), "ws://"+st.Addr()+"/", nil)
 	require.NoError(t, err)
-	defer ws.Close(websocket.StatusNormalClosure, "")
+	defer ws.Close(websocket.StatusNormalClosure, "") //nolint:errcheck
 
 	require.NoError(t, wsjson.Write(context.Background(), ws,
 		map[string]any{"jsonrpc": "2.0", "method": "n"}))
@@ -474,7 +474,7 @@ func TestBind_UnsupportedScheme(t *testing.T) {
 func TestBind_TCP(t *testing.T) {
 	ln, err := bind("tcp://127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	assert.NotNil(t, ln.Addr())
 }
 
@@ -482,7 +482,7 @@ func TestBind_Unix(t *testing.T) {
 	dir := t.TempDir()
 	ln, err := bind("unix://" + dir + "/s.sock")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 }
 
 func TestIsWebsocketUpgrade(t *testing.T) {
@@ -552,10 +552,10 @@ func TestDialWebSocket(t *testing.T) {
 			_ = c.Close()
 		}
 	}()
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	conn, err := net.Dial("tcp", ln.Addr().String())
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	assert.NotNil(t, conn)
 }
 

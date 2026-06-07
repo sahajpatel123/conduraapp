@@ -56,7 +56,7 @@ func TestClientCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -111,7 +111,7 @@ func TestClientUnknownMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	var out any
 	err = c.Call(context.Background(), "nope", nil, &out)
@@ -129,7 +129,7 @@ func TestClientConnRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	err = c.Call(context.Background(), "ping", nil, nil)
 	if err == nil {
 		t.Fatalf("expected connection refused")

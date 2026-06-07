@@ -252,7 +252,7 @@ func (a *Anthropic) Chat(ctx context.Context, req ChatRequest) (ChatResponse, er
 	if err != nil {
 		return ChatResponse{}, fmt.Errorf("llm/anthropic: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		return ChatResponse{}, fmt.Errorf("llm/anthropic: %d: %s", resp.StatusCode, string(raw))
@@ -297,7 +297,7 @@ func (a *Anthropic) Stream(ctx context.Context, req ChatRequest) (<-chan StreamE
 	cancel := make(chan struct{})
 	go func() {
 		defer close(out)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		reader := bufio.NewReaderSize(resp.Body, 64*1024)
 		var (
 			accumulated  strings.Builder

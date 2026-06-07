@@ -186,7 +186,7 @@ func formPost(ctx context.Context, client httpDoer, endpoint string, values url.
 	if err != nil {
 		return nil, 0, fmt.Errorf("oauth: do: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body := make([]byte, 0, 1024)
 	buf := make([]byte, 1024)
 	for {
