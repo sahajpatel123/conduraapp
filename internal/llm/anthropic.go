@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,10 +42,15 @@ func NewAnthropic(apiKey string, models []ModelInfo) *Anthropic {
 	}
 }
 
+// Name returns the canonical provider name.
 func (a *Anthropic) Name() string { return "anthropic" }
 
+// Models returns the list of model IDs this provider can serve.
 func (a *Anthropic) Models() []ModelInfo { return a.ModelsList }
 
+// DefaultModel returns the recommended model for a given task
+// (e.g. "chat", "code", "vision"). Falls back to the first model
+// in the registry.
 func (a *Anthropic) DefaultModel(task string) string {
 	for _, m := range a.ModelsList {
 		if m.ID == "claude-3-5-sonnet-20241022" {
@@ -152,7 +158,7 @@ func (a *Anthropic) toRequest(req ChatRequest) anthRequest {
 	return out
 }
 
-func (a *Anthropic) fromResponse(r anthResponse) (ChatResponse, error) {
+func (a *Anthropic) fromResponse(r anthResponse) ChatResponse {
 	resp := ChatResponse{
 		ID:           r.ID,
 		Model:        r.Model,
@@ -177,7 +183,7 @@ func (a *Anthropic) fromResponse(r anthResponse) (ChatResponse, error) {
 		}
 	}
 	resp.Message.Role = RoleAssistant
-	return resp, nil
+	return resp
 }
 
 func mapAnthStopReason(s string) FinishReason {
@@ -217,6 +223,8 @@ func (a *Anthropic) buildRequest(ctx context.Context, body any, stream bool) (*h
 	return req, nil
 }
 
+// Chat sends a non-streaming request to the Anthropic Messages API and
+// returns the assembled response.
 func (a *Anthropic) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	if req.Model == "" {
 		return ChatResponse{}, ErrNoModel
@@ -259,19 +267,18 @@ func (a *Anthropic) Chat(ctx context.Context, req ChatRequest) (ChatResponse, er
 	}
 	var r anthResponse
 	if err := json.Unmarshal(raw, &r); err != nil {
-		return ChatResponse{}, fmt.Errorf("%w: %v", ErrResponseShape, err)
+		return ChatResponse{}, fmt.Errorf("%w: %w", ErrResponseShape, err)
 	}
 	if r.Error != nil {
 		return ChatResponse{}, fmt.Errorf("llm/anthropic: %s: %s", r.Error.Type, r.Error.Message)
 	}
-	cr, err := a.fromResponse(r)
-	if err != nil {
-		return ChatResponse{}, err
-	}
+	cr := a.fromResponse(r)
 	cr.Raw = raw
 	return cr, nil
 }
 
+// Stream returns a channel of incremental events from the Anthropic SSE
+// stream. The cancel function aborts the in-flight request.
 func (a *Anthropic) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEvent, func(), error) {
 	if req.Model == "" {
 		return nil, nil, ErrNoModel
@@ -296,88 +303,112 @@ func (a *Anthropic) Stream(ctx context.Context, req ChatRequest) (<-chan StreamE
 	}
 	out := make(chan StreamEvent, 16)
 	cancel := make(chan struct{})
-	go func() {
-		defer close(out)
-		defer func() { _ = resp.Body.Close() }()
-		reader := bufio.NewReaderSize(resp.Body, 64*1024)
-		var (
-			accumulated  strings.Builder
-			finishReason FinishReason
-			usage        Usage
-			event        strings.Builder
-		)
-		flush := func() {
-			if event.Len() == 0 {
-				return
-			}
-			var ev struct {
-				Type  string `json:"type"`
-				Delta struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
-				} `json:"delta"`
-				Message struct {
-					Usage struct {
-						InputTokens  int `json:"input_tokens"`
-						OutputTokens int `json:"output_tokens"`
-					} `json:"usage"`
-				} `json:"message"`
-			}
-			if err := json.Unmarshal([]byte(event.String()), &ev); err != nil {
-				event.Reset()
-				return
-			}
-			event.Reset()
-			switch ev.Type {
-			case "content_block_delta":
-				if ev.Delta.Type == "text_delta" {
-					accumulated.WriteString(ev.Delta.Text)
-					out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
-				}
-			case "message_delta":
-				// Stop reason update; we'll capture it on message_stop.
-				_ = ev
-			case "message_start":
-				usage.InputTokens = ev.Message.Usage.InputTokens
-				usage.OutputTokens = ev.Message.Usage.OutputTokens
-			case "message_stop":
-				// Emit a terminal event with usage but no delta content
-				// (the per-delta events already streamed it).
-				out <- StreamEvent{
-					FinishReason: finishReason,
-					Usage:        usage,
-					Done:         true,
-				}
-			}
-		}
-		for {
-			select {
-			case <-cancel:
-				return
-			default:
-			}
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				flush()
-				if err != io.EOF {
-					out <- StreamEvent{Err: fmt.Errorf("llm/anthropic: read: %w", err), Done: true}
-				}
-				return
-			}
-			line = strings.TrimRight(line, "\r\n")
-			if line == "" {
-				flush()
-				continue
-			}
-			if strings.HasPrefix(line, "event: ") {
-				// For Phase 1 we don't need the event type to drive parsing;
-				// we just rely on the data payload type.
-				continue
-			}
-			if strings.HasPrefix(line, "data: ") {
-				event.WriteString(strings.TrimPrefix(line, "data: "))
-			}
-		}
-	}()
+	go a.streamAnthropicEvents(out, cancel, resp.Body)
 	return out, func() { close(cancel) }, nil
+}
+
+// streamAnthropicEvents is the inner loop of Stream: it reads SSE lines
+// from body, accumulates multi-line `data:` payloads, and dispatches each
+// complete event to a per-type handler.
+func (a *Anthropic) streamAnthropicEvents(out chan<- StreamEvent, cancel <-chan struct{}, body io.ReadCloser) {
+	defer close(out)
+	defer func() { _ = body.Close() }()
+
+	reader := bufio.NewReaderSize(body, 64*1024)
+	state := newAnthropicStreamState()
+
+	for {
+		select {
+		case <-cancel:
+			return
+		default:
+		}
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			state.flush(out)
+			if !errors.Is(err, io.EOF) {
+				out <- StreamEvent{Err: fmt.Errorf("llm/anthropic: read: %w", err), Done: true}
+			}
+			return
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			state.flush(out)
+			continue
+		}
+		if strings.HasPrefix(line, "event: ") {
+			// We don't drive parsing by the SSE event name; the JSON
+			// payload's "type" field is the source of truth.
+			continue
+		}
+		if strings.HasPrefix(line, "data: ") {
+			state.event.WriteString(strings.TrimPrefix(line, "data: "))
+		}
+	}
+}
+
+// anthropicStreamState holds the per-stream accumulator and finished-ness.
+// Methods are not concurrency-safe; one Stream owns one state.
+type anthropicStreamState struct {
+	accumulated  strings.Builder
+	finishReason FinishReason
+	usage        Usage
+	event        strings.Builder
+}
+
+// newAnthropicStreamState returns an empty state.
+func newAnthropicStreamState() *anthropicStreamState {
+	return &anthropicStreamState{}
+}
+
+// anthStreamEvent is the subset of the Anthropic SSE event payload we read.
+type anthStreamEvent struct {
+	Type  string `json:"type"`
+	Delta struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"delta"`
+	Message struct {
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
+	} `json:"message"`
+}
+
+// flush parses any accumulated `data:` payload and dispatches it to the
+// per-type handler. It is safe to call on an empty buffer.
+func (s *anthropicStreamState) flush(out chan<- StreamEvent) {
+	if s.event.Len() == 0 {
+		return
+	}
+	var ev anthStreamEvent
+	if err := json.Unmarshal([]byte(s.event.String()), &ev); err != nil {
+		s.event.Reset()
+		return
+	}
+	s.event.Reset()
+	s.dispatch(out, ev)
+}
+
+// dispatch routes one parsed event to the appropriate branch.
+func (s *anthropicStreamState) dispatch(out chan<- StreamEvent, ev anthStreamEvent) {
+	switch ev.Type {
+	case "content_block_delta":
+		if ev.Delta.Type == "text_delta" {
+			s.accumulated.WriteString(ev.Delta.Text)
+			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
+		}
+	case "message_delta":
+		// Stop reason update; we capture it on message_stop.
+	case "message_start":
+		s.usage.InputTokens = ev.Message.Usage.InputTokens
+		s.usage.OutputTokens = ev.Message.Usage.OutputTokens
+	case "message_stop":
+		out <- StreamEvent{
+			FinishReason: s.finishReason,
+			Usage:        s.usage,
+			Done:         true,
+		}
+	}
 }

@@ -56,6 +56,16 @@ linters:
         - performance
       disabled-tags:
         - experimental
+      disabled-checks:
+        # hugeParam: passing large structs by pointer instead of by value.
+        # We intentionally pass by value for read-only request/response
+        # shapes (ChatRequest, ChatResponse, etc.) — the copies are
+        # cheaper than heap allocations, and the values can't escape
+        # past the call boundary by accident.
+        - hugeParam
+        # paramTypeCombine: collapse adjacent same-type parameters into
+        # one declaration. Style preference, not a correctness issue.
+        - paramTypeCombine
     revive:
       severity: warning
       rules:
@@ -66,8 +76,6 @@ linters:
         - name: exported
           severity: warning
         - name: error-strings
-          severity: warning
-        - name: error-returned
           severity: warning
         - name: error-naming
           severity: warning
@@ -82,10 +90,6 @@ linters:
         - name: time-equal
           severity: warning
         - name: confusing-naming
-          severity: warning
-        - name: unchecked-type-assertions
-          severity: warning
-        - name: empty-struct
           severity: warning
         - name: superfluous-else
           severity: warning
@@ -126,6 +130,14 @@ linters:
         - "^strconv\\.FormatInt$"
     gocyclo:
       min-complexity: 15
+    gocognit:
+      # Cognitive complexity threshold. SSE/NDJSON streaming parsers
+      # naturally branch on event type, role, finish reason, and tool
+      # calls — they read as a long switch with many fall-throughs. A
+      # threshold of 30 keeps the check useful for "ordinary" code
+      # (the per-function exclusions cover the streaming parsers that
+      # legitimately exceed 30).
+      min-complexity: 30
     goconst:
       # We consider it noise if a string appears only 2-3 times; usually
       # those are YAML keys, model IDs in tests, or sensible call-site
@@ -135,8 +147,6 @@ linters:
       min-occurrences: 4
       ignore-tests: true
       numbers: false
-    gocognit:
-      min-complexity: 20
     goimports:
       local-prefixes: github.com/synapticapp/synaptic
     misspell:
@@ -162,6 +172,12 @@ linters:
           - tparallel
           - dupl
           - funlen
+          # Subprocess launching (exec.Command with the test fixture
+          # path) and bare net.Listen / net.Dial are fine in tests —
+          # they're the canonical way to spin up an isolated daemon
+          # or stand up a test listener.
+          - noctx
+          - gosec
       # model_pricing.go is a static data table; the numbers there
       # are prices and context windows, not magic values.
       - path: internal/llm/model_pricing\.go

@@ -152,7 +152,7 @@ func TestGoogle_ExchangeCode_OK(t *testing.T) {
 	// Point the provider at the test server.
 	g := NewGoogleProvider("cid", "")
 	// We can't easily override the endpoint, so test the lower-level
-	// behaviour via the AuthorizeURL/ExchangeCode methods using a custom
+	// behavior via the AuthorizeURL/ExchangeCode methods using a custom
 	// HTTP client. For the exchange to hit the test server, we patch the
 	// token endpoint through a custom HTTPClient that rewrites the URL.
 	g.Transport = rewriteTransport{target: srv.URL, base: http.DefaultTransport}

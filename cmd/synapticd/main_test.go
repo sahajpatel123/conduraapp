@@ -7,6 +7,7 @@ package main_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,7 @@ func TestBinaryPath(t *testing.T) {
 }
 
 func synapticd(t *testing.T) string {
+	t.Helper()
 	bin := os.Getenv("__SYNAPSE_TEST_BIN")
 	if bin == "" {
 		t.Skip("__SYNAPSE_TEST_BIN not set; TestBinaryPath should run first")
@@ -132,13 +134,15 @@ func TestDataDirFlagPropagates(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start: %v", err)
 	}
+	// Restore the default SIGTERM behavior so the cleanup path is
+	// straightforward even if the test fails before we get there.
 	defer func() {
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = cmd.Wait()
 	}()
 
-	// Wait up to 5s for the address file to appear, then inspect the
-	// log line that announces the storage path.
+	// Wait up to 5s for the address file to appear, signaling that
+	// the daemon has finished startup and written its log line.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(filepath.Join(dataDir, "synapticd.addr")); err == nil {
@@ -146,8 +150,23 @@ func TestDataDirFlagPropagates(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	// Give the log writer a tick to flush.
-	time.Sleep(50 * time.Millisecond)
+
+	// Stop the daemon BEFORE reading the captured output. The exec
+	// package runs a background goroutine that copies the child's
+	// stdout/stderr into the buffer; reading the buffer while that
+	// goroutine is still running is a data race caught by `go test
+	// -race`. cmd.Wait() blocks until the writer goroutines have
+	// finished, so reading after Wait is safe.
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+	if err := cmd.Wait(); err != nil {
+		// Wait returns *exec.ExitError on non-zero exit; SIGTERM yields
+		// exit code 143, which is expected. Only fail on truly unexpected
+		// errors (e.g. process not started).
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) {
+			t.Fatalf("wait: %v", err)
+		}
+	}
 
 	log := stdout.String() + stderr.String()
 	if !strings.Contains(log, "storage_path="+dataDir) {

@@ -28,6 +28,7 @@ import (
 // Role is the role of a message in a chat conversation.
 type Role string
 
+// Role values.
 const (
 	RoleSystem    Role = "system"
 	RoleUser      Role = "user"
@@ -47,6 +48,7 @@ func (r Role) IsValid() bool {
 // FinishReason indicates why a chat response ended.
 type FinishReason string
 
+// Finish reason values.
 const (
 	FinishStop          FinishReason = "stop"
 	FinishLength        FinishReason = "length"

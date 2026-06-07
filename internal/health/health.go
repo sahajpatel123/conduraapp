@@ -16,6 +16,7 @@ import (
 // State is the health state of a single check or the overall system.
 type State string
 
+// Health states.
 const (
 	StateOK       State = "ok"
 	StateDegraded State = "degraded"

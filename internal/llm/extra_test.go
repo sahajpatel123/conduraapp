@@ -434,11 +434,11 @@ func TestAnthropic_Tools_Translation(t *testing.T) {
 	td.Function.Name = "fn"
 	td.Function.Description = "d"
 	td.Function.Parameters = map[string]any{"type": "object"}
-	max := 100
+	maxTokens := 100
 	_, err := p.Chat(context.Background(), ChatRequest{
 		Model:     "m",
 		Tools:     []ToolDefinition{td},
-		MaxTokens: &max,
+		MaxTokens: &maxTokens,
 		Messages:  []Message{{Role: RoleUser, Content: "x"}},
 	})
 	require.NoError(t, err)

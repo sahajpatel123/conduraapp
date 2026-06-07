@@ -143,6 +143,11 @@ func (s *Server) Handle(ctx context.Context, req *Request) (*Response, error) {
 	}
 
 	result, err := h(ctx, req.Params)
+	if isNotification(req.ID) {
+		// Notifications: discard the result and signal the transport
+		// (via ErrNotification) that no reply should be written.
+		return nil, ErrNotification
+	}
 	if err != nil {
 		var ipcErr *Error
 		if errors.As(err, &ipcErr) {
@@ -161,6 +166,12 @@ func (s *Server) Handle(ctx context.Context, req *Request) (*Response, error) {
 	}, nil
 }
 
+// ErrNotification is the sentinel error a registered handler returns to
+// indicate that the request was a notification (per JSON-RPC 2.0) and
+// therefore no response should be sent. The transport checks for this
+// error and drops the reply.
+var ErrNotification = errors.New("ipc: notification (no response)")
+
 // HandleRaw accepts a raw JSON-RPC message and returns the raw response.
 // Used by the WebSocket/HTTP transport.
 func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
@@ -175,9 +186,16 @@ func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
 	}
 	var req Request
 	if err := json.Unmarshal(trimmed, &req); err != nil {
-		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil
+		// JSON-RPC parse error: return the error inside the response body,
+		// not as a Go error — the caller (HTTP/WS transport) will write the
+		// bytes to the client as the protocol-level reply.
+		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil //nolint:nilerr
 	}
 	resp, herr := s.Handle(ctx, &req)
+	if errors.Is(herr, ErrNotification) {
+		// Handler signaled a notification: drop the reply.
+		return nil, nil
+	}
 	if herr != nil {
 		var ipcErr *Error
 		if errors.As(herr, &ipcErr) {
@@ -195,7 +213,8 @@ func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
 func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
 	var reqs []Request
 	if err := json.Unmarshal(raw, &reqs); err != nil {
-		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil
+		// JSON-RPC parse error: same protocol-level reason as HandleRaw.
+		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil //nolint:nilerr
 	}
 	if len(reqs) == 0 {
 		return marshalError(nil, &Error{Code: CodeInvalidRequest, Message: "empty batch"}), nil
@@ -203,6 +222,10 @@ func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
 	out := make([]json.RawMessage, 0, len(reqs))
 	for i := range reqs {
 		resp, err := s.Handle(ctx, &reqs[i])
+		if errors.Is(err, ErrNotification) {
+			// Skip the response for notifications.
+			continue
+		}
 		if err != nil {
 			var ipcErr *Error
 			if errors.As(err, &ipcErr) {

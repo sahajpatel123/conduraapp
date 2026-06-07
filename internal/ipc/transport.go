@@ -30,6 +30,7 @@ type Message struct {
 // MessageType mirrors websocket.MessageType without leaking the dep.
 type MessageType int
 
+// Message type values (mirror coder/websocket).
 const (
 	MessageText   MessageType = 1
 	MessageBinary MessageType = 2
@@ -39,7 +40,7 @@ const (
 // Server transport
 // -----------------------------------------------------------------------------
 
-// Server bundles a method registry with a network listener.
+// ServerTransport bundles a method registry with a network listener.
 //
 // Listen addrs: pass "tcp://127.0.0.1:0" to bind a random TCP port, or
 // "unix:///tmp/synaptic.sock" for a Unix socket.
@@ -66,19 +67,19 @@ func (t *ServerTransport) Addr() string {
 
 // Listen binds a single address and starts serving.
 func (t *ServerTransport) Listen(ctx context.Context, addr string) error {
-	ln, err := bind(addr)
+	ln, err := bind(ctx, addr)
 	if err != nil {
 		return err
 	}
 	t.mu.Lock()
 	t.listeners = append(t.listeners, ln)
 	t.mu.Unlock()
-	go t.serveListener(ctx, ln)
+	go t.serveListener(ln)
 	return nil
 }
 
 // serveListener runs the HTTP+WebSocket handler on one listener.
-func (t *ServerTransport) serveListener(ctx context.Context, ln net.Listener) {
+func (t *ServerTransport) serveListener(ln net.Listener) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", t.handleHTTP)
 	srv := &http.Server{
@@ -261,29 +262,27 @@ func (t *ServerTransport) Close() error {
 // -----------------------------------------------------------------------------
 
 // bind parses an "scheme://addr" string and creates a listener.
-func bind(addr string) (net.Listener, error) {
-	scheme, host, err := parseAddr(addr)
-	if err != nil {
-		return nil, err
-	}
+func bind(ctx context.Context, addr string) (net.Listener, error) {
+	scheme, host := parseAddr(addr)
+	lc := &net.ListenConfig{}
 	switch scheme {
 	case "tcp":
-		return net.Listen("tcp", host)
+		return lc.Listen(ctx, "tcp", host)
 	case "unix":
-		return net.Listen("unix", host)
+		return lc.Listen(ctx, "unix", host)
 	default:
 		return nil, fmt.Errorf("ipc: unsupported scheme %q (want tcp or unix)", scheme)
 	}
 }
 
-func parseAddr(addr string) (string, string, error) {
+func parseAddr(addr string) (string, string) {
 	for i := 0; i < len(addr); i++ {
 		if addr[i] == ':' && i+1 < len(addr) && addr[i+1] == '/' && i+2 < len(addr) && addr[i+2] == '/' {
-			return addr[:i], addr[i+3:], nil
+			return addr[:i], addr[i+3:]
 		}
 	}
 	// Default to tcp.
-	return "tcp", addr, nil
+	return "tcp", addr
 }
 
 // isWebsocketUpgrade reports whether the request is a WebSocket upgrade.

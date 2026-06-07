@@ -57,10 +57,15 @@ func NewOpenAICompat(name, baseURL, apiKey string) *OpenAICompat {
 	}
 }
 
+// Name returns the canonical provider name.
 func (p *OpenAICompat) Name() string { return p.NameVal }
 
+// Models returns the list of model IDs this provider can serve.
 func (p *OpenAICompat) Models() []ModelInfo { return p.ModelsList }
 
+// DefaultModel returns the recommended model for a given task
+// (e.g. "chat", "code", "vision"). Falls back to the first model
+// in the registry.
 func (p *OpenAICompat) DefaultModel(task string) string {
 	if len(p.ModelsList) == 0 {
 		return ""
@@ -255,52 +260,78 @@ func (p *OpenAICompat) buildRequest(ctx context.Context, method, path string, bo
 	return req, nil
 }
 
+// Chat sends a non-streaming request to the OpenAI-compatible chat
+// completions endpoint and returns the assembled response. If req.Stream
+// is true, the call is satisfied by draining a server-sent-events stream.
 func (p *OpenAICompat) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
-	if req.Model == "" {
-		return ChatResponse{}, ErrNoModel
-	}
-	if len(req.Messages) == 0 {
-		return ChatResponse{}, ErrNoMessages
+	if err := p.validateChatRequest(req); err != nil {
+		return ChatResponse{}, err
 	}
 	if req.Stream {
-		// We still return a final response by draining the stream.
-		ch, cancel, err := p.Stream(ctx, req)
-		if err != nil {
-			return ChatResponse{}, err
-		}
-		defer cancel()
-		var (
-			content strings.Builder
-			finish  FinishReason
-			usage   Usage
-			role    Role
-		)
-		for ev := range ch {
-			if ev.Err != nil {
-				return ChatResponse{}, ev.Err
-			}
-			content.WriteString(ev.Delta.Content)
-			if ev.Delta.Role != "" {
-				role = ev.Delta.Role
-			}
-			if ev.FinishReason != "" {
-				finish = ev.FinishReason
-			}
-			if !ev.Done {
-				ev.Usage.Add(usage)
-			} else {
-				usage = ev.Usage
-			}
-		}
-		if finish == "" {
-			return ChatResponse{}, ErrResponseShape
-		}
-		return ChatResponse{
-			Message:      Message{Role: role, Content: content.String()},
-			FinishReason: finish,
-			Usage:        usage,
-		}, nil
+		return p.chatViaStream(ctx, req)
 	}
+	return p.chatViaHTTP(ctx, req)
+}
+
+// validateChatRequest enforces the per-request invariants.
+func (p *OpenAICompat) validateChatRequest(req ChatRequest) error {
+	if req.Model == "" {
+		return ErrNoModel
+	}
+	if len(req.Messages) == 0 {
+		return ErrNoMessages
+	}
+	return nil
+}
+
+// chatViaStream drains the streaming response into a final ChatResponse.
+func (p *OpenAICompat) chatViaStream(ctx context.Context, req ChatRequest) (ChatResponse, error) {
+	ch, cancel, err := p.Stream(ctx, req)
+	if err != nil {
+		return ChatResponse{}, err
+	}
+	defer cancel()
+
+	var content strings.Builder
+	var finish FinishReason
+	var usage Usage
+	var role Role
+	for ev := range ch {
+		if ev.Err != nil {
+			return ChatResponse{}, ev.Err
+		}
+		content.WriteString(ev.Delta.Content)
+		if ev.Delta.Role != "" {
+			role = ev.Delta.Role
+		}
+		if ev.FinishReason != "" {
+			finish = ev.FinishReason
+		}
+		usage = accumulateUsage(ev, usage)
+	}
+	if finish == "" {
+		return ChatResponse{}, ErrResponseShape
+	}
+	return ChatResponse{
+		Message:      Message{Role: role, Content: content.String()},
+		FinishReason: finish,
+		Usage:        usage,
+	}, nil
+}
+
+// accumulateUsage merges the per-event usage snapshot. The final event
+// (Done == true) carries the authoritative totals; intermediate events
+// have only incremental deltas, so we add them.
+func accumulateUsage(ev StreamEvent, prev Usage) Usage {
+	if ev.Done {
+		return ev.Usage
+	}
+	ev.Usage.Add(prev)
+	return ev.Usage
+}
+
+// chatViaHTTP sends a single non-streaming request and parses the JSON body.
+func (p *OpenAICompat) chatViaHTTP(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	oai := toOAIRequest(req)
 	httpReq, err := p.buildRequest(ctx, http.MethodPost, "/chat/completions", oai)
 	if err != nil {
@@ -317,7 +348,7 @@ func (p *OpenAICompat) Chat(ctx context.Context, req ChatRequest) (ChatResponse,
 	}
 	var r oaiResponse
 	if err := json.Unmarshal(body, &r); err != nil {
-		return ChatResponse{}, fmt.Errorf("%w: %v: %s", ErrResponseShape, err, string(body))
+		return ChatResponse{}, fmt.Errorf("%w: %w: %s", ErrResponseShape, err, string(body))
 	}
 	if r.Error != nil {
 		return ChatResponse{}, fmt.Errorf("llm: %s: %s", p.NameVal, r.Error.Message)
@@ -357,85 +388,109 @@ func (p *OpenAICompat) Stream(ctx context.Context, req ChatRequest) (<-chan Stre
 
 	out := make(chan StreamEvent, 16)
 	cancel := make(chan struct{})
-	go func() {
-		defer close(out)
-		defer func() { _ = resp.Body.Close() }()
-		reader := bufio.NewReaderSize(resp.Body, 64*1024)
-		var (
-			accumulated  strings.Builder
-			finishReason FinishReason
-			usage        Usage
-		)
-		for {
-			select {
-			case <-cancel:
-				return
-			default:
+	go p.streamOAIResponses(out, cancel, resp.Body)
+	return out, func() { close(cancel) }, nil
+}
+
+// streamOAIResponses is the inner loop of Stream: it reads SSE lines from
+// body, decodes each chunk, and emits per-delta events until [DONE] or EOF.
+func (p *OpenAICompat) streamOAIResponses(out chan<- StreamEvent, cancel <-chan struct{}, body io.ReadCloser) {
+	defer close(out)
+	defer func() { _ = body.Close() }()
+
+	reader := bufio.NewReaderSize(body, 64*1024)
+	var (
+		accumulated  strings.Builder
+		finishReason FinishReason
+		usage        Usage
+	)
+	for {
+		select {
+		case <-cancel:
+			return
+		default:
+		}
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				out <- StreamEvent{Err: fmt.Errorf("llm: read: %w", err), Done: true}
 			}
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					out <- StreamEvent{Err: fmt.Errorf("llm: read: %w", err), Done: true}
-				}
-				return
-			}
-			line = strings.TrimRight(line, "\r\n")
+			return
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if !strings.HasPrefix(line, "data: ") {
 			if line == "" {
 				continue
 			}
-			if !strings.HasPrefix(line, "data: ") {
-				continue
-			}
-			payload := strings.TrimPrefix(line, "data: ")
-			if payload == "[DONE]" {
-				// Emit a final terminal event with usage + finish reason.
-				// Content was already streamed via per-delta events.
-				out <- StreamEvent{
-					FinishReason: finishReason,
-					Usage:        usage,
-					Done:         true,
-				}
-				return
-			}
-			var chunk struct {
-				Choices []struct {
-					Delta        oaiMessage `json:"delta"`
-					FinishReason string     `json:"finish_reason"`
-				} `json:"choices"`
-				Usage *struct {
-					PromptTokens     int `json:"prompt_tokens"`
-					CompletionTokens int `json:"completion_tokens"`
-					TotalTokens      int `json:"total_tokens"`
-				} `json:"usage"`
-			}
-			if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
-				out <- StreamEvent{Err: fmt.Errorf("llm: parse chunk: %w", err), Done: true}
-				return
-			}
-			if len(chunk.Choices) > 0 {
-				c := chunk.Choices[0]
-				accumulated.WriteString(c.Delta.Content)
-				if c.FinishReason != "" {
-					finishReason = FinishReason(c.FinishReason)
-				}
-				out <- StreamEvent{
-					Delta: Message{
-						Role:      Role(c.Delta.Role),
-						Content:   c.Delta.Content,
-						ToolCalls: c.Delta.ToolCalls,
-					},
-				}
-			}
-			if chunk.Usage != nil {
-				usage = Usage{
-					InputTokens:  chunk.Usage.PromptTokens,
-					OutputTokens: chunk.Usage.CompletionTokens,
-					TotalTokens:  chunk.Usage.TotalTokens,
-				}
+			continue
+		}
+		payload := strings.TrimPrefix(line, "data: ")
+		if payload == "[DONE]" {
+			out <- StreamEvent{FinishReason: finishReason, Usage: usage, Done: true}
+			return
+		}
+		chunk, ok := parseOAIStreamChunk(payload)
+		if !ok {
+			out <- StreamEvent{Err: fmt.Errorf("llm: parse chunk: %w", errBadChunk), Done: true}
+			return
+		}
+		if len(chunk.Choices) > 0 {
+			emitOAIStreamDelta(out, &accumulated, &finishReason, chunk.Choices[0])
+		}
+		if chunk.Usage != nil {
+			usage = Usage{
+				InputTokens:  chunk.Usage.PromptTokens,
+				OutputTokens: chunk.Usage.CompletionTokens,
+				TotalTokens:  chunk.Usage.TotalTokens,
 			}
 		}
-	}()
-	return out, func() { close(cancel) }, nil
+	}
+}
+
+// oaiStreamChunk mirrors the OpenAI streaming chunk shape we care about.
+type oaiStreamChunk struct {
+	Choices []struct {
+		Delta        oaiMessage `json:"delta"`
+		FinishReason string     `json:"finish_reason"`
+	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
+}
+
+// errBadChunk is the sentinel returned when a streamed payload is not
+// valid JSON. It exists so the parse helper can return (zero, false)
+// without fabricating a wrapping error inside the hot loop.
+var errBadChunk = errors.New("invalid stream chunk")
+
+// parseOAIStreamChunk decodes one SSE payload into the chunk shape.
+func parseOAIStreamChunk(payload string) (oaiStreamChunk, bool) {
+	var chunk oaiStreamChunk
+	if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+		return oaiStreamChunk{}, false
+	}
+	return chunk, true
+}
+
+// emitOAIStreamDelta appends a chunk's content to the accumulator,
+// records the finish reason (if present), and sends a per-delta event.
+func emitOAIStreamDelta(out chan<- StreamEvent, accumulated *strings.Builder, finishReason *FinishReason, c struct {
+	Delta        oaiMessage `json:"delta"`
+	FinishReason string     `json:"finish_reason"`
+}) {
+	accumulated.WriteString(c.Delta.Content)
+	if c.FinishReason != "" {
+		*finishReason = FinishReason(c.FinishReason)
+	}
+	out <- StreamEvent{
+		Delta: Message{
+			Role:      Role(c.Delta.Role),
+			Content:   c.Delta.Content,
+			ToolCalls: c.Delta.ToolCalls,
+		},
+	}
 }
 
 // -----------------------------------------------------------------------------

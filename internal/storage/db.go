@@ -82,7 +82,7 @@ func Open(ctx context.Context, cfg Config) (*DB, error) {
 	}
 
 	// Load or generate the master key.
-	mk, err := loadOrCreateMasterKey(ctx, cfg)
+	mk, err := loadOrCreateMasterKey(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("storage: load master key: %w", err)
 	}
@@ -221,7 +221,7 @@ func (d *DB) newNonce() ([]byte, error) {
 // Master key handling
 // -----------------------------------------------------------------------------
 
-func loadOrCreateMasterKey(ctx context.Context, cfg Config) (string, error) {
+func loadOrCreateMasterKey(cfg Config) (string, error) {
 	if cfg.MasterKey != "" {
 		return cfg.MasterKey, nil
 	}

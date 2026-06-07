@@ -30,8 +30,6 @@ type redactingHandler struct {
 	redactString string
 	// sensitiveKeys: lower-case substrings that mark a key as sensitive.
 	sensitiveKeys []string
-	// valuePatterns: regexes for sensitive values regardless of key.
-	valuePatterns []*regexp.Regexp
 }
 
 // sensitiveKeySet is a closed list of well-known sensitive keys. Keys are

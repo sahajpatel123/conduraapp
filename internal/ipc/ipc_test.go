@@ -37,9 +37,10 @@ func TestServer_RegisterHasUnregister(t *testing.T) {
 
 func TestServer_MethodsSorted(t *testing.T) {
 	s := NewServer()
-	s.Register("z", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, nil })
-	s.Register("a", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, nil })
-	s.Register("m", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, nil })
+	s.Register("z", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, errors.New("unused") })
+	s.Register("a", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, errors.New("unused") })
+	s.Register("m", func(_ context.Context, _ json.RawMessage) (any, error) { return nil, errors.New("unused") })
+	// Test-only handlers: pure structural checks, not a notification path.
 	// Map iteration order is random; just check count and that the names
 	// are present.
 	names := s.Methods()
@@ -130,7 +131,7 @@ func TestServer_HandleRaw_Notification(t *testing.T) {
 	s := NewServer()
 	s.Register("notify", func(_ context.Context, _ json.RawMessage) (any, error) {
 		called = true
-		return nil, nil
+		return nil, ErrNotification
 	})
 	out, err := s.HandleRaw(context.Background(), []byte(`{"jsonrpc":"2.0","method":"notify"}`))
 	require.NoError(t, err)
@@ -143,7 +144,7 @@ func TestServer_HandleRaw_NullIDNotification(t *testing.T) {
 	s := NewServer()
 	s.Register("notify", func(_ context.Context, _ json.RawMessage) (any, error) {
 		called = true
-		return nil, nil
+		return nil, ErrNotification
 	})
 	out, err := s.HandleRaw(context.Background(), []byte(`{"jsonrpc":"2.0","method":"notify","id":null}`))
 	require.NoError(t, err)
@@ -168,7 +169,7 @@ func TestServer_HandleRaw_EmptyBody(t *testing.T) {
 func TestServer_HandleRaw_Batch(t *testing.T) {
 	s := NewServer()
 	s.Register("echo", func(_ context.Context, params json.RawMessage) (any, error) {
-		return json.RawMessage(params), nil
+		return params, nil
 	})
 	req := `[{"jsonrpc":"2.0","method":"echo","params":"a","id":1},{"jsonrpc":"2.0","method":"echo","params":"b","id":2}]`
 	out, err := s.HandleRaw(context.Background(), []byte(req))
@@ -182,7 +183,7 @@ func TestServer_HandleRaw_AllNotificationsBatch(t *testing.T) {
 	s := NewServer()
 	s.Register("n", func(_ context.Context, _ json.RawMessage) (any, error) {
 		called++
-		return nil, nil
+		return nil, ErrNotification
 	})
 	req := `[{"jsonrpc":"2.0","method":"n"},{"jsonrpc":"2.0","method":"n"}]`
 	out, err := s.HandleRaw(context.Background(), []byte(req))
@@ -273,7 +274,7 @@ func TestServer_ServeConn_Notification(t *testing.T) {
 	called := false
 	s.Register("n", func(_ context.Context, _ json.RawMessage) (any, error) {
 		called = true
-		return nil, nil
+		return nil, ErrNotification
 	})
 	c := &fakeConn{
 		readQ: []Message{
@@ -314,7 +315,7 @@ func TestTransport_HTTP_GET(t *testing.T) {
 func TestTransport_HTTP_POST(t *testing.T) {
 	s := NewServer()
 	s.Register("echo", func(_ context.Context, params json.RawMessage) (any, error) {
-		return json.RawMessage(params), nil
+		return params, nil
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
@@ -333,7 +334,7 @@ func TestTransport_HTTP_POST(t *testing.T) {
 func TestTransport_HTTP_POST_Notification(t *testing.T) {
 	s := NewServer()
 	s.Register("n", func(_ context.Context, _ json.RawMessage) (any, error) {
-		return nil, nil
+		return nil, ErrNotification
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
@@ -380,7 +381,7 @@ func TestTransport_HTTP_TokenAuth(t *testing.T) {
 func TestTransport_WebSocket(t *testing.T) {
 	s := NewServer()
 	s.Register("echo", func(_ context.Context, params json.RawMessage) (any, error) {
-		return json.RawMessage(params), nil
+		return params, nil
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
@@ -393,8 +394,7 @@ func TestTransport_WebSocket(t *testing.T) {
 	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "") }()
 
 	// Send a request.
-	var req map[string]any
-	req = map[string]any{"jsonrpc": "2.0", "method": "echo", "params": "hi", "id": 1}
+	req := map[string]any{"jsonrpc": "2.0", "method": "echo", "params": "hi", "id": 1}
 	require.NoError(t, wsjson.Write(context.Background(), ws, req))
 
 	// Read response.
@@ -408,7 +408,7 @@ func TestTransport_WebSocket_Notification(t *testing.T) {
 	s := NewServer()
 	s.Register("n", func(_ context.Context, _ json.RawMessage) (any, error) {
 		called.Add(1)
-		return nil, nil
+		return nil, ErrNotification
 	})
 	st := &ServerTransport{S: s}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
@@ -461,20 +461,19 @@ func TestParseAddr(t *testing.T) {
 		{"127.0.0.1:1234", "tcp", "127.0.0.1:1234"},
 	}
 	for _, c := range cases {
-		scheme, host, err := parseAddr(c.in)
-		require.NoError(t, err)
+		scheme, host := parseAddr(c.in)
 		assert.Equal(t, c.wantScheme, scheme)
 		assert.Equal(t, c.wantHost, host)
 	}
 }
 
 func TestBind_UnsupportedScheme(t *testing.T) {
-	_, err := bind("ftp://x")
+	_, err := bind(context.Background(), "ftp://x")
 	assert.Error(t, err)
 }
 
 func TestBind_TCP(t *testing.T) {
-	ln, err := bind("tcp://127.0.0.1:0")
+	ln, err := bind(context.Background(), "tcp://127.0.0.1:0")
 	require.NoError(t, err)
 	defer func() { _ = ln.Close() }()
 	assert.NotNil(t, ln.Addr())
@@ -482,7 +481,7 @@ func TestBind_TCP(t *testing.T) {
 
 func TestBind_Unix(t *testing.T) {
 	dir := t.TempDir()
-	ln, err := bind("unix://" + dir + "/s.sock")
+	ln, err := bind(context.Background(), "unix://"+dir+"/s.sock")
 	require.NoError(t, err)
 	defer func() { _ = ln.Close() }()
 }

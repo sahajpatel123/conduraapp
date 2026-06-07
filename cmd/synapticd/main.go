@@ -42,7 +42,10 @@ import (
 // File mode for the synapticd.addr sidecar. Owner-only because it
 // contains a loopback port that the CLI reads to find the daemon;
 // leaking it isn't catastrophic, but no other user should need it.
-const addrFilePerm = 0o600
+const (
+	addrFilePerm = 0o600
+	dataDirPerm  = 0o750
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -52,6 +55,60 @@ func main() {
 }
 
 func run() error {
+	flags, err := parseFlags()
+	if err != nil {
+		return err
+	}
+	if flags.quit {
+		return nil
+	}
+
+	cfg, cfgPath, err := loadConfig(flags)
+	if err != nil {
+		return err
+	}
+	log, ver := initLogger(flags, cfg, cfgPath)
+
+	subs, err := initSubsystems(log, cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = subs.db.Close() }()
+
+	ipcSrv := ipc.NewServer()
+	registerMethods(ipcSrv, log, cfg, subs.db, subs.sm, subs.akm, subs.registry, subs.fo, subs.mon, subs.hr, ver)
+
+	rootCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	hr := subs.hr
+	hr.Add(health.Check{
+		Name: "ipc", Required: false, Timeout: 1 * time.Second,
+		Check: func(_ context.Context) error { return nil },
+	})
+
+	ipcT := &ipc.ServerTransport{S: ipcSrv, Token: cfg.APIServer.AuthToken}
+	if err := startListeners(rootCtx, ipcT, log, cfg, flags); err != nil {
+		return err
+	}
+
+	writeAddrFile(cfg, ipcT)
+	waitForSignal(rootCtx, log, ipcT, cancel)
+	return nil
+}
+
+// runFlags is the parsed CLI flag set. quit is true when an early-exit
+// flag (--version, --print-default-config) was handled and run() should
+// return without doing any work.
+type runFlags struct {
+	cfgPath  string
+	dataDir  string
+	logLevel string
+	listen   string
+	noIPC    bool
+	quit     bool
+}
+
+func parseFlags() (runFlags, error) {
 	var (
 		cfgPath       = flag.String("config", "", "path to config.yaml (default: ~/.synaptic/config.yaml)")
 		dataDir       = flag.String("data-dir", "", "data directory (overrides config)")
@@ -65,51 +122,57 @@ func run() error {
 
 	if *printVersion {
 		fmt.Println(version.String())
-		return nil
+		return runFlags{quit: true}, nil
 	}
 	if *printDefaults {
 		out, err := yaml.Marshal(config.Default())
 		if err != nil {
-			return fmt.Errorf("marshal default config: %w", err)
+			return runFlags{}, fmt.Errorf("marshal default config: %w", err)
 		}
 		fmt.Print(string(out))
-		return nil
+		return runFlags{quit: true}, nil
 	}
+	return runFlags{
+		cfgPath:  *cfgPath,
+		dataDir:  *dataDir,
+		logLevel: *logLevel,
+		listen:   *listen,
+		noIPC:    *noIPC,
+	}, nil
+}
 
-	// Resolve config path.
-	if *cfgPath == "" {
+func loadConfig(flags runFlags) (*config.Config, string, error) {
+	cfgPath := flags.cfgPath
+	if cfgPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("locate home dir: %w", err)
+			return nil, "", fmt.Errorf("locate home dir: %w", err)
 		}
-		*cfgPath = filepath.Join(home, ".synaptic", "config.yaml")
+		cfgPath = filepath.Join(home, ".synaptic", "config.yaml")
 	}
-
-	// Load config (creates default file if missing).
-	loader := config.NewLoader(*cfgPath)
+	loader := config.NewLoader(cfgPath)
 	cfg, err := loader.Load()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return nil, "", fmt.Errorf("load config: %w", err)
 	}
-	if *dataDir != "" {
-		cfg.OverrideDataDir(*dataDir)
+	if flags.dataDir != "" {
+		cfg.OverrideDataDir(flags.dataDir)
 	}
-	// Re-resolve storage path now that data_dir may have changed.
 	if sp, err := cfg.ResolveStoragePath(); err == nil {
 		cfg.Storage.Path = sp
 	}
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w", err)
+		return nil, "", fmt.Errorf("invalid config: %w", err)
 	}
-
-	// Make sure data dir exists (storage + secrets files live here).
-	if err := os.MkdirAll(cfg.General.DataDir, 0o755); err != nil {
-		return fmt.Errorf("create data dir: %w", err)
+	if err := os.MkdirAll(cfg.General.DataDir, dataDirPerm); err != nil {
+		return nil, "", fmt.Errorf("create data dir: %w", err)
 	}
+	return cfg, cfgPath, nil
+}
 
-	// Init logger.
+func initLogger(flags runFlags, cfg *config.Config, cfgPath string) (*slog.Logger, version.Info) {
 	log := logger.New(logger.Config{
-		Level:     logger.ParseLevel(override(*logLevel, cfg.Logging.Level)),
+		Level:     logger.ParseLevel(override(flags.logLevel, cfg.Logging.Level)),
 		Format:    logger.ParseFormat(cfg.Logging.Format),
 		File:      cfg.Logging.File,
 		AddSource: cfg.Logging.AddSource,
@@ -122,54 +185,58 @@ func run() error {
 		"build_date", ver.BuildDate,
 		"go", ver.GoVersion,
 		"platform", ver.Platform,
-		"config", *cfgPath,
+		"config", cfgPath,
 		"data_dir", cfg.General.DataDir,
 		"storage_path", cfg.Storage.Path,
 	)
+	return log, ver
+}
 
-	// Init secrets manager.
+// subsystems bundles every long-lived component the daemon needs.
+// Returned by initSubsystems; passed to registerMethods.
+type subsystems struct {
+	sm       secrets.Manager
+	db       *storage.DB
+	akm      *api_key.Manager
+	registry *llm.Registry
+	fo       *failover.Failover
+	mon      *failover.SpendMonitor
+	hr       *health.Register
+}
+
+func initSubsystems(log *slog.Logger, cfg *config.Config) (*subsystems, error) {
 	secretsPath := filepath.Join(cfg.General.DataDir, "secrets.json")
 	sm, err := secrets.New(secretsPath)
 	if err != nil {
-		return fmt.Errorf("init secrets: %w", err)
+		return nil, fmt.Errorf("init secrets: %w", err)
 	}
 	log.Info("secrets manager ready", "backend", string(sm.Backend()))
 
-	// Init storage.
 	db, err := storage.Open(context.Background(), storage.Config{
 		Path:    cfg.Storage.Path,
 		Secrets: sm,
 	})
 	if err != nil {
-		return fmt.Errorf("init storage: %w", err)
+		return nil, fmt.Errorf("init storage: %w", err)
 	}
-	defer func() { _ = db.Close() }()
 	log.Info("storage ready", "path", cfg.Storage.Path)
 
-	// Init api_key manager.
 	akm := api_key.New(db, sm)
 
-	// Init LLM registry from configured providers + saved keys.
 	registry := llm.NewRegistry()
 	registered := buildProvidersFromConfig(log, registry, cfg, akm)
 	log.Info("llm registry ready", "registered_providers", registered)
 
-	// Init failover.
-	mon := failover.NewSpendMonitor(failover.SpendCap{
-		USDPerDay: cfg.Security.SpendLimitUSDPerDay,
-	})
+	mon := failover.NewSpendMonitor(failover.SpendCap{USDPerDay: cfg.Security.SpendLimitUSDPerDay})
 	breakers := failover.NewBreakerRegistry(3, 30*time.Second)
 	failoverProviders := buildFailoverProviders(registry, breakers, cfg)
 	fo := failover.New(failoverProviders, mon)
 	log.Info("failover ready", "providers", len(failoverProviders))
 
-	// Init health.
 	hr := health.New()
 	hr.Add(health.Check{
 		Name: "storage", Required: true, Timeout: 2 * time.Second,
-		Check: func(ctx context.Context) error {
-			return db.SQL().PingContext(ctx)
-		},
+		Check: func(ctx context.Context) error { return db.SQL().PingContext(ctx) },
 	})
 	hr.Add(health.Check{
 		Name: "secrets", Required: true, Timeout: 2 * time.Second,
@@ -182,49 +249,42 @@ func run() error {
 		},
 	})
 
-	// Init IPC server.
-	ipcSrv := ipc.NewServer()
-	registerMethods(ipcSrv, log, cfg, db, sm, akm, registry, fo, mon, hr, ver)
+	return &subsystems{
+		sm: sm, db: db, akm: akm, registry: registry,
+		fo: fo, mon: mon, hr: hr,
+	}, nil
+}
 
-	rootCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Add an IPC health check now that we have a context.
-	hr.Add(health.Check{
-		Name: "ipc", Required: false, Timeout: 1 * time.Second,
-		Check: func(_ context.Context) error { return nil },
-	})
-
-	ipcT := &ipc.ServerTransport{S: ipcSrv, Token: cfg.APIServer.AuthToken}
-	var listenAddrs []string
-	if !*noIPC {
-		if err := ipcT.Listen(rootCtx, *listen); err != nil {
-			return fmt.Errorf("ipc listen: %w", err)
-		}
-		listenAddrs = append(listenAddrs, ipcT.Addr())
-		log.Info("ipc listening", "addr", ipcT.Addr())
-		// Also bind a Unix socket (macOS/Linux) for fast local access.
-		if runtime.GOOS != "windows" {
-			unixPath := filepath.Join(cfg.General.DataDir, "synapticd.sock")
-			_ = os.Remove(unixPath)
-			if err := ipcT.Listen(rootCtx, "unix://"+unixPath); err != nil {
-				log.Warn("unix socket bind failed; continuing", "err", err)
-			} else {
-				listenAddrs = append(listenAddrs, "unix://"+unixPath)
-				log.Info("ipc unix socket ready", "path", unixPath)
-			}
-		}
+func startListeners(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Logger, cfg *config.Config, flags runFlags) error {
+	if flags.noIPC {
+		return nil
 	}
-
-	// Print the listen addrs to a sidecar file so the CLI can find us
-	// without scanning a port range.
-	if len(listenAddrs) > 0 {
-		path := filepath.Join(cfg.General.DataDir, "synapticd.addr")
-		_ = os.WriteFile(path, []byte(listenAddrs[0]+"\n"), addrFilePerm)
-		log.Info("address file written", "path", path)
+	if err := ipcT.Listen(ctx, flags.listen); err != nil {
+		return fmt.Errorf("ipc listen: %w", err)
 	}
+	log.Info("ipc listening", "addr", ipcT.Addr())
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	unixPath := filepath.Join(cfg.General.DataDir, "synapticd.sock")
+	_ = os.Remove(unixPath)
+	if err := ipcT.Listen(ctx, "unix://"+unixPath); err != nil {
+		log.Warn("unix socket bind failed; continuing", "err", err)
+		return nil
+	}
+	log.Info("ipc unix socket ready", "path", unixPath)
+	return nil
+}
 
-	// Signal handling.
+func writeAddrFile(cfg *config.Config, ipcT *ipc.ServerTransport) {
+	if ipcT.Addr() == "" {
+		return
+	}
+	path := filepath.Join(cfg.General.DataDir, "synapticd.addr")
+	_ = os.WriteFile(path, []byte(ipcT.Addr()+"\n"), addrFilePerm)
+}
+
+func waitForSignal(ctx context.Context, log *slog.Logger, ipcT *ipc.ServerTransport, cancel context.CancelFunc) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -233,11 +293,7 @@ func run() error {
 		cancel()
 		_ = ipcT.Close()
 	}()
-
-	// Block until cancelled.
-	<-rootCtx.Done()
-	log.Info("synapticd stopped")
-	return nil
+	<-ctx.Done()
 }
 
 func override(a, b string) string {
@@ -469,10 +525,14 @@ func registerMethods(
 			HasToken bool   `json:"has_token"`
 		}
 		out := make([]safeKey, 0, len(keys))
-		for _, k := range keys {
+		for i := range keys {
+			k := &keys[i]
 			out = append(out, safeKey{
-				ID: k.ID, Provider: k.Provider, Label: k.Label,
-				AuthKind: string(k.AuthKind), HasToken: k.Secret != "",
+				ID:       k.ID,
+				Provider: k.Provider,
+				Label:    k.Label,
+				AuthKind: string(k.AuthKind),
+				HasToken: k.Secret != "",
 			})
 		}
 		return out, nil
@@ -505,16 +565,16 @@ func registerMethods(
 	})
 	srv.Register("spend.today", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{
-			"spent":    mon.Spent(),
-			"cap":      mon.Cap().USDPerDay,
+			"spent":     mon.Spent(),
+			"cap":       mon.Cap().USDPerDay,
 			"remaining": mon.Remaining(),
 		}, nil
 	})
 	srv.Register("llm.chat", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
-			Provider        string         `json:"provider"`
-			Model           string         `json:"model"`
-			Request         llm.ChatRequest `json:"request"`
+			Provider string          `json:"provider"`
+			Model    string          `json:"model"`
+			Request  llm.ChatRequest `json:"request"`
 		}
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}

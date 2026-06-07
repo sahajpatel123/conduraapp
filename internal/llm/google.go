@@ -35,10 +35,15 @@ func NewGoogle(apiKey string, models []ModelInfo) *Google {
 	}
 }
 
+// Name returns the canonical provider name.
 func (g *Google) Name() string { return "google" }
 
+// Models returns the list of model IDs this provider can serve.
 func (g *Google) Models() []ModelInfo { return g.ModelsList }
 
+// DefaultModel returns the recommended model for a given task
+// (e.g. "chat", "code", "vision"). Falls back to the first model
+// in the registry.
 func (g *Google) DefaultModel(task string) string {
 	for _, m := range g.ModelsList {
 		if m.ID == "gemini-1.5-flash" {
@@ -254,6 +259,8 @@ func (g *Google) buildRequest(ctx context.Context, model string, body any, strea
 	return req, nil
 }
 
+// Chat sends a non-streaming request to the Google Gemini generateContent
+// endpoint and returns the assembled response.
 func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	if req.Model == "" {
 		return ChatResponse{}, ErrNoModel
@@ -296,7 +303,7 @@ func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 	}
 	var r gemResponse
 	if err := json.Unmarshal(raw, &r); err != nil {
-		return ChatResponse{}, fmt.Errorf("%w: %v", ErrResponseShape, err)
+		return ChatResponse{}, fmt.Errorf("%w: %w", ErrResponseShape, err)
 	}
 	if r.Error != nil {
 		return ChatResponse{}, fmt.Errorf("llm/google: %d %s: %s", r.Error.Code, r.Error.Status, r.Error.Message)
@@ -309,6 +316,9 @@ func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 	return cr, nil
 }
 
+// Stream returns a channel of incremental events from the Gemini
+// streamGenerateContent endpoint. The cancel function aborts the
+// in-flight request.
 func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEvent, func(), error) {
 	if req.Model == "" {
 		return nil, nil, ErrNoModel
@@ -359,20 +369,17 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 					}
 					emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
 				}
-			} else {
-				// Single-object form. Re-feed the token by decoding it.
-				if tok != nil {
-					// Reconstruct the value as a single gemResponse.
-					// Easier: read the rest of the body and parse.
-					rest, _ := io.ReadAll(reader)
-					combined := append(append([]byte{}, fmt.Sprintf("%v", tok)...), rest...)
-					var r gemResponse
-					if err := json.Unmarshal(combined, &r); err != nil {
-						out <- StreamEvent{Err: fmt.Errorf("llm/google: parse: %w", err), Done: true}
-						return
-					}
-					emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
+			} else if tok != nil {
+				// Reconstruct the value as a single gemResponse.
+				// Easier: read the rest of the body and parse.
+				rest, _ := io.ReadAll(reader)
+				combined := append(append([]byte{}, fmt.Sprintf("%v", tok)...), rest...)
+				var r gemResponse
+				if err := json.Unmarshal(combined, &r); err != nil {
+					out <- StreamEvent{Err: fmt.Errorf("llm/google: parse: %w", err), Done: true}
+					return
 				}
+				emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
 			}
 		}
 		out <- StreamEvent{

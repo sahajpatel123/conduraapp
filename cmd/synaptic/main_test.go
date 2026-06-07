@@ -7,6 +7,7 @@ package main_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,9 +75,10 @@ func startDaemon(t *testing.T, bin, dataDir string) *daemon {
 	return d
 }
 
-func runCLI(t *testing.T, cliBin string, dataDir string, args ...string) (string, string, int) {
+func runCLI(t *testing.T, cliBin, dataDir string, args ...string) (string, string, int) {
 	t.Helper()
-	full := []string{"--data-dir", dataDir}
+	full := make([]string, 0, 2+len(args))
+	full = append(full, "--data-dir", dataDir)
 	full = append(full, args...)
 	cmd := exec.Command(cliBin, full...)
 	var so, se bytes.Buffer
@@ -84,7 +86,8 @@ func runCLI(t *testing.T, cliBin string, dataDir string, args ...string) (string
 	cmd.Stderr = &se
 	err := cmd.Run()
 	code := 0
-	if ee, ok := err.(*exec.ExitError); ok {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
 		code = ee.ExitCode()
 	} else if err != nil {
 		t.Fatalf("cli run: %v", err)

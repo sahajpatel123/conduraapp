@@ -29,18 +29,6 @@ func newTestDB(t *testing.T) *DB {
 	return db
 }
 
-func newTestDBWithSecrets(t *testing.T, sm secrets.Manager) *DB {
-	t.Helper()
-	dir := t.TempDir()
-	db, err := Open(context.Background(), Config{
-		Path:    filepath.Join(dir, "synaptic.db"),
-		Secrets: sm,
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-	return db
-}
-
 func TestOpen_DefaultPath(t *testing.T) {
 	dir := t.TempDir()
 	db, err := Open(context.Background(), Config{
@@ -339,7 +327,7 @@ func TestGenerateMasterKey_Unique(t *testing.T) {
 }
 
 func TestLoadOrCreateMasterKey_DirectUse(t *testing.T) {
-	mk, err := loadOrCreateMasterKey(context.Background(), Config{
+	mk, err := loadOrCreateMasterKey(Config{
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
@@ -348,7 +336,7 @@ func TestLoadOrCreateMasterKey_DirectUse(t *testing.T) {
 
 func TestLoadOrCreateMasterKey_EphemeralWhenNoSecrets(t *testing.T) {
 	// No MasterKey, no Secrets: ephemeral.
-	mk, err := loadOrCreateMasterKey(context.Background(), Config{})
+	mk, err := loadOrCreateMasterKey(Config{})
 	require.NoError(t, err)
 	decoded, err := base64.StdEncoding.DecodeString(mk)
 	require.NoError(t, err)
@@ -358,14 +346,14 @@ func TestLoadOrCreateMasterKey_EphemeralWhenNoSecrets(t *testing.T) {
 func TestLoadOrCreateMasterKey_SecretsError(t *testing.T) {
 	// Secrets.Manager that returns a non-NotFound error.
 	sm := &errSecrets{getErr: errors.New("boom")}
-	_, err := loadOrCreateMasterKey(context.Background(), Config{Secrets: sm})
+	_, err := loadOrCreateMasterKey(Config{Secrets: sm})
 	assert.Error(t, err)
 }
 
 func TestLoadOrCreateMasterKey_SecretsSetError(t *testing.T) {
 	// Secrets that successfully return NotFound on Get but fail on Set.
 	sm := &errSecrets{getNotFound: true, setErr: errors.New("set boom")}
-	_, err := loadOrCreateMasterKey(context.Background(), Config{Secrets: sm})
+	_, err := loadOrCreateMasterKey(Config{Secrets: sm})
 	assert.Error(t, err)
 }
 

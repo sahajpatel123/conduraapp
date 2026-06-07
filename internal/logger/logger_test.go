@@ -70,13 +70,10 @@ func TestNew_Defaults(t *testing.T) {
 
 func TestNew_JSON(t *testing.T) {
 	var buf bytes.Buffer
-	lg := New(Config{Level: LevelInfo, Format: FormatJSON})
-	// Replace default by writing to our buffer via a custom handler.
-	// Easier: just call lg.Info and capture default output is hard;
-	// test via a custom handler wrapping.
+	// Build a logger that writes to our buffer via a JSON handler.
 	var handler slog.Handler = slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
 	handler = newRedactingHandler(handler)
-	lg = slog.New(handler)
+	lg := slog.New(handler)
 
 	lg.Info("hello", "key", "value")
 	out := buf.String()

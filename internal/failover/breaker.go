@@ -18,6 +18,7 @@ import (
 // CircuitState is the breaker state.
 type CircuitState string
 
+// Circuit states.
 const (
 	CircuitClosed   CircuitState = "closed"    // calls flow normally
 	CircuitOpen     CircuitState = "open"      // calls fail fast
@@ -276,15 +277,15 @@ type SpendMonitor struct {
 }
 
 // NewSpendMonitor returns a monitor with the given cap.
-func NewSpendMonitor(cap SpendCap) *SpendMonitor {
-	return &SpendMonitor{cap: cap, nowFn: time.Now}
+func NewSpendMonitor(spendCap SpendCap) *SpendMonitor {
+	return &SpendMonitor{cap: spendCap, nowFn: time.Now}
 }
 
 // SetCap updates the cap at runtime.
-func (m *SpendMonitor) SetCap(cap SpendCap) {
+func (m *SpendMonitor) SetCap(spendCap SpendCap) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.cap = cap
+	m.cap = spendCap
 }
 
 // Cap returns the current cap.

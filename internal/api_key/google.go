@@ -14,9 +14,9 @@ import (
 // access token expires in 1 hour. Scopes here are the minimal set needed
 // for the Gemini Developer API (which is the consumer for our OAuth flow).
 const (
-	googleAuthEndpoint     = "https://accounts.google.com/o/oauth2/v2/auth"
-	googleTokenEndpoint    = "https://oauth2.googleapis.com/token"
-	googleRevokeEndpoint   = "https://oauth2.googleapis.com/revoke"
+	googleAuthEndpoint     = "https://accounts.google.com/o/oauth2/v2/auth" //nolint:gosec // G101: OAuth endpoint URL, not a credential
+	googleTokenEndpoint    = "https://oauth2.googleapis.com/token"          //nolint:gosec // G101: OAuth endpoint URL, not a credential
+	googleRevokeEndpoint   = "https://oauth2.googleapis.com/revoke"         //nolint:gosec // G101: OAuth endpoint URL, not a credential
 	googleDefaultScope     = "https://www.googleapis.com/auth/generative-language"
 	googleUserinfoEndpoint = "https://openidconnect.googleapis.com/v1/userinfo"
 )
@@ -54,6 +54,7 @@ func (g *GoogleProvider) client() httpDoer {
 	return &http.Client{Timeout: 30 * time.Second}
 }
 
+// Name returns the canonical provider name.
 func (g *GoogleProvider) Name() string { return ProviderGoogle }
 
 // AuthorizeURL builds the Google authorization URL with PKCE.

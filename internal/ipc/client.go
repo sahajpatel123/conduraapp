@@ -2,7 +2,6 @@
 // Server over a local TCP or Unix socket. The Client speaks plain
 // HTTP POST for now; a future revision may upgrade to a long-lived
 // WebSocket for streaming.
-
 package ipc
 
 import (
@@ -16,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -24,13 +22,12 @@ import (
 // Client is a thin JSON-RPC 2.0 client over HTTP. It is safe for
 // concurrent use.
 type Client struct {
-	addr    string // "tcp://127.0.0.1:7666" or "unix:///tmp/synapse.sock"
-	token   string // optional bearer token
-	httpc   *http.Client
-	scheme  string // "http" or "https"
-	host    string // host:port for tcp, or path for unix
-	mu      sync.Mutex
-	idCtr   atomic.Int64
+	addr   string // "tcp://127.0.0.1:7666" or "unix:///tmp/synapse.sock"
+	token  string // optional bearer token
+	httpc  *http.Client
+	scheme string // "http" or "https"
+	host   string // host:port for tcp, or path for unix
+	idCtr  atomic.Int64
 }
 
 // Dial creates a Client. The addr has the form
@@ -40,10 +37,7 @@ type Client struct {
 //
 // An optional bearer token is sent in the Authorization header.
 func Dial(addr, token string) (*Client, error) {
-	scheme, host, err := parseAddr(addr)
-	if err != nil {
-		return nil, err
-	}
+	scheme, host := parseAddr(addr)
 	c := &Client{
 		addr:   addr,
 		token:  token,
@@ -151,7 +145,7 @@ func (c *Client) Call(ctx context.Context, method string, params, out any) error
 // <data_dir>/synapticd.addr. Returns "" if the file does not exist.
 func ReadAddrFile(dataDir string) string {
 	path := dataDir + "/synapticd.addr"
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // G304: path is rooted in our own data dir, written by the daemon
 	if err != nil {
 		return ""
 	}

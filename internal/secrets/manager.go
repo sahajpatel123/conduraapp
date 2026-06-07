@@ -46,6 +46,7 @@ const (
 // Backend identifies which backend is in use.
 type Backend string
 
+// Backend values.
 const (
 	BackendKeyring Backend = "keyring"
 	BackendFile    Backend = "file"
@@ -114,7 +115,7 @@ func NewWithKeyring(kb KeyringBackend, backend, filePath string) (Manager, error
 			return km, nil
 		}
 		if filePath == "" {
-			return nil, fmt.Errorf("%w: keyring unavailable and no file path given: %v", ErrBackendFailed, err)
+			return nil, fmt.Errorf("%w: keyring unavailable and no file path given: %w", ErrBackendFailed, err)
 		}
 		return newFileManager(filePath)
 	default:

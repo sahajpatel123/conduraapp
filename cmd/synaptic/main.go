@@ -351,9 +351,11 @@ func cmdLLMChat(gf *globalFlags, args []string) error {
 	provider := fs.String("provider", "", "provider name (e.g. openai, anthropic)")
 	model := fs.String("model", "", "model id (defaults to provider's chat default)")
 	stream := fs.Bool("stream", false, "stream tokens to stdout (best-effort)")
-	fs.Usage = func() { fmt.Println(`usage: synaptic llm chat [flags] <message>
+	fs.Usage = func() {
+		fmt.Println(`usage: synaptic llm chat [flags] <message>
 
-If <message> is "-" or omitted, the prompt is read from stdin.`) }
+If <message> is "-" or omitted, the prompt is read from stdin.`)
+	}
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil

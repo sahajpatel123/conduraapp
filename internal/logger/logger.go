@@ -35,6 +35,7 @@ import (
 // Level represents a log level. Valid string values: "debug", "info", "warn", "error".
 type Level string
 
+// Log level values.
 const (
 	LevelDebug Level = "debug"
 	LevelInfo  Level = "info"
@@ -61,6 +62,7 @@ func ParseLevel(s string) Level {
 // Format represents the log output format.
 type Format string
 
+// Log format values.
 const (
 	FormatJSON Format = "json"
 	FormatText Format = "text"
@@ -171,20 +173,34 @@ func Default() *slog.Logger {
 // Package-level convenience helpers (delegate to default logger).
 // -----------------------------------------------------------------------------
 
+// Debug logs at debug level on the default logger.
 func Debug(msg string, args ...any) { Default().Debug(msg, args...) }
-func Info(msg string, args ...any)  { Default().Info(msg, args...) }
-func Warn(msg string, args ...any)  { Default().Warn(msg, args...) }
+
+// Info logs at info level on the default logger.
+func Info(msg string, args ...any) { Default().Info(msg, args...) }
+
+// Warn logs at warn level on the default logger.
+func Warn(msg string, args ...any) { Default().Warn(msg, args...) }
+
+// Error logs at error level on the default logger.
 func Error(msg string, args ...any) { Default().Error(msg, args...) }
 
+// DebugContext logs at debug level on the default logger, attaching ctx.
 func DebugContext(ctx context.Context, msg string, args ...any) {
 	Default().DebugContext(ctx, msg, args...)
 }
+
+// InfoContext logs at info level on the default logger, attaching ctx.
 func InfoContext(ctx context.Context, msg string, args ...any) {
 	Default().InfoContext(ctx, msg, args...)
 }
+
+// WarnContext logs at warn level on the default logger, attaching ctx.
 func WarnContext(ctx context.Context, msg string, args ...any) {
 	Default().WarnContext(ctx, msg, args...)
 }
+
+// ErrorContext logs at error level on the default logger, attaching ctx.
 func ErrorContext(ctx context.Context, msg string, args ...any) {
 	Default().ErrorContext(ctx, msg, args...)
 }
@@ -223,7 +239,7 @@ func openFileOrStderr(path string, fallback io.Writer) io.Writer {
 	if err := os.MkdirAll(dir, logDirPerm); err != nil {
 		return fallback
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerm)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerm) //nolint:gosec // G304: path is the user-configured log file, not user input
 	if err != nil {
 		return fallback
 	}

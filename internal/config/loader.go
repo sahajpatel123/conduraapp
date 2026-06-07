@@ -38,6 +38,11 @@ const (
 	ProviderClaudeCode  = "claude_code"
 	ProviderCodex       = "codex"
 
+	// Google OAuth endpoints. Public URLs, not secrets.
+	oauthGoogleScope    = "https://www.googleapis.com/auth/generative-language" //nolint:gosec // G101
+	oauthGoogleAuthURL  = "https://accounts.google.com/o/oauth2/v2/auth"        //nolint:gosec // G101
+	oauthGoogleTokenURL = "https://oauth2.googleapis.com/token"                 //nolint:gosec // G101
+
 	// Autonomy levels. Used as values for Autonomy.DefaultLevel,
 	// PerApp, and PerTask.
 	AutonomySupervised = "supervised"
@@ -277,10 +282,10 @@ func defaultOAuthProviders() map[string]OAuthProviderConfig {
 	// Others can be added as they publish official OAuth.
 	return map[string]OAuthProviderConfig{
 		ProviderGoogle: {
-			ClientID: "",
-			Scopes:   []string{"https://www.googleapis.com/auth/generative-language"},
-			AuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
-			TokenURL: "https://oauth2.googleapis.com/token",
+			ClientID: "",                         //nolint:gosec // G101
+			Scopes:   []string{oauthGoogleScope}, //nolint:gosec // G101
+			AuthURL:  oauthGoogleAuthURL,         //nolint:gosec // G101
+			TokenURL: oauthGoogleTokenURL,        //nolint:gosec // G101
 		},
 	}
 }
@@ -474,13 +479,31 @@ func (e *ErrInvalidConfig) Error() string {
 
 // Validate checks the config for obvious errors.
 func (c *Config) Validate() error {
-	var errs []string
+	errs := make([]string, 0, len(c.validateVersion())+len(c.validateGeneral())+len(c.validateDaemon())+len(c.validateLogging())+len(c.validateStorage())+len(c.validateSecurity())+len(c.validateAPIServer())+len(c.validateAutonomy()))
+	errs = append(errs, c.validateVersion()...)
+	errs = append(errs, c.validateGeneral()...)
+	errs = append(errs, c.validateDaemon()...)
+	errs = append(errs, c.validateLogging()...)
+	errs = append(errs, c.validateStorage()...)
+	errs = append(errs, c.validateSecurity()...)
+	errs = append(errs, c.validateAPIServer()...)
+	errs = append(errs, c.validateAutonomy()...)
 
-	if c.Version != ConfigSchemaVersion {
-		errs = append(errs, fmt.Sprintf("config schema version %d != expected %d (please migrate)", c.Version, ConfigSchemaVersion))
+	if len(errs) > 0 {
+		return &ErrInvalidConfig{Errors: errs}
 	}
+	return nil
+}
 
-	// General.
+func (c *Config) validateVersion() []string {
+	if c.Version != ConfigSchemaVersion {
+		return []string{fmt.Sprintf("config schema version %d != expected %d (please migrate)", c.Version, ConfigSchemaVersion)}
+	}
+	return nil
+}
+
+func (c *Config) validateGeneral() []string {
+	var errs []string
 	if c.General.DataDir == "" {
 		errs = append(errs, "general.data_dir must not be empty")
 	}
@@ -490,8 +513,11 @@ func (c *Config) Validate() error {
 	default:
 		errs = append(errs, fmt.Sprintf("general.language %q is not a supported language (en-US, en-GB, es-ES, fr-FR, de-DE, hi-IN, ja-JP, zh-CN)", c.General.Language))
 	}
+	return errs
+}
 
-	// Daemon.
+func (c *Config) validateDaemon() []string {
+	var errs []string
 	if c.Daemon.IdleTimeoutMinutes < 0 {
 		errs = append(errs, "daemon.idle_timeout_minutes must be >= 0")
 	}
@@ -501,16 +527,19 @@ func (c *Config) Validate() error {
 	default:
 		errs = append(errs, fmt.Sprintf("daemon.default_autonomy %q is invalid (supervised, warn, autonomous)", c.Daemon.DefaultAutonomy))
 	}
+	return errs
+}
 
-	// Logging.
+func (c *Config) validateLogging() []string {
 	switch ParseLevel(c.Logging.Level) {
 	case LogLevelDebug, LogLevelInfo, AutonomyWarn, LogLevelError:
-		// ok
-	default:
-		errs = append(errs, fmt.Sprintf("logging.level %q is invalid", c.Logging.Level))
+		return nil
 	}
+	return []string{fmt.Sprintf("logging.level %q is invalid", c.Logging.Level)}
+}
 
-	// Storage.
+func (c *Config) validateStorage() []string {
+	var errs []string
 	// Storage.Path may be empty in Default(); it is resolved at load time.
 	// If the user set it explicitly, it must be non-empty (resolved by Load).
 	if c.Storage.Path != "" {
@@ -521,16 +550,22 @@ func (c *Config) Validate() error {
 	if c.Storage.Backup.RetentionDays < 0 {
 		errs = append(errs, "storage.backup.retention_days must be >= 0")
 	}
+	return errs
+}
 
-	// Security.
+func (c *Config) validateSecurity() []string {
+	var errs []string
 	if c.Security.AuditRetentionDays < 0 {
 		errs = append(errs, "security.audit_retention_days must be >= 0")
 	}
 	if c.Security.SpendLimitUSDPerDay < 0 {
 		errs = append(errs, "security.spend_limit_usd_per_day must be >= 0")
 	}
+	return errs
+}
 
-	// API server.
+func (c *Config) validateAPIServer() []string {
+	var errs []string
 	if c.APIServer.Port < 0 || c.APIServer.Port > 65535 {
 		errs = append(errs, fmt.Sprintf("api_server.port %d is out of range 0-65535", c.APIServer.Port))
 	}
@@ -538,8 +573,11 @@ func (c *Config) Validate() error {
 	if c.APIServer.Host != "" && c.APIServer.Host != "127.0.0.1" && c.APIServer.Host != "localhost" && c.APIServer.AuthToken == "" {
 		errs = append(errs, "api_server.host is non-loopback but api_server.auth_token is empty; refusing to bind publicly without auth")
 	}
+	return errs
+}
 
-	// Autonomy.
+func (c *Config) validateAutonomy() []string {
+	var errs []string
 	for app, level := range c.Autonomy.PerApp {
 		if !isValidAutonomy(level) {
 			errs = append(errs, fmt.Sprintf("autonomy.per_app[%s] = %q is invalid (supervised, warn, autonomous, block)", app, level))
@@ -553,11 +591,7 @@ func (c *Config) Validate() error {
 	if !isValidAutonomy(c.Autonomy.DefaultLevel) && c.Autonomy.DefaultLevel != "" {
 		errs = append(errs, fmt.Sprintf("autonomy.default_level %q is invalid", c.Autonomy.DefaultLevel))
 	}
-
-	if len(errs) > 0 {
-		return &ErrInvalidConfig{Errors: errs}
-	}
-	return nil
+	return errs
 }
 
 func isValidAutonomy(level string) bool {

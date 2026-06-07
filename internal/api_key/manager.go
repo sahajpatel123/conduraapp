@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/synapticapp/synaptic/internal/secrets"
@@ -36,6 +35,7 @@ import (
 // AuthKind discriminates between API key and OAuth credentials.
 type AuthKind string
 
+// Auth kind values.
 const (
 	AuthAPIKey AuthKind = "api_key"
 	AuthOAuth  AuthKind = "oauth"
@@ -117,20 +117,8 @@ func New(db *storage.DB, sm secrets.Manager) *Manager {
 // Set stores an API key. If a key with the same (provider, label) exists,
 // it is replaced.
 func (m *Manager) Set(ctx context.Context, k Key) (int64, error) {
-	if k.Provider == "" {
-		return 0, ErrNoProvider
-	}
-	if !IsValidProvider(k.Provider) {
-		return 0, fmt.Errorf("api_key: unknown provider %q", k.Provider)
-	}
-	if k.AuthKind == "" {
-		k.AuthKind = AuthAPIKey
-	}
-	if k.AuthKind != AuthAPIKey && k.AuthKind != AuthOAuth {
-		return 0, ErrInvalidKind
-	}
-	if k.Secret == "" {
-		return 0, ErrInvalidSecret
+	if err := validateSetKey(&k); err != nil {
+		return 0, err
 	}
 	if k.Label == "" {
 		k.Label = "default"
@@ -202,6 +190,27 @@ ON CONFLICT(provider, label) DO UPDATE SET
 		}
 	}
 	return id, nil
+}
+
+// validateSetKey enforces the per-field invariants on a key to be stored
+// and applies the default auth kind. Mutates k in place.
+func validateSetKey(k *Key) error {
+	if k.Provider == "" {
+		return ErrNoProvider
+	}
+	if !IsValidProvider(k.Provider) {
+		return fmt.Errorf("api_key: unknown provider %q", k.Provider)
+	}
+	if k.AuthKind == "" {
+		k.AuthKind = AuthAPIKey
+	}
+	if k.AuthKind != AuthAPIKey && k.AuthKind != AuthOAuth {
+		return ErrInvalidKind
+	}
+	if k.Secret == "" {
+		return ErrInvalidSecret
+	}
+	return nil
 }
 
 // Get returns the key with the given ID, with secrets decrypted.
@@ -399,21 +408,9 @@ func Validate(k Key) error {
 	}
 	if k.AuthKind == AuthAPIKey {
 		// Per-provider format hints (not exhaustive; we don't reject unknown shapes).
-		switch k.Provider {
-		case ProviderAnthropic:
-			if !strings.HasPrefix(k.Secret, "sk-ant-") {
-				// Anthropic keys start with sk-ant-. We warn but don't reject
-				// (the user may have a custom-format key or a proxy).
-			}
-		case ProviderOpenAI:
-			if !strings.HasPrefix(k.Secret, "sk-") {
-				// OpenAI keys start with sk-.
-			}
-		case ProviderGoogle, ProviderXAI, ProviderGroq:
-			// No prefix convention enforced.
-		case ProviderCustom:
-			// Anything goes.
-		}
+		// Reserved for future prefix checks; intentionally a no-op for now so
+		// users with custom-format keys (e.g. local proxies) aren't blocked.
+		_ = k.Provider
 	}
 	return nil
 }

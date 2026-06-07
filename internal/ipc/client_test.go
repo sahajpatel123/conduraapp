@@ -22,7 +22,7 @@ func TestClientCall(t *testing.T) {
 		return map[string]any{"pong": true}, nil
 	})
 	srv.Register("echo", func(_ context.Context, params json.RawMessage) (any, error) {
-		return json.RawMessage(params), nil
+		return params, nil
 	})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Reuse the server's HandleRaw over the real HTTP request.
