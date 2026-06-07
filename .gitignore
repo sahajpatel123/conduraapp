@@ -79,3 +79,11 @@ desktop.ini
 # Test fixtures (large generated content)
 test/fixtures/screen_recordings/
 test/fixtures/generated/
+
+# Wails GUI build artifacts
+/app/web/build/
+/app/web/frontend/node_modules/
+/app/web/frontend/dist/
+/app/web/frontend/package.json.md5
+
+# Wails generated Go bindings (regenerated on `wails build`)
