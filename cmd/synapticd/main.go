@@ -87,7 +87,7 @@ func run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if *dataDir != "" {
-		cfg.General.DataDir = *dataDir
+		cfg.OverrideDataDir(*dataDir)
 	}
 	// Re-resolve storage path now that data_dir may have changed.
 	if sp, err := cfg.ResolveStoragePath(); err == nil {

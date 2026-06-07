@@ -148,6 +148,58 @@ func resolveEmptyPaths(c *Config) {
 	}
 }
 
+// OverrideDataDir updates the data directory and re-derives any
+// storage paths that were previously filled in by resolveEmptyPaths.
+// Use this when a CLI flag (e.g. --data-dir) overrides the YAML
+// value: it guarantees Storage.Path and Storage.Backup.Dir point
+// inside the new data dir.
+//
+// Paths that the user explicitly set in YAML are left untouched
+// (we re-derive only if the path is still under the OLD data dir).
+func (c *Config) OverrideDataDir(newDir string) {
+	oldDir := c.General.DataDir
+	c.General.DataDir = newDir
+	// Re-derive the SQLite path if it was the auto-computed default.
+	if c.Storage.Path == "" || isUnderDir(c.Storage.Path, oldDir) {
+		c.Storage.Path = filepath.Join(newDir, "synaptic.db")
+	}
+	if c.Storage.Backup.Dir == "" || isUnderDir(c.Storage.Backup.Dir, oldDir) {
+		c.Storage.Backup.Dir = filepath.Join(newDir, "backups")
+	}
+	// Same for the cache dir if it was the default.
+	if c.General.CacheDir == "" || isUnderDir(c.General.CacheDir, oldDir) {
+		c.General.CacheDir = filepath.Join(newDir, "cache")
+	}
+}
+
+// isUnderDir reports whether path resolves to a file or directory
+// that lives under (or equals) dir. Both arguments are cleaned
+// first. Returns false on error.
+func isUnderDir(path, dir string) bool {
+	if path == "" || dir == "" {
+		return false
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absDir, absPath)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	if strings.HasPrefix(rel, "..") {
+		return false
+	}
+	return true
+}
+
 func defaultProviders() map[string]ProviderConfig {
 	mk := func(model string) ProviderConfig {
 		return ProviderConfig{

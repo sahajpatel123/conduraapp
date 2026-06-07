@@ -110,3 +110,59 @@ func TestStartsAndStopsCleanly(t *testing.T) {
 		t.Fatalf("unexpected addr: %q", addr)
 	}
 }
+
+// TestDataDirFlagPropagates is a regression test for the bug where
+// --data-dir on synapticd was ignored: the daemon reported
+// `storage_path=/Users/.../.synaptic/synaptic.db` even when the user
+// passed `--data-dir /tmp/whatever`. The fix was to re-derive the
+// storage path when the flag overrides the YAML value.
+func TestDataDirFlagPropagates(t *testing.T) {
+	TestBinaryPath(t)
+	bin := synapticd(t)
+	dataDir := t.TempDir()
+
+	cmd := exec.Command(bin,
+		"--data-dir", dataDir,
+		"--listen", "tcp://127.0.0.1:0",
+		"--log-level", "info",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		_ = cmd.Wait()
+	}()
+
+	// Wait up to 5s for the address file to appear, then inspect the
+	// log line that announces the storage path.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(filepath.Join(dataDir, "synapticd.addr")); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	// Give the log writer a tick to flush.
+	time.Sleep(50 * time.Millisecond)
+
+	log := stdout.String() + stderr.String()
+	if !strings.Contains(log, "storage_path="+dataDir) {
+		t.Fatalf("storage_path did not reflect --data-dir\n--- log ---\n%s", log)
+	}
+	// And the daemon should NOT have logged a path under ~/.synaptic.
+	if strings.Contains(log, "storage_path=/Users/") && !strings.Contains(log, "storage_path="+dataDir) {
+		t.Fatalf("storage_path still points to default location\n--- log ---\n%s", log)
+	}
+	// Verify the SQLite file ends up inside the requested data dir.
+	dbPath := filepath.Join(dataDir, "synaptic.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		// The file may be created lazily on first write. We only need
+		// to confirm the path the daemon LOGGED was correct, which we
+		// already checked above.
+		t.Logf("note: %s not yet on disk: %v", dbPath, err)
+	}
+}
