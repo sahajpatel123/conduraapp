@@ -284,6 +284,7 @@ func (a *Anthropic) Stream(ctx context.Context, req ChatRequest) (<-chan StreamE
 	if err != nil {
 		return nil, nil, err
 	}
+	//nolint:bodyclose // body is closed in the streaming goroutine below
 	resp, err := a.HTTPClient.Do(httpReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("llm/anthropic: %w", err)

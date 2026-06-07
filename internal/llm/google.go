@@ -321,6 +321,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 	if err != nil {
 		return nil, nil, err
 	}
+	//nolint:bodyclose // body is closed in the streaming goroutine below
 	resp, err := g.HTTPClient.Do(httpReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("llm/google: %w", err)

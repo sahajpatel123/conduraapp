@@ -335,6 +335,7 @@ func (p *OpenAICompat) Stream(ctx context.Context, req ChatRequest) (<-chan Stre
 	if err != nil {
 		return nil, nil, err
 	}
+	//nolint:bodyclose // body is closed in the streaming goroutine below
 	resp, err := p.client().Do(httpReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("llm: http: %w", err)

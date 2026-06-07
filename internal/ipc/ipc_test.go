@@ -387,9 +387,10 @@ func TestTransport_WebSocket(t *testing.T) {
 	defer func() { _ = st.Close() }()
 
 	url := "ws://" + st.Addr() + "/"
+	//nolint:bodyclose // ws.Close also closes the underlying body
 	ws, _, err := websocket.Dial(context.Background(), url, nil)
 	require.NoError(t, err)
-	defer ws.Close(websocket.StatusNormalClosure, "") //nolint:errcheck
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "") }()
 
 	// Send a request.
 	var req map[string]any
@@ -413,9 +414,10 @@ func TestTransport_WebSocket_Notification(t *testing.T) {
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
 	defer func() { _ = st.Close() }()
 
+	//nolint:bodyclose // ws.Close also closes the underlying body
 	ws, _, err := websocket.Dial(context.Background(), "ws://"+st.Addr()+"/", nil)
 	require.NoError(t, err)
-	defer ws.Close(websocket.StatusNormalClosure, "") //nolint:errcheck
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "") }()
 
 	require.NoError(t, wsjson.Write(context.Background(), ws,
 		map[string]any{"jsonrpc": "2.0", "method": "n"}))
