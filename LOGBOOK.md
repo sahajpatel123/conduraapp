@@ -450,3 +450,103 @@ All 12 packages pass with `-race` enabled. Lint is at 0 issues across all enable
 - **Phase 2 start command**: User has explicitly stated "Do not move to phase two if everything is working fine. I will command you when to [move to Phase 2]." Phase 1 is now fully ready; awaiting the command.
 
 ---
+
+## [2026-06-07] AI Model: opencode (claude-sonnet-4.6)
+**Session ID:** 01HXX_PHASE_2_1
+**Branch:** main
+**Task:** Phase 2.1 — Wails v2 bootstrap + refactor cmd/synapticd into internal/daemon library + first end-to-end GUI build.
+
+### Starting state
+- Phase 1 fully ready, lint at 0, all 12 packages pass with -race.
+- 24 commits on `main`; Phase 2 not started.
+- Module path: github.com/sahajpatel123/synapticapp
+- 10 locked-in decisions for Phase 2 (per the user-driven Q&A):
+  - UI: hand-rolled CSS, no framework
+  - Router: svelte-spa-router
+  - Hotkey: Cmd+Shift+Space / Ctrl+Shift+Space
+  - Daemon: GUI embeds & spawns the daemon (in-process library)
+  - Storage: daemon owns SQLite + AES-256-GCM
+  - Streaming: SSE alongside JSON-RPC
+  - Onboarding: step-by-step wizard
+  - Auth: GUI reads from ~/.synaptic/config.yaml
+  - Tray: status + show/hide/quit + spend + active conversation
+  - Scope: full Phase 2, no time boundary, perfection bar
+
+### Files created (this session)
+
+**internal/daemon/** (new package, 7 files)
+- daemon.go — Run() entry point + Options/ListenSpec
+- subsystems.go — Subsystems struct + initSubsystems() + health checks
+- methods.go — registerMethods() — all JSON-RPC methods
+- providers.go — buildProvidersFromConfig() + buildProvider() + allModels
+- failover.go — buildFailoverProviders() + llmAdapter (ping impl)
+- listeners.go — startListeners() + writeAddrFile() + schemeOf()
+- ipc.go — newIPCServer() + newServerTransport() + isWindows
+- daemon_test.go — TestRun_Smoke, TestRun_NilConfig, TestRun_InvalidConfig
+
+**app/web/** (Wails v2 + Svelte 5 + TS scaffold)
+- main.go — Wails app entry; calls daemon.Run() in a goroutine
+- app.go — App struct with Ping() and DaemonStatus() bound methods
+- frontend/src/App.svelte — initial UI: name → ping, daemon status indicator
+- frontend/wailsjs/go/ — auto-generated TS bindings
+- wails.json — Wails project config
+- go.mod — points to our module via replace ../../
+
+### Files modified
+- cmd/synapticd/main.go — refactored from 606 lines to 145 lines
+  (now a thin wrapper around internal/daemon.Run)
+- .gitignore — added app/web/{build,frontend/node_modules,frontend/dist,frontend/package.json.md5}
+
+### Decision log additions
+- **GUI daemon embed via library refactor**: cmd/synapticd/main.go's run() was split into internal/daemon.Run(). The standalone daemon binary is now a ~145-line wrapper; the GUI binary uses the same library. Single source of truth for orchestration.
+- **Wails project at app/web/**: Wails expects its own project root (with wails.json, frontend/, go.mod). We accommodate this with a replace directive in app/web/go.mod pointing at ../.. — that way app/web can import internal/daemon without duplicating it.
+- **Default background #121216**: dark theme baseline for the WebView (RGB 18/18/22). CSS custom properties in style.css will override per-component.
+- **Scaffold uses Svelte 3**: wails init -t svelte-ts gave us Svelte 3.49. Sub-phase 2.2 will upgrade to Svelte 5 (the locked-in choice) and add svelte-spa-router.
+
+### Verification
+```
+$ make verify
+go vet ./...                          [clean]
+go fmt ./...                          [clean]
+golangci-lint run --timeout=5m ./...  [0 issues]
+go test -race -count=1 -timeout=120s ./...
+ok  	github.com/sahajpatel123/synapticapp/cmd/synaptic        16.721s
+ok  	github.com/sahajpatel123/synapticapp/cmd/synapticd        7.155s
+ok  	github.com/sahajpatel123/synapticapp/internal/api_key     3.157s
+ok  	github.com/sahajpatel123/synapticapp/internal/config      1.784s
+ok  	github.com/sahajpatel123/synapticapp/internal/daemon      2.099s  ← NEW
+ok  	github.com/sahajpatel123/synapticapp/internal/failover    2.392s
+ok  	github.com/sahajpatel123/synapticapp/internal/health      2.205s
+ok  	github.com/sahajpatel123/synapticapp/internal/ipc         2.568s
+ok  	github.com/sahajpatel123/synapticapp/internal/llm         2.187s
+ok  	github.com/sahajpatel123/synapticapp/internal/logger      1.646s
+ok  	github.com/sahajpatel123/synapticapp/internal/secrets     1.949s
+ok  	github.com/sahajpatel123/synapticapp/internal/storage     2.628s
+ok  	github.com/sahajpatel123/synapticapp/internal/version     1.799s
+
+$ wails build
+Done. Built /Users/sahajpatel/synaptic/app/web/build/bin/synaptic.app/Contents/MacOS/web in 15.445s.
+14MB .app bundle, self-signed, ready to run.
+```
+
+### End-to-end smoke test (headless)
+Opened the .app, verified the daemon initialized inside the GUI process:
+- ~/.synaptic/synapticd.addr written with `127.0.0.1:52070` (random TCP port)
+- ~/.synaptic/synapticd.sock created (Unix socket)
+- ~/.synaptic/synaptic.db opened
+- Daemon logged: "starting synapticd" → "secrets manager ready" → "storage ready" → "llm registry ready" → "failover ready"
+The WebView itself requires a display server (real desktop session) to render — that part is exercised manually, not in CI.
+
+### Final commit
+`7637d11` — `feat(phase 2.1): Wails v2 bootstrap + daemon library refactor`. Pushed to `origin/main`.
+
+### Sub-phase 2.1 — Complete ✓
+The "fully ready" definition for 2.1: the GUI binary builds, opens, embeds the daemon end-to-end, and the standalone daemon still works. All four conditions met.
+
+### Open questions for next session (sub-phase 2.2)
+- **Svelte 5 upgrade**: the Wails scaffold gave us Svelte 3.49. The locked-in stack is Svelte 5 (runes). Need to update package.json + svelte.config.js + App.svelte.
+- **svelte-spa-router**: add as a dep, set up routes (`/`, `/settings`, `/apikeys`, `/audit`, `/about`), wrap App.svelte in `<Router>`.
+- **TypeScript IPC client**: mirror internal/ipc types in TS; WebSocket transport with auto-reconnect; auth token from config.yaml; promise-based API.
+- **svelte-spa-router vs. a different router**: re-confirm — the user picked svelte-spa-router; sticking with that.
+
+---
