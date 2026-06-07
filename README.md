@@ -8,7 +8,38 @@ Synaptic is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent
 
 ---
 
-## Quickstart
+## Project Status (2026-06-07)
+
+**Phase 1 (Repo Skeleton + Core Daemon): complete.** The Synaptic
+daemon (`synapticd`) and CLI client (`synaptic`) are implemented in Go,
+fully unit-tested (>80% coverage on every internal package), and
+integration-tested end-to-end. See [LOGBOOK.md](LOGBOOK.md) Session 2
+for the full commit log.
+
+| Layer            | Status |
+|------------------|--------|
+| Foundation docs  | ✅ done |
+| Internal packages (10) | ✅ tested |
+| `synapticd` daemon | ✅ runs, JSON-RPC up |
+| `synaptic` CLI   | ✅ ping/version/status/config/llm/apikeys |
+| Wails GUI shell  | ⏳ Phase 2 |
+| Computer-use engine | ⏳ Phase 3 |
+| Skills Hub       | ⏳ Phase 6 |
+| P2P sync         | ⏳ Phase 7 |
+| `v0.1.0` release | ⏳ ~Q4 2026 |
+
+### Try it locally
+```bash
+git clone https://github.com/synapticapp/synaptic
+cd synaptic
+make build
+./bin/synapticd --data-dir ./build/data &
+./bin/synaptic --data-dir ./build/data ping
+```
+
+---
+
+## Quickstart (planned v0.1.0)
 
 1. **Download** the installer for your OS from [synaptic.app/download](https://synaptic.app/download).
 2. **Install** — drag to Applications (mac), run installer (win), or `chmod +x` the AppImage (linux).
