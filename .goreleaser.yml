@@ -19,7 +19,7 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -trimpath
-      - -ldflags=-s -w -X 'github.com/synapticapp/synaptic/internal/version.Version={{.Version}}' -X 'github.com/synapticapp/synaptic/internal/version.Commit={{.ShortCommit}}' -X 'github.com/synapticapp/synaptic/internal/version.BuildDate={{.Date}}'
+      - -ldflags=-s -w -X 'github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}' -X 'github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}' -X 'github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}'
     goos:
       - darwin
       - linux
@@ -97,7 +97,7 @@ release:
   header: |
     ## Synaptic {{.Version}}
 
-    See [CLAUDE.md](https://github.com/synapticapp/synaptic/blob/main/CLAUDE.md)
+    See [CLAUDE.md](https://github.com/sahajpatel123/synapticapp/blob/main/CLAUDE.md)
     for the full architecture and [LOGBOOK.md](LOGBOOK.md) for the latest changes.
 
     ### Downloads

@@ -30,7 +30,7 @@ for the full commit log.
 
 ### Try it locally
 ```bash
-git clone https://github.com/synapticapp/synaptic
+git clone https://github.com/sahajpatel123/synapticapp
 cd synaptic
 make build
 ./bin/synapticd --data-dir ./build/data &
@@ -99,7 +99,7 @@ Claude Code · Codex · Antigravity · OpenCode · Kilo Code · Hermes Agent · 
 ## Support
 
 - **Discord**: [discord.gg/synaptic](https://discord.gg/synaptic)
-- **GitHub Issues**: [github.com/synapticapp/synaptic/issues](https://github.com/synapticapp/synaptic/issues)
+- **GitHub Issues**: [github.com/sahajpatel123/synapticapp/issues](https://github.com/sahajpatel123/synapticapp/issues)
 - **Email**: support@synaptic.app
 - **Docs**: [synaptic.app/docs](https://synaptic.app/docs)
 

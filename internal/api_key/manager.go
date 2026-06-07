@@ -28,8 +28,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/synapticapp/synaptic/internal/secrets"
-	"github.com/synapticapp/synaptic/internal/storage"
+	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/synapticapp/internal/storage"
 )
 
 // AuthKind discriminates between API key and OAuth credentials.

@@ -148,7 +148,7 @@ linters:
       ignore-tests: true
       numbers: false
     goimports:
-      local-prefixes: github.com/synapticapp/synaptic
+      local-prefixes: github.com/sahajpatel123/synapticapp
     misspell:
       locale: US
     prealloc:
@@ -205,7 +205,7 @@ formatters:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/synapticapp/synaptic
+      local-prefixes: github.com/sahajpatel123/synapticapp
   exclusions:
     paths:
       - vendor/

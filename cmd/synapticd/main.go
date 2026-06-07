@@ -27,16 +27,16 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/synapticapp/synaptic/internal/api_key"
-	"github.com/synapticapp/synaptic/internal/config"
-	"github.com/synapticapp/synaptic/internal/failover"
-	"github.com/synapticapp/synaptic/internal/health"
-	"github.com/synapticapp/synaptic/internal/ipc"
-	"github.com/synapticapp/synaptic/internal/llm"
-	"github.com/synapticapp/synaptic/internal/logger"
-	"github.com/synapticapp/synaptic/internal/secrets"
-	"github.com/synapticapp/synaptic/internal/storage"
-	"github.com/synapticapp/synaptic/internal/version"
+	"github.com/sahajpatel123/synapticapp/internal/api_key"
+	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/failover"
+	"github.com/sahajpatel123/synapticapp/internal/health"
+	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/synapticapp/internal/logger"
+	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/synapticapp/internal/version"
 )
 
 // File mode for the synapticd.addr sidecar. Owner-only because it

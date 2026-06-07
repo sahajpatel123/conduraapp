@@ -75,8 +75,8 @@ import (
     "github.com/libp2p/go-libp2p"
     "github.com/stretchr/testify/assert"
 
-    "github.com/synapticapp/synaptic/internal/agent"
-    "github.com/synapticapp/synaptic/internal/safety"
+    "github.com/sahajpatel123/synapticapp/internal/agent"
+    "github.com/sahajpatel123/synapticapp/internal/safety"
 )
 ```
 

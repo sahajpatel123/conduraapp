@@ -1,4 +1,4 @@
-module github.com/synapticapp/synaptic
+module github.com/sahajpatel123/synapticapp
 
 go 1.25.0
 

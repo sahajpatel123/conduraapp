@@ -2,9 +2,9 @@
 //
 // Variables are populated at build time via -ldflags (see Makefile):
 //
-//	-X 'github.com/synapticapp/synaptic/internal/version.Version=v0.1.0'
-//	-X 'github.com/synapticapp/synaptic/internal/version.Commit=abc1234'
-//	-X 'github.com/synapticapp/synaptic/internal/version.BuildDate=2026-06-06T14:32:00Z'
+//	-X 'github.com/sahajpatel123/synapticapp/internal/version.Version=v0.1.0'
+//	-X 'github.com/sahajpatel123/synapticapp/internal/version.Commit=abc1234'
+//	-X 'github.com/sahajpatel123/synapticapp/internal/version.BuildDate=2026-06-06T14:32:00Z'
 //
 // In dev builds (no ldflags), Version is set to "v0.0.0-dev" and Commit to "none".
 package version

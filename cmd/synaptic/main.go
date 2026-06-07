@@ -31,8 +31,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/synapticapp/synaptic/internal/ipc"
-	"github.com/synapticapp/synaptic/internal/version"
+	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/synapticapp/internal/version"
 )
 
 func main() {

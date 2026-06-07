@@ -13,9 +13,9 @@ VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || 
 COMMIT           := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 BUILD_DATE       := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS          := -s -w \
-                    -X 'github.com/synapticapp/synaptic/internal/version.Version=$(VERSION)' \
-                    -X 'github.com/synapticapp/synaptic/internal/version.Commit=$(COMMIT)' \
-                    -X 'github.com/synapticapp/synaptic/internal/version.BuildDate=$(BUILD_DATE)'
+                    -X 'github.com/sahajpatel123/synapticapp/internal/version.Version=$(VERSION)' \
+                    -X 'github.com/sahajpatel123/synapticapp/internal/version.Commit=$(COMMIT)' \
+                    -X 'github.com/sahajpatel123/synapticapp/internal/version.BuildDate=$(BUILD_DATE)'
 
 PKG              := ./...
 COVERAGE_FILE    := coverage.out
@@ -127,7 +127,7 @@ lint-fix: ## Run golangci-lint with auto-fix
 .PHONY: fmt
 fmt: ## Format code (gofmt + goimports + gofumpt)
 	$(GO) fmt $(PKG)
-	@which $(GOIMPORTS) >/dev/null 2>&1 && $(GOIMPORTS) -w -local "github.com/synapticapp/synaptic" . || echo "goimports not installed; skipping"
+	@which $(GOIMPORTS) >/dev/null 2>&1 && $(GOIMPORTS) -w -local "github.com/sahajpatel123/synapticapp" . || echo "goimports not installed; skipping"
 	@which $(GOFUMPT) >/dev/null 2>&1 && $(GOFUMPT) -w . || echo "gofumpt not installed; skipping"
 
 .PHONY: vet

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/synapticapp/synaptic/internal/ipc"
+	"github.com/sahajpatel123/synapticapp/internal/ipc"
 )
 
 func TestClientCall(t *testing.T) {
