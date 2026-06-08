@@ -633,3 +633,71 @@ The "fully ready" definition for 2.1: the GUI binary builds, opens, embeds the d
 - **Integration tests** directory (`test/integration/`) not yet created — job skips gracefully
 - **Tray coverage** low on CI (no display server) — expected
 - **Wails WebView** needs real desktop session to verify visually
+
+---
+
+## Session 7 — Phase 3: Real LLM Streaming Pipeline
+
+**Date:** 2026-06-08
+**Goal:** Close the streaming pipeline that was deferred from Phase 2. Wire `llm.stream` to the SSE broker so the GUI can render tokens as they arrive.
+
+### Scope decisions
+- **Per-call request_id, not conversation_id** — explicit key for correlation and cancel
+- **No mid-stream failover** — too stateful, abort + audit on error
+- **Refuse on context overflow** — no silent truncation
+- **Mock HTTP for tests** — no real API keys in CI
+
+### What was built
+
+**New package `internal/stream`**
+- `Manager` owns in-flight streams: `request_id → *activeStream` (cancel func, done channel, conversation_id)
+- `Start(ctx, Request) (request_id, error)` — looks up provider, kicks off `Stream()`, publishes `stream.started`, returns immediately
+- `Cancel(request_id)` — calls provider cancel + publishes `stream.canceled`
+- `CancelByConversation(conv_id)` — bulk cancel when a conversation is deleted
+- `List()`, `Count()` for the GUI's "streaming now" indicator
+- Halt check wired via `SetHaltChecker(func() bool)` — refuses new streams when daemon is halted
+- Context-window guard: refuses if `4 * chars(content) + 1000 > model.ContextWindow`
+- `rootCtx` decouples stream lifetime from the caller's HTTP request context
+
+**Events published to SSE broker** (all carry `request_id`):
+- `stream.started` — `provider`, `model`, `conversation_id`, `started_at`
+- `stream.delta` — `delta` (text) or `tool_calls` (list of partial tool invocations)
+- `stream.usage` — `input_tokens`, `output_tokens`, `total_tokens`
+- `stream.finished` — `finish_reason` (provider's value or `channel_closed`)
+- `stream.error` — `error` (provider's error message)
+- `stream.canceled` — `request_id` only
+
+**Wire-up**
+- `ipc.ServerTransport` gets an optional `SSE *sse.Broker` field, mounted at `/events`
+- `daemon.Subsystems` now carries `Broker` and `Streams`
+- `llm.stream` and `llm.cancel` replaced the Phase 2 stubs
+- `conversations.delete` now cancels any in-flight streams for the conversation
+
+### Bug fix
+- `sse.Broker.Publish` had a data race: `eventCount++` under `RLock`. Converted to `atomic.Uint64` with per-publish counter accumulation. Concurrent publishers no longer race.
+
+### Wire-format note
+- The event name `stream.canceled` uses British spelling — it's part of the public wire format and changing it would break every GUI client. Linter is disabled with a justification comment.
+- The JSON-RPC response field for `llm.cancel` uses US `canceled` — separate decision, separate lint domain.
+
+### Tests
+- 14 unit tests for `stream.Manager` (request lifecycle, cancel, error, context overflow, halt, uniqueness, race safety)
+- 5 integration tests for the end-to-end pipeline (real HTTP IPC, real JSON-RPC, real SSE broker)
+  - `TestStream_EndToEnd` — fake provider yields 2 tokens, verify they arrive on `/events`
+  - `TestStream_CancelStopsStream` — blocking provider, verify cancel finds it and publishes `stream.canceled`
+  - `TestStream_UnknownProviderReturnsError`
+  - `TestStream_CancelUnknownRequestReturnsError`
+  - `TestStream_BrokerMountedAtEvents` — verify `/events` content-type
+
+### Final state
+- `go test -race -count=1 -timeout=120s ./...` — all 24 packages green
+- `golangci-lint run ./...` — 0 issues
+- No CI files touched (per user request)
+- 1 commit: `ef32c10` — feat(stream): real llm.stream + llm.cancel over SSE
+
+### Open items deferred to next phase
+- **Per-conversation SSE topic filtering** — currently all clients see all events; GUI filters by `request_id`. Acceptable for v0.1.0.
+- **Backpressure metrics** — broker drops events silently on full client channel. Should expose drop count.
+- **Mid-stream resume** — if SSE connection drops, the client misses events. No replay mechanism yet.
+- **Wails frontend integration** — `client.ts` EventSource handler exists but needs a real desktop session to verify the streaming UI actually renders tokens.
+- **Build Order steps 22+** (computer use, memory, skills, adaptive engine, MCP, P2P, replay) — still pending; Phase 3 here was streaming only.
