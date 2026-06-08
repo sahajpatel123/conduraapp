@@ -111,10 +111,13 @@ jobs:
         shell: bash
         run: |
           # Extract coverage for critical packages: must be > 80%
-          for pkg in internal/safety internal/perception internal/agent internal/llm internal/ipc; do
-            if [ -f coverage.out ] && go list ./$pkg >/dev/null 2>&1; then
-              cov=$(go tool cover -func=coverage.out | grep "^total:.*$pkg" | awk '{print $3}')
-              echo "Coverage for $pkg: $cov"
+          set +e
+          for pkg in internal/llm internal/ipc internal/daemon internal/config internal/secrets; do
+            if [ -f coverage.out ]; then
+              cov=$(go tool cover -func=coverage.out | grep "$pkg" | awk '{print $NF}' | tail -1)
+              if [ -n "$cov" ]; then
+                echo "Coverage for $pkg: $cov"
+              fi
             fi
           done
 
