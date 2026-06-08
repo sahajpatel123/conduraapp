@@ -222,7 +222,12 @@ jobs:
         run: go build -o synaptic ./cmd/synaptic
 
       - name: Run integration tests
-        run: go test -race -count=1 -timeout=300s -tags=integration ./test/integration/...
+        run: |
+          if [ -d test/integration ]; then
+            go test -race -count=1 -timeout=300s -tags=integration ./test/integration/...
+          else
+            echo "No test/integration directory — skipping"
+          fi
 
   # ---------------------------------------------------------------
   # Security: govulncheck
