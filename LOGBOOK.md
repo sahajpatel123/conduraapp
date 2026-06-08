@@ -596,4 +596,40 @@ The "fully ready" definition for 2.1: the GUI binary builds, opens, embeds the d
 - **`llm.cancel`** is a no-op until the real streaming pipeline lands (no in-flight streams to cancel).
 
 ### Final commit
-Pending — session ends with all changes staged, ready for the user to push.
+- `0643aa0` — Phase 2 implementation complete (23 packages, 0 lint, all tests pass).
+
+---
+
+## Session 6 — CI Fix Marathon (12 commits, 10 CI runs)
+
+**Date:** 2026-06-08
+**Goal:** Fix all GitHub Actions CI failures across Linux, macOS, and Windows (13 jobs).
+
+### Root causes found and fixed
+1. **Go 1.25.0 stdlib security vulns** (21 CVEs) → upgraded go.mod to 1.25.11
+2. **golangci-lint 504** downloading binary → install via curl script
+3. **golangci-lint v2.2.0 incompatible with Go 1.25.11** (built with Go 1.24) → upgraded to v2.12.2 (built with Go 1.26.2)
+4. **X11 headers missing** for hotkey import → added Linux CGO deps to lint job
+5. **`ModCmd`/`ModOption` undefined on Linux** → split hotkey into `parse.go` (`//go:build !linux`) + platform-specific modifiers (`modifiers_darwin.go`, `modifiers_windows.go`)
+6. **Tray import fails on Linux** → added `//go:build !linux`
+7. **.golangci.yml v2 schema** → rewrote with `linters.exclusions.paths`, fixed `mnd.ignored-numbers` to strings, removed invalid fields
+8. **pwsh temp file garbles `-coverprofile=coverage.out`** → replaced pwsh conditional with separate bash steps using `if: runner.os`
+9. **Windows lockfile `LockFileEx` fails with PID write** → simplified to flock only (mandatory locking)
+10. **Windows `IsConnRefused` missing "actively refused"** → added Windows error string
+11. **Windows `systray.SetTooltip` nil deref** → guarded with nil check on `m.mShow`
+12. **Windows CLI tests missing `.exe` extension** → added runtime.GOOS check
+13. **Windows `SIGTERM` not supported** → use `Process.Kill()` on Windows
+14. **Coverage check `pipefail` + bad grep** → `set +e`, fixed pattern
+15. **CI test timeout** → 180s → 300s
+16. **Integration tests dir missing** → skip if `test/integration` doesn't exist
+17. **macOS arm64 keyring unavailable on CI** → skip `TestNew_NoFilePath_Auto` on CI
+
+### Final state
+- **14/14 CI jobs pass**: Lint, Security Scan, 5 Test jobs (Ubuntu amd64/arm64, macOS amd64/arm64, Windows amd64), 6 Build jobs, Integration Tests
+- **12 commits** from `c56c94c` to `de196ae`
+- **10 CI runs** to reach green
+
+### Open items deferred
+- **Integration tests** directory (`test/integration/`) not yet created — job skips gracefully
+- **Tray coverage** low on CI (no display server) — expected
+- **Wails WebView** needs real desktop session to verify visually
