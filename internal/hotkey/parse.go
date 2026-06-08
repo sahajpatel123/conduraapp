@@ -53,26 +53,6 @@ func ParseSpec(spec string) (mods []xhotkey.Modifier, key xhotkey.Key, err error
 	return mods, key, nil
 }
 
-// modifierByName maps the spec's modifier names to xhotkey.Modifier
-// constants. Aliases are accepted (e.g. "control" -> ctrl).
-//
-// We deliberately do NOT map "win"/"super"/"meta" to a constant —
-// golang.design/x/hotkey does not export a Win/Super modifier in the
-// version we depend on, so we reject those names explicitly.
-func modifierByName(s string) (xhotkey.Modifier, bool) {
-	switch strings.ToLower(s) {
-	case "cmd", "command":
-		return xhotkey.ModCmd, true
-	case "ctrl", "control":
-		return xhotkey.ModCtrl, true
-	case "alt", "option", "opt":
-		return xhotkey.ModOption, true
-	case "shift":
-		return xhotkey.ModShift, true
-	}
-	return 0, false
-}
-
 // namedKeys is the set of friendly key names that the spec parser
 // recognizes. Anything else must be a single printable ASCII rune.
 var namedKeys = map[string]xhotkey.Key{

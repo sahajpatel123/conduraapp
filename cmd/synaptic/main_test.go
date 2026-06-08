@@ -21,8 +21,12 @@ import (
 func buildBinaries(t *testing.T) (string, string) {
 	t.Helper()
 	binDir := t.TempDir()
-	daemonBin := filepath.Join(binDir, "synapticd")
-	cliBin := filepath.Join(binDir, "synaptic")
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	daemonBin := filepath.Join(binDir, "synapticd"+ext)
+	cliBin := filepath.Join(binDir, "synaptic"+ext)
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
 	for _, p := range []struct {
