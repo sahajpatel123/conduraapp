@@ -104,6 +104,9 @@ func TestNew_NoFilePath_Auto(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("tested on darwin where keyring is reliable")
 	}
+	if os.Getenv("CI") != "" {
+		t.Skip("keyring unavailable on CI runners")
+	}
 	m, err := New("")
 	require.NoError(t, err)
 	assert.Equal(t, BackendKeyring, m.Backend())

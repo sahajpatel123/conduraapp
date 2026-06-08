@@ -222,8 +222,14 @@ func TestCLIDaemonStopsGracefully(t *testing.T) {
 	d := startDaemon(t, daemonBin, t.TempDir())
 	// Verify the daemon process is alive.
 	pid := d.cmd.Process.Pid
-	if err := d.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		t.Fatalf("signal: %v", err)
+	if runtime.GOOS == "windows" {
+		if err := d.cmd.Process.Kill(); err != nil {
+			t.Fatalf("kill: %v", err)
+		}
+	} else {
+		if err := d.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			t.Fatalf("signal: %v", err)
+		}
 	}
 	done := make(chan error, 1)
 	go func() { done <- d.cmd.Wait() }()
