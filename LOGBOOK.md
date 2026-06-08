@@ -550,3 +550,50 @@ The "fully ready" definition for 2.1: the GUI binary builds, opens, embeds the d
 - **svelte-spa-router vs. a different router**: re-confirm — the user picked svelte-spa-router; sticking with that.
 
 ---
+
+## Session 5 — Phase 2 completion (sub-phases 2.2 through 2.7)
+
+**Date:** 2026-06-08
+**Goal:** Complete all remaining Phase 2 sub-phases (2.2 frontend + 2.3 window/lifecycle/tray + 2.4 hotkey/overlay + 2.5 conversations/SSE/streaming + 2.6 audit/halt/telemetry + 2.7 first-run/auto-update) in one pass with zero lint and all tests green.
+
+### Go side — new internal packages
+- `internal/sse` — broker with fan-out, slow-client dropping, heartbeat (15s).
+- `internal/conversation` — SQLite-backed conversation + message store, current-conversation-only per spec.
+- `internal/audit` — append-only audit log with paginated Query (limit/offset/since/action/level).
+- `internal/halt` — atomic.Bool kill-switch + single-row persistence; Refresh() syncs DB→memory; `IsHalted()` is the lock-free hot path.
+- `internal/telemetry` — opt-in anonymous event channel (default OFF); SHA256(stack) for crashes; no PII; counters persisted in SQLite.
+- `internal/updater` — force auto-update (default ON); Check/Apply/Cached; respects user toggle.
+- `internal/lockfile` — single-instance enforcement via `gofrs/flock`; 0o600 perms; diagnostic `pid=N` payload.
+- `internal/window` — persisted GUI geometry (width/height/x/y + last conversation ID); single-row `window_state` table.
+- `internal/tray` — system tray wrapper (getlantern/systray); Show/Hide/Pause/Spend/Quit menu; events via channel.
+- `internal/hotkey` — global hotkey registration (golang.design/x/hotkey); spec parser for "Cmd+Shift+Space" style; per-platform default (Cmd on macOS, Ctrl on Win/Linux).
+
+### Go side — daemon wiring
+- `internal/daemon/subsystems.go` — Subsystems struct now carries: Conversations, Audit, Halt, Telemetry, Updater, Window.
+- `internal/daemon/methods_phase2.go` — `conversations.list/get/create/delete/append`, `llm.stream` (intentional stub returning `MethodNotFound` with message pointing to `llm.chat`), `llm.cancel`, `audit.list`, `daemon.halt/resume`, `halt.state`.
+- `internal/daemon/methods_more.go` — `config.update` (partial patches for telemetry/hotkey/window), `telemetry.setEnabled`, `firstRun.status/complete`, `update.check/apply`, `window.show/hide/overlay.show/hide/tray.update` (audit-only stubs), `window.state.get/setSize/setPosition/setLastConversation`.
+- `internal/daemon/audit_consts.go` — centralized audit actor/app/level/result constants to satisfy `goconst` lint.
+- `internal/daemon/daemon.go` — `ErrAlreadyRunning` returned on lockfile conflict; lockfile auto-released on ctx.Done.
+- `internal/storage/migrations.go` — schema v2: `conversations`, `conversation_messages` (with `tool_calls_json`), `audit_log` (DROP+RECREATE), `halt_state`, `first_run`, `window_state`, `telemetry_counters`, `update_cache`.
+- `internal/config/config.go` — `ConfigSchemaVersion` 1→2; added `HotkeyConfig{Overlay, KillSwitch}` + `WindowConfig{Width, Height, X, Y, LastConversationID}` + `TelemetryConfig.Endpoint`; removed `DaemonConfig.Hotkey` string and `SecurityConfig.KillSwitchHotkey`; added `PlatformIsMac/Windows/Linux` helpers.
+
+### Frontend side — Svelte 5 + svelte-spa-router + TS
+- Svelte 3.49 → 5.56.2 (runes API). `on:click` → `onclick` (Svelte 5 syntax).
+- 5 routes: Chat, Settings, Audit, About (API keys lives inside Settings for now per the simpler spec).
+- 12 runes-based stores under `app/web/frontend/src/lib/stores/`: daemon, conversation, settings, spend, notifications, audit, halt, apikeys, onboarding, update + `init.ts`.
+- TS IPC client with auto-reconnect, typed methods, `window.go.main.App` global binding (avoids Vite trying to resolve `wailsjs/` at build time).
+- Hand-rolled CSS: `styles/reset.css` + `styles/tokens.css` (dark/light themes via CSS custom properties).
+- Wails build verified: 17.7 MB .app bundle (under the 20 MB budget).
+
+### Lint + tests
+- 0 issues from `golangci-lint run ./...` (gofmt, goimports, errcheck, goconst, gocognit, gocyclo, mnd, gosec, misspell, noctx, errorlint, nilnil, revive, staticcheck, unparam, unconvert, unused all green).
+- `go test -race -count=1 -timeout=120s ./...` — 23 packages, all green.
+
+### Open items deferred (called out explicitly)
+- **llm.stream** is intentionally a stub: returns `MethodNotFound` with a message pointing callers to `llm.chat` (which drains streams server-side). The real streaming pipeline (LLM registry → SSE broker → token push) requires a separate workstream and is deferred to Phase 3.
+- **Tray coverage** is 22% in unit tests because `systray.Run` requires a real display server. The helpers we can test (New, SetHalted flag, SetSpendUSD cents, SetTooltip field) are 100% covered.
+- **Wails WebView rendering** still needs a real desktop session to visually verify. The daemon-in-process portion is exercised in tests.
+- **`llm.cancel`** is a no-op until the real streaming pipeline lands (no in-flight streams to cancel).
+
+### Final commit
+Pending — session ends with all changes staged, ready for the user to push.

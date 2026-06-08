@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -94,4 +95,76 @@ func TestRun_InvalidConfig(t *testing.T) {
 	if err == nil {
 		t.Fatal("Run with invalid config should return an error")
 	}
+}
+
+// TestRun_SingleInstance verifies that a second Run() against the
+// same data dir returns ErrAlreadyRunning while the first is held.
+func TestRun_SingleInstance(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.General.DataDir = dir
+	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Logging.File = ""
+	cfg.Logging.AddSource = false
+	cfg.APIServer.AuthToken = "test-token"
+
+	// Clear SYNAPTIC_ env so config stays deterministic.
+	for _, e := range os.Environ() {
+		for i := 0; i < len(e)-9; i++ {
+			if e[i:i+9] == "SYNAPTIC_" {
+				name := e[:i+9]
+				end := i + 9
+				for end < len(e) && e[end] != '=' {
+					end++
+				}
+				if end < len(e) {
+					t.Setenv(name, "")
+				}
+				break
+			}
+		}
+	}
+
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := Run(ctx1, Options{Config: cfg, Listen: ListenSpec{Disable: true}})
+		firstDone <- err
+	}()
+
+	// Wait for the first instance to acquire the lock.
+	if !waitForLockFile(t, filepath.Join(dir, DefaultLockFile), time.Second) {
+		cancel1()
+		<-firstDone
+		t.Fatal("first instance never created the lock file")
+	}
+
+	// Now try a second Run against the same dir — it should fail.
+	_, err := Run(context.Background(), Options{Config: cfg, Listen: ListenSpec{Disable: true}})
+	if !errors.Is(err, ErrAlreadyRunning) {
+		cancel1()
+		<-firstDone
+		t.Fatalf("second Run err = %v, want ErrAlreadyRunning", err)
+	}
+
+	// Tear down the first; the second would now succeed.
+	cancel1()
+	<-firstDone
+}
+
+// waitForLockFile polls for the lock file to appear, returning true
+// once it does or false on timeout. Used to synchronize with the
+// single-instance test above.
+func waitForLockFile(t *testing.T, path string, timeout time.Duration) bool {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return false
 }

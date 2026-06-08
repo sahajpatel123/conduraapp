@@ -1,91 +1,144 @@
 <script lang="ts">
-  import { Ping, DaemonStatus } from '../wailsjs/go/main/App.js'
+  import Router from 'svelte-spa-router'
+  import { wrap } from 'svelte-spa-router/wrap'
+  import { onMount } from 'svelte'
 
-  let resultText: string = "Welcome to Synaptic. Type a name and click Ping."
-  let daemonText: string = "Daemon: starting..."
-  let name: string = ""
+  import Chat from './lib/routes/Chat.svelte'
+  import Settings from './lib/routes/Settings.svelte'
+  import Audit from './lib/routes/Audit.svelte'
+  import About from './lib/routes/About.svelte'
+  import Sidebar from './lib/components/Sidebar.svelte'
+  import Toasts from './lib/components/Toasts.svelte'
+  import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
+  import { daemon } from './lib/stores/daemon.svelte'
+  import { ipc } from './lib/ipc/client'
 
-  function ping(): void {
-    Ping(name).then(result => resultText = result)
+  const routes = {
+    '/': Chat,
+    '/settings': Settings,
+    '/audit': Audit,
+    '/about': About
   }
 
-  function checkDaemon(): void {
-    DaemonStatus().then((s) => {
-      if (s.ready) {
-        daemonText = `Daemon: ready @ ${s.addr}`
-      } else {
-        daemonText = "Daemon: not ready yet"
+  let showOnboarding = $state(false)
+  let currentHash = $state(window.location.hash)
+
+  // Listen for hash changes (svelte-spa-router updates window.location.hash).
+  window.addEventListener('hashchange', () => {
+    currentHash = window.location.hash
+  })
+
+  onMount(async () => {
+    // Check first-run status; show wizard if not yet complete.
+    try {
+      const s = await ipc.firstRunStatus()
+      if (!s.complete) {
+        showOnboarding = true
       }
-    })
-  }
+    } catch {
+      // ignore
+    }
+  })
 
-  // Poll daemon status every 500ms while the page is open.
-  setInterval(checkDaemon, 500)
-  checkDaemon()
+  function closeOnboarding(): void {
+    showOnboarding = false
+  }
 </script>
 
-<main>
-  <h1>Synaptic</h1>
-  <p class="daemon">{daemonText}</p>
-
-  <p>{resultText}</p>
-  <div class="input-row">
-    <input autocomplete="off" bind:value={name} class="input" id="name" type="text" placeholder="Your name" />
-    <button class="btn" on:click={ping}>Ping</button>
+{#if showOnboarding}
+  <div class="onboarding-overlay">
+    <OnboardingWizard />
   </div>
-</main>
+{:else}
+  <div class="app-shell">
+    <Sidebar />
+
+    <main class="main">
+      <nav class="topbar">
+        <div class="topbar-left">
+          <a href="#/" class:active={currentHash === '#/' || currentHash === '' || currentHash === '#'}>Chat</a>
+          <a href="#/settings" class:active={currentHash === '#/settings'}>Settings</a>
+          <a href="#/audit" class:active={currentHash === '#/audit'}>Audit</a>
+          <a href="#/about" class:active={currentHash === '#/about'}>About</a>
+        </div>
+        <div class="topbar-right">
+          <span class="conn" class:connected={daemon.connected}>
+            {daemon.connected ? '● connected' : '○ disconnected'}
+          </span>
+        </div>
+      </nav>
+
+      <div class="route-container">
+        <Router {routes} />
+      </div>
+    </main>
+
+    <Toasts />
+  </div>
+{/if}
 
 <style>
-  main {
-    margin: 0;
-    padding: 48px 24px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    color: #e6e6e6;
-    background: #121216;
-    min-height: 100vh;
+  .app-shell {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+  .main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    min-width: 0;
   }
-  h1 {
-    font-size: 36px;
-    font-weight: 600;
-    margin: 0;
-  }
-  .daemon {
-    font-size: 14px;
-    color: #9aa0a6;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    margin: 0 0 24px 0;
-  }
-  .input-row {
+  .topbar {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-4);
+    height: 48px;
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
   }
-  .input {
-    background: #1d1d22;
-    border: 1px solid #2a2a31;
-    color: #e6e6e6;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    width: 240px;
+  .topbar-left {
+    display: flex;
+    gap: var(--space-4);
   }
-  .input:focus {
-    outline: none;
-    border-color: #5b8def;
+  .topbar-left a {
+    color: var(--color-text-muted);
+    font-size: var(--size-md);
+    padding: var(--space-2) 0;
+    border-bottom: 2px solid transparent;
+    text-decoration: none;
   }
-  .btn {
-    background: #5b8def;
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 8px;
-    font-size: 14px;
-    cursor: pointer;
+  .topbar-left a:hover {
+    color: var(--color-text);
   }
-  .btn:hover {
-    background: #4a7ade;
+  .topbar-left a.active {
+    color: var(--color-text);
+    border-bottom-color: var(--color-accent);
+  }
+  .topbar-right .conn {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
+  }
+  .topbar-right .conn.connected {
+    color: var(--color-success);
+  }
+  .route-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+  }
+  .route-container :global(div) {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  .onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--color-bg);
+    z-index: 100;
   }
 </style>

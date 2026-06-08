@@ -65,7 +65,7 @@ func TestPrintDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--print-default-config: %v\n%s", err, out)
 	}
-	if !bytes.Contains(out, []byte("version: 1")) {
+	if !bytes.Contains(out, []byte("version: 2")) {
 		t.Fatalf("missing top-level version key in:\n%s", out)
 	}
 	if !bytes.Contains(out, []byte("synapticd:")) && !bytes.Contains(out, []byte("daemon:")) {

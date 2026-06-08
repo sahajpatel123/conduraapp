@@ -125,6 +125,109 @@ CREATE INDEX IF NOT EXISTS idx_memory_entries_scope ON memory_entries(scope);
 CREATE INDEX IF NOT EXISTS idx_memory_entries_expires ON memory_entries(expires_at);
 `,
 	},
+	{
+		Version: 2,
+		Name:    "conversations + audit + halt + telemetry + first-run + window state",
+		SQL: `
+-- Conversations: one row per chat thread. Phase 2 stores the
+-- current conversation only (per the locked-in decision) but the
+-- schema is general enough for full history if we want it later.
+CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL DEFAULT 'New conversation',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Conversation messages: the per-message payload. We store the
+-- raw JSON (role + content + tool_calls) as TEXT to keep this
+-- migration simple. Future versions can split this into columns
+-- or move to a separate messages table keyed by conversation_id.
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tool_calls_json TEXT,
+    tool_call_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_conv_msgs ON conversation_messages(conversation_id, id);
+
+-- Audit log: append-only. One row per auditable action.
+-- Phase 2 replaces the v1 audit_log schema (which had a
+-- different column set) with the new one. Production hasn't
+-- shipped yet, so this is a clean cut.
+DROP TABLE IF EXISTS audit_log;
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    app TEXT NOT NULL DEFAULT '',
+    level TEXT NOT NULL DEFAULT 'info',
+    result TEXT NOT NULL DEFAULT 'allow',
+    message TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+
+-- Halt flag: a single-row table that all subsystems check before
+-- performing work. Updated by daemon.halt / daemon.resume.
+CREATE TABLE IF NOT EXISTS halt_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    halted INTEGER NOT NULL DEFAULT 0,
+    since TEXT,
+    reason TEXT
+);
+INSERT OR IGNORE INTO halt_state (id, halted) VALUES (1, 0);
+
+-- First-run marker: 0 if wizard has not been completed, 1 if it has.
+CREATE TABLE IF NOT EXISTS first_run (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    complete INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT
+);
+INSERT OR IGNORE INTO first_run (id, complete) VALUES (1, 0);
+
+-- Window state: persisted GUI window position/size + last
+-- conversation. Read on app launch, written on resize/move.
+CREATE TABLE IF NOT EXISTS window_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    width INTEGER NOT NULL DEFAULT 1200,
+    height INTEGER NOT NULL DEFAULT 800,
+    x INTEGER,
+    y INTEGER,
+    last_conversation_id INTEGER DEFAULT 0
+);
+INSERT OR IGNORE INTO window_state (id, width, height, x, y, last_conversation_id) VALUES (1, 1200, 800, NULL, NULL, 0);
+
+-- Telemetry counters: anonymous usage counters. Aggregated on
+-- disk; flushed to the (opt-in) endpoint periodically.
+CREATE TABLE IF NOT EXISTS telemetry_counters (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 0,
+    session_starts INTEGER NOT NULL DEFAULT 0,
+    messages_sent INTEGER NOT NULL DEFAULT 0,
+    tools_called INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0,
+    last_flush_ts TEXT
+);
+INSERT OR IGNORE INTO telemetry_counters (id, enabled) VALUES (1, 0);
+
+-- Update manifest cache: stores the most recent update-check
+-- result so the GUI can show "update available" without making
+-- a network call on every launch.
+CREATE TABLE IF NOT EXISTS update_cache (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_check_ts TEXT,
+    latest_version TEXT,
+    download_url TEXT
+);
+INSERT OR IGNORE INTO update_cache (id) VALUES (1);
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

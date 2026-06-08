@@ -15,8 +15,10 @@
 // at runtime should go through the IPC API (not direct mutation).
 package config
 
+import "runtime"
+
 // ConfigSchemaVersion is the current schema version. Bump on breaking changes.
-const ConfigSchemaVersion = 1
+const ConfigSchemaVersion = 2
 
 // Default config file location per OS.
 const (
@@ -58,6 +60,12 @@ type Config struct {
 
 	// Telemetry / crash reporting.
 	Telemetry TelemetryConfig `yaml:"telemetry"`
+
+	// Hotkey combos (overlay, kill switch).
+	Hotkey HotkeyConfig `yaml:"hotkey"`
+
+	// Persisted GUI window state.
+	Window WindowConfig `yaml:"window"`
 }
 
 // -----------------------------------------------------------------------------
@@ -82,9 +90,6 @@ type GeneralConfig struct {
 type DaemonConfig struct {
 	// AutoStart on user login (LaunchAgent on macOS, etc.).
 	AutoStart bool `yaml:"auto_start"`
-	// Hotkey is the global hotkey combo, e.g., "Cmd+Shift+Space".
-	// Empty means the user must set it on first run.
-	Hotkey string `yaml:"hotkey"`
 	// IdleTimeoutMinutes is how long the daemon waits with no user activity
 	// before pausing background perception. 0 disables the timeout.
 	IdleTimeoutMinutes int `yaml:"idle_timeout_minutes"`
@@ -134,8 +139,6 @@ type EncryptionConfig struct {
 
 // SecurityConfig holds security/safety settings.
 type SecurityConfig struct {
-	// KillSwitchHotkey is the global kill-switch hotkey. Default: "Cmd+Shift+Escape".
-	KillSwitchHotkey string `yaml:"kill_switch_hotkey"`
 	// AuditRetentionDays is how long audit logs are kept. 0 = use default (90).
 	AuditRetentionDays int `yaml:"audit_retention_days"`
 	// SpendLimitsUSD is the per-day hard spend cap. 0 = disabled.
@@ -237,4 +240,34 @@ type TelemetryConfig struct {
 	Enabled bool `yaml:"enabled"`
 	// CrashReports toggles crash report sending. Default: false.
 	CrashReports bool `yaml:"crash_reports"`
+	// Endpoint is the URL to POST anonymous events to.
+	Endpoint string `yaml:"endpoint"`
 }
+
+// HotkeyConfig holds the global hotkey combos.
+type HotkeyConfig struct {
+	// Overlay is the hotkey for the chat overlay (default: Cmd+Shift+Space).
+	Overlay string `yaml:"overlay"`
+	// KillSwitch is the hotkey for the kill switch (default: Cmd+Shift+Escape).
+	KillSwitch string `yaml:"kill_switch"`
+}
+
+// WindowConfig holds the persisted GUI window state.
+type WindowConfig struct {
+	Width              int   `yaml:"width"`
+	Height             int   `yaml:"height"`
+	X                  int   `yaml:"x"`
+	Y                  int   `yaml:"y"`
+	LastConversationID int64 `yaml:"last_conversation_id"`
+}
+
+// PlatformIsMac returns true if the daemon is running on macOS. It
+// is split out from runtime.GOOS so callers (hotkey defaults, tray
+// title, code signing) don't have to import "runtime".
+func PlatformIsMac() bool { return runtime.GOOS == "darwin" }
+
+// PlatformIsWindows returns true if the daemon is running on Windows.
+func PlatformIsWindows() bool { return runtime.GOOS == "windows" }
+
+// PlatformIsLinux returns true if the daemon is running on Linux.
+func PlatformIsLinux() bool { return runtime.GOOS == "linux" }

@@ -10,13 +10,19 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
+	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/conversation"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
+	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/health"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
 	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/synapticapp/internal/telemetry"
+	"github.com/sahajpatel123/synapticapp/internal/updater"
+	"github.com/sahajpatel123/synapticapp/internal/window"
 )
 
 // File mode constants. Owner-only for files that contain or refer to
@@ -32,14 +38,20 @@ const (
 // constructs. Returned by Run() for tests and for the GUI's App
 // struct; standalone callers can ignore it.
 type Subsystems struct {
-	Secrets  secrets.Manager
-	Storage  *storage.DB
-	APIKeys  *api_key.Manager
-	LLM      *llm.Registry
-	Failover *failover.Failover
-	Spend    *failover.SpendMonitor
-	Health   *health.Register
-	IPCAddr  string // first listen addr (empty if IPC disabled)
+	Secrets       secrets.Manager
+	Storage       *storage.DB
+	APIKeys       *api_key.Manager
+	LLM           *llm.Registry
+	Failover      *failover.Failover
+	Spend         *failover.SpendMonitor
+	Health        *health.Register
+	Conversations *conversation.Store
+	Audit         *audit.Log
+	Halt          *halt.Flag
+	Telemetry     *telemetry.Reporter
+	Updater       *updater.Updater
+	Window        *window.Manager
+	IPCAddr       string // first listen addr (empty if IPC disabled)
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -77,9 +89,21 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	hr.Add(healthCheckStorage(db))
 	hr.Add(healthCheckSecrets(sm))
 
+	// Phase 2: wire up the additional subsystems.
+	convStore := conversation.New(db.SQL())
+	auditLog := audit.New(db.SQL())
+	haltFlag := halt.New(db.SQL())
+	_ = haltFlag.Refresh(context.Background())
+	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)
+	tel.SetEnabled(cfg.Telemetry.Enabled)
+	upd := updater.New(db.SQL(), "https://synaptic.app/updates/manifest.json")
+	winMgr := window.New(db.SQL())
+
 	return &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
+		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
+		Telemetry: tel, Updater: upd, Window: winMgr,
 	}, nil
 }
 

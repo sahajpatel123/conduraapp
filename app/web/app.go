@@ -3,13 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App is the Wails app struct. Methods on this struct are bound to
 // the frontend and callable from TypeScript via window.go.main.App.
 type App struct {
 	ctx context.Context
+
+	// overlay tracks the current mode: false = main chat window,
+	// true = compact overlay (frameless, always-on-top, transparent).
+	overlay atomic.Bool
 }
 
 // NewApp creates a new App application struct.
@@ -55,4 +62,47 @@ func (a *App) DaemonStatus() DaemonStatusResult {
 type DaemonStatusResult struct {
 	Ready bool   `json:"ready"`
 	Addr  string `json:"addr"`
+}
+
+// ShowOverlay switches the main window into overlay mode: frameless,
+// always-on-top, semi-transparent. The frontend (Svelte) is
+// responsible for collapsing its own UI to a compact prompt bar.
+//
+// Safe to call from any goroutine.
+func (a *App) ShowOverlay() {
+	if a.ctx == nil {
+		return
+	}
+	a.overlay.Store(true)
+	wailsruntime.WindowSetAlwaysOnTop(a.ctx, true)
+	// 0 = fully transparent. We want translucent, so the user can
+	// still see the desktop behind. macOS treats A<255 as
+	// compositing; we land on 230/255 = ~10% transparency.
+	wailsruntime.WindowSetBackgroundColour(a.ctx, 18, 18, 22, 230)
+}
+
+// HideOverlay switches the main window back to normal mode: framed,
+// not always-on-top, fully opaque.
+func (a *App) HideOverlay() {
+	if a.ctx == nil {
+		return
+	}
+	a.overlay.Store(false)
+	wailsruntime.WindowSetAlwaysOnTop(a.ctx, false)
+	wailsruntime.WindowSetBackgroundColour(a.ctx, 18, 18, 22, 255)
+}
+
+// IsOverlay reports whether the window is currently in overlay
+// mode. Pure read; safe from any goroutine.
+func (a *App) IsOverlay() bool {
+	return a.overlay.Load()
+}
+
+// ToggleOverlay flips between main-window and overlay mode.
+func (a *App) ToggleOverlay() {
+	if a.IsOverlay() {
+		a.HideOverlay()
+	} else {
+		a.ShowOverlay()
+	}
 }

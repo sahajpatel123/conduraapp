@@ -11,16 +11,33 @@
 // Concurrency: Run is NOT safe to call twice in the same process. Most
 // subsystems (secrets manager, storage DB, log default) are singletons
 // and will conflict.
+//
+// Single-instance enforcement: Run acquires an advisory flock on
+// <data-dir>/synapticd.lock at startup. If another process holds the
+// lock, Run returns ErrAlreadyRunning. The lock is released when Run
+// returns.
 package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/lockfile"
 	"github.com/sahajpatel123/synapticapp/internal/version"
 )
+
+// ErrAlreadyRunning is returned by Run if another synaptic instance
+// is already using the same data directory. The user-visible message
+// should be "Another instance of Synaptic is already running."
+var ErrAlreadyRunning = errors.New("daemon: another instance is already running")
+
+// DefaultLockFile is the file name used by single-instance enforcement
+// inside the data dir. The full path is <data-dir>/<DefaultLockFile>.
+const DefaultLockFile = "synapticd.lock"
 
 // Options configures a single Run() invocation. Build it once, reuse it
 // across calls if you need to (it is read-only inside Run).
@@ -76,6 +93,19 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		return nil, err
 	}
 
+	// Acquire the single-instance lock. We do this BEFORE spinning
+	// up the logger / DB / IPC so a second invocation fails fast
+	// with a clean error message.
+	lock, err := lockfile.TryAcquire(filepath.Join(opts.Config.General.DataDir, DefaultLockFile))
+	if err != nil {
+		if errors.Is(err, lockfile.ErrLocked) {
+			return nil, ErrAlreadyRunning
+		}
+		return nil, fmt.Errorf("daemon: lockfile: %w", err)
+	}
+	// From here on, we must release the lock on every error path.
+	releaseLock := func() { _ = lock.Release() }
+
 	log := opts.Logger
 	if log == nil {
 		log = newLoggerFromConfig(opts.Config)
@@ -97,6 +127,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	subs, err := initSubsystems(log, opts.Config)
 	if err != nil {
+		releaseLock()
 		return nil, err
 	}
 
@@ -108,12 +139,20 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	if !opts.Listen.Disable {
 		if err := startListeners(ctx, ipcT, log, opts.Config, opts.Listen); err != nil {
 			_ = subs.Storage.Close()
+			releaseLock()
 			return nil, err
 		}
 		writeAddrFile(opts.Config, ipcT)
 		subs.IPCAddr = ipcT.Addr()
 		log.Info("ipc listening", "addr", subs.IPCAddr)
 	}
+
+	// Release the lock when ctx is canceled.
+	go func() {
+		<-ctx.Done()
+		log.Info("releasing single-instance lock")
+		_ = lock.Release()
+	}()
 
 	<-ctx.Done()
 	log.Info("synapticd stopped")

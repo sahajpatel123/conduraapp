@@ -75,7 +75,6 @@ func Default() *Config {
 		},
 		Daemon: DaemonConfig{
 			AutoStart:          true,
-			Hotkey:             "", // user must set on first run
 			IdleTimeoutMinutes: 15,
 			DefaultAutonomy:    AutonomyWarn,
 		},
@@ -103,7 +102,6 @@ func Default() *Config {
 			},
 		},
 		Security: SecurityConfig{
-			KillSwitchHotkey:    "Cmd+Shift+Escape",
 			AuditRetentionDays:  90,
 			SpendLimitUSDPerDay: 5.0,
 			PIIRedaction:        true,
@@ -648,6 +646,10 @@ func setReflect(root any, parts []string, value string) error {
 		return setAutonomy(&root.(*Config).Autonomy, parts[1:], value)
 	case "telemetry":
 		return setTelemetry(&root.(*Config).Telemetry, parts[1:], value)
+	case "hotkey":
+		return setHotkey(&root.(*Config).Hotkey, parts[1:], value)
+	case "window":
+		return setWindow(&root.(*Config).Window, parts[1:], value)
 	default:
 		return fmt.Errorf("unknown section %q", parts[0])
 	}
@@ -689,8 +691,6 @@ func setDaemon(c *DaemonConfig, parts []string, value string) error {
 			return err
 		}
 		c.AutoStart = b
-	case "hotkey":
-		c.Hotkey = value
 	case "idle_timeout_minutes":
 		n, err := strconv.Atoi(value)
 		if err != nil {
@@ -778,8 +778,6 @@ func setSecurity(c *SecurityConfig, parts []string, value string) error {
 		return errBadPath("security", parts)
 	}
 	switch parts[0] {
-	case "kill_switch_hotkey":
-		c.KillSwitchHotkey = value
 	case "audit_retention_days":
 		n, err := strconv.Atoi(value)
 		if err != nil {
@@ -917,6 +915,64 @@ func errUnknownField(section, field string) error {
 // errReadOnly returns a consistent error for env-set fields that are not env-overridable.
 func errReadOnly(path string) error {
 	return fmt.Errorf("field %q is not overridable via env (edit config file)", path)
+}
+
+// setHotkey handles writes to the hotkey section.
+func setHotkey(c *HotkeyConfig, parts []string, value string) error {
+	if len(parts) != 1 {
+		return errBadPath("hotkey", parts)
+	}
+	switch parts[0] {
+	case "overlay":
+		c.Overlay = value
+	case "kill_switch":
+		c.KillSwitch = value
+	default:
+		return errUnknownField("hotkey", parts[0])
+	}
+	return nil
+}
+
+// setWindow handles writes to the window section.
+func setWindow(c *WindowConfig, parts []string, value string) error {
+	if len(parts) != 1 {
+		return errBadPath("window", parts)
+	}
+	switch parts[0] {
+	case "width":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.Width = n
+	case "height":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.Height = n
+	case "x":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.X = n
+	case "y":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.Y = n
+	case "last_conversation_id":
+		n, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		c.LastConversationID = n
+	default:
+		return errUnknownField("window", parts[0])
+	}
+	return nil
 }
 
 // ResolveStoragePath returns the absolute path for the SQLite DB.

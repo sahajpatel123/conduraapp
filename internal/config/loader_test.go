@@ -28,7 +28,7 @@ func TestDefault_HasDataDir(t *testing.T) {
 func TestDefault_HotkeyEmpty(t *testing.T) {
 	cfg := Default()
 	// Per CLAUDE.md Decision 8, the user must set the hotkey on first run.
-	assert.Empty(t, cfg.Daemon.Hotkey)
+	assert.Empty(t, cfg.Hotkey.Overlay)
 }
 
 func TestDefault_AutonomyIsWarn(t *testing.T) {
@@ -248,12 +248,14 @@ func TestLoader_Load_FromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 1
+version: 2
 general:
   data_dir: ` + tmpDir + `
   language: fr-FR
+hotkey:
+  overlay: Cmd+Shift+K
+  kill_switch: Ctrl+Alt+\
 daemon:
-  hotkey: Cmd+Shift+K
   idle_timeout_minutes: 30
 logging:
   level: debug
@@ -266,7 +268,7 @@ security:
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "fr-FR", cfg.General.Language)
-	assert.Equal(t, "Cmd+Shift+K", cfg.Daemon.Hotkey)
+	assert.Equal(t, "Cmd+Shift+K", cfg.Hotkey.Overlay)
 	assert.Equal(t, 30, cfg.Daemon.IdleTimeoutMinutes)
 	assert.Equal(t, "debug", cfg.Logging.Level)
 	assert.Equal(t, 10.0, cfg.Security.SpendLimitUSDPerDay)
@@ -278,7 +280,7 @@ func TestLoader_Load_ResolvesEmptyPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 1
+version: 2
 general:
   data_dir: ` + tmpDir + `
 `
@@ -294,7 +296,7 @@ general:
 func TestLoader_Load_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\n  bad indent: oops"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 2\n  bad indent: oops"), 0o600))
 	loader := NewLoader(path)
 	_, err := loader.Load()
 	require.Error(t, err)
@@ -305,7 +307,7 @@ func TestLoader_Load_InvalidConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 1
+version: 2
 general:
   data_dir: ""
 `
@@ -335,11 +337,11 @@ func TestLoader_Save_RoundTrip(t *testing.T) {
 func TestLoader_Load_EnvOverrides(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 2\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	// Convention: __ separates YAML hierarchy; _ is part of a field name.
 	t.Setenv("SYNAPTIC_LOGGING__LEVEL", "debug")
-	t.Setenv("SYNAPTIC_DAEMON__HOTKEY", "Ctrl+Space")
+	t.Setenv("SYNAPTIC_HOTKEY__OVERLAY", "Ctrl+Space")
 	t.Setenv("SYNAPTIC_SECURITY__SPEND_LIMIT_USD_PER_DAY", "20.5")
 	t.Setenv("SYNAPTIC_TELEMETRY__ENABLED", "true")
 	t.Setenv("SYNAPTIC_API_SERVER__PORT", "9999")
@@ -349,7 +351,7 @@ func TestLoader_Load_EnvOverrides(t *testing.T) {
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "debug", cfg.Logging.Level)
-	assert.Equal(t, "Ctrl+Space", cfg.Daemon.Hotkey)
+	assert.Equal(t, "Ctrl+Space", cfg.Hotkey.Overlay)
 	assert.Equal(t, 20.5, cfg.Security.SpendLimitUSDPerDay)
 	assert.True(t, cfg.Telemetry.Enabled)
 	assert.Equal(t, 9999, cfg.APIServer.Port)
@@ -359,7 +361,7 @@ func TestLoader_Load_EnvOverrides(t *testing.T) {
 func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 2\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_TELEMETRY__ENABLED", "yes-please")
 	loader := NewLoader(path)
@@ -371,7 +373,7 @@ func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 func TestLoader_Load_EnvUnknownField(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 2\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_LOGGING__BOGUS", "value")
 	loader := NewLoader(path)
@@ -383,7 +385,7 @@ func TestLoader_Load_EnvUnknownField(t *testing.T) {
 func TestLoader_Load_EnvReadOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 2\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_STORAGE__ENCRYPTION__ENABLED", "false")
 	loader := NewLoader(path)
@@ -456,8 +458,26 @@ func TestSetReflect_AllSections(t *testing.T) {
 	require.NoError(t, setGeneral(&cfg.General, []string{"first_run"}, "true"))
 	assert.True(t, cfg.General.FirstRun)
 
-	require.NoError(t, setDaemon(&cfg.Daemon, []string{"hotkey"}, "Cmd+K"))
-	assert.Equal(t, "Cmd+K", cfg.Daemon.Hotkey)
+	require.NoError(t, setHotkey(&cfg.Hotkey, []string{"overlay"}, "Cmd+K"))
+	assert.Equal(t, "Cmd+K", cfg.Hotkey.Overlay)
+
+	require.NoError(t, setHotkey(&cfg.Hotkey, []string{"kill_switch"}, "Ctrl+Alt+\\"))
+	assert.Equal(t, "Ctrl+Alt+\\", cfg.Hotkey.KillSwitch)
+
+	require.NoError(t, setWindow(&cfg.Window, []string{"width"}, "1280"))
+	assert.Equal(t, 1280, cfg.Window.Width)
+
+	require.NoError(t, setWindow(&cfg.Window, []string{"height"}, "800"))
+	assert.Equal(t, 800, cfg.Window.Height)
+
+	require.NoError(t, setWindow(&cfg.Window, []string{"x"}, "100"))
+	assert.Equal(t, 100, cfg.Window.X)
+
+	require.NoError(t, setWindow(&cfg.Window, []string{"y"}, "50"))
+	assert.Equal(t, 50, cfg.Window.Y)
+
+	require.NoError(t, setWindow(&cfg.Window, []string{"last_conversation_id"}, "12345"))
+	assert.Equal(t, int64(12345), cfg.Window.LastConversationID)
 
 	require.NoError(t, setDaemon(&cfg.Daemon, []string{"auto_start"}, "false"))
 	assert.False(t, cfg.Daemon.AutoStart)
@@ -491,9 +511,6 @@ func TestSetReflect_AllSections(t *testing.T) {
 
 	require.NoError(t, setBackup(&cfg.Storage.Backup, []string{"retention_days"}, "7"))
 	assert.Equal(t, 7, cfg.Storage.Backup.RetentionDays)
-
-	require.NoError(t, setSecurity(&cfg.Security, []string{"kill_switch_hotkey"}, "Ctrl+Alt+\\"))
-	assert.Equal(t, "Ctrl+Alt+\\", cfg.Security.KillSwitchHotkey)
 
 	require.NoError(t, setSecurity(&cfg.Security, []string{"audit_retention_days"}, "30"))
 	assert.Equal(t, 30, cfg.Security.AuditRetentionDays)
