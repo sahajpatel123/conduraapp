@@ -91,7 +91,9 @@ func (m *Menu) SetSpendUSD(usd float64) {
 // SetTooltip updates the systray icon tooltip text.
 func (m *Menu) SetTooltip(s string) {
 	m.tooltip = s
-	systray.SetTooltip(s)
+	if m.mShow != nil {
+		systray.SetTooltip(s)
+	}
 }
 
 // Start blocks; run it in a goroutine. systray.Run installs signal

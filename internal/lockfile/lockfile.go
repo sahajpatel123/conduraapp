@@ -62,6 +62,21 @@ func TryAcquire(path string) (*Lock, error) {
 	if err != nil {
 		return nil, fmt.Errorf("lockfile: open: %w", err)
 	}
+	// Write diagnostic payload BEFORE acquiring the lock. On Windows,
+	// LockFileEx is mandatory and prevents writes through other handles.
+	if err := f.Truncate(0); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("lockfile: truncate: %w", err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("lockfile: seek: %w", err)
+	}
+	if _, err := fmt.Fprintf(f, "pid=%d\n", os.Getpid()); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("lockfile: write: %w", err)
+	}
+	_ = f.Sync()
 	fl := flock.New(path)
 	ok, err := fl.TryLock()
 	if err != nil {
@@ -72,27 +87,6 @@ func TryAcquire(path string) (*Lock, error) {
 		_ = f.Close()
 		return nil, ErrLocked
 	}
-	// Truncate and write a diagnostic payload. We keep this small
-	// (one line) so the file is human-readable.
-	if err := f.Truncate(0); err != nil {
-		_ = f.Close()
-		_ = fl.Unlock()
-		return nil, fmt.Errorf("lockfile: truncate: %w", err)
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		_ = f.Close()
-		_ = fl.Unlock()
-		return nil, fmt.Errorf("lockfile: seek: %w", err)
-	}
-	if _, err := fmt.Fprintf(f, "pid=%d\n", os.Getpid()); err != nil {
-		_ = f.Close()
-		_ = fl.Unlock()
-		return nil, fmt.Errorf("lockfile: write: %w", err)
-	}
-	// fsync isn't strictly required for an advisory lock, but it
-	// makes the diagnostic payload more useful if the holder dies
-	// unexpectedly.
-	_ = f.Sync()
 	return &Lock{file: f, fl: fl, path: path}, nil
 }
 
