@@ -92,7 +92,11 @@ func TestNew_Default(t *testing.T) {
 	m, err := New(filepath.Join(dir, "s.json"))
 	require.NoError(t, err)
 	assert.NotNil(t, m)
-	assert.Equal(t, BackendKeyring, m.Backend(), "default backend is keyring on macOS dev")
+	// On macOS the default is keyring; on Linux/Windows CI it may fall
+	// back to file if no keyring is available. Accept either.
+	backend := m.Backend()
+	assert.True(t, backend == BackendKeyring || backend == BackendFile,
+		"unexpected backend %q", backend)
 }
 
 func TestNew_NoFilePath_Auto(t *testing.T) {

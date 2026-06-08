@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.23"
+  GO_VERSION: "1.23.12"
   GOLANGCI_LINT_VERSION: "v2.0.2"
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Run golangci-lint
@@ -73,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Download modules
@@ -86,7 +86,13 @@ jobs:
         run: go vet $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
 
       - name: Run unit tests
-        run: go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            # Skip hotkey (needs X11) and tray (needs ayatana) on Linux CI
+            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+          else
+            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
+          fi
 
       - name: Check coverage threshold (safety packages)
         run: |
@@ -135,7 +141,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Build synapticd
@@ -185,7 +191,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Build daemon
@@ -215,7 +221,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Install govulncheck
