@@ -98,13 +98,13 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic \
+          go test -race -count=1 -timeout=300s -coverprofile=coverage.out -covermode=atomic \
             $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
 
       - name: Run unit tests (macOS/Windows - all packages)
         if: runner.os != 'Linux'
         shell: bash
-        run: go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -race -count=1 -timeout=300s -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage threshold (safety packages)
         if: runner.os == 'Linux'

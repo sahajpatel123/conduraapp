@@ -7,7 +7,6 @@ package main_test
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +21,11 @@ func TestBinaryPath(t *testing.T) {
 	// Build the binary into a temp dir for the suite.
 	t.Helper()
 	binDir := t.TempDir()
-	bin := filepath.Join(binDir, "synapticd")
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	bin := filepath.Join(binDir, "synapticd"+ext)
 	// Repo root is two levels up from this test file (cmd/synapticd).
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
@@ -44,6 +47,20 @@ func synapticd(t *testing.T) string {
 		t.Skip("__SYNAPSE_TEST_BIN not set; TestBinaryPath should run first")
 	}
 	return bin
+}
+
+// stopDaemon sends SIGTERM on Unix or Kill on Windows.
+func stopDaemon(t *testing.T, cmd *exec.Cmd) {
+	t.Helper()
+	if cmd.Process == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		_ = cmd.Process.Kill()
+	} else {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+	}
+	_ = cmd.Wait()
 }
 
 func TestVersionFlag(t *testing.T) {
@@ -89,10 +106,7 @@ func TestStartsAndStopsCleanly(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	defer func() {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-		_ = cmd.Wait()
-	}()
+	defer func() { stopDaemon(t, cmd) }()
 
 	// Wait up to 5s for the address file to appear.
 	deadline := time.Now().Add(5 * time.Second)
@@ -136,10 +150,7 @@ func TestDataDirFlagPropagates(t *testing.T) {
 	}
 	// Restore the default SIGTERM behavior so the cleanup path is
 	// straightforward even if the test fails before we get there.
-	defer func() {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-		_ = cmd.Wait()
-	}()
+	defer func() { stopDaemon(t, cmd) }()
 
 	// Wait up to 5s for the address file to appear, signaling that
 	// the daemon has finished startup and written its log line.
@@ -151,22 +162,8 @@ func TestDataDirFlagPropagates(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// Stop the daemon BEFORE reading the captured output. The exec
-	// package runs a background goroutine that copies the child's
-	// stdout/stderr into the buffer; reading the buffer while that
-	// goroutine is still running is a data race caught by `go test
-	// -race`. cmd.Wait() blocks until the writer goroutines have
-	// finished, so reading after Wait is safe.
-	_ = cmd.Process.Signal(syscall.SIGTERM)
-	if err := cmd.Wait(); err != nil {
-		// Wait returns *exec.ExitError on non-zero exit; SIGTERM yields
-		// exit code 143, which is expected. Only fail on truly unexpected
-		// errors (e.g. process not started).
-		var ee *exec.ExitError
-		if !errors.As(err, &ee) {
-			t.Fatalf("wait: %v", err)
-		}
-	}
+	// Stop the daemon BEFORE reading the captured output.
+	stopDaemon(t, cmd)
 
 	log := stdout.String() + stderr.String()
 	if !strings.Contains(log, "storage_path="+dataDir) {

@@ -63,7 +63,11 @@ func startDaemon(t *testing.T, bin, dataDir string) *daemon {
 	}
 	t.Cleanup(func() {
 		if cmd.Process != nil {
-			_ = cmd.Process.Signal(syscall.SIGTERM)
+			if runtime.GOOS == "windows" {
+				_ = cmd.Process.Kill()
+			} else {
+				_ = cmd.Process.Signal(syscall.SIGTERM)
+			}
 			_ = cmd.Wait()
 		}
 	})
