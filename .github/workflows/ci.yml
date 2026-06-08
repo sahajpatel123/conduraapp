@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.23.12"
-  GOLANGCI_LINT_VERSION: "v2.1.6"
+  GO_VERSION: "1.25.0"
+  GOLANGCI_LINT_VERSION: "v2.2.0"
 
 jobs:
   # ---------------------------------------------------------------
@@ -90,13 +90,14 @@ jobs:
         run: go vet $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
 
       - name: Run unit tests
+        shell: pwsh
         run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
+          if ($env:RUNNER_OS -eq "Linux") {
             # Skip hotkey (needs X11) and tray (needs ayatana) on Linux CI
-            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
-          else
+            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic $(go list ./... | Where-Object { $_ -notmatch 'internal/hotkey|internal/tray' })
+          } else {
             go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
-          fi
+          }
 
       - name: Check coverage threshold (safety packages)
         run: |
