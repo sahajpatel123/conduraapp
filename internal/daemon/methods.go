@@ -52,7 +52,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerAPIKeyMethods(srv, subs.APIKeys)
 	registerLLMMethods(srv, subs.LLM, subs.Spend)
 	registerSpendMethods(srv, subs.Spend)
-	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt)
+	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM)
 	registerAuditMethods(srv, subs.Audit)
 	registerHaltMethods(srv, subs.Halt, subs.Audit)
 	registerControlMethods(srv, cfg, subs)

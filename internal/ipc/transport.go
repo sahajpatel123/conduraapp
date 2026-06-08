@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/sahajpatel123/synapticapp/internal/sse"
 )
 
 // Conn is the abstract connection interface used by ServeConn. It is
@@ -47,6 +49,13 @@ const (
 type ServerTransport struct {
 	S     *Server
 	Token string // optional bearer token; if non-empty, clients must send it
+
+	// SSE is an optional Server-Sent Events broker. If set, GET /events
+	// is mounted on the same HTTP mux so the GUI can subscribe to
+	// streaming events (LLM tokens, audit, spend) over the same
+	// listener. Auth is enforced uniformly — the Token (if set) is
+	// checked before the broker takes over the response.
+	SSE *sse.Broker
 
 	mu        sync.Mutex
 	closed    bool
@@ -94,31 +103,58 @@ func (t *ServerTransport) serveListener(ln net.Listener) {
 
 // handleHTTP dispatches HTTP requests:
 //   - GET /healthz -> 200 OK
-//   - POST / with JSON-RPC body -> response
-//   - Upgrade to WebSocket on /ws
+//   - GET /events  -> SSE broker (if configured)
+//   - GET /ws      -> WebSocket upgrade
+//   - POST /       -> JSON-RPC
 func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && r.URL.Path == "/healthz" {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 		return
 	}
-	// Auth check.
-	if t.Token != "" {
-		auth := r.Header.Get("Authorization")
-		want := "Bearer " + t.Token
-		if auth != want {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+	// SSE endpoint: mount the broker at /events. Auth (if
+	// configured) is checked first so unauthenticated callers
+	// never see stream events.
+	if r.Method == http.MethodGet && r.URL.Path == "/events" {
+		if !t.authorize(w, r) {
 			return
 		}
+		if t.SSE == nil {
+			http.Error(w, "events not enabled", http.StatusNotImplemented)
+			return
+		}
+		t.SSE.ServeHTTP(w, r)
+		return
+	}
+	if !t.authorize(w, r) {
+		return
 	}
 
-	// WebSocket upgrade.
 	if isWebsocketUpgrade(r) {
 		t.serveWebSocket(w, r)
 		return
 	}
+	t.handleJSONRPC(w, r)
+}
 
-	// Plain HTTP JSON-RPC.
+// authorize enforces the bearer-token check, if a token is
+// configured. Returns true if the request is allowed to proceed; if
+// false, the response has already been written with 401.
+func (t *ServerTransport) authorize(w http.ResponseWriter, r *http.Request) bool {
+	if t.Token == "" {
+		return true
+	}
+	auth := r.Header.Get("Authorization")
+	if auth == "Bearer "+t.Token {
+		return true
+	}
+	http.Error(w, "unauthorized", http.StatusUnauthorized)
+	return false
+}
+
+// handleJSONRPC reads the body, dispatches the call, and writes the
+// response.
+func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -135,14 +171,12 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	ctx := r.Context()
-	out, err := t.S.HandleRaw(ctx, body)
+	out, err := t.S.HandleRaw(r.Context(), body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if out == nil {
-		// Notification: 204 No Content.
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

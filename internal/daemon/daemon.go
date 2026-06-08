@@ -136,6 +136,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	subs.Health.Add(healthCheckIPC())
 
 	ipcT := newServerTransport(ipcSrv, opts.Listen.AuthToken)
+	ipcT.SSE = subs.Broker
 	if !opts.Listen.Disable {
 		if err := startListeners(ctx, ipcT, log, opts.Config, opts.Listen); err != nil {
 			_ = subs.Storage.Close()
@@ -144,7 +145,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		}
 		writeAddrFile(opts.Config, ipcT)
 		subs.IPCAddr = ipcT.Addr()
-		log.Info("ipc listening", "addr", subs.IPCAddr)
+		log.Info("ipc listening", "addr", subs.IPCAddr, "sse_enabled", true)
 	}
 
 	// Release the lock when ctx is canceled.

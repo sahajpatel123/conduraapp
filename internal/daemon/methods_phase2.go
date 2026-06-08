@@ -5,17 +5,20 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/synapticapp/internal/stream"
 )
 
 // registerConversationMethods wires conversations.* + llm.stream +
 // llm.cancel.
-func registerConversationMethods(srv *ipc.Server, store *conversation.Store, auditLog *audit.Log, haltFlag *halt.Flag) {
+func registerConversationMethods(srv *ipc.Server, store *conversation.Store, auditLog *audit.Log, haltFlag *halt.Flag, sm *stream.Manager, reg *llm.Registry) {
 	srv.Register("conversations.list", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return store.List(ctx)
 	})
@@ -60,6 +63,12 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 		if err := store.Delete(ctx, p.ID); err != nil {
 			return nil, err
 		}
+		// Cancel any in-flight streams for this conversation
+		// so the GUI doesn't keep receiving tokens for a
+		// conversation the user just deleted.
+		if sm != nil {
+			sm.CancelByConversation(p.ID)
+		}
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorDaemon, Action: "conversations.delete", App: appSynapticd,
 			Level: auditLevelInfo, Result: auditResultAllow,
@@ -92,37 +101,118 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 		return auditOK(), nil
 	})
 
-	// llm.stream: the GUI calls this to start a stream. The actual
-	// tokens are pushed over SSE; this method just kicks off the
-	// call and returns once the first event is published (or an
-	// error). The GUI listens to the 'stream' event on /events.
-	//
-	// Phase 2: the streaming pipeline through the LLM registry is
-	// deferred to Phase 3. The GUI currently uses llm.chat (which
-	// drains streams server-side) rather than a true streaming
-	// protocol. We still expose llm.stream as a placeholder so the
-	// TS side can wire it up; it returns an error pointing the
-	// caller to llm.chat.
+	// llm.stream: the GUI calls this to start a stream. The
+	// manager kicks off the provider's Stream and returns
+	// immediately with a request_id. Tokens arrive on the SSE
+	// broker at /events as "stream.*" events tagged with the
+	// request_id.
 	srv.Register("llm.stream", func(ctx context.Context, params json.RawMessage) (any, error) {
-		if haltFlag.IsHalted() {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "daemon is halted"}
-		}
-		_ = params
-		return nil, &ipc.Error{
-			Code:    ipc.CodeMethodNotFound,
-			Message: "llm.stream not yet implemented; use llm.chat (which drains the stream server-side)",
-		}
+		return handleLLMStream(ctx, params, haltFlag, sm, reg, auditLog)
 	})
-	srv.Register("llm.cancel", func(_ context.Context, params json.RawMessage) (any, error) {
-		var p struct {
-			ConversationID int64 `json:"conversation_id"`
-		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
-		}
-		_ = p
-		return auditOK(), nil
+	srv.Register("llm.cancel", func(ctx context.Context, params json.RawMessage) (any, error) {
+		return handleLLMCancel(ctx, params, sm, auditLog)
 	})
+}
+
+// handleLLMStream is the body of the llm.stream RPC. Extracted to keep
+// registerConversationMethods under the gocognit budget.
+func handleLLMStream(
+	ctx context.Context,
+	params json.RawMessage,
+	_ *halt.Flag, // halt is checked inside the stream manager
+	sm *stream.Manager,
+	reg *llm.Registry,
+	auditLog *audit.Log,
+) (any, error) {
+	var p struct {
+		Provider       string          `json:"provider"`
+		ConversationID int64           `json:"conversation_id"`
+		Request        llm.ChatRequest `json:"request"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	}
+	if p.Provider == "" {
+		// Convenience: if exactly one provider is configured,
+		// accept calls without an explicit provider name.
+		if reg != nil && reg.Len() == 1 {
+			for _, name := range reg.Names() {
+				p.Provider = name
+			}
+		}
+	}
+	if p.Provider == "" {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "provider is required"}
+	}
+	requestID, err := sm.Start(ctx, stream.Request{
+		ConversationID: p.ConversationID,
+		ProviderName:   p.Provider,
+		Chat:           p.Request,
+	})
+	if err != nil {
+		return nil, mapStreamError(err)
+	}
+	_ = auditLog.Append(ctx, audit.Event{
+		Actor: actorGUI, Action: "llm.stream", App: appSynapticG,
+		Level: auditLevelInfo, Result: auditResultAllow,
+		Message: "provider=" + p.Provider + " model=" + p.Request.Model,
+	})
+	return map[string]any{
+		"request_id":      requestID,
+		"conversation_id": p.ConversationID,
+	}, nil
+}
+
+// handleLLMCancel is the body of the llm.cancel RPC.
+func handleLLMCancel(
+	ctx context.Context,
+	params json.RawMessage,
+	sm *stream.Manager,
+	auditLog *audit.Log,
+) (any, error) {
+	var p struct {
+		RequestID string `json:"request_id"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	}
+	if p.RequestID == "" {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "request_id is required"}
+	}
+	if err := sm.Cancel(p.RequestID); err != nil {
+		return nil, mapStreamError(err)
+	}
+	_ = auditLog.Append(ctx, audit.Event{
+		Actor: actorGUI, Action: "llm.cancel", App: appSynapticG,
+		Level: auditLevelInfo, Result: auditResultAllow,
+		Message: "request_id=" + p.RequestID,
+	})
+	return map[string]any{
+		"canceled":   true,
+		"request_id": p.RequestID,
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// mapStreamError converts a stream package error into the appropriate
+// IPC error code. Unknown errors are returned as-is.
+func mapStreamError(err error) error {
+	switch {
+	case isStreamErr(err, stream.ErrNotFound):
+		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	case isStreamErr(err, stream.ErrHalted):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	case isStreamErr(err, stream.ErrContextFull):
+		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	case isStreamErr(err, stream.ErrAlreadyExists):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+	return err
+}
+
+// isStreamErr reports whether err is (or wraps) target.
+func isStreamErr(err, target error) bool {
+	return errors.Is(err, target)
 }
 
 // registerAuditMethods wires audit.list.

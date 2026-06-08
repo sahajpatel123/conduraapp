@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/version"
@@ -55,7 +56,7 @@ type Broker struct {
 	mu         sync.RWMutex
 	clients    map[*Client]struct{}
 	closed     bool
-	eventCount uint64
+	eventCount atomic.Uint64
 }
 
 // NewBroker returns a fresh Broker. Call Close to stop accepting
@@ -82,17 +83,19 @@ type Client struct {
 // don't block).
 func (b *Broker) Publish(ev Event) {
 	b.mu.RLock()
-	defer b.mu.RUnlock()
-	if b.closed {
-		return
-	}
-	b.eventCount++
+	closed := b.closed
+	count := uint64(0)
 	for c := range b.clients {
 		select {
 		case c.channel <- ev:
+			count++
 		default:
 			// drop on the floor; slow client
 		}
+	}
+	b.mu.RUnlock()
+	if !closed {
+		b.eventCount.Add(count)
 	}
 }
 

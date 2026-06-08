@@ -19,7 +19,9 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/synapticapp/internal/sse"
 	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/synapticapp/internal/stream"
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 	"github.com/sahajpatel123/synapticapp/internal/window"
@@ -51,6 +53,8 @@ type Subsystems struct {
 	Telemetry     *telemetry.Reporter
 	Updater       *updater.Updater
 	Window        *window.Manager
+	Broker        *sse.Broker
+	Streams       *stream.Manager
 	IPCAddr       string // first listen addr (empty if IPC disabled)
 }
 
@@ -99,11 +103,20 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	upd := updater.New(db.SQL(), "https://synaptic.app/updates/manifest.json")
 	winMgr := window.New(db.SQL())
 
+	// Phase 3: SSE broker + LLM stream manager. The broker fans
+	// events out to GUI EventSource clients; the stream manager
+	// owns the lifecycle of in-flight LLM streams and bridges them
+	// to the broker.
+	broker := sse.NewBroker()
+	streamMgr := stream.NewManager(broker, registry)
+	streamMgr.SetHaltChecker(haltFlag.IsHalted)
+
 	return &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
 		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
 		Telemetry: tel, Updater: upd, Window: winMgr,
+		Broker: broker, Streams: streamMgr,
 	}, nil
 }
 
