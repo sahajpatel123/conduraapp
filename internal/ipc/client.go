@@ -171,5 +171,6 @@ func IsConnRefused(err error) bool {
 	// matching so we don't have to import syscall across platforms.
 	s := err.Error()
 	return strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "actively refused") ||
 		strings.Contains(s, "no such file or directory")
 }

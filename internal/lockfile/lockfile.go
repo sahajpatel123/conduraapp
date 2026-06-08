@@ -29,14 +29,11 @@ var ErrLocked = errors.New("lockfile: another instance holds the lock")
 // Lock is a held lock file. Call Release to drop it (or just let the
 // process exit — the kernel will drop the flock).
 type Lock struct {
-	file *os.File
 	fl   *flock.Flock
 	path string
 }
 
 // Permissions used when creating the lock file and its parent dir.
-// Tightened to 0600/0750 so non-owner users on a shared host cannot
-// see which PID is running Synaptic.
 const (
 	dirPerm  os.FileMode = 0o750
 	filePerm os.FileMode = 0o600
@@ -47,9 +44,7 @@ func (l *Lock) Path() string { return l.path }
 
 // TryAcquire attempts a non-blocking flock on the file at path. The
 // parent directory is created with 0o755 if missing. The file itself
-// is created (or truncated) and a small JSON payload is written
-// containing the holder's PID and hostname — this is purely
-// diagnostic, used when reporting ErrLocked to the user.
+// is created if it doesn't exist.
 //
 // On success the returned *Lock must be Released by the caller (or
 // the process will hold the lock until exit). On ErrLocked the file
@@ -58,36 +53,22 @@ func TryAcquire(path string) (*Lock, error) {
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil { //nolint:gosec // G304: caller-controlled path is the whole point
 		return nil, fmt.Errorf("lockfile: mkdir: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, filePerm) //nolint:gosec // G304: caller-controlled path is the whole point
+	// Ensure the file exists so flock can open it.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, filePerm) //nolint:gosec // G304: caller-controlled path is the whole point
 	if err != nil {
 		return nil, fmt.Errorf("lockfile: open: %w", err)
 	}
-	// Write diagnostic payload BEFORE acquiring the lock. On Windows,
-	// LockFileEx is mandatory and prevents writes through other handles.
-	if err := f.Truncate(0); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("lockfile: truncate: %w", err)
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("lockfile: seek: %w", err)
-	}
-	if _, err := fmt.Fprintf(f, "pid=%d\n", os.Getpid()); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("lockfile: write: %w", err)
-	}
-	_ = f.Sync()
+	_ = f.Close()
+
 	fl := flock.New(path)
 	ok, err := fl.TryLock()
 	if err != nil {
-		_ = f.Close()
 		return nil, fmt.Errorf("lockfile: trylock: %w", err)
 	}
 	if !ok {
-		_ = f.Close()
 		return nil, ErrLocked
 	}
-	return &Lock{file: f, fl: fl, path: path}, nil
+	return &Lock{fl: fl, path: path}, nil
 }
 
 // Release drops the flock and closes the file. Safe to call multiple
@@ -101,12 +82,6 @@ func (l *Lock) Release() error {
 			return fmt.Errorf("lockfile: unlock: %w", err)
 		}
 		l.fl = nil
-	}
-	if l.file != nil {
-		if err := l.file.Close(); err != nil {
-			return fmt.Errorf("lockfile: close: %w", err)
-		}
-		l.file = nil
 	}
 	return nil
 }
