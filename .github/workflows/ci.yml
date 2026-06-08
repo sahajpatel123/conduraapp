@@ -25,6 +25,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,6 +49,8 @@ jobs:
   test:
     name: Test (${{ matrix.os }}/${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    env:
+      GOTOOLCHAIN: local
     strategy:
       fail-fast: false
       matrix:
@@ -118,6 +122,8 @@ jobs:
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     strategy:
       fail-fast: false
       matrix:
@@ -182,6 +188,8 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     steps:
@@ -209,6 +217,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout
         uses: actions/checkout@v4
