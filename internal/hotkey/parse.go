@@ -11,6 +11,9 @@
 //
 // For the key, we accept the printable character or a name from the
 // table below. We do NOT support the "Hyper"/"Fn" macOS modifiers.
+//
+//go:build !linux
+
 package hotkey
 
 import (

@@ -11,6 +11,9 @@
 //	    return err
 //	}
 //	defer mgr.Stop()
+//
+//go:build !linux
+
 package hotkey
 
 import (

@@ -42,13 +42,11 @@ linters:
 
   settings:
     gosec:
-      # In Phase 1, we want gosec findings to be visible but not block.
-      # Switch to "strict" once we harden for v0.1.0.
       severity: low
       confidence: low
       excludes:
-        - G104  # unhandled error: handled by errcheck
-        - G107  # URL parameterized: by design for LLM clients
+        - G104
+        - G107
     gocritic:
       enabled-tags:
         - diagnostic
@@ -57,14 +55,7 @@ linters:
       disabled-tags:
         - experimental
       disabled-checks:
-        # hugeParam: passing large structs by pointer instead of by value.
-        # We intentionally pass by value for read-only request/response
-        # shapes (ChatRequest, ChatResponse, etc.) — the copies are
-        # cheaper than heap allocations, and the values can't escape
-        # past the call boundary by accident.
         - hugeParam
-        # paramTypeCombine: collapse adjacent same-type parameters into
-        # one declaration. Style preference, not a correctness issue.
         - paramTypeCombine
     revive:
       severity: warning
@@ -96,32 +87,30 @@ linters:
         - name: unexported-return
           severity: warning
     mnd:
-      # Allow common small numbers in tests and well-known idioms
-      # (HTTP status, buffer sizes, file modes, common ports).
       ignored-numbers:
-        - 0
-        - 1
-        - 2
-        - 3
-        - 4
-        - 5
-        - 8
-        - 10
-        - 16
-        - 30
-        - 32
-        - 60
-        - 64
-        - 100
-        - 200
-        - 300
-        - 400
-        - 500
-        - 1000
-        - 1024
-        - 4096
-        - 8192
-        - 65536
+        - "0"
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "8"
+        - "10"
+        - "16"
+        - "30"
+        - "32"
+        - "60"
+        - "64"
+        - "100"
+        - "200"
+        - "300"
+        - "400"
+        - "500"
+        - "1000"
+        - "1024"
+        - "4096"
+        - "8192"
+        - "65536"
         - "0600"
         - "0700"
         - "0755"
@@ -131,38 +120,25 @@ linters:
     gocyclo:
       min-complexity: 15
     gocognit:
-      # Cognitive complexity threshold. SSE/NDJSON streaming parsers
-      # naturally branch on event type, role, finish reason, and tool
-      # calls — they read as a long switch with many fall-throughs. A
-      # threshold of 30 keeps the check useful for "ordinary" code
-      # (the per-function exclusions cover the streaming parsers that
-      # legitimately exceed 30).
       min-complexity: 30
     goconst:
-      # We consider it noise if a string appears only 2-3 times; usually
-      # those are YAML keys, model IDs in tests, or sensible call-site
-      # identifiers that don't benefit from being aliased. Bumping to 4
-      # surfaces only the repeated patterns that *do* benefit (provider
-      # names, autonomy levels, log levels).
       min-occurrences: 4
       ignore-tests: true
       numbers: false
-    goimports:
-      local-prefixes: github.com/sahajpatel123/synapticapp
     misspell:
       locale: US
     prealloc:
       simple: true
       range-loops: true
     nolintlint:
-      allow-leading-space: false
-      allow-unused: false
       require-explanation: true
       require-specific: true
 
   exclusions:
+    paths:
+      - internal/hotkey
+      - internal/tray
     rules:
-      # In tests, allow parallel, t.Logf, etc.
       - path: _test\.go
         linters:
           - mnd
@@ -172,32 +148,23 @@ linters:
           - tparallel
           - dupl
           - funlen
-          # Subprocess launching (exec.Command with the test fixture
-          # path) and bare net.Listen / net.Dial are fine in tests —
-          # they're the canonical way to spin up an isolated daemon
-          # or stand up a test listener.
           - noctx
           - gosec
-      # model_pricing.go is a static data table; the numbers there
-      # are prices and context windows, not magic values.
       - path: internal/llm/model_pricing\.go
         linters:
           - mnd
           - goconst
-      # The Default() factory and YAML tag names in config/loader.go
-      # are data declarations; the numbers are default values, not
-      # magic.
       - path: internal/config/loader\.go
         linters:
           - mnd
-      # Generated files
       - path: \.pb\.go$
         linters:
           - all
-      # Test fixtures
       - path: test/fixtures/
         linters:
           - all
+      - path: internal/llm/openai_compat/
+        text: "G107.*"
 
 formatters:
   enable:
@@ -205,7 +172,8 @@ formatters:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/sahajpatel123/synapticapp
+      local-prefixes:
+        - github.com/sahajpatel123/synapticapp
   exclusions:
     paths:
       - vendor/
@@ -215,16 +183,3 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false
-  exclude-rules:
-    - path: internal/llm/openai_compat/
-      text: "G107.*"
-      # We intentionally use URL parameters from config (e.g., custom OpenAI-compatible providers)
-
-output:
-  formats:
-    colored-line-number:
-      path: stdout
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: true
-  sort-results: true

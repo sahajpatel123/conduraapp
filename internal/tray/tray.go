@@ -5,6 +5,9 @@
 //
 // The implementation is platform-agnostic via systray; the bundle's
 // icon + title are set from the same strings the GUI uses.
+//
+//go:build !linux
+
 package tray
 
 import (
