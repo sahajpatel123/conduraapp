@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# Cancel in-progress runs for the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.25.0"
+  GO_VERSION: "1.25.11"
   GOLANGCI_LINT_VERSION: "v2.2.0"
 
 jobs:
@@ -37,11 +36,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: ${{ env.GOLANGCI_LINT_VERSION }}
-          args: --timeout=5m
+        run: golangci-lint run --timeout=5m
 
   # ---------------------------------------------------------------
   # Test (host OS: ubuntu, single arch)
@@ -56,14 +56,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         arch: [amd64]
-        go: ["1.23"]
         include:
           - os: ubuntu-latest
             arch: arm64
-            go: "1.23"
           - os: macos-latest
             arch: arm64
-            go: "1.23"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -81,25 +78,32 @@ jobs:
           cache: true
 
       - name: Download modules
+        shell: bash
         run: go mod download
 
       - name: Verify modules
+        shell: bash
         run: go mod verify
 
       - name: Run go vet
+        shell: bash
         run: go vet $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
 
-      - name: Run unit tests
-        shell: pwsh
+      - name: Run unit tests (Linux - skip CGO packages)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          if ($env:RUNNER_OS -eq "Linux") {
-            # Skip hotkey (needs X11) and tray (needs ayatana) on Linux CI
-            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic $(go list ./... | Where-Object { $_ -notmatch 'internal/hotkey|internal/tray' })
-          } else {
-            go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
-          }
+          go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic \
+            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+
+      - name: Run unit tests (macOS/Windows - all packages)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: go test -race -count=1 -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage threshold (safety packages)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
           # Extract coverage for critical packages: must be > 80%
           for pkg in internal/safety internal/perception internal/agent internal/llm internal/ipc; do
@@ -213,7 +217,7 @@ jobs:
         run: go test -race -count=1 -timeout=300s -tags=integration ./test/integration/...
 
   # ---------------------------------------------------------------
-  # Security: govulncheck + gosec
+  # Security: govulncheck
   # ---------------------------------------------------------------
   security:
     name: Security Scan
