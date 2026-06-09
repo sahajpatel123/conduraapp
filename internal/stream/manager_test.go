@@ -188,14 +188,14 @@ func newTestManager(t *testing.T, providers ...llm.Provider) (*Manager, *sse.Bro
 // TestManager_StartReturnsRequestID verifies that Start returns a
 // non-empty request_id and registers the stream.
 func TestManager_StartReturnsRequestID(t *testing.T) {
+	// events is nil so the stream blocks until canceled; this keeps the
+	// stream registered while we assert Count == 1. With auto-completing
+	// events, a fast or loaded runner can drain and deregister the stream
+	// before the assertion runs, which flaked on CI (ubuntu arm64).
 	p := &fakeProvider{
 		name: "fake",
 		models: []llm.ModelInfo{
 			{ID: "fake-1", ContextWindow: 4096},
-		},
-		events: []llm.StreamEvent{
-			{Delta: llm.Message{Role: llm.RoleAssistant, Content: "hi"}},
-			{Done: true, FinishReason: llm.FinishStop},
 		},
 	}
 	m, _ := newTestManager(t, p)
@@ -216,9 +216,12 @@ func TestManager_StartReturnsRequestID(t *testing.T) {
 		t.Fatal("empty request_id")
 	}
 	if got := m.Count(); got != 1 {
-		t.Errorf("Count = %d, want 1 (stream may have completed already)", got)
+		t.Fatalf("Count = %d, want 1", got)
 	}
-	// Wait for the goroutine to drain.
+	// Cancel and wait for the goroutine to drain.
+	if err := m.Cancel(id); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
 	if !waitFor(t, func() bool { return m.Count() == 0 }, time.Second) {
 		t.Fatalf("stream did not finish: Count = %d", m.Count())
 	}
