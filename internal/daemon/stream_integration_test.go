@@ -425,8 +425,39 @@ func TestStream_CancelUnknownRequestReturnsError(t *testing.T) {
 	}
 }
 
-// TestStream_BrokerMountedAtEvents verifies the /events endpoint
-// is reachable and serves the broker.
+// TestStream_ContextOverflowReturnsError verifies that the daemon
+// refuses a stream whose conversation exceeds the model's context
+// window. Exercises the mapStreamError(ErrContextFull) branch.
+func TestStream_ContextOverflowReturnsError(t *testing.T) {
+	// Register a small-context model in the global pricing registry.
+	llm.RegisterModel(llm.ModelInfo{ID: "tiny", ContextWindow: 10})
+	t.Cleanup(func() { llm.UnregisterModel("tiny") })
+
+	addr, _, cleanup := bringUpPipeline(t, &fakeStreamingProvider{
+		name: "fake",
+		events: []llm.StreamEvent{
+			{Done: true},
+		},
+	})
+	defer cleanup()
+
+	// A long message that overflows the 10-token window (at
+	// 4 chars/token, 100 chars > 10 tokens + 1000 reserve).
+	big := strings.Repeat("a", 100)
+	_, rpcErr := callRPC(t, addr, "llm.stream", map[string]any{
+		"provider": "fake",
+		"request": map[string]any{
+			"model": "tiny",
+			"messages": []map[string]any{
+				{"role": "user", "content": big},
+			},
+		},
+	})
+	if rpcErr == nil {
+		t.Fatal("expected error for context overflow")
+	}
+}
+
 func TestStream_BrokerMountedAtEvents(t *testing.T) {
 	addr, _, cleanup := bringUpPipeline(t)
 	defer cleanup()
