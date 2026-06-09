@@ -1,6 +1,5 @@
 <script lang="ts">
   import Router from 'svelte-spa-router'
-  import { wrap } from 'svelte-spa-router/wrap'
   import { onMount } from 'svelte'
 
   import Chat from './lib/routes/Chat.svelte'
@@ -21,12 +20,14 @@
   }
 
   let showOnboarding = $state(false)
-  let currentHash = $state(window.location.hash)
+  let currentHash = $state(typeof window !== 'undefined' ? window.location.hash : '')
 
   // Listen for hash changes (svelte-spa-router updates window.location.hash).
-  window.addEventListener('hashchange', () => {
-    currentHash = window.location.hash
-  })
+  if (typeof window !== 'undefined') {
+    window.addEventListener('hashchange', () => {
+      currentHash = window.location.hash
+    })
+  }
 
   onMount(async () => {
     // Check first-run status; show wizard if not yet complete.

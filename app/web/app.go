@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -17,9 +19,7 @@ type App struct {
 	// overlay tracks the current mode: false = main chat window,
 	// true = compact overlay (frameless, always-on-top, transparent).
 	overlay atomic.Bool
-}
-
-// NewApp creates a new App application struct.
+}// NewApp creates a new App application struct.
 func NewApp() *App {
 	return &App{}
 }
@@ -28,17 +28,19 @@ func NewApp() *App {
 // saved so we can call Wails runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	diagLog("startup: Wails app started")
 }
 
 // domReady is called when the WebView has finished loading the
 // frontend. We use it to signal that the GUI is ready for IPC.
 func (a *App) domReady(ctx context.Context) {
-	// Future: notify the daemon that the GUI is online.
+	diagLog("domReady: WebView finished loading the frontend")
 }
 
 // Ping is the simplest possible bound method: returns a greeting
 // with a timestamp. Used to verify the TS↔Go bridge works.
 func (a *App) Ping(name string) string {
+	diagLog(fmt.Sprintf("Ping called with name=%q", name))
 	return fmt.Sprintf("Hello %s, Synaptic is online (ts=%d).", name, time.Now().Unix())
 }
 
@@ -46,16 +48,26 @@ func (a *App) Ping(name string) string {
 // what its first listen address is. Returns an empty string for
 // addr if the daemon is not yet ready.
 func (a *App) DaemonStatus() DaemonStatusResult {
+	diagLog("DaemonStatus called")
 	select {
 	case <-daemonReady:
 	default:
+		diagLog("DaemonStatus: daemon not yet ready")
 		return DaemonStatusResult{Ready: false}
 	}
 	addr := ""
 	if embeddedDaemon != nil {
 		addr = embeddedDaemon.IPCAddr
 	}
+	diagLog(fmt.Sprintf("DaemonStatus: ready=true addr=%s", addr))
 	return DaemonStatusResult{Ready: true, Addr: addr}
+}
+
+// LogFromFrontend receives a string from the JS side and appends
+// it to the diagnostic file. The frontend calls this to surface
+// any error or status it sees.
+func (a *App) LogFromFrontend(msg string) {
+	diagLog("frontend: " + msg)
 }
 
 // DaemonStatusResult is the JSON shape returned to the frontend.
@@ -105,4 +117,25 @@ func (a *App) ToggleOverlay() {
 	} else {
 		a.ShowOverlay()
 	}
+}
+
+// diagLog appends a line to ~/Library/Logs/synaptic-gui-diag.log so
+// we can diagnose startup problems from the Go side without seeing
+// the GUI. Best-effort; errors are silently ignored so logging
+// itself never breaks the app.
+func diagLog(msg string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	logDir := filepath.Join(home, "Library", "Logs")
+	_ = os.MkdirAll(logDir, 0o755)
+	path := filepath.Join(logDir, "synaptic-gui-diag.log")
+	line := fmt.Sprintf("%s %s\n", time.Now().Format(time.RFC3339), msg)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = f.WriteString(line)
 }

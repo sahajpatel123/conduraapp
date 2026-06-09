@@ -67,15 +67,18 @@ func main() {
 	// goroutine; the daemon runs in its own goroutine above.
 	app := NewApp()
 	err = wails.Run(&options.App{
-		Title:  "Synaptic",
-		Width:  1200,
-		Height: 800,
+		Title:     "Synaptic",
+		Width:     1200,
+		Height:    800,
+		MinWidth:  800,
+		MinHeight: 500,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 22, A: 1},
-		OnStartup:        app.startup,
-		OnDomReady:       app.domReady,
+		BackgroundColour:         &options.RGBA{R: 18, G: 18, B: 22, A: 1},
+		OnStartup:                app.startup,
+		OnDomReady:               app.domReady,
+		EnableDefaultContextMenu: true, // right-click → "Inspect Element"
 		Bind: []interface{}{
 			app,
 		},

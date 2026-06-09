@@ -6,6 +6,26 @@ export function DaemonStatus() {
   return window['go']['main']['App']['DaemonStatus']();
 }
 
+export function HideOverlay() {
+  return window['go']['main']['App']['HideOverlay']();
+}
+
+export function IsOverlay() {
+  return window['go']['main']['App']['IsOverlay']();
+}
+
+export function LogFromFrontend(arg1) {
+  return window['go']['main']['App']['LogFromFrontend'](arg1);
+}
+
 export function Ping(arg1) {
   return window['go']['main']['App']['Ping'](arg1);
+}
+
+export function ShowOverlay() {
+  return window['go']['main']['App']['ShowOverlay']();
+}
+
+export function ToggleOverlay() {
+  return window['go']['main']['App']['ToggleOverlay']();
 }

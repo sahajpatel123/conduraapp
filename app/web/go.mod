@@ -1,6 +1,6 @@
 module github.com/sahajpatel123/synapticapp/app/web
 
-go 1.25.0
+go 1.25.11
 
 require github.com/sahajpatel123/synapticapp v0.0.0
 

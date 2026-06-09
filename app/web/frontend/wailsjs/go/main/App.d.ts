@@ -4,4 +4,14 @@ import {main} from '../models';
 
 export function DaemonStatus():Promise<main.DaemonStatusResult>;
 
+export function HideOverlay():Promise<void>;
+
+export function IsOverlay():Promise<boolean>;
+
+export function LogFromFrontend(arg1:string):Promise<void>;
+
 export function Ping(arg1:string):Promise<string>;
+
+export function ShowOverlay():Promise<void>;
+
+export function ToggleOverlay():Promise<void>;
