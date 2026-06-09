@@ -701,3 +701,58 @@ The "fully ready" definition for 2.1: the GUI binary builds, opens, embeds the d
 - **Mid-stream resume** — if SSE connection drops, the client misses events. No replay mechanism yet.
 - **Wails frontend integration** — `client.ts` EventSource handler exists but needs a real desktop session to verify the streaming UI actually renders tokens.
 - **Build Order steps 22+** (computer use, memory, skills, adaptive engine, MCP, P2P, replay) — still pending; Phase 3 here was streaming only.
+
+---
+
+## Session 8 — Phase 4 kickoff: The Living Presence (sub-phase 4.0, safety seam)
+
+**Date:** 2026-06-09
+**AI Model:** Claude Opus 4.8 (Claude Code), partner-implementer
+**Goal:** Begin Phase 4 — the press-and-hold voice agent + menu-bar presence
+(MISSION §19/§6/§21). Brainstormed and specced the whole phase, then built
+the first sub-phase: the deterministic Gatekeeper safety seam that lets the
+agent gain voice/presence now while making it impossible to act on the OS
+until the real rules engine exists (Phase 5).
+
+### Decisions locked with the architect (2026-06-09)
+- **Sequencing: hybrid.** Build the experience now, behind a deny-by-default
+  Gatekeeper. The agent feels alive immediately; it cannot click/type/exec.
+- **Voice trigger: push-to-talk only.** Wake word deferred.
+- **Speech: fully local.** whisper.cpp (STT) + native OS TTS. $0 runtime.
+- **whisper integration: subprocess** to a `whisper` binary; binary + model
+  download on first run (keeps daemon < 20 MB per STYLE.md §17).
+- **Platform: cross-platform from the start** (macOS + Windows + Linux).
+- **Git workflow (NEW, supersedes "never commit"):** commit each green
+  sub-phase to `main`; push to GitHub at end of session after full
+  verification.
+
+### What was built (sub-phase 4.0)
+- `internal/blastradius` — deterministic action classifier (READ / WRITE /
+  NETWORK / DESTRUCTIVE per MISSION §5.1). Unknown/empty kinds classify as
+  DESTRUCTIVE (most conservative). Pure logic, no deps. 100% coverage.
+- `internal/gatekeeper` — the safety seam. `Gatekeeper` interface +
+  `DenyBeyondRead` v0: allow READ, deny everything else with a class-named
+  reason. The real rules engine (policy.yaml, consent, queue — MISSION
+  §10.2) drops in behind the same interface in Phase 5. 100% coverage.
+- `docs/superpowers/specs/2026-06-09-living-presence-design.md` — full
+  Phase 4 design spec (goals, locked decisions, 6 sub-phases 4.0–4.5,
+  testing, honest risks). The continuity contract for the phase.
+
+### Verification
+- `go test -race -count=1 -timeout=120s ./...` — all 26 packages green.
+- `golangci-lint run ./...` — 0 issues.
+- Coverage: `blastradius` 100.0%, `gatekeeper` 100.0%.
+- TDD throughout: every test written and watched fail before implementation.
+
+### Open items / next session
+- **4.1 — local speech** is next: `internal/voice` (`Recorder`,
+  whisper-subprocess `Transcriber`, native `Speaker`), per platform, with
+  first-run model+binary download. Largest lift of the phase.
+- **Risk to watch (4.2):** Wails v2 multi-window for the overlay
+  (frameless/transparent/always-on-top, cross-platform) — spike early,
+  keep behind the `overlay` interface, native fallback if unstable.
+- **No mic-permission package yet** — 4.1 needs the minimum (TCC / Windows
+  / Linux portal) or to fold prompting into onboarding (§20).
+- Gatekeeper is not yet wired into a caller; that happens in 4.4 when the
+  thin agent loop (`agent.ask`) routes every turn through `Evaluate` and
+  audits the decision (MISSION §5.4).
