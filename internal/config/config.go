@@ -18,7 +18,7 @@ package config
 import "runtime"
 
 // ConfigSchemaVersion is the current schema version. Bump on breaking changes.
-const ConfigSchemaVersion = 2
+const ConfigSchemaVersion = 3
 
 // Default config file location per OS.
 const (
@@ -66,6 +66,9 @@ type Config struct {
 
 	// Persisted GUI window state.
 	Window WindowConfig `yaml:"window"`
+
+	// Voice input/output configuration.
+	Voice VoiceConfig `yaml:"voice"`
 }
 
 // -----------------------------------------------------------------------------
@@ -259,6 +262,53 @@ type WindowConfig struct {
 	X                  int   `yaml:"x"`
 	Y                  int   `yaml:"y"`
 	LastConversationID int64 `yaml:"last_conversation_id"`
+}
+
+// VoiceConfig controls speech recognition and synthesis.
+type VoiceConfig struct {
+	// Enabled toggles voice I/O. Default: false.
+	Enabled bool `yaml:"enabled"`
+
+	// PushToTalk toggles push-to-talk mode (hold key to speak).
+	// When false, voice is always-on (voice-activated).
+	PushToTalk bool `yaml:"push_to_talk"`
+
+	// Hotkey is the push-to-talk key combo (default: "Cmd+Shift+V").
+	Hotkey string `yaml:"hotkey"`
+
+	// Model is the whisper model variant: "tiny", "base", "small", "medium".
+	// Default: "base" (~142 MB, multilingual, good accuracy/speed balance).
+	Model string `yaml:"model"`
+
+	// Language is the BCP-47 language code for whisper (default: "auto" for auto-detect).
+	Language string `yaml:"language"`
+
+	// SampleRate for audio capture. Default: 16000 (whisper's native rate).
+	SampleRate int `yaml:"sample_rate"`
+
+	// Channels for audio capture. Default: 1 (mono).
+	Channels int `yaml:"channels"`
+
+	// VADThreshold is the energy threshold for voice activity detection.
+	// Range: 0.0 (silence) to 1.0 (loud). Default: 0.015.
+	VADThreshold float64 `yaml:"vad_threshold"`
+
+	// SilenceTimeoutMs is how many ms of silence before we stop capture.
+	// Default: 1500.
+	SilenceTimeoutMs int `yaml:"silence_timeout_ms"`
+
+	// MaxCaptureDurationSec is the max seconds of audio before forced stop.
+	// Default: 30.
+	MaxCaptureDurationSec int `yaml:"max_capture_duration_sec"`
+
+	// SpeakerEnabled toggles TTS output. Default: false.
+	SpeakerEnabled bool `yaml:"speaker_enabled"`
+
+	// SpeakerVoice is the macOS voice name for TTS (default: "Samantha").
+	SpeakerVoice string `yaml:"speaker_voice"`
+
+	// SpeakerRate is the TTS speaking rate (default: 200 words per minute).
+	SpeakerRate int `yaml:"speaker_rate"`
 }
 
 // PlatformIsMac returns true if the daemon is running on macOS. It

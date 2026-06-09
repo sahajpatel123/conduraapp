@@ -168,6 +168,21 @@ func Default() *Config {
 			Enabled:      false,
 			CrashReports: false,
 		},
+		Voice: VoiceConfig{
+			Enabled:               false,
+			PushToTalk:            true,
+			Hotkey:                "Cmd+Shift+V",
+			Model:                 "base",
+			Language:              "auto",
+			SampleRate:            16000,
+			Channels:              1,
+			VADThreshold:          0.015,
+			SilenceTimeoutMs:      1500,
+			MaxCaptureDurationSec: 30,
+			SpeakerEnabled:        false,
+			SpeakerVoice:          "Samantha",
+			SpeakerRate:           200,
+		},
 	}
 	return cfg
 }
@@ -477,7 +492,7 @@ func (e *ErrInvalidConfig) Error() string {
 
 // Validate checks the config for obvious errors.
 func (c *Config) Validate() error {
-	errs := make([]string, 0, len(c.validateVersion())+len(c.validateGeneral())+len(c.validateDaemon())+len(c.validateLogging())+len(c.validateStorage())+len(c.validateSecurity())+len(c.validateAPIServer())+len(c.validateAutonomy()))
+	errs := make([]string, 0, len(c.validateVersion())+len(c.validateGeneral())+len(c.validateDaemon())+len(c.validateLogging())+len(c.validateStorage())+len(c.validateSecurity())+len(c.validateAPIServer())+len(c.validateAutonomy())+len(c.validateVoice()))
 	errs = append(errs, c.validateVersion()...)
 	errs = append(errs, c.validateGeneral()...)
 	errs = append(errs, c.validateDaemon()...)
@@ -486,6 +501,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.validateSecurity()...)
 	errs = append(errs, c.validateAPIServer()...)
 	errs = append(errs, c.validateAutonomy()...)
+	errs = append(errs, c.validateVoice()...)
 
 	if len(errs) > 0 {
 		return &ErrInvalidConfig{Errors: errs}
@@ -601,6 +617,33 @@ func isValidAutonomy(level string) bool {
 	}
 }
 
+func (c *Config) validateVoice() []string {
+	var errs []string
+	validModels := map[string]bool{"tiny": true, "base": true, "small": true, "medium": true}
+	if c.Voice.Model != "" && !validModels[c.Voice.Model] {
+		errs = append(errs, fmt.Sprintf("voice.model %q is not a valid whisper model (tiny, base, small, medium)", c.Voice.Model))
+	}
+	if c.Voice.SampleRate < 0 {
+		errs = append(errs, "voice.sample_rate must be non-negative")
+	}
+	if c.Voice.Channels < 0 || c.Voice.Channels > 2 {
+		errs = append(errs, "voice.channels must be 0, 1, or 2")
+	}
+	if c.Voice.VADThreshold < 0 || c.Voice.VADThreshold > 1 {
+		errs = append(errs, "voice.vad_threshold must be between 0 and 1")
+	}
+	if c.Voice.SilenceTimeoutMs < 0 {
+		errs = append(errs, "voice.silence_timeout_ms must be non-negative")
+	}
+	if c.Voice.MaxCaptureDurationSec < 0 {
+		errs = append(errs, "voice.max_capture_duration_sec must be non-negative")
+	}
+	if c.Voice.SpeakerRate < 0 {
+		errs = append(errs, "voice.speaker_rate must be non-negative")
+	}
+	return errs
+}
+
 // ParseLevel is exposed here for use by the logger package and others.
 func ParseLevel(s string) string {
 	switch strings.ToLower(strings.TrimSpace(s)) {
@@ -650,6 +693,8 @@ func setReflect(root any, parts []string, value string) error {
 		return setHotkey(&root.(*Config).Hotkey, parts[1:], value)
 	case "window":
 		return setWindow(&root.(*Config).Window, parts[1:], value)
+	case "voice":
+		return setVoice(&root.(*Config).Voice, parts[1:], value)
 	default:
 		return fmt.Errorf("unknown section %q", parts[0])
 	}
@@ -971,6 +1016,68 @@ func setWindow(c *WindowConfig, parts []string, value string) error {
 		c.LastConversationID = n
 	default:
 		return errUnknownField("window", parts[0])
+	}
+	return nil
+}
+
+// setVoice handles writes to the voice section.
+func setVoice(c *VoiceConfig, parts []string, value string) error {
+	if len(parts) != 1 {
+		return errBadPath("voice", parts)
+	}
+	field := parts[0]
+	switch field {
+	case "enabled", "push_to_talk", "speaker_enabled":
+		b := value == "true" || value == "1"
+		switch field {
+		case "enabled":
+			c.Enabled = b
+		case "push_to_talk":
+			c.PushToTalk = b
+		case "speaker_enabled":
+			c.SpeakerEnabled = b
+		}
+	case "hotkey", "model", "language", "speaker_voice":
+		switch field {
+		case "hotkey":
+			c.Hotkey = value
+		case "model":
+			c.Model = value
+		case "language":
+			c.Language = value
+		case "speaker_voice":
+			c.SpeakerVoice = value
+		}
+	case "vad_threshold":
+		f, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return err
+		}
+		c.VADThreshold = f
+	default:
+		return setVoiceIntField(c, field, value)
+	}
+	return nil
+}
+
+func setVoiceIntField(c *VoiceConfig, field, value string) error {
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		return err
+	}
+	switch field {
+	case "sample_rate":
+		c.SampleRate = n
+	case "channels":
+		c.Channels = n
+	case "silence_timeout_ms":
+		c.SilenceTimeoutMs = n
+	case "max_capture_duration_sec":
+		c.MaxCaptureDurationSec = n
+	case "speaker_rate":
+		c.SpeakerRate = n
+	default:
+		return errUnknownField("voice", field)
 	}
 	return nil
 }
