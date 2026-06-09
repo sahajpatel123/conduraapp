@@ -796,3 +796,63 @@ until the real rules engine exists (Phase 5).
 3. Wire the halt flag and cancel mechanisms into the active streaming goroutines.
 4. Begin Sub-phase 4.1 (local speech: Whisper STT, native TTS) if safety issues are cleared.
 
+
+---
+
+## Session 10 — Phase 5: Computer Use & Memory
+
+**Date:** 2026-06-09
+**AI Model:** mimo-v2.5-free (opencode)
+**Session ID:** phase-5-computer-use-memory
+**Task:** Implement Phase 5 — Computer Use & Memory (sub-phases 5.0 through 5.5)
+
+### Files created
+- `docs/superpowers/specs/2026-06-09-computer-use-memory-design.md` — Complete Phase 5 specification
+- `internal/computeruse/computeruse.go` — Core interfaces (Backend, Action, Screenshot, AXTree)
+- `internal/computeruse/router.go` — 4-tier backend router (cheapest first)
+- `internal/computeruse/errors.go` — Sentinel errors
+- `internal/computeruse/noop_backend.go` — NoopBackend and MockBackend for testing
+- `internal/computeruse/ax/ax_darwin.go` — macOS Accessibility API bindings (CGo)
+- `internal/computeruse/ax/ax_other.go` — Stub for non-Darwin platforms
+- `internal/computeruse/verify.go` — Twin-snapshot verification
+- `internal/memory/memory.go` — Memory system interfaces and types
+- `internal/memory/errors.go` — Memory sentinel errors
+- `internal/memory/sqlite_store.go` — SQLite-backed memory store
+- `internal/agent/planner.go` — Planner interface and SimplePlanner
+- `internal/agent/verifier.go` — Verifier interface and SimpleVerifier
+- `internal/agent/loop_expanded.go` — Expanded agent loop with multi-step execution
+
+### Files modified
+- `internal/blastradius/blastradius.go` — Expanded with computer-use actions
+
+### Decisions made
+- **Phase 5 scope:** Computer Use (AX bridge, twin-snapshot, 4-tier router) + Memory (episodic, semantic, procedural)
+- **macOS AX tree is primary backend:** User's primary platform, richest AX API
+- **ORAX Eye first, then fallbacks:** Free, fast (~50ms), MIT licensed
+- **Twin-snapshot mandatory for WRITE/NETWORK:** Anti-staleness mechanism (MISSION §5.2)
+- **Memory in SQLite + FTS5:** Local-first, encrypted at rest, no cloud
+- **SimplePlanner for v0:** Linear plans, can be upgraded to more sophisticated planning later
+
+### Implementation summary
+- **Phase 5.0:** Computer-use interfaces (Backend, Action, Screenshot, AXTree), 4-tier Router, expanded blast-radius classifier
+- **Phase 5.1:** macOS Accessibility bridge with CGo bindings (AX tree reader)
+- **Phase 5.2:** Twin-snapshot verification (pre/post action comparison)
+- **Phase 5.3:** Memory system (episodic, semantic, procedural) with SQLite storage
+- **Phase 5.4:** Agent loop expansion (Planner, Verifier, ExpandedLoop)
+- **Phase 5.5:** Polish, all tests pass, lint clean
+
+### Test results
+- All 36 packages pass `go test -race -count=1 -timeout=120s ./...`
+- Lint clean `golangci-lint run --timeout=5m ./...`
+- New packages: computeruse (14 tests), ax (5 tests), memory (12 tests), agent expansion (8 tests)
+
+### Open questions for next session
+- **Phase 6 (Sub-Agents & Skills):** Next logical step after Phase 5
+- **Windows/Linux AX backends:** Deferred (macOS primary)
+- **sqlite-vec for vector similarity:** Not yet integrated (can be added later)
+
+### Next steps
+1. Push Phase 5 commits to GitHub
+2. Begin Phase 6: Sub-Agents & Skills (8 CLI delegates, Skills Hub, P2P sync)
+3. Or polish Phase 5 further (real malgo integration, Wails overlay, frontend components)
+
