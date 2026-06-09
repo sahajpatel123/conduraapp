@@ -22,18 +22,28 @@ func NewRouter(backends ...Backend) *Router {
 	}
 }
 
-// Execute calls the function on the first available backend.
+// Execute calls the function on the first available backend. It
+// distinguishes between "backend unavailable" (try next) and "action
+// failed" (return immediately, preserving the real error).
 func Execute[T any](r *Router, ctx context.Context, fn func(Backend) (T, error)) (T, error) {
 	var zero T
+	var lastErr error
 	for _, b := range r.backends {
 		if !b.IsAvailable(ctx) {
 			continue
 		}
 		result, err := fn(b)
 		if err != nil {
-			continue // try next backend
+			// If the backend is available but the action failed,
+			// return the real error rather than falling through
+			// to a costlier backend.
+			lastErr = err
+			break
 		}
 		return result, nil
+	}
+	if lastErr != nil {
+		return zero, lastErr
 	}
 	return zero, fmt.Errorf("no available backend for operation")
 }

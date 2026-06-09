@@ -69,18 +69,7 @@ const char* getStringAttribute(AXUIElementRef element, CFStringRef attribute) {
     return buffer;
 }
 
-// Helper to get children count
-CFIndex getChildrenCount(AXUIElementRef element) {
-    CFTypeRef children = NULL;
-    AXError err = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute, &children);
-    if (err != kAXErrorSuccess || !children) return 0;
-
-    CFIndex count = CFArrayGetCount((CFArrayRef)children);
-    CFRelease(children);
-    return count;
-}
-
-// Helper to get child at index
+// Helper to get child at index (deprecated — use getChildren for bulk access)
 AXUIElementRef getChildAtIndex(AXUIElementRef element, CFIndex index) {
     CFTypeRef children = NULL;
     AXError err = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute, &children);
@@ -96,6 +85,16 @@ AXUIElementRef getChildAtIndex(AXUIElementRef element, CFIndex index) {
     CFRetain(child);
     CFRelease(children);
     return child;
+}
+
+// getChildren fetches the children array once. Follows the Create rule:
+// the returned CFArrayRef has retain count 1; the caller must CFRelease
+// it when done. Returns NULL on error.
+CFArrayRef getChildren(AXUIElementRef element) {
+    CFTypeRef children = NULL;
+    AXError err = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute, &children);
+    if (err != kAXErrorSuccess || !children) return NULL;
+    return (CFArrayRef)children;
 }
 
 // Helper to get position
@@ -256,23 +255,29 @@ func (b *Backend) buildNode(element C.AXUIElementRef, depth int) (*computeruse.A
 		}
 	}
 
-	// Get children
-	childrenCount := int(C.getChildrenCount(element))
-	if childrenCount > 0 {
-		node.Children = make([]*computeruse.AXNode, 0, childrenCount)
-		for i := 0; i < childrenCount; i++ {
-			child := C.getChildAtIndex(element, C.CFIndex(i))
-			if child == 0 {
-				continue
+	// Get children — fetch once, iterate (O(N) instead of O(N²))
+	childrenArr := C.getChildren(element)
+	if childrenArr != 0 {
+		count := int(C.CFArrayGetCount(childrenArr))
+		if count > 0 {
+			node.Children = make([]*computeruse.AXNode, 0, count)
+			for i := 0; i < count; i++ {
+				child := C.CFArrayGetValueAtIndex(childrenArr, C.CFIndex(i))
+				if child == nil {
+					continue
+				}
+				// CFRetain for the child before buildNode, which may
+				// recurse; CFRelease after.
+				C.CFRetain(C.CFTypeRef(child))
+				childNode, err := b.buildNode(C.AXUIElementRef(child), depth+1)
+				C.CFRelease(C.CFTypeRef(child))
+				if err != nil {
+					continue
+				}
+				node.Children = append(node.Children, childNode)
 			}
-
-			childNode, err := b.buildNode(child, depth+1)
-			C.CFRelease(C.CFTypeRef(child))
-			if err != nil {
-				continue
-			}
-			node.Children = append(node.Children, childNode)
 		}
+		C.CFRelease(C.CFTypeRef(childrenArr))
 	}
 
 	return node, nil

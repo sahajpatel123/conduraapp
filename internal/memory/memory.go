@@ -123,19 +123,24 @@ func NewManager(store Store) *StoreManager {
 
 // Remember stores a memory entry.
 func (m *StoreManager) Remember(ctx context.Context, memory *Memory) error {
+	if memory.Metadata == nil {
+		return ErrInvalidMemoryType
+	}
 	switch memory.Type {
 	case Episodic:
+		sessionID, _ := memory.Metadata["session_id"].(string)
 		episode := &Episode{
 			ID:          memory.ID,
-			SessionID:   memory.Metadata["session_id"].(string),
+			SessionID:   sessionID,
 			UserMessage: memory.Content,
 			Timestamp:   memory.Timestamp,
 		}
 		return m.store.StoreEpisode(ctx, episode)
 	case Semantic:
+		category, _ := memory.Metadata["category"].(string)
 		fact := &Fact{
 			ID:         memory.ID,
-			Category:   memory.Metadata["category"].(string),
+			Category:   category,
 			Content:    memory.Content,
 			Confidence: defaultConfidence,
 			CreatedAt:  memory.Timestamp,
@@ -143,9 +148,10 @@ func (m *StoreManager) Remember(ctx context.Context, memory *Memory) error {
 		}
 		return m.store.StoreFact(ctx, fact)
 	case Procedural:
+		name, _ := memory.Metadata["name"].(string)
 		skill := &Skill{
 			ID:          memory.ID,
-			Name:        memory.Metadata["name"].(string),
+			Name:        name,
 			Description: memory.Content,
 			CreatedAt:   memory.Timestamp,
 		}

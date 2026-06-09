@@ -13,7 +13,11 @@ package computeruse
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 )
 
 // Backend is the interface that platform-specific computer-use
@@ -165,6 +169,30 @@ type ActionResult struct {
 	Action     *Action
 }
 
+// ToBlastRadius converts a computeruse.Action to a blastradius.Action
+// for safety classification. This is the structural bridge between the
+// three action types (blastradius, computeruse, agent).
+func (a *Action) ToBlastRadius() blastradius.Action {
+	kind := "computeruse." + string(a.Type)
+	return blastradius.Action{Kind: kind}
+}
+
+// Execute performs the action through the Gatekeeper. If the
+// gatekeeper denies the action, an error is returned and no
+// physical execution occurs.
+func (ge *GatedExecutor) Execute(ctx context.Context, action *Action) (*ActionResult, error) {
+	ba := action.ToBlastRadius()
+	decision, reason := ge.gate.Evaluate(ctx, ba)
+	if decision == gatekeeper.Deny {
+		return &ActionResult{
+			Success: false,
+			Error:   fmt.Errorf("gatekeeper denied: %s", reason),
+			Action:  action,
+		}, fmt.Errorf("gatekeeper denied: %s", reason)
+	}
+	return ge.cu.Execute(ctx, action)
+}
+
 // ElementQuery describes how to find a UI element.
 type ElementQuery struct {
 	Role        string
@@ -177,6 +205,19 @@ type ElementQuery struct {
 // ComputerUse provides the main interface for interacting with the OS.
 type ComputerUse struct {
 	router *Router
+}
+
+// GatedExecutor wraps execution through the Gatekeeper, ensuring
+// every computer-use action is safety-checked before running.
+type GatedExecutor struct {
+	cu   *ComputerUse
+	gate gatekeeper.Gatekeeper
+}
+
+// NewGatedExecutor creates a GatedExecutor that routes all
+// computer-use actions through the given gatekeeper.
+func NewGatedExecutor(cu *ComputerUse, gate gatekeeper.Gatekeeper) *GatedExecutor {
+	return &GatedExecutor{cu: cu, gate: gate}
 }
 
 // New creates a new ComputerUse instance with the given backends.
@@ -224,24 +265,43 @@ func (c *ComputerUse) GetElementAtPoint(ctx context.Context, x, y float64) (*AXN
 }
 
 // findNode recursively searches for a node matching the query.
+// When query.Index > 0, it returns the Nth match instead of the first.
 func findNode(node *AXNode, query *ElementQuery) *AXNode {
 	if node == nil {
 		return nil
 	}
 
-	// Check if this node matches
-	if matchesQuery(node, query) {
-		return node
+	matches := findNodeAll(node, query, 1)
+	if len(matches) > 0 {
+		idx := query.Index
+		if idx < 0 || idx >= len(matches) {
+			idx = 0
+		}
+		return matches[idx]
 	}
+	return nil
+}
 
-	// Search children
-	for _, child := range node.Children {
-		if found := findNode(child, query); found != nil {
-			return found
+// findNodeAll recursively collects all nodes matching the query, up to
+// limit results. A limit of 0 means collect all.
+func findNodeAll(node *AXNode, query *ElementQuery, limit int) []*AXNode {
+	if node == nil {
+		return nil
+	}
+	var result []*AXNode
+	if matchesQuery(node, query) {
+		result = append(result, node)
+		if limit > 0 && len(result) >= limit {
+			return result
 		}
 	}
-
-	return nil
+	for _, child := range node.Children {
+		result = append(result, findNodeAll(child, query, limit)...)
+		if limit > 0 && len(result) >= limit {
+			return result
+		}
+	}
+	return result
 }
 
 // matchesQuery checks if a node matches the element query.

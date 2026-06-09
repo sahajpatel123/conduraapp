@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -560,5 +561,8 @@ func (s *SQLiteStore) Close() error {
 
 // containsText checks if text contains a substring (case-insensitive).
 func containsText(text, query string) bool {
-	return len(query) == 0 || len(text) > 0 // Simplified check
+	if query == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(text), strings.ToLower(query))
 }

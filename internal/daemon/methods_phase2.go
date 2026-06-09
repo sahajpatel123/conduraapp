@@ -244,7 +244,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 }
 
 // registerHaltMethods wires daemon.halt + daemon.resume + halt.state.
-func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log) {
+func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log, sm *stream.Manager) {
 	srv.Register("daemon.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Reason string `json:"reason"`
@@ -253,6 +253,10 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		_, _ = haltFlag.Halt(ctx, p.Reason)
+		streamsCanceled := 0
+		if sm != nil {
+			streamsCanceled = sm.CancelAll()
+		}
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorGUI, Action: "daemon.halt", App: appSynapticG,
 			Level: auditLevelWarn, Result: auditResultAllow,
@@ -260,7 +264,7 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 		})
 		return map[string]any{
 			"halted":                  true,
-			"active_streams_canceled": 0,
+			"active_streams_canceled": streamsCanceled,
 			"timestamp":               time.Now().UTC().Format(time.RFC3339),
 		}, nil
 	})

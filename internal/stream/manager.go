@@ -294,6 +294,21 @@ func (m *Manager) Cancel(requestID string) error {
 	return nil
 }
 
+// CancelAll cancels every in-flight stream and returns the number canceled.
+func (m *Manager) CancelAll() int {
+	m.mu.Lock()
+	ids := make([]string, 0, len(m.active))
+	for id := range m.active {
+		ids = append(ids, id)
+	}
+	m.mu.Unlock()
+
+	for _, id := range ids {
+		_ = m.Cancel(id)
+	}
+	return len(ids)
+}
+
 // Count returns the number of in-flight streams.
 func (m *Manager) Count() int {
 	m.mu.Lock()

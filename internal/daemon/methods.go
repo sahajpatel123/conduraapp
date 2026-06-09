@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
+	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
+	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/version"
@@ -50,11 +52,11 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	})
 
 	registerAPIKeyMethods(srv, subs.APIKeys)
-	registerLLMMethods(srv, subs.LLM, subs.Spend)
+	registerLLMMethods(srv, subs.LLM, subs.Spend, subs.Halt, subs.Audit)
 	registerSpendMethods(srv, subs.Spend)
 	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM)
 	registerAuditMethods(srv, subs.Audit)
-	registerHaltMethods(srv, subs.Halt, subs.Audit)
+	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams)
 	registerControlMethods(srv, cfg, subs)
 	registerFirstRunMethods(srv, subs.Audit)
 	registerUpdateMethods(srv, subs.Updater, subs.Audit)
@@ -118,8 +120,11 @@ func registerAPIKeyMethods(srv *ipc.Server, akm *api_key.Manager) {
 }
 
 // registerLLMMethods wires the llm.* method family.
-func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.SpendMonitor) {
+func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.SpendMonitor, haltFlag *halt.Flag, auditLog *audit.Log) {
 	srv.Register("llm.chat", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if haltFlag.IsHalted() {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "daemon is halted"}
+		}
 		var p struct {
 			Provider string          `json:"provider"`
 			Model    string          `json:"model"`
@@ -144,6 +149,11 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 		}
 		cost := llm.EstimateCost(p.Request.Model, resp.Usage)
 		mon.Record(cost)
+		_ = auditLog.Append(ctx, audit.Event{
+			Actor: actorGUI, Action: "llm.chat", App: appSynapticG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "provider=" + p.Provider + " model=" + p.Request.Model,
+		})
 		return map[string]any{
 			"response": resp,
 			"cost_usd": cost,

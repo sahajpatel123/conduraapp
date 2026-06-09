@@ -80,8 +80,10 @@ func (l *ExpandedLoop) ExecutePlan(ctx context.Context, plan *Plan) (*PlanResult
 				Error:   err,
 			}
 
-			// Check if we should abort
-			verification, _ := l.Verifier.Verify(ctx, step, stepResult)
+			// Check if we should abort. Use step.Result (which
+			// carries the error) rather than stepResult, which may
+			// be nil when executeStep fails.
+			verification, _ := l.Verifier.Verify(ctx, step, step.Result)
 			if verification != nil && verification.ShouldAbort {
 				result.Finished = time.Now()
 				result.Success = false

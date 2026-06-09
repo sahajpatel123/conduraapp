@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 )
 
 // Planner decomposes tasks into ordered steps.
@@ -86,6 +88,17 @@ type Action struct {
 
 	// Description is a human-readable description of the action.
 	Description string
+}
+
+// ToBlastRadius converts an agent.Action to a blastradius.Action
+// for safety classification. This bridges the three incompatible
+// Action types (blastradius, computeruse, agent).
+func (a *Action) ToBlastRadius() blastradius.Action {
+	kind := a.Type
+	if kind == "" {
+		kind = "chat"
+	}
+	return blastradius.Action{Kind: kind}
 }
 
 // StepResult is the result of executing a step.

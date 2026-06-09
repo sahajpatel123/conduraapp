@@ -144,8 +144,14 @@ func (t *ServerTransport) authorize(w http.ResponseWriter, r *http.Request) bool
 	if t.Token == "" {
 		return true
 	}
+	// Check the Authorization header first.
 	auth := r.Header.Get("Authorization")
 	if auth == "Bearer "+t.Token {
+		return true
+	}
+	// EventSource cannot send custom headers, so also accept
+	// the token as a query parameter for SSE endpoints.
+	if qToken := r.URL.Query().Get("token"); qToken != "" && qToken == t.Token {
 		return true
 	}
 	http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -186,11 +192,15 @@ func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) 
 
 // serveWebSocket upgrades the connection and runs the read/write loop.
 func (t *ServerTransport) serveWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Verify the Origin header to prevent cross-site WebSocket
+	// hijacking. We allow localhost origins (127.0.0.1, localhost,
+	// [::1]) which is the expected production topology.
+	if !t.validateWSOrigin(r) {
+		http.Error(w, "forbidden: invalid origin", http.StatusForbidden)
+		return
+	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		// We deliberately do not check Origin in dev; the IPC server is
-		// bound to localhost. A production deployment should add a
-		// stricter check (Phase 5: signed auth tokens).
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, //nolint:gosec // Origin validated above
 	})
 	if err != nil {
 		return
@@ -272,6 +282,36 @@ func (s *Server) ServeConn(ctx context.Context, c Conn) error {
 			return err
 		}
 	}
+}
+
+// validateWSOrigin checks that the Origin header is a localhost
+// origin. This prevents cross-site WebSocket hijacking while
+// allowing the local GUI to connect.
+func (t *ServerTransport) validateWSOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		// Allow requests with no Origin (non-browser clients).
+		return true
+	}
+	// Parse the origin URL to extract the host.
+	for i := 0; i < len(origin); i++ {
+		if origin[i] == ':' && i+2 < len(origin) && origin[i+1] == '/' && origin[i+2] == '/' {
+			host := origin[i+3:]
+			// Strip port if present.
+			for j := 0; j < len(host); j++ {
+				if host[j] == ':' {
+					host = host[:j]
+					break
+				}
+			}
+			switch host {
+			case "localhost", "127.0.0.1", "[::1]":
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 // Close stops all listeners.
