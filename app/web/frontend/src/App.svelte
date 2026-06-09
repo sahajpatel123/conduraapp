@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Router from 'svelte-spa-router'
   import { onMount } from 'svelte'
 
   import Chat from './lib/routes/Chat.svelte'
@@ -11,39 +10,37 @@
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
   import { ipc } from './lib/ipc/client'
-
-  const routes = {
-    '/': Chat,
-    '/settings': Settings,
-    '/audit': Audit,
-    '/about': About
-  }
+  import { initStores } from './lib/stores/init'
 
   let showOnboarding = $state(false)
-  let currentHash = $state(typeof window !== 'undefined' ? window.location.hash : '')
+  let currentHash = $state('#/')
 
-  // Listen for hash changes (svelte-spa-router updates window.location.hash).
-  if (typeof window !== 'undefined') {
-    window.addEventListener('hashchange', () => {
+  let route = $derived(
+    currentHash === '#/settings' ? 'settings' :
+    currentHash === '#/audit' ? 'audit' :
+    currentHash === '#/about' ? 'about' : 'chat'
+  )
+
+  onMount(() => {
+    currentHash = window.location.hash || '#/'
+
+    const onHashChange = (): void => {
       currentHash = window.location.hash
-    })
-  }
-
-  onMount(async () => {
-    // Check first-run status; show wizard if not yet complete.
-    try {
-      const s = await ipc.firstRunStatus()
-      if (!s.complete) {
-        showOnboarding = true
-      }
-    } catch {
-      // ignore
     }
-  })
+    window.addEventListener('hashchange', onHashChange)
 
-  function closeOnboarding(): void {
-    showOnboarding = false
-  }
+    // Initialize stores after the component tree is mounted.
+    // This ensures Svelte's reactive context is fully set up
+    // before any daemon communication starts.
+    void initStores()
+
+    // Check first-run status; show wizard if not yet complete.
+    ipc.firstRunStatus().then((s) => {
+      if (!s.complete) showOnboarding = true
+    }).catch(() => {})
+
+    return () => window.removeEventListener('hashchange', onHashChange)
+  })
 </script>
 
 {#if showOnboarding}
@@ -57,10 +54,10 @@
     <main class="main">
       <nav class="topbar">
         <div class="topbar-left">
-          <a href="#/" class:active={currentHash === '#/' || currentHash === '' || currentHash === '#'}>Chat</a>
-          <a href="#/settings" class:active={currentHash === '#/settings'}>Settings</a>
-          <a href="#/audit" class:active={currentHash === '#/audit'}>Audit</a>
-          <a href="#/about" class:active={currentHash === '#/about'}>About</a>
+          <a href="#/" class:active={route === 'chat'}>Chat</a>
+          <a href="#/settings" class:active={route === 'settings'}>Settings</a>
+          <a href="#/audit" class:active={route === 'audit'}>Audit</a>
+          <a href="#/about" class:active={route === 'about'}>About</a>
         </div>
         <div class="topbar-right">
           <span class="conn" class:connected={daemon.connected}>
@@ -70,7 +67,15 @@
       </nav>
 
       <div class="route-container">
-        <Router {routes} />
+        {#if route === 'settings'}
+          <Settings />
+        {:else if route === 'audit'}
+          <Audit />
+        {:else if route === 'about'}
+          <About />
+        {:else}
+          <Chat />
+        {/if}
       </div>
     </main>
 
