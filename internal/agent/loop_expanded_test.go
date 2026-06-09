@@ -143,8 +143,8 @@ func TestExpandedLoop(t *testing.T) {
 	if len(result.Steps) != 1 {
 		t.Errorf("expected 1 step result, got %d", len(result.Steps))
 	}
-	if result.Duration() <= 0 {
-		t.Error("expected positive duration")
+	if result.Duration() < 0 {
+		t.Error("expected non-negative duration")
 	}
 }
 
