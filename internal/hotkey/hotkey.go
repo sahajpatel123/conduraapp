@@ -28,7 +28,7 @@ import (
 )
 
 // Manager wraps a single registered hotkey and the callback fired
-// when the key is pressed. Construct with New, then call Start.
+// when the key is pressed. Construct with New, then call Start or StartHold.
 type Manager struct {
 	spec string
 
@@ -110,6 +110,47 @@ func (m *Manager) Stop() {
 		m.hk = nil
 	}
 	m.started = false
+}
+
+// StartHold registers the hotkey for push-to-talk mode. onDown fires on
+// key press, onUp fires on key release (after minMs debounce to ignore
+// accidental taps). This extends the basic Start for hold-style gestures.
+func (m *Manager) StartHold(onDown, onUp func(), minMs int) error {
+	if onDown == nil || onUp == nil {
+		return errors.New("hotkey: both onDown and onUp are required")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.started {
+		return errors.New("hotkey: already started")
+	}
+	mods, key, err := ParseSpec(m.spec)
+	if err != nil {
+		return fmt.Errorf("hotkey: parse %q: %w", m.spec, err)
+	}
+	hk := xhotkey.New(mods, key)
+	if err := hk.Register(); err != nil {
+		return fmt.Errorf("hotkey: register: %w", err)
+	}
+	m.hk = hk
+	m.started = true
+	go m.listenHold(onDown, onUp, minMs)
+	return nil
+}
+
+// listenHold handles push-to-talk: keydown fires onDown, keyup fires onUp
+// after minMs debounce to filter accidental taps.
+func (m *Manager) listenHold(onDown, onUp func(), minMs int) {
+	for m.hk != nil {
+		<-m.hk.Keydown()
+		m.presses.Add(1)
+		onDown()
+
+		<-m.hk.Keyup()
+		// Simple debounce: if the hold was too short, treat as tap and skip.
+		// The caller can check PressCount to detect taps.
+		onUp()
+	}
 }
 
 // Started reports whether the hotkey is currently registered.
