@@ -216,7 +216,7 @@ func TestManager_StartReturnsRequestID(t *testing.T) {
 		t.Fatal("empty request_id")
 	}
 	if got := m.Count(); got != 1 {
-		t.Fatalf("Count = %d, want 1", got)
+		t.Errorf("Count = %d, want 1 (stream may have completed already)", got)
 	}
 	// Wait for the goroutine to drain.
 	if !waitFor(t, func() bool { return m.Count() == 0 }, time.Second) {

@@ -1,5 +1,9 @@
 //go:build !darwin
 
+// Package ax provides a stub Accessibility backend for non-Darwin platforms.
+// The real implementation lives in ax_darwin.go and uses CGo to call the
+// macOS Accessibility API. On Linux and Windows this package returns
+// ErrNoBackend for all operations.
 package ax
 
 import (
