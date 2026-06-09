@@ -40,13 +40,15 @@ type Menu struct {
 
 	events chan Event
 
-	halted atomic.Bool
-	spend  atomic.Uint64 // cents, to keep it lock-free
+	halted   atomic.Bool
+	spend    atomic.Uint64 // cents, to keep it lock-free
+	voiceStr string        // current voice state label
 
 	mShow  *systray.MenuItem
 	mHide  *systray.MenuItem
 	mHalt  *systray.MenuItem
 	mSpend *systray.MenuItem
+	mVoice *systray.MenuItem
 	mQuit  *systray.MenuItem
 }
 
@@ -96,6 +98,24 @@ func (m *Menu) SetTooltip(s string) {
 	}
 }
 
+// SetVoiceState updates the voice status indicator in the tray.
+// Valid states: "idle", "listening", "thinking", "speaking".
+func (m *Menu) SetVoiceState(state string) {
+	m.voiceStr = state
+	if m.mVoice != nil {
+		switch state {
+		case "listening":
+			m.mVoice.SetTitle("Voice: Listening...")
+		case "thinking":
+			m.mVoice.SetTitle("Voice: Thinking...")
+		case "speaking":
+			m.mVoice.SetTitle("Voice: Speaking...")
+		default:
+			m.mVoice.SetTitle("Voice: Idle")
+		}
+	}
+}
+
 // Start blocks; run it in a goroutine. systray.Run installs signal
 // handlers and a platform event loop; calling it from the main
 // goroutine is the supported way.
@@ -114,6 +134,7 @@ func (m *Menu) onReady() {
 	systray.AddSeparator()
 	m.mHalt = systray.AddMenuItem("Pause (kill switch)", "Halt all agent activity")
 	systray.AddSeparator()
+	m.mVoice = systray.AddMenuItem("Voice: Idle", "Current voice state")
 	m.mSpend = systray.AddMenuItem("Spend today: $0.00", "Today's spend in USD")
 	systray.AddSeparator()
 	m.mQuit = systray.AddMenuItem("Quit", "Shut Synaptic down completely")
