@@ -756,3 +756,43 @@ until the real rules engine exists (Phase 5).
 - Gatekeeper is not yet wired into a caller; that happens in 4.4 when the
   thin agent loop (`agent.ask`) routes every turn through `Evaluate` and
   audits the decision (MISSION §5.4).
+
+---
+
+## Session 9 — Deep Architectural Audit and Workspace Analysis
+
+**Date:** 2026-06-09
+**AI Model:** Gemini 3.5 Flash (High) (Antigravity), partner-architect
+**Session ID:** 5a2e659f-c861-4fc3-a153-9ec1085ba996
+**Goal:** Deeply analyze and understand the entire workspace, frontend, backend, APIs, storage, security surfaces, and execution pipelines before performing future work.
+
+### Files created
+- `<appDataDir>/brain/5a2e659f-c861-4fc3-a153-9ec1085ba996/analysis_results.md` — Detailed analysis results artifact detailing codebase structures, dependency trees, safety violations, and security surfaces.
+
+### Files modified
+- `LOGBOOK.md` — This file (appended Session 9 entry).
+
+### Decisions made
+- Conducted a parallel 5-swarm audit (Architecture, Backend/IPC, State/Storage, Security/Autonomy, Frontend/Wails) using the defined `analysis_swarm` subagent to extract codebase blueprints without jumping directly into coding.
+- Decided to systematically trace and document core execution flows, database schema migrations, and concurrency locks before any modification.
+
+### Bugs / issues encountered
+- **🚨 CSWSH Security Vulnerability**: WebSocket upgrades in `internal/ipc/transport.go` use `InsecureSkipVerify: true` without origin checking, leaving the loopback daemon exposed to malicious browser tabs.
+- **🚨 Safety Gatekeeper Bypass**: The active token-streaming pipeline and non-streaming chats directly talk to provider clients without invoking the Gatekeeper or Blast-Radius safety validation.
+- **🚨 Stream Kill-Switch Bypass**: Triggering `daemon.halt` does not cancel active/in-flight LLM streams (returns stub `"active_streams_canceled": 0`), and `llm.chat` does not check halt status.
+- **🚨 SSE Handshake Auth Defect**: Browser `EventSource` doesn't support headers (sends query parameter `?token=...`), but the HTTP authorizer only checks headers, causing connection drops for secured daemons.
+- **🚨 API Key Corruption Risk**: Re-encrypting credentials with final `rowID` runs outside a transaction, which can crash mid-write, leaving key ciphertexts bound to placeholder ID `0`.
+- **🚨 Orphaned Packages**: 8 packages (`agent`, `gatekeeper`, `blastradius`, `voice`, `presence`, `overlay`, `hotkey`, and `tray`) are completely orphaned.
+- **⚠️ Unimplemented DB Halt Polling**: The database halt flag is only read once at startup, missing subsequent external alterations.
+- **⚠️ SQLite Connection Bottleneck**: Restricting storage to `SetMaxOpenConns(1)` blocks WAL mode concurrent reads, queueing operations behind slow writes.
+
+### Open questions for next session
+- **Priority of Safety Fixes**: Should we resolve the critical security leaks (CSWSH, key corruption, SSE auth, and cleartext base64 keyring fallback) before starting Sub-phase 4.1?
+- **Handling of Orphaned Packages**: Should the orphaned packages be wired into the daemon coordinates or pruned to reduce CGO audio compile-time overhead?
+
+### Next steps
+1. Refactor `internal/ipc/transport.go` to validate origins and verify auth tokens in query parameters (fixing CSWSH and SSE auth bugs).
+2. Wrap `api_key.Manager.Set` in an SQL transaction to ensure atomic re-encryption.
+3. Wire the halt flag and cancel mechanisms into the active streaming goroutines.
+4. Begin Sub-phase 4.1 (local speech: Whisper STT, native TTS) if safety issues are cleared.
+
