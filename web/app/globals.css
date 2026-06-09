@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+/*
+  Synaptic — design tokens.
+  One world: ink, ivory, brass. Red is reserved for the kill switch.
+*/
+@theme {
+  --color-ink: #0b0b0e;
+  --color-ink-2: #101013;
+  --color-ink-3: #16161a;
+  --color-ivory: #ede8dd;
+  --color-ivory-dim: #989284;
+  --color-ivory-faint: #7d786b;
+  --color-brass: #e8a33d;
+  --color-brass-deep: #b87a1e;
+  --color-halt: #e5484d;
+  --color-line: rgba(237, 232, 221, 0.1);
+  --color-line-strong: rgba(237, 232, 221, 0.22);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --ease-score: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::selection {
+  background: var(--color-brass);
+  color: var(--color-ink);
+}
+
+html {
+  scrollbar-color: var(--color-ivory-faint) var(--color-ink);
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-ivory);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Focus: a brass rule, never a blue ring. Layered so utilities can opt out. */
+@layer base {
+  :focus-visible {
+    outline: 1px solid var(--color-brass);
+    outline-offset: 4px;
+    border-radius: 1px;
+  }
+}
+
+/* Score annotations — the mono margin-notes used across the site. */
+.annotation {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ivory-dim);
+}
+
+/* Display serif with optical sizing pushed high. */
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144;
+  font-weight: 380;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+}
+
+/* The italic carries the signature: a touch of Fraunces WONK. */
+.display-italic {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144, "WONK" 1;
+  font-style: italic;
+  font-weight: 340;
+}
+
+/* The one button shape on the site. */
+.cta {
+  display: inline-block;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-ink-2);
+  padding: 0.875rem 1.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
+  color: var(--color-ivory);
+  transition: color 0.3s var(--ease-score);
+}
+
+.cta:hover {
+  color: var(--color-brass);
+}
+
+/* Hairline rules. */
+.rule {
+  height: 1px;
+  background: var(--color-line);
+}
+
+/* The staff — faint horizontal notation lines behind hero sections. */
+.staff {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 13px,
+    var(--color-line) 13px,
+    var(--color-line) 14px
+  );
+  background-size: 100% 70px;
+  background-repeat: repeat-y;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+
+/* Film grain, generated — no asset, no network. */
+.grain {
+  position: fixed;
+  inset: -15%;
+  width: 130%;
+  height: 130%;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 60;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  animation: grain-shift 9s steps(6) infinite;
+}
+
+@keyframes grain-shift {
+  0% { transform: translate(0, 0); }
+  17% { transform: translate(-4%, 2%); }
+  33% { transform: translate(3%, -3%); }
+  50% { transform: translate(-2%, 4%); }
+  67% { transform: translate(4%, 1%); }
+  83% { transform: translate(-3%, -2%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Outlined background numerals (Mvt. I / II / III). */
+.numeral-outline {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144;
+  font-weight: 300;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(237, 232, 221, 0.14);
+  user-select: none;
+}
+
+/* Terminal caret. */
+.caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--color-brass);
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+/* Links in running text. */
+.prose-link {
+  color: var(--color-ivory);
+  text-decoration: underline;
+  text-decoration-color: var(--color-ivory-faint);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.25s var(--ease-score), color 0.25s var(--ease-score);
+}
+
+.prose-link:hover {
+  color: var(--color-brass);
+  text-decoration-color: var(--color-brass);
+}
+
+/* Animated border tracing for primary CTAs. */
+.trace {
+  position: relative;
+}
+
+.trace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-brass);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.6s var(--ease-score);
+  pointer-events: none;
+}
+
+.trace:hover::after,
+.trace:focus-visible::after {
+  clip-path: inset(0 0 0 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain,
+  .caret {
+    animation: none;
+  }
+}

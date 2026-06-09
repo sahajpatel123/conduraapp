@@ -952,3 +952,40 @@ until the real rules engine exists (Phase 5).
 3. Real malgo integration (deferred to Phase 6B or later).
 4. Begin Phase 7 (next major phase per build order).
 
+
+---
+
+## Session 13 — synaptic.app Marketing Site ("The Score")
+
+**Date:** 2026-06-10
+**AI Model:** Fable 5 via Claude Code
+**Session ID:** website-the-score
+**Task:** Design and build the public marketing/download website from scratch in `web/` — a full creative reset, kept strictly separate from the Go daemon and the Wails app GUI. The prior `web/` attempt was preserved untouched at `web-old-backup-2026-06-10/` and replaced.
+
+### Creative direction
+"The Score" — a cinematic dark editorial world built on the conductor/orchestra metaphor. Ink (#0b0b0e) / ivory (#ede8dd) / brass (#e8a33d); red reserved exclusively for kill-switch semantics. Fraunces (opsz 144, WONK on italics) for display, Geist for UI, Geist Mono for "score annotation" margin notes. The home page is structured as a score: Overture → Mvt. I Summon → Mvt. II Orchestrate → Mvt. III The Gatekeeper → Interlude → Coda. Background system: faint staff lines + generated film grain (data-URI SVG, no asset). One ease curve site-wide.
+
+### Stack
+Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 + motion v12 behind `LazyMotion strict` with `m.` components. No other runtime dependencies.
+
+### Pages
+- `/` — the score (live summon terminal set-piece, orchestra roster, tempo-marked latency stats, animated Gatekeeper schematic with pass/halt choreography, four kill mechanisms, invariant interlude, coda CTA)
+- `/manifesto` — mission + the Seven Invariants as an editorial ledger + Is/Is-Not
+- `/download` — honest pre-release box office: platform cards (OS-detected highlight, no reshuffle), "printed on every ticket" promises, no fake download buttons
+- `/changelog` — the rehearsal log, phases I–VI from this LOGBOOK, plus upcoming VII–VIII
+- Site chrome: hide-on-scroll nav, ⌘K command palette (combobox + listbox semantics, focus trap + restore), full-stage mobile menu, scroll-progress "baton", OG image, robots, sitemap, SVG icon
+
+### Verification
+- `eslint` clean, `tsc --noEmit` clean, `next build` green (9 static routes)
+- Playwright sweep of all pages at desktop + mobile + reduced-motion: zero console errors, palette keyboard nav verified end-to-end
+- Three independent review agents (taste critic, accessibility auditor, performance/code reviewer) produced ~35 findings; all must-fixes and high-value should-fixes applied, including: WCAG contrast fix for the faint ivory token, palette focus trap/restoration and combobox ARIA, pause controls + in-view gating for the two infinite animation loops (WCAG 2.2.2), mobile-menu leaks (popstate/resize/Escape/inert), hydration-safe reduced-motion hook (fixed a real React #418), grain layer memory cut ~5×, unused font axes dropped, dead `geist` dependency removed
+
+### Decisions made
+- The technical side (Go daemon, `app/` Wails GUI) was not touched; the user's uncommitted `app/web/frontend` changes remain uncommitted and unmodified.
+- The download page tells the truth: no binary exists yet, so there is no download button — it routes to the rehearsal log instead.
+- Custom `usePrefersReducedMotion` (useSyncExternalStore) instead of motion's hook wherever the preference changes rendered markup, to keep SSR/hydration consistent.
+
+### Next steps
+1. Deploy `web/` (Vercel or static host) and point synaptic.app at it.
+2. Real release artifacts + checksums on `/download` when Phase VIII lands.
+3. Optional: brand 404 page, `/press` kit, i18n once the 6-language scope starts.
