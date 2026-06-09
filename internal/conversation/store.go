@@ -192,3 +192,60 @@ func (s *Store) Append(ctx context.Context, id int64, m Message) error {
 
 // ErrNotFound is returned when a conversation is not found.
 var ErrNotFound = errors.New("conversation: not found")
+
+// GetRecentMessages returns the most recent messages in a
+// conversation, in chronological order. limit=0 returns all
+// messages. Returns ErrNotFound if the conversation does not exist.
+func (s *Store) GetRecentMessages(ctx context.Context, id int64, limit int) ([]Message, error) {
+	// Verify the conversation exists.
+	if _, err := s.Get(ctx, id); err != nil {
+		return nil, err
+	}
+	var rows *sql.Rows
+	var err error
+	if limit > 0 {
+		// Use a parameterized LIMIT to avoid SQL injection. The
+		// integer is bound at the driver layer, so concatenation
+		// is not needed.
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT role, content, tool_calls_json, tool_call_id
+			 FROM conversation_messages
+			 WHERE conversation_id = ?
+			 ORDER BY id DESC
+			 LIMIT ?`, id, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT role, content, tool_calls_json, tool_call_id
+			 FROM conversation_messages
+			 WHERE conversation_id = ?
+			 ORDER BY id DESC`, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query recent messages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	// Collect in reverse (newest first), then reverse to put in
+	// chronological order for the LLM.
+	var msgs []Message
+	for rows.Next() {
+		var m Message
+		var tcs sql.NullString
+		var tcid sql.NullString
+		if err := rows.Scan(&m.Role, &m.Content, &tcs, &tcid); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		if tcs.Valid {
+			m.ToolCalls = json.RawMessage(tcs.String)
+		}
+		if tcid.Valid {
+			m.ToolCallID = tcid.String
+		}
+		msgs = append(msgs, m)
+	}
+	// Reverse in-place.
+	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
+	return msgs, nil
+}

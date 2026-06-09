@@ -144,3 +144,38 @@ func TestStop_Idempotent(t *testing.T) {
 	m.Stop() // no-op
 	m.Stop() // still no-op
 }
+
+func TestStartTap_NilHandler(t *testing.T) {
+	m := New("Cmd+K")
+	if err := m.StartTap(nil, 2, 300); err == nil {
+		t.Fatal("StartTap(nil) should error")
+	}
+}
+
+func TestStartTap_RejectsSingleTap(t *testing.T) {
+	m := New("Cmd+K")
+	err := m.StartTap(func() {}, 1, 300)
+	if err == nil {
+		t.Fatal("StartTap with tapCount=1 should error")
+	}
+}
+
+func TestStartTap_DefaultsWindow(t *testing.T) {
+	// windowMs=0 is allowed (defaults to 300ms). We can't actually
+	// start a tap registration in a unit test (needs a display),
+	// but the validator must accept a non-positive window.
+	m := New("Cmd+K")
+	err := m.StartTap(func() {}, 2, 0)
+	if err == nil {
+		// If we get here without error, the validator accepted
+		// the default. The actual registration will fail when
+		// the OS rejects it — we just check the validator.
+		m.Stop()
+		return
+	}
+	// If Start failed because the OS rejected it, that's fine.
+	// We just need the validator to not error before that.
+	if err.Error() == "hotkey: onTap is required" || err.Error() == "hotkey: tapCount must be >= 2" {
+		t.Fatalf("validator rejected valid input: %v", err)
+	}
+}

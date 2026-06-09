@@ -1,7 +1,7 @@
 // Package tray wraps getlantern/systray with a Synaptic-specific menu:
 // "Show/Hide Synaptic", "Pause (halt)", "Resume", "Spend today: $X.XX",
-// and "Quit". The tray runs in its own goroutine and reports user
-// clicks back via a small channel of events.
+// a unified status line, and "Quit". The tray runs in its own goroutine
+// and reports user clicks back via a small channel of events.
 //
 // The implementation is platform-agnostic via systray; the bundle's
 // icon + title are set from the same strings the GUI uses.
@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 
 	"github.com/getlantern/systray"
+
+	"github.com/sahajpatel123/synapticapp/internal/status"
 )
 
 // Event is a user-driven action from the tray menu.
@@ -42,6 +44,8 @@ type Menu struct {
 
 	halted   atomic.Bool
 	spend    atomic.Uint64 // cents, to keep it lock-free
+	status   atomic.Int32  // status.Status
+	errMsg   atomic.Value  // string, set on StatusError
 	voiceStr string        // current voice state label
 
 	mShow  *systray.MenuItem
@@ -80,6 +84,12 @@ func (m *Menu) SetHalted(halted bool) {
 	}
 }
 
+// IsHalted returns the current halt-flag value. Safe to call from
+// any goroutine.
+func (m *Menu) IsHalted() bool {
+	return m.halted.Load()
+}
+
 // SetSpendUSD updates the "Spend today: $X.XX" line. Cheap; the
 // setter is lock-free via atomic.
 func (m *Menu) SetSpendUSD(usd float64) {
@@ -98,22 +108,72 @@ func (m *Menu) SetTooltip(s string) {
 	}
 }
 
+// SetStatus is the single setter for the agent's current status.
+// It updates the tray title, the "Status" menu item label, and the
+// tooltip. This is the single source of truth for tray state.
+//
+// When the status is StatusError, the errMsg is shown in the
+// tooltip so the user can see what went wrong. For all other
+// statuses, the tooltip is the plain title.
+func (m *Menu) SetStatus(s status.Status) {
+	m.status.Store(int32(s))
+
+	// Keep the halt flag in sync so the existing SetHalted/IsHalted
+	// consumers see a consistent view. SetStatus(Halted) is the
+	// single write path now.
+	if s == status.StatusHalted {
+		m.SetHalted(true)
+	} else if m.halted.Load() {
+		m.SetHalted(false)
+	}
+
+	if m.mVoice != nil {
+		m.mVoice.SetTitle("Status: " + s.Label())
+	}
+
+	// Update tooltip to reflect status.
+	var tooltip string
+	if s == status.StatusHalted {
+		tooltip = "Synaptic (halted — click Resume to continue)"
+	} else if s == status.StatusError {
+		if v, ok := m.errMsg.Load().(string); ok && v != "" {
+			tooltip = "Synaptic (error: " + v + ")"
+		} else {
+			tooltip = "Synaptic (error — see logs)"
+		}
+	} else {
+		tooltip = "Synaptic"
+	}
+	m.SetTooltip(tooltip)
+}
+
+// SetErrorMessage stores the error message shown in the tooltip
+// when SetStatus(StatusError) is called. Safe to call from any
+// goroutine; the value is read by SetStatus.
+func (m *Menu) SetErrorMessage(msg string) {
+	m.errMsg.Store(msg)
+}
+
 // SetVoiceState updates the voice status indicator in the tray.
-// Valid states: "idle", "listening", "thinking", "speaking".
+// Deprecated: use SetStatus(status.StatusListening) etc. instead.
+// Retained for backward compatibility with existing callers.
 func (m *Menu) SetVoiceState(state string) {
 	m.voiceStr = state
-	if m.mVoice != nil {
-		switch state {
-		case "listening":
-			m.mVoice.SetTitle("Voice: Listening...")
-		case "thinking":
-			m.mVoice.SetTitle("Voice: Thinking...")
-		case "speaking":
-			m.mVoice.SetTitle("Voice: Speaking...")
-		default:
-			m.mVoice.SetTitle("Voice: Idle")
-		}
+	switch state {
+	case "listening":
+		m.SetStatus(status.StatusListening)
+	case "thinking":
+		m.SetStatus(status.StatusThinking)
+	case "speaking":
+		m.SetStatus(status.StatusSpeaking)
+	default:
+		m.SetStatus(status.StatusIdle)
 	}
+}
+
+// Status returns the current status value.
+func (m *Menu) Status() status.Status {
+	return status.Status(m.status.Load())
 }
 
 // Start blocks; run it in a goroutine. systray.Run installs signal
@@ -134,7 +194,7 @@ func (m *Menu) onReady() {
 	systray.AddSeparator()
 	m.mHalt = systray.AddMenuItem("Pause (kill switch)", "Halt all agent activity")
 	systray.AddSeparator()
-	m.mVoice = systray.AddMenuItem("Voice: Idle", "Current voice state")
+	m.mVoice = systray.AddMenuItem("Status: Idle", "Current agent status")
 	m.mSpend = systray.AddMenuItem("Spend today: $0.00", "Today's spend in USD")
 	systray.AddSeparator()
 	m.mQuit = systray.AddMenuItem("Quit", "Shut Synaptic down completely")

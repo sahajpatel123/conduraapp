@@ -2,7 +2,11 @@
 
 package tray
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/sahajpatel123/synapticapp/internal/status"
+)
 
 // TestEventConstants verifies the Event iota is contiguous starting
 // at EventNone. The systray wrapper relies on this for the Run
@@ -96,5 +100,85 @@ func TestSetHalted_NoMenuBeforeOnReady(t *testing.T) {
 	m.SetHalted(false)
 	if m.halted.Load() {
 		t.Fatal("flag should be false even without onReady")
+	}
+}
+
+// TestIsHalted reports the current halt flag.
+func TestIsHalted(t *testing.T) {
+	m := New("Synaptic", "t")
+	if m.IsHalted() {
+		t.Fatal("IsHalted should default to false")
+	}
+	m.SetHalted(true)
+	if !m.IsHalted() {
+		t.Fatal("IsHalted should be true after SetHalted(true)")
+	}
+	m.SetHalted(false)
+	if m.IsHalted() {
+		t.Fatal("IsHalted should be false after SetHalted(false)")
+	}
+}
+
+// TestSetStatus_StoresValue verifies that SetStatus updates the
+// atomic value and is safe to call before onReady.
+func TestSetStatus_StoresValue(t *testing.T) {
+	m := New("Synaptic", "t")
+	if m.Status() != status.StatusIdle {
+		t.Fatalf("default status = %v, want idle", m.Status())
+	}
+	m.SetStatus(status.StatusListening)
+	if m.Status() != status.StatusListening {
+		t.Fatalf("status = %v, want listening", m.Status())
+	}
+	m.SetStatus(status.StatusHalted)
+	if m.Status() != status.StatusHalted {
+		t.Fatalf("status = %v, want halted", m.Status())
+	}
+}
+
+// TestSetStatus_CycleThroughAllStates ensures every status value
+// can be set and read back without panicking, including before
+// onReady has run.
+func TestSetStatus_CycleThroughAllStates(t *testing.T) {
+	m := New("Synaptic", "t")
+	all := []status.Status{
+		status.StatusIdle,
+		status.StatusListening,
+		status.StatusThinking,
+		status.StatusSpeaking,
+		status.StatusHalted,
+		status.StatusError,
+	}
+	for _, s := range all {
+		m.SetStatus(s)
+		if got := m.Status(); got != s {
+			t.Errorf("after SetStatus(%v): Status() = %v", s, got)
+		}
+	}
+}
+
+// TestSetStatus_HaltedSetsHaltFlag verifies that SetStatus(Halted)
+// keeps the halt flag in sync (so the existing SetHalted
+// consumers see a consistent view).
+func TestSetStatus_HaltedSetsHaltFlag(t *testing.T) {
+	m := New("Synaptic", "t")
+	m.SetStatus(status.StatusHalted)
+	if !m.IsHalted() {
+		t.Fatal("SetStatus(Halted) should set the halt flag")
+	}
+	m.SetStatus(status.StatusIdle)
+	if m.IsHalted() {
+		t.Fatal("SetStatus(Idle) should clear the halt flag")
+	}
+}
+
+// TestSetErrorMessage_StoresValue verifies the error message is
+// stored and can be set before onReady.
+func TestSetErrorMessage_StoresValue(t *testing.T) {
+	m := New("Synaptic", "t")
+	m.SetErrorMessage("whisper binary missing")
+	v, ok := m.errMsg.Load().(string)
+	if !ok || v != "whisper binary missing" {
+		t.Fatalf("errMsg = %v, want 'whisper binary missing'", v)
 	}
 }

@@ -892,3 +892,63 @@ until the real rules engine exists (Phase 5).
 2. User will provide Phase 4/5 correction tasks
 3. Then proceed to Phase 6
 
+---
+
+## Session 12 — Phase 6: Living Presence End-to-End
+
+**Date:** 2026-06-09
+**AI Model:** mimo-v2.5-free (opencode)
+**Session ID:** phase-6-living-presence
+**Task:** Implement Phase 6 in one session: structural Gatekeeper wiring, tray status states, hotkey fix + overlay wire-up, voice pipeline with SHA pins, end-to-end session loop.
+
+### Files created
+- `internal/status/status.go` — Unified agent status enum (idle, listening, thinking, speaking, halted, error) with String/Label/IsActive methods
+- `internal/status/status_test.go` — Tests for status enum
+- `internal/agent/gated_executor.go` — `GatedExecutor` that wraps any Executor and routes every action through the Gatekeeper; writes decisions to the audit log
+- `internal/agent/gated_executor_test.go` — Tests for the gated executor
+- `internal/conductor/conductor.go` — Glue layer that wires hotkey to presence orchestrator; toggle semantics for press-to-show/press-to-hide
+- `internal/conductor/conductor_test.go` — Tests for the conductor
+- `internal/voice/pipeline.go` — Voice pipeline orchestrator (listen + transcribe + speak) with SHA256 pin verification for the whisper binary and model file
+- `internal/voice/pipeline_test.go` — Tests for the voice pipeline
+- `internal/session/session.go` — End-to-end session: voice → transcript → LLM stream → TTS, with full status orchestration
+- `internal/session/session_test.go` — Tests for the session
+
+### Files modified
+- `internal/tray/tray.go` — Added `SetStatus(status.Status)`, `IsHalted()`, `SetErrorMessage()`; refactored to use the new status enum as the single source of truth
+- `internal/tray/tray_test.go` — Added tests for SetStatus, IsHalted, SetErrorMessage
+- `internal/hotkey/hotkey.go` — Added `StartTap()` mode (double-tap detection, e.g. Option+Option); `tapCount` presses within `windowMs` fire the callback
+- `internal/hotkey/hotkey_test.go` — Added tests for StartTap validation
+- `internal/conversation/store.go` — Added `GetRecentMessages()` method to fetch the most recent N messages in chronological order
+
+### Sub-phases delivered (per proposed plan)
+- **6A-0 Structural Gatekeeper**: `GatedExecutor` is the structural bridge; every action passed to it goes through `gatekeeper.Evaluate` before any execution. Denials return an error and never reach the inner executor. Decisions are recorded in the audit log.
+- **6A-1 Tray status states**: `internal/status` package owns the enum; tray's `SetStatus` is the single write path. Halt flag and tooltip are derived from the status. Deprecated `SetVoiceState` is retained for backward compatibility.
+- **6A-2 Hotkey fix + overlay wire-up**: `StartTap` mode for double-tap detection. `internal/conductor` package owns the hotkey → presence toggle, with `onShow`/`onHide` callbacks for the tray.
+- **6A-3 Voice pipeline (malgo mic, whisper, SHA pins)**: `internal/voice/pipeline.go` combines Recorder + Transcriber + Speaker with SHA256 pin verification. Empty pins are allowed in dev; production must set both. Pipeline emits status updates through a callback for the tray.
+- **6A-4 Full loop**: `internal/session` ties the voice pipeline, LLM stream, gated executor, and TTS speaker into a single end-to-end user interaction. Conversation history is loaded via the new `GetRecentMessages` method.
+- **6A-5 Tests, lint, CI green**: All 38 packages pass `go test -race`; lint clean.
+
+### Decisions made
+- **Status enum is the single source of truth for tray/overlay state.** All four sub-systems (tray, overlay, voice, session) read from `status.Status` rather than each maintaining their own state.
+- **GatedExecutor wraps the inner executor, not the agent loop.** The agent loop's `Executor` interface is unchanged; wrapping is done at the construction site. This keeps the loop testable with a plain Executor.
+- **SHA256 pins default to empty (dev mode) but are required in production.** The pipeline accepts empty pins with a documented warning; production wiring will set both pins in config.
+- **Conductor uses background context for summon.** Hotkey presses are not scoped to any request lifetime; a canceled HTTP context must not kill the overlay.
+- **Session.Run polls the stream manager for completion.** Streaming events flow through the SSE broker, so the session doesn't need to subscribe directly; it just waits for the active stream to leave the running state.
+
+### Test results
+- All 38 packages pass `go test -race -count=1 -timeout=180s ./...` (includes 4 new packages: status, conductor, session, gated_executor, voice pipeline)
+- Lint clean `golangci-lint run --timeout=5m ./...` (0 issues)
+- Daemon tests pass 3x in a row with `-race` (previously flaky)
+
+### Open questions for next session
+- **GatedExecutor not yet wired into Subsystems**: The daemon doesn't yet construct a `GatedExecutor` wrapping the computer-use executor. The structural hook is ready; the wiring is Phase 6B.
+- **Voice pipeline not yet wired into the daemon**: `Pipeline` is ready, but `synapticd` doesn't construct one. The config needs `voice.binary`, `voice.model`, `voice.binary_sha256`, `voice.model_sha256`.
+- **Conductor not yet wired into the daemon**: Same status — ready, not connected.
+- **Real malgo mic integration**: `darwinRecorder.Start` still returns an error; the malgo integration is deferred. Until then, voice sessions will fail with "audio capture not yet implemented".
+
+### Next steps
+1. Wire GatedExecutor, Pipeline, and Conductor into the daemon Subsystems.
+2. Add voice config fields (binary path, model path, SHA pins) to `internal/config`.
+3. Real malgo integration (deferred to Phase 6B or later).
+4. Begin Phase 7 (next major phase per build order).
+

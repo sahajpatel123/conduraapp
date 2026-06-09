@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	xhotkey "golang.design/x/hotkey"
 
@@ -150,6 +151,77 @@ func (m *Manager) listenHold(onDown, onUp func(), minMs int) {
 		// Simple debounce: if the hold was too short, treat as tap and skip.
 		// The caller can check PressCount to detect taps.
 		onUp()
+	}
+}
+
+// StartTap registers the hotkey for tap-to-toggle mode (e.g. double-tap
+// Caps Lock, double-tap Option). onTap fires when the user has pressed
+// the hotkey tapCount times within windowMs of each other. Each press
+// is debounced; a single press does nothing.
+func (m *Manager) StartTap(onTap func(), tapCount int, windowMs int) error {
+	if onTap == nil {
+		return errors.New("hotkey: onTap is required")
+	}
+	if tapCount < 2 {
+		return errors.New("hotkey: tapCount must be >= 2")
+	}
+	if windowMs <= 0 {
+		windowMs = 300
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.started {
+		return errors.New("hotkey: already started")
+	}
+	mods, key, err := ParseSpec(m.spec)
+	if err != nil {
+		return fmt.Errorf("hotkey: parse %q: %w", m.spec, err)
+	}
+	hk := xhotkey.New(mods, key)
+	if err := hk.Register(); err != nil {
+		return fmt.Errorf("hotkey: register: %w", err)
+	}
+	m.hk = hk
+	m.started = true
+	go m.listenTap(onTap, tapCount, time.Duration(windowMs)*time.Millisecond)
+	return nil
+}
+
+// listenTap collects presses and fires onTap when tapCount presses
+// happen within window of each other. Resets the count when the
+// window expires.
+func (m *Manager) listenTap(onTap func(), tapCount int, window time.Duration) {
+	presses := 0
+
+	for m.hk != nil {
+		<-m.hk.Keydown()
+		m.presses.Add(1)
+		presses++
+
+		if presses >= tapCount {
+			presses = 0
+			onTap()
+			continue
+		}
+
+		// Arm the debounce window. If the timer fires before the
+		// next press, reset the count.
+		timer := time.NewTimer(window)
+		select {
+		case <-m.hk.Keydown():
+			m.presses.Add(1)
+			presses++
+			if !timer.Stop() {
+				<-timer.C
+			}
+			if presses >= tapCount {
+				presses = 0
+				onTap()
+			}
+		case <-timer.C:
+			// Window expired — reset and wait for the next press.
+			presses = 0
+		}
 	}
 }
 
