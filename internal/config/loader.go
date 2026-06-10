@@ -1066,26 +1066,10 @@ func setVoice(c *VoiceConfig, parts []string, value string) error {
 	field := parts[0]
 	switch field {
 	case "enabled", "push_to_talk", "speaker_enabled":
-		b := value == "true" || value == "1"
-		switch field {
-		case "enabled":
-			c.Enabled = b
-		case "push_to_talk":
-			c.PushToTalk = b
-		case "speaker_enabled":
-			c.SpeakerEnabled = b
-		}
-	case "hotkey", "model", "language", "speaker_voice":
-		switch field {
-		case "hotkey":
-			c.Hotkey = value
-		case "model":
-			c.Model = value
-		case "language":
-			c.Language = value
-		case "speaker_voice":
-			c.SpeakerVoice = value
-		}
+		return setVoiceBoolField(c, field, value)
+	case "hotkey", "model", "language", "speaker_voice",
+		"binary_path", "model_path", "binary_sha256", "model_sha256":
+		setVoiceStringField(c, field, value)
 	case "vad_threshold":
 		f, err := strconv.ParseFloat(value, 64)
 		if err != nil {
@@ -1096,6 +1080,43 @@ func setVoice(c *VoiceConfig, parts []string, value string) error {
 		return setVoiceIntField(c, field, value)
 	}
 	return nil
+}
+
+func setVoiceBoolField(c *VoiceConfig, field, value string) error {
+	b, err := strconv.ParseBool(value)
+	if err != nil {
+		return err
+	}
+	switch field {
+	case "enabled":
+		c.Enabled = b
+	case "push_to_talk":
+		c.PushToTalk = b
+	case "speaker_enabled":
+		c.SpeakerEnabled = b
+	}
+	return nil
+}
+
+func setVoiceStringField(c *VoiceConfig, field, value string) {
+	switch field {
+	case "hotkey":
+		c.Hotkey = value
+	case "model":
+		c.Model = value
+	case "language":
+		c.Language = value
+	case "speaker_voice":
+		c.SpeakerVoice = value
+	case "binary_path":
+		c.BinaryPath = value
+	case "model_path":
+		c.ModelPath = value
+	case "binary_sha256":
+		c.BinarySHA256 = value
+	case "model_sha256":
+		c.ModelSHA256 = value
+	}
 }
 
 func setVoiceIntField(c *VoiceConfig, field, value string) error {

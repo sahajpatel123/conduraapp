@@ -98,6 +98,9 @@ type Factory struct {
 	onStatus     func(status.Status)
 	gate         gatekeeper.Gatekeeper
 	audit        *audit.Log
+
+	mu         sync.Mutex
+	activeSess *Session
 }
 
 // NewFactory creates a session factory. An empty providerName
@@ -155,7 +158,10 @@ func (f *Factory) SetGatekeeper(gate gatekeeper.Gatekeeper, auditLog *audit.Log)
 // New builds a Session for a specific conversation. The
 // session's lifetime is the lifetime of one Run call.
 func (f *Factory) New(conversationID int64) *Session {
-	return &Session{
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	s := &Session{
 		cfg: Config{
 			StreamMgr:      f.streamMgr,
 			Provider:       f.provider,
@@ -170,6 +176,20 @@ func (f *Factory) New(conversationID int64) *Session {
 		},
 		OnStatus: f.onStatus,
 	}
+	f.activeSess = s
+	return s
+}
+
+// Status returns the status of the active session, or StatusIdle if no
+// session is currently running.
+func (f *Factory) Status() status.Status {
+	f.mu.Lock()
+	s := f.activeSess
+	f.mu.Unlock()
+	if s == nil {
+		return status.StatusIdle
+	}
+	return s.Status()
 }
 
 // New creates a Session. ProviderName and Model may be empty;
@@ -367,7 +387,7 @@ func (s *Session) collectAndSpeak(ctx context.Context, requestID string, sub *ss
 			case stream.EventFinished:
 				finished = true
 			case stream.EventError, stream.EventCancelled:
-				if msg, ok := stringField(ev.Data, "message"); ok {
+				if msg, ok := stringField(ev.Data, "error"); ok {
 					return full, fmt.Errorf("session: stream %s: %s", ev.Name, msg)
 				}
 				return full, fmt.Errorf("session: stream %s", ev.Name)

@@ -40,11 +40,13 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		if wRaw, ok := patch["window"]; ok {
 			applyWindowPatch(cfg, wRaw)
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "config.update", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "patched keys",
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "config.update", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+				Message: "patched keys",
+			})
+		}
 		return auditOK(), nil
 	})
 
@@ -57,11 +59,13 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		}
 		cfg.Telemetry.Enabled = p.Enabled
 		subs.Telemetry.SetEnabled(p.Enabled)
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "telemetry.setEnabled", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "enabled=" + boolStr(p.Enabled),
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "telemetry.setEnabled", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+				Message: "enabled=" + boolStr(p.Enabled),
+			})
+		}
 		return auditOK(), nil
 	})
 }
@@ -192,24 +196,21 @@ func registerUpdateMethods(srv *ipc.Server, u *updater.Updater, auditLog *audit.
 func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 	noOp := func(ctx context.Context, params json.RawMessage) (any, error) {
 		_ = params
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "window.event", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		auditEvent(ctx, subs, "window.event", "")
 		return auditOK(), nil
 	}
 	srv.Register("window.show", noOp)
 	srv.Register("window.hide", noOp)
 
-	// overlay.show: summon the overlay at the cursor. Used by
-	// the hotkey press and by IPC callers.
 	srv.Register("overlay.show", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			AtCursor bool `json:"at_cursor"`
 			X        int  `json:"x"`
 			Y        int  `json:"y"`
 		}
-		_ = json.Unmarshal(params, &p)
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
 		if err := subs.Overlay.Show(ctx, overlay.ShowOpts{
 			AtCursor: p.AtCursor,
 			X:        p.X,
@@ -217,44 +218,26 @@ func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 		}); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "overlay.show", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		auditEvent(ctx, subs, "overlay.show", "")
 		return auditOK(), nil
 	})
 
-	// overlay.hide: dismiss the overlay.
 	srv.Register("overlay.hide", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if err := subs.Overlay.Hide(); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "overlay.hide", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		auditEvent(ctx, subs, "overlay.hide", "")
 		return auditOK(), nil
 	})
 
-	// tray.update: update the tray status. Used by the GUI to
-	// drive the status indicator when the user toggles voice
-	// modes. The actual tray instance lives in the GUI process;
-	// the daemon records the requested state in the audit log
-	// and broadcasts it on the SSE broker so any connected
-	// tray host can react.
 	srv.Register("tray.update", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Status string `json:"status"`
 		}
-		_ = json.Unmarshal(params, &p)
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "tray.update", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "status=" + p.Status,
-		})
-		// Broadcast the status change on the SSE broker so the
-		// tray host (which subscribes via the broker) can
-		// update its menu item.
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		auditEvent(ctx, subs, "tray.update", "status="+p.Status)
 		subs.Broker.PublishJSON("tray.status", map[string]any{
 			statusKey: p.Status,
 		})
@@ -269,8 +252,8 @@ func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 			Width  int `json:"width"`
 			Height int `json:"height"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Window.SetSize(ctx, p.Width, p.Height); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -282,8 +265,8 @@ func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 			X *int `json:"x"`
 			Y *int `json:"y"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Window.SetPosition(ctx, p.X, p.Y); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -294,14 +277,37 @@ func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			ID int64 `json:"id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Window.SetLastConversation(ctx, p.ID); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
 		return auditOK(), nil
 	})
+}
+
+// auditEvent logs an audit event if the audit log is available.
+func auditEvent(ctx context.Context, subs *Subsystems, action, msg string) {
+	if subs.Audit == nil {
+		return
+	}
+	_ = subs.Audit.Append(ctx, audit.Event{
+		Actor: actorGUI, Action: action, App: appSynapticG,
+		Level: auditLevelInfo, Result: auditResultAllow, Message: msg,
+	})
+}
+
+// decodeParams unmarshals JSON params into v. Returns nil if params
+// is empty. Returns an IPC invalid-params error on unmarshal failure.
+func decodeParams(params json.RawMessage, v any) error {
+	if len(params) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(params, v); err != nil {
+		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	}
+	return nil
 }
 
 // firstRunMarkerExists reports whether ~/.synaptic/first-run-complete
