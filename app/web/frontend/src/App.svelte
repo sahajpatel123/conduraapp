@@ -8,6 +8,7 @@
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
+  import VoiceOrb from './lib/components/VoiceOrb.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
   import { overlay } from './lib/stores/overlay.svelte'
@@ -67,6 +68,7 @@
 
       {#if overlay.active}
         <div class="overlay-prompt">
+          <VoiceOrb />
           <div class="overlay-input-row">
             <input
               type="text"
