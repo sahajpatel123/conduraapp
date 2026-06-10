@@ -989,3 +989,34 @@ Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 
 1. Deploy `web/` (Vercel or static host) and point synaptic.app at it.
 2. Real release artifacts + checksums on `/download` when Phase VIII lands.
 3. Optional: brand 404 page, `/press` kit, i18n once the 6-language scope starts.
+
+---
+
+## Session 14 — Website Redesign: "The Touch"
+
+**Date:** 2026-06-10
+**AI Model:** Fable 5 via Claude Code
+**Session ID:** website-the-touch
+**Task:** Full creative reset of the marketing site per Sahaj's direction: his signature idea — a bulb in a dark hero; on scroll a hand reaches in from the right, one finger touches the bulb, it glows, and the whole site flips to a light theme.
+
+### The concept, made product-logical
+- The finger touching the bulb IS the one-hotkey summon: "One touch wakes every AI on your machine."
+- The bulb's power cord continues down the page as a live wire connecting every Act II section.
+- The Gatekeeper is redesigned as a literal circuit breaker on that wire: safe pulses pass, a destructive surge trips the arm.
+- Act I (dark) = your machine's genius sitting in the dark; Act II (warm paper) = the lit room.
+
+### Implementation
+- Dual-theme token system: `data-theme` dark/light CSS vars behind the existing semantic utility names, so every component flips automatically; subpages forced light pre-paint by an inline script.
+- `Illumination` set-piece: 340vh sticky stage driven by one scroll progress — Act I headline (animated Archivo `wdth` axis), swaying SVG bulb with filament/halo, line-art hand entering from the right, contact spark, light bloom that masks the theme flip (reversible on scroll-up), captions, then the Act II hero. Bulb doubles as a click-to-toggle switch; reduced motion gets a static hero with a real "turn on the light" button.
+- New typography: Archivo variable (wght + wdth) display, Instrument Serif italics, Geist/Geist Mono retained.
+- New set-pieces: circuit-breaker Gatekeeper (in-view gated, pausable), infinite tool marquee, 3D tilt cards with pointer-tracked shine, count-up latency stats, dust motes + light shafts background systems.
+- Bug found and fixed during verification: motion v12 hands scroll-bound `opacity` style values to native scroll-driven animations whose timelines break inside sticky containers (inline `opacity: 1` overridden by a mis-ranged WAAPI animation). Fixed by routing opacity through a CSS variable (`fade()` helper) to stay on the rAF path.
+
+### Verification
+- `eslint`, `tsc --noEmit`, `next build` clean — 9 static routes.
+- Playwright frame-by-frame capture of the sequence (p = 0 → 0.95): theme flips dark→light exactly at the contact threshold; hand reaches the glass; spark, glow and bloom land on the bulb.
+- Full sweep (all pages, mobile, reduced motion, ⌘K palette navigation): zero console errors.
+
+### Next steps
+1. Deploy and point synaptic.app.
+2. Consider sound-off haptic flicker on the contact moment, branded 404.

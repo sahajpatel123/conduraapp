@@ -7,12 +7,15 @@
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { PaletteProvider } from "./palette";
+import { ThemeProvider } from "./theme";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
-        <PaletteProvider>{children}</PaletteProvider>
+        <ThemeProvider>
+          <PaletteProvider>{children}</PaletteProvider>
+        </ThemeProvider>
       </MotionConfig>
     </LazyMotion>
   );

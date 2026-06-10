@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/chrome/providers";
 import { Nav } from "@/components/chrome/nav";
@@ -7,11 +7,17 @@ import { Footer } from "@/components/chrome/footer";
 import { Baton } from "@/components/chrome/baton";
 import { SITE } from "@/lib/site";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
+  axes: ["wdth"],
+});
+
+const instrument = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  weight: "400",
   style: ["normal", "italic"],
-  axes: ["opsz", "WONK"],
 });
 
 const geistSans = Geist({
@@ -45,6 +51,9 @@ export const metadata: Metadata = {
   },
 };
 
+/* Subpages get the light before first paint; home begins in the dark. */
+const themeScript = `if(location.pathname!=="/"){document.documentElement.dataset.theme="light"}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -53,9 +62,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${archivo.variable} ${instrument.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <a
           href="#main"
           className="annotation sr-only z-[90] bg-brass !text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:px-4 focus:py-2"

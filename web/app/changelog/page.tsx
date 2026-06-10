@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Cascade, Item, Lines, Rise } from "@/components/motion/reveal";
+import { ForceLight } from "@/components/chrome/theme";
 
 export const metadata: Metadata = {
   title: "Rehearsals",
@@ -88,6 +89,7 @@ const UPCOMING = [
 export default function Changelog() {
   return (
     <>
+      <ForceLight />
       <section className="staff">
         <div className="mx-auto max-w-6xl px-5 pt-40 pb-20 md:px-8 md:pt-48 md:pb-28">
           <Rise>

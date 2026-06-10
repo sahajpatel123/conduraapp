@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { Cascade, Item, Lines, Rise } from "@/components/motion/reveal";
+import { ForceLight } from "@/components/chrome/theme";
 import { PLATFORMS, type PlatformKey } from "@/lib/site";
 
 function detectPlatform(): PlatformKey {
@@ -41,6 +42,7 @@ export function DownloadClient() {
 
   return (
     <>
+      <ForceLight />
       <section className="staff">
         <div className="mx-auto max-w-6xl px-5 pt-40 pb-20 md:px-8 md:pt-48 md:pb-28">
           <Rise>

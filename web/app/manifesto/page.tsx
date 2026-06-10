@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Cascade, Item, Lines, Rise } from "@/components/motion/reveal";
+import { ForceLight } from "@/components/chrome/theme";
 import { INVARIANTS } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ const IS_NOT = [
 export default function Manifesto() {
   return (
     <>
+      <ForceLight />
       <section className="staff">
         <div className="mx-auto max-w-6xl px-5 pt-40 pb-24 md:px-8 md:pt-48 md:pb-32">
           <Rise>

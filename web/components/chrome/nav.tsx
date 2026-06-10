@@ -76,12 +76,22 @@ export function Nav() {
           aria-label="Primary"
           className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 md:px-8"
         >
-          <Link href="/" className="group flex items-center gap-2.5">
-            <span
+          <Link href="/" className="group flex items-center gap-2">
+            <svg
               aria-hidden
-              className="size-2 rotate-45 bg-brass transition-transform duration-300 ease-out group-hover:rotate-[225deg]"
-            />
-            <span className="font-display text-lg tracking-tight">Synaptic</span>
+              viewBox="0 0 24 32"
+              className="h-5 w-auto transition-transform duration-300 ease-out group-hover:-rotate-12"
+            >
+              <path
+                d="M8,5 C8,9 5,10.5 4,14 A8.5,8.5 0 1,0 20,14 C19,10.5 16,9 16,5 Z"
+                fill="var(--t-glow)"
+                fillOpacity="0.55"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <rect x="7.5" y="1" width="9" height="5" rx="1.5" fill="var(--t-bg-3)" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+            <span className="font-display text-lg font-bold tracking-tight">Synaptic</span>
           </Link>
 
           <div className="hidden items-center gap-7 md:flex">
