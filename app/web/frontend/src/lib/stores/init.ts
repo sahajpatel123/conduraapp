@@ -9,6 +9,7 @@ import { audit } from './audit.svelte'
 import { halt } from './halt.svelte'
 import { apiKeys } from './apikeys.svelte'
 import { updateStore } from './update.svelte'
+import { overlay } from './overlay.svelte'
 import { wailsBindings } from '../ipc/client'
 
 export async function initStores(): Promise<void> {
@@ -63,6 +64,7 @@ export async function initStores(): Promise<void> {
   halt.startPolling()
   updateStore.startPolling()
   conversation.startListening()
+  overlay.start()
 
   // Step 4: load initial state from the daemon. Tolerate failures
   // (the daemon may be mid-startup); stores will refresh when the

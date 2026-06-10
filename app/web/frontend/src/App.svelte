@@ -9,6 +9,7 @@
   import Toasts from './lib/components/Toasts.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
+  import { overlay } from './lib/stores/overlay.svelte'
   import { ipc } from './lib/ipc/client'
   import { initStores } from './lib/stores/init'
 
@@ -48,35 +49,50 @@
     <OnboardingWizard />
   </div>
 {:else}
-  <div class="app-shell">
-    <Sidebar />
+  <div class="app-shell" class:overlay-mode={overlay.active}>
+    {#if !overlay.active}
+      <Sidebar />
+    {/if}
 
     <main class="main">
-      <nav class="topbar">
-        <div class="topbar-left">
-          <a href="#/" class:active={route === 'chat'}>Chat</a>
-          <a href="#/settings" class:active={route === 'settings'}>Settings</a>
-          <a href="#/audit" class:active={route === 'audit'}>Audit</a>
-          <a href="#/about" class:active={route === 'about'}>About</a>
-        </div>
-        <div class="topbar-right">
-          <span class="conn" class:connected={daemon.connected}>
-            {daemon.connected ? '● connected' : '○ disconnected'}
-          </span>
-        </div>
-      </nav>
-
-      <div class="route-container">
-        {#if route === 'settings'}
-          <Settings />
-        {:else if route === 'audit'}
-          <Audit />
-        {:else if route === 'about'}
-          <About />
-        {:else}
-          <Chat />
-        {/if}
+      <div class="status-bar">
+        <span class="conn" class:connected={daemon.connected}>
+          {daemon.connected ? '' : ''}
+        </span>
+        <span class="conn-label" class:connected={daemon.connected}>
+          {daemon.connected ? 'connected' : 'disconnected'}
+        </span>
       </div>
+
+      {#if overlay.active}
+        <div class="overlay-prompt">
+          <div class="overlay-input-row">
+            <input
+              type="text"
+              class="overlay-input"
+              placeholder="Ask Synaptic..."
+              onkeydown={(e) => {
+                if (e.key === 'Escape') overlay.hide()
+              }}
+            />
+            <button class="overlay-close" onclick={() => overlay.hide()}>
+              &times;
+            </button>
+          </div>
+        </div>
+      {:else}
+        <div class="route-container">
+          {#if route === 'settings'}
+            <Settings />
+          {:else if route === 'audit'}
+            <Audit />
+          {:else if route === 'about'}
+            <About />
+          {:else}
+            <Chat />
+          {/if}
+        </div>
+      {/if}
     </main>
 
     <Toasts />
@@ -89,62 +105,137 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+    background: var(--color-bg);
   }
+
+  .app-shell.overlay-mode {
+    background: transparent;
+  }
+
   .main {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    position: relative;
   }
-  .topbar {
+
+  .status-bar {
+    position: absolute;
+    top: 12px;
+    right: 16px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 var(--space-4);
-    height: 48px;
-    background: var(--color-bg-elevated);
-    border-bottom: 1px solid var(--color-border);
+    gap: 6px;
+    z-index: 10;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
   }
-  .topbar-left {
-    display: flex;
-    gap: var(--space-4);
+
+  .conn {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-text-faint);
+    transition: background var(--transition-base);
   }
-  .topbar-left a {
-    color: var(--color-text-muted);
-    font-size: var(--size-md);
-    padding: var(--space-2) 0;
-    border-bottom: 2px solid transparent;
-    text-decoration: none;
+
+  .conn.connected {
+    background: var(--color-success);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+    animation: breathe 2s ease-in-out infinite;
   }
-  .topbar-left a:hover {
-    color: var(--color-text);
-  }
-  .topbar-left a.active {
-    color: var(--color-text);
-    border-bottom-color: var(--color-accent);
-  }
-  .topbar-right .conn {
+
+  .conn-label {
     font-family: var(--font-mono);
-    font-size: var(--size-xs);
+    font-size: 10px;
     color: var(--color-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
-  .topbar-right .conn.connected {
+
+  .conn-label.connected {
     color: var(--color-success);
   }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
   .route-container {
     flex: 1;
     overflow: hidden;
     display: flex;
   }
+
   .route-container :global(div) {
     display: flex;
     flex-direction: column;
     width: 100%;
   }
+
   .onboarding-overlay {
     position: fixed;
     inset: 0;
     background: var(--color-bg);
     z-index: 100;
+  }
+
+  .overlay-prompt {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .overlay-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .overlay-input {
+    flex: 1;
+    padding: 16px 24px;
+    font-size: 18px;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: var(--glass-blur);
+    outline: none;
+  }
+
+  .overlay-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
+  }
+
+  .overlay-close {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--color-text-faint);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .overlay-close:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-faint);
   }
 </style>
