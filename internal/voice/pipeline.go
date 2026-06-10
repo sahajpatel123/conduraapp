@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/sse"
 	"github.com/sahajpatel123/synapticapp/internal/status"
 )
 
@@ -88,6 +89,9 @@ type Config struct {
 	Pins        SHA256Pins
 	SilenceMS   int    // silence threshold for auto-submit (default 1500)
 	Language    string // ISO 639-1; empty means auto-detect
+	// Broker is the SSE broker for publishing voice.partial and
+	// voice.final events. If nil, no SSE events are published.
+	Broker *sse.Broker
 }
 
 // Pipeline orchestrates the full voice session: listen, transcribe,
@@ -189,6 +193,14 @@ func (p *Pipeline) ListenAndProcess(ctx context.Context) (Result, error) {
 		p.setStatus(status.StatusError)
 		return Result{}, fmt.Errorf("voice: recorder start: %w", err)
 	}
+
+	// Emit voice.partial events during recording so the frontend
+	// can show a live recording indicator. These fire periodically
+	// with the current sample count.
+	if p.cfg.Broker != nil {
+		go p.emitPartials(ctx)
+	}
+
 	wav, err := p.cfg.Recorder.Stop()
 	if err != nil {
 		p.setStatus(status.StatusError)
@@ -205,6 +217,15 @@ func (p *Pipeline) ListenAndProcess(ctx context.Context) (Result, error) {
 	if err != nil {
 		p.setStatus(status.StatusError)
 		return Result{}, fmt.Errorf("voice: transcribe: %w", err)
+	}
+
+	// Emit voice.final SSE event with the completed transcript.
+	if p.cfg.Broker != nil {
+		p.cfg.Broker.PublishJSON("voice.final", map[string]any{
+			"text":       transcript.Text,
+			"confidence": transcript.Confidence,
+			"language":   transcript.Language,
+		})
 	}
 
 	// 6. Return to idle; the agent loop drives the next state.
@@ -258,4 +279,35 @@ func HashFile(path string) (string, error) {
 // behavior.
 func (p *Pipeline) SilenceThreshold() time.Duration {
 	return time.Duration(p.cfg.SilenceMS) * time.Millisecond
+}
+
+// emitPartials publishes voice.partial events at a throttled rate
+// while the recorder is active. Each event includes the current
+// sample count so the frontend can show a live recording indicator.
+// The goroutine exits when ctx is canceled (recording ends).
+func (p *Pipeline) emitPartials(ctx context.Context) {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Read the sample count from the recorder's Samples channel
+			// without consuming it. We use a non-blocking select to
+			// peek at the latest sample.
+			select {
+			case samples := <-p.cfg.Recorder.Samples():
+				p.cfg.Broker.PublishJSON("voice.partial", map[string]any{
+					"recording": true,
+					"samples":   len(samples),
+				})
+			default:
+				// No new samples yet; emit a generic recording event.
+				p.cfg.Broker.PublishJSON("voice.partial", map[string]any{
+					"recording": true,
+				})
+			}
+		}
+	}
 }

@@ -203,7 +203,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	// text-only mode.
 	var voicePipeline *voice.Pipeline
 	if cfg.Voice.Enabled {
-		vp, err := buildVoicePipeline(cfg, log)
+		vp, err := buildVoicePipeline(cfg, log, broker)
 		if err != nil {
 			log.Warn("voice pipeline init failed; running text-only", "err", err)
 		} else {
@@ -300,7 +300,7 @@ func (noopAgentExecutor) Execute(_ context.Context, a *agent.Action) (*agent.Ste
 // voice config. Returns an error if the binary or model is
 // missing or fails SHA verification, or if no audio capture
 // device is available on the platform.
-func buildVoicePipeline(cfg *config.Config, log *slog.Logger) (*voice.Pipeline, error) {
+func buildVoicePipeline(cfg *config.Config, log *slog.Logger, broker *sse.Broker) (*voice.Pipeline, error) {
 	if !cfg.Voice.Enabled {
 		return nil, errors.New("voice is not enabled in config")
 	}
@@ -337,6 +337,7 @@ func buildVoicePipeline(cfg *config.Config, log *slog.Logger) (*voice.Pipeline, 
 		Pins:        pins,
 		SilenceMS:   cfg.Voice.SilenceTimeoutMs,
 		Language:    cfg.Voice.Language,
+		Broker:      broker,
 	})
 	if err != nil {
 		return nil, err
