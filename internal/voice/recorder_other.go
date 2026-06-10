@@ -30,6 +30,10 @@ func NewRecorder(sampleRate, channels int) Recorder {
 	}
 }
 
+// RecorderAvailable reports whether the platform can capture audio.
+// On non-darwin platforms this always returns false.
+func RecorderAvailable() bool { return false }
+
 func (r *noopRecorder) Start(_ context.Context) error {
 	return fmt.Errorf("audio capture not yet implemented on this platform")
 }

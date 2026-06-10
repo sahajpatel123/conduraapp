@@ -298,7 +298,8 @@ func (noopAgentExecutor) Execute(_ context.Context, a *agent.Action) (*agent.Ste
 
 // buildVoicePipeline constructs the voice pipeline from the
 // voice config. Returns an error if the binary or model is
-// missing or fails SHA verification.
+// missing or fails SHA verification, or if no audio capture
+// device is available on the platform.
 func buildVoicePipeline(cfg *config.Config, log *slog.Logger) (*voice.Pipeline, error) {
 	if !cfg.Voice.Enabled {
 		return nil, errors.New("voice is not enabled in config")
@@ -306,6 +307,13 @@ func buildVoicePipeline(cfg *config.Config, log *slog.Logger) (*voice.Pipeline, 
 	cfg.Voice.ApplyDefaults()
 	if err := cfg.Voice.Validate(); err != nil {
 		return nil, fmt.Errorf("voice config: %w", err)
+	}
+
+	// Fail loudly at startup if no audio capture device is
+	// available. This avoids mid-session failures when the user
+	// presses the hotkey and the recorder can't start.
+	if !voice.RecorderAvailable() {
+		return nil, errors.New("no audio capture device found on this platform")
 	}
 
 	recorder := voice.NewRecorder(cfg.Voice.SampleRate, cfg.Voice.Channels)
