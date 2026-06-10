@@ -12,6 +12,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 )
 
@@ -183,13 +184,11 @@ func registerUpdateMethods(srv *ipc.Server, u *updater.Updater, auditLog *audit.
 }
 
 // registerWindowMethods wires window.show / window.hide / overlay.show
-// / overlay.hide / tray.update. Phase 2: these are stubs that record
-// the event in the audit log. The actual Wails-side window control
-// lives in the GUI binary (app/web).
-//
-// In addition, the GUI calls window.state.get / window.state.setSize
-// / window.state.setPosition / window.state.setLastConversation on
-// startup and on resize/move to persist geometry across launches.
+// / overlay.hide / tray.update. Phase 6 (6B #9): overlay.show and
+// overlay.hide now route to the real overlay controller; tray.update
+// routes to the tray status path (when a tray is wired in the GUI
+// host). window.show and window.hide remain stubs (they're driven
+// from the Wails GUI, not the daemon).
 func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 	noOp := func(ctx context.Context, params json.RawMessage) (any, error) {
 		_ = params
@@ -201,9 +200,66 @@ func registerWindowMethods(srv *ipc.Server, subs *Subsystems) {
 	}
 	srv.Register("window.show", noOp)
 	srv.Register("window.hide", noOp)
-	srv.Register("overlay.show", noOp)
-	srv.Register("overlay.hide", noOp)
-	srv.Register("tray.update", noOp)
+
+	// overlay.show: summon the overlay at the cursor. Used by
+	// the hotkey press and by IPC callers.
+	srv.Register("overlay.show", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			AtCursor bool `json:"at_cursor"`
+			X        int  `json:"x"`
+			Y        int  `json:"y"`
+		}
+		_ = json.Unmarshal(params, &p)
+		if err := subs.Overlay.Show(ctx, overlay.ShowOpts{
+			AtCursor: p.AtCursor,
+			X:        p.X,
+			Y:        p.Y,
+		}); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		_ = subs.Audit.Append(ctx, audit.Event{
+			Actor: actorGUI, Action: "overlay.show", App: appSynapticG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+		})
+		return auditOK(), nil
+	})
+
+	// overlay.hide: dismiss the overlay.
+	srv.Register("overlay.hide", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		if err := subs.Overlay.Hide(); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		_ = subs.Audit.Append(ctx, audit.Event{
+			Actor: actorGUI, Action: "overlay.hide", App: appSynapticG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+		})
+		return auditOK(), nil
+	})
+
+	// tray.update: update the tray status. Used by the GUI to
+	// drive the status indicator when the user toggles voice
+	// modes. The actual tray instance lives in the GUI process;
+	// the daemon records the requested state in the audit log
+	// and broadcasts it on the SSE broker so any connected
+	// tray host can react.
+	srv.Register("tray.update", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Status string `json:"status"`
+		}
+		_ = json.Unmarshal(params, &p)
+		_ = subs.Audit.Append(ctx, audit.Event{
+			Actor: actorGUI, Action: "tray.update", App: appSynapticG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "status=" + p.Status,
+		})
+		// Broadcast the status change on the SSE broker so the
+		// tray host (which subscribes via the broker) can
+		// update its menu item.
+		subs.Broker.PublishJSON("tray.status", map[string]any{
+			statusKey: p.Status,
+		})
+		return auditOK(), nil
+	})
 
 	srv.Register("window.state.get", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return subs.Window.Snapshot(), nil

@@ -236,6 +236,11 @@ func (p *Pipeline) Cancel() {
 	p.setStatus(status.StatusIdle)
 }
 
+// Stop is the Speaker interface method. Implemented so the
+// pipeline can be passed as a Speaker to the session factory.
+// Currently an alias for Cancel.
+func (p *Pipeline) Stop() { p.Cancel() }
+
 // HashFile returns the SHA256 hex of a file. It is exposed for
 // setup scripts that need to compute pins; production code paths
 // should not call this directly.

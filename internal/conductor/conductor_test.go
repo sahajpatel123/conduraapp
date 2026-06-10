@@ -20,7 +20,7 @@ func newTestConductor(t *testing.T) (*Conductor, overlay.Controller, *dummyHaltC
 	t.Helper()
 	ctrl := overlay.NewNoopController()
 	halt := &dummyHaltChecker{}
-	orch := presence.NewOrchestrator(ctrl, halt)
+	orch := presence.NewOrchestrator(ctrl, halt, nil)
 	// We pass nil for hotkey; the toggle function only uses
 	// orchestrator and the onShow/onHide callbacks, never the
 	// hotkey itself.
@@ -32,7 +32,7 @@ func newTestConductor(t *testing.T) (*Conductor, overlay.Controller, *dummyHaltC
 }
 
 func TestNew_RequiresHotkey(t *testing.T) {
-	_, err := New(nil, presence.NewOrchestrator(overlay.NewNoopController(), &dummyHaltChecker{}), nil, nil)
+	_, err := New(nil, presence.NewOrchestrator(overlay.NewNoopController(), &dummyHaltChecker{}, nil), nil, nil)
 	if err == nil {
 		t.Fatal("expected error for nil hotkey")
 	}
@@ -49,7 +49,7 @@ func TestNew_RequiresOrchestrator(t *testing.T) {
 
 func TestNew_OK(t *testing.T) {
 	hk := hotkey.New("Cmd+Shift+Space")
-	orch := presence.NewOrchestrator(overlay.NewNoopController(), &dummyHaltChecker{})
+	orch := presence.NewOrchestrator(overlay.NewNoopController(), &dummyHaltChecker{}, nil)
 	cond, err := New(hk, orch, nil, nil)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -101,7 +101,7 @@ func TestToggle_BlockedByHalt(t *testing.T) {
 func TestToggle_FiresCallbacks(t *testing.T) {
 	ctrl := overlay.NewNoopController()
 	halt := &dummyHaltChecker{}
-	orch := presence.NewOrchestrator(ctrl, halt)
+	orch := presence.NewOrchestrator(ctrl, halt, nil)
 	var shows, hides atomic.Int64
 	cond := &Conductor{
 		hotkey:       nil,

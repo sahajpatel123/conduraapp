@@ -9,21 +9,28 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
+	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
+	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/health"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
+	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/synapticapp/internal/session"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/synapticapp/internal/status"
 	"github.com/sahajpatel123/synapticapp/internal/storage"
 	"github.com/sahajpatel123/synapticapp/internal/stream"
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
+	"github.com/sahajpatel123/synapticapp/internal/voice"
 	"github.com/sahajpatel123/synapticapp/internal/window"
 )
 
@@ -56,6 +63,28 @@ type Subsystems struct {
 	Broker        *sse.Broker
 	Streams       *stream.Manager
 	IPCAddr       string // first listen addr (empty if IPC disabled)
+
+	// Phase 6: living presence.
+	// Gatekeeper is the canonical deterministic rules engine.
+	// Every physical action goes through it (GatedAgentExecutor,
+	// GatedComputerUseExecutor). Constructed once at startup.
+	Gatekeeper gatekeeper.Gatekeeper
+	// GatedAgentExecutor wraps the agent loop's executor with the
+	// Gatekeeper. Use this from the agent loop; do NOT construct
+	// another gatekeeper wrapping downstream.
+	GatedAgentExecutor *agent.GatedExecutor
+	// GatedComputerUseExecutor is the parallel wrapper for the
+	// computer-use backends.
+	GatedComputerUseExecutor *computeruse.GatedExecutor
+	// Overlay is the overlay controller. Always non-nil (the
+	// headless noop is a real implementation with a state machine).
+	Overlay overlay.Controller
+	// SessionFactory builds sessions on demand. Always non-nil
+	// even when voice is disabled (text-only sessions still work).
+	SessionFactory *session.Factory
+	// Voice is the voice pipeline. Non-nil only when voice is
+	// enabled in config and the binary/model are pinned correctly.
+	Voice *voice.Pipeline
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -111,13 +140,206 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	streamMgr := stream.NewManager(broker, registry)
 	streamMgr.SetHaltChecker(haltFlag.IsHalted)
 
+	// Phase 6: living presence.
+	//
+	// Gatekeeper is the deterministic rules engine. Built once
+	// and shared by every gated executor in the daemon so the
+	// safety layer is the single source of truth.
+	gate := gatekeeper.NewDenyBeyondRead()
+	log.Info("gatekeeper ready", "policy", "deny-beyond-read")
+
+	// SessionFactory builds end-to-end sessions on demand. It
+	// pulls the LLM from the registry (currently the primary
+	// provider; failover is handled inside the registry).
+	primaryName, primaryModel := pickPrimaryProvider(cfg)
+	if primaryName == "" {
+		// No LLM configured — sessions will fail at Run time.
+		log.Warn("no primary LLM provider configured; session.Run will fail until one is added")
+	}
+	sessionFactory, err := session.NewFactory(
+		streamMgr,
+		registry,
+		primaryName,
+		primaryModel,
+		convStore,
+		broker,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("init session factory: %w", err)
+	}
+	log.Info("session factory ready", "primary", primaryName, "model", primaryModel)
+
+	// Fan session status out to the SSE broker so the GUI
+	// (tray, overlay) can react to session state changes.
+	sessionFactory.SetOnStatus(func(s status.Status) {
+		broker.PublishJSON("tray.status", map[string]any{
+			statusKey: s.String(),
+		})
+	})
+
+	// Overlay controller. The noop controller is a real
+	// implementation with a state machine; the GUI host swaps it
+	// for a Wails-backed controller when the GUI process is
+	// embedded.
+	ovl := overlay.NewNoopController()
+
+	// GatedAgentExecutor wraps the agent loop's executor with
+	// the Gatekeeper. The agent loop's Executor interface is
+	// unchanged; wrapping is done at the composition site so
+	// the loop remains testable with a plain Executor.
+	gatedAgentExec := agent.NewGatedExecutor(noopAgentExecutor{}, gate, auditLog)
+
+	// GatedComputerUseExecutor is the parallel wrapper for the
+	// computer-use backends. Until the 4-tier router is wired
+	// in 6B.1, the wrapped inner is a noop; the gatekeeper
+	// still applies and decisions are still audited.
+	cuBackend := &computeruse.NoopBackend{}
+	cu := computeruse.New(cuBackend)
+	gatedCUExec := computeruse.NewGatedExecutor(cu, gate)
+
+	// Voice pipeline. Constructed only when voice is enabled and
+	// the binary/model paths are present. Failure to construct is
+	// logged and Voice is left nil — sessions still work in
+	// text-only mode.
+	var voicePipeline *voice.Pipeline
+	if cfg.Voice.Enabled {
+		vp, err := buildVoicePipeline(cfg, log)
+		if err != nil {
+			log.Warn("voice pipeline init failed; running text-only", "err", err)
+		} else {
+			voicePipeline = vp
+			// The session uses the pipeline's Speaker for TTS.
+			// The pipeline itself is a voice.Pipeline (which
+			// has Speak/Stop methods), so we pass it directly.
+			sessionFactory.SetSpeaker(vp)
+			log.Info("voice pipeline ready")
+		}
+	}
+
+	// Wire voice pipeline status updates to the SSE broker so
+	// the tray (which lives in the GUI process) can react.
+	// Pipeline.OnStatus fires on every state transition.
+	if voicePipeline != nil {
+		voicePipeline.OnStatus = func(s status.Status) {
+			broker.PublishJSON("tray.status", map[string]any{
+				statusKey: s.String(),
+			})
+		}
+	}
+
 	return &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
 		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
 		Telemetry: tel, Updater: upd, Window: winMgr,
 		Broker: broker, Streams: streamMgr,
+		Gatekeeper:               gate,
+		GatedAgentExecutor:       gatedAgentExec,
+		GatedComputerUseExecutor: gatedCUExec,
+		Overlay:                  ovl,
+		SessionFactory:           sessionFactory,
+		Voice:                    voicePipeline,
 	}, nil
+}
+
+// pickPrimaryProvider returns the first enabled LLM provider
+// name and its default model. When no provider is configured,
+// returns "", "".
+func pickPrimaryProvider(cfg *config.Config) (string, string) {
+	// Prefer the order in the YAML: iterate the map in insertion
+	// order (Go map iteration is randomized, so callers who
+	// care about priority should set the model field
+	// explicitly). For v0 we pick the first enabled provider.
+	for _, name := range []string{"anthropic", "openai", "google", "ollama", "xai", "mistral"} {
+		pc, ok := cfg.LLM.Providers[name]
+		if !ok || !pc.Enabled {
+			continue
+		}
+		model := pc.DefaultModel
+		if model == "" {
+			model = defaultModelFor(name)
+		}
+		return name, model
+	}
+	return "", ""
+}
+
+// defaultModelFor returns a sensible default model name for a
+// provider. Used by the session factory when the user hasn't
+// pinned a model.
+func defaultModelFor(provider string) string {
+	switch provider {
+	case "anthropic":
+		return "claude-3-5-sonnet-20241022"
+	case "openai":
+		return "gpt-4o-mini"
+	case "google":
+		return "gemini-1.5-flash"
+	case "ollama":
+		return "llama3.2"
+	case "xai":
+		return "grok-beta"
+	case "mistral":
+		return "mistral-large-latest"
+	default:
+		return ""
+	}
+}
+
+// noopAgentExecutor is a placeholder agent.Executor for the
+// initial daemon wiring. The real computer-use executor will
+// be wrapped through GatedComputerUseExecutor in a future
+// iteration (Phase 6B.1).
+type noopAgentExecutor struct{}
+
+func (noopAgentExecutor) Execute(_ context.Context, a *agent.Action) (*agent.StepResult, error) {
+	return &agent.StepResult{Success: false, Error: fmt.Errorf("agent executor not yet wired: %s", a.Type)}, nil
+}
+
+// buildVoicePipeline constructs the voice pipeline from the
+// voice config. Returns an error if the binary or model is
+// missing or fails SHA verification.
+func buildVoicePipeline(cfg *config.Config, log *slog.Logger) (*voice.Pipeline, error) {
+	if !cfg.Voice.Enabled {
+		return nil, errors.New("voice is not enabled in config")
+	}
+	cfg.Voice.ApplyDefaults()
+	if err := cfg.Voice.Validate(); err != nil {
+		return nil, fmt.Errorf("voice config: %w", err)
+	}
+
+	recorder := voice.NewRecorder(cfg.Voice.SampleRate, cfg.Voice.Channels)
+	transcriber := voice.NewTranscriber(
+		cfg.Voice.BinaryPath,
+		cfg.Voice.ModelPath,
+		cfg.Voice.Language,
+	)
+	pins := voice.SHA256Pins{
+		Binary: cfg.Voice.BinarySHA256,
+		Model:  cfg.Voice.ModelSHA256,
+	}
+	speaker := voice.NewSpeaker(cfg.Voice.SpeakerVoice, cfg.Voice.SpeakerRate)
+
+	pipeline, err := voice.NewPipeline(voice.Config{
+		Recorder:    recorder,
+		Transcriber: transcriber,
+		Speaker:     speaker,
+		BinaryPath:  cfg.Voice.BinaryPath,
+		ModelPath:   cfg.Voice.ModelPath,
+		Pins:        pins,
+		SilenceMS:   cfg.Voice.SilenceTimeoutMs,
+		Language:    cfg.Voice.Language,
+	})
+	if err != nil {
+		return nil, err
+	}
+	log.Info("voice pipeline constructed",
+		"binary", cfg.Voice.BinaryPath,
+		"model", cfg.Voice.ModelPath,
+		"sha_binary_pinned", cfg.Voice.BinarySHA256 != "",
+		"sha_model_pinned", cfg.Voice.ModelSHA256 != "",
+	)
+	return pipeline, nil
 }
 
 // mkdirDataDir creates the data directory if it doesn't exist.

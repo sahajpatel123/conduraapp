@@ -172,6 +172,10 @@ func Default() *Config {
 			Enabled:               false,
 			PushToTalk:            true,
 			Hotkey:                "Cmd+Shift+V",
+			BinaryPath:            "",
+			ModelPath:             "",
+			BinarySHA256:          "",
+			ModelSHA256:           "",
 			Model:                 "base",
 			Language:              "auto",
 			SampleRate:            16000,
@@ -618,6 +622,15 @@ func isValidAutonomy(level string) bool {
 }
 
 func (c *Config) validateVoice() []string {
+	errs := make([]string, 0, len(c.validateVoiceBasic())+len(c.validateVoiceEnabled()))
+	errs = append(errs, c.validateVoiceBasic()...)
+	errs = append(errs, c.validateVoiceEnabled()...)
+	return errs
+}
+
+// validateVoiceBasic checks the voice fields that are always
+// validated (regardless of whether voice is enabled).
+func (c *Config) validateVoiceBasic() []string {
 	var errs []string
 	validModels := map[string]bool{"tiny": true, "base": true, "small": true, "medium": true}
 	if c.Voice.Model != "" && !validModels[c.Voice.Model] {
@@ -640,6 +653,31 @@ func (c *Config) validateVoice() []string {
 	}
 	if c.Voice.SpeakerRate < 0 {
 		errs = append(errs, "voice.speaker_rate must be non-negative")
+	}
+	return errs
+}
+
+// validateVoiceEnabled checks the voice fields that are required
+// only when voice is enabled. 6A-3 (Phase 6): binary and model
+// paths are required so the pipeline can be built from config.
+// SHA256 pins are optional in dev, but a production deployment
+// should set them.
+func (c *Config) validateVoiceEnabled() []string { //nolint:gocyclo // explicit checks
+	if !c.Voice.Enabled {
+		return nil
+	}
+	var errs []string
+	if c.Voice.BinaryPath == "" {
+		errs = append(errs, "voice.enabled is true but voice.binary_path is empty")
+	}
+	if c.Voice.ModelPath == "" {
+		errs = append(errs, "voice.enabled is true but voice.model_path is empty")
+	}
+	if c.Voice.SampleRate == 0 {
+		errs = append(errs, "voice.enabled is true but voice.sample_rate is 0")
+	}
+	if c.Voice.Channels == 0 {
+		errs = append(errs, "voice.enabled is true but voice.channels is 0")
 	}
 	return errs
 }

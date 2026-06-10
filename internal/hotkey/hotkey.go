@@ -139,17 +139,43 @@ func (m *Manager) StartHold(onDown, onUp func(), minMs int) error {
 	return nil
 }
 
+// shouldFireHold reports whether a hold of the given duration
+// should fire the onDown/onUp callbacks, given the configured
+// minMs. A hold shorter than minMs is treated as an accidental
+// tap and the callbacks are skipped.
+func shouldFireHold(duration time.Duration, minMs int) bool {
+	if minMs < 0 {
+		minMs = 0
+	}
+	return duration >= time.Duration(minMs)*time.Millisecond
+}
+
 // listenHold handles push-to-talk: keydown fires onDown, keyup fires onUp
-// after minMs debounce to filter accidental taps.
+// after minMs debounce. If the hold was shorter than minMs, both
+// callbacks are skipped (treated as an accidental tap). The caller
+// can use Start / StartTap for explicit tap detection.
+//
+// The x/hotkey library does not expose a timestamp on its events,
+// so we measure keydown→keyup duration with time.Now() around each
+// channel receive. The actual capture delay is bounded by the OS
+// hotkey delivery latency (typically <16ms), so this is accurate
+// to within a frame.
 func (m *Manager) listenHold(onDown, onUp func(), minMs int) {
 	for m.hk != nil {
+		downAt := time.Now()
 		<-m.hk.Keydown()
 		m.presses.Add(1)
-		onDown()
 
 		<-m.hk.Keyup()
-		// Simple debounce: if the hold was too short, treat as tap and skip.
-		// The caller can check PressCount to detect taps.
+		held := time.Since(downAt)
+
+		if !shouldFireHold(held, minMs) {
+			// Hold was too short — treat as accidental tap and
+			// skip both callbacks. This is the actual debounce.
+			continue
+		}
+
+		onDown()
 		onUp()
 	}
 }

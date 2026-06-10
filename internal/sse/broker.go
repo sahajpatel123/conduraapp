@@ -55,6 +55,7 @@ type Event struct {
 type Broker struct {
 	mu         sync.RWMutex
 	clients    map[*Client]struct{}
+	subs       map[*Subscription]struct{}
 	closed     bool
 	eventCount atomic.Uint64
 }
@@ -64,6 +65,7 @@ type Broker struct {
 func NewBroker() *Broker {
 	return &Broker{
 		clients: make(map[*Client]struct{}),
+		subs:    make(map[*Subscription]struct{}),
 	}
 }
 
@@ -78,9 +80,10 @@ type Client struct {
 	done    chan struct{}
 }
 
-// Publish enqueues an event on every connected client. Slow
-// clients have events dropped (the channel has a buffer; we
-// don't block).
+// Publish enqueues an event on every connected client and every
+// in-process subscription. Slow clients have events dropped (the
+// channel has a buffer; we don't block). In-process subscribers
+// also have a buffer; if it's full, the event is dropped.
 func (b *Broker) Publish(ev Event) {
 	b.mu.RLock()
 	closed := b.closed
@@ -91,6 +94,14 @@ func (b *Broker) Publish(ev Event) {
 			count++
 		default:
 			// drop on the floor; slow client
+		}
+	}
+	for sub := range b.subs {
+		select {
+		case sub.Events <- ev:
+			count++
+		default:
+			// drop on the floor; slow subscriber
 		}
 	}
 	b.mu.RUnlock()
@@ -111,6 +122,60 @@ func (b *Broker) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.closed = true
+}
+
+// Subscription is an in-process subscription to the broker. Unlike
+// HTTP clients, subscribers receive events directly from the broker
+// without going through an HTTP response writer. They are intended
+// for internal consumers (e.g. the session package accumulating
+// stream deltas without persisting them).
+//
+// Call Unsubscribe to release resources when done. Events are NOT
+// dropped for subscribers (their channel has a buffer and the broker
+// is the only writer).
+type Subscription struct {
+	id     string
+	broker *Broker
+	Events chan Event // buffered; receives all published events
+	Done   chan struct{}
+}
+
+// ID returns the subscription's identifier. Useful for logging.
+func (s *Subscription) ID() string { return s.id }
+
+// Subscribe creates an in-process subscription. Events are sent
+// to the returned channel. Call Unsubscribe when done.
+//
+// The subscription's channel has a buffer of 256 events; slow
+// subscribers that don't keep up will block the broker. Internal
+// subscribers are expected to drain promptly.
+func (b *Broker) Subscribe() *Subscription {
+	id := b.eventCount.Add(1)
+	sub := &Subscription{
+		id:     fmt.Sprintf("sub-%d", id),
+		broker: b,
+		Events: make(chan Event, 256),
+		Done:   make(chan struct{}),
+	}
+	b.mu.Lock()
+	b.subs[sub] = struct{}{}
+	b.mu.Unlock()
+	return sub
+}
+
+// Unsubscribe releases a subscription. After Unsubscribe returns,
+// no further events will be delivered and the Done channel is
+// closed.
+func (b *Broker) Unsubscribe(sub *Subscription) {
+	if sub == nil {
+		return
+	}
+	b.mu.Lock()
+	if _, ok := b.subs[sub]; ok {
+		delete(b.subs, sub)
+		close(sub.Done)
+	}
+	b.mu.Unlock()
 }
 
 // ClientCount returns the number of currently connected clients.

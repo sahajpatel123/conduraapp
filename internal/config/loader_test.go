@@ -636,3 +636,83 @@ func TestParseLevel_All(t *testing.T) {
 	assert.Equal(t, "error", ParseLevel("err"))
 	assert.Equal(t, "info", ParseLevel("trace"))
 }
+
+// -----------------------------------------------------------------------------
+// VoiceConfig
+// -----------------------------------------------------------------------------
+
+func TestVoiceConfig_Disabled_ValidatesEmpty(t *testing.T) {
+	c := VoiceConfig{Enabled: false}
+	if err := c.Validate(); err != nil {
+		t.Errorf("disabled voice should validate, got: %v", err)
+	}
+}
+
+func TestVoiceConfig_Enabled_RequiresBinaryPath(t *testing.T) {
+	c := VoiceConfig{Enabled: true, ModelPath: "/m"}
+	if err := c.Validate(); err == nil {
+		t.Error("expected error for missing binary_path")
+	}
+}
+
+func TestVoiceConfig_Enabled_RequiresModelPath(t *testing.T) {
+	c := VoiceConfig{Enabled: true, BinaryPath: "/b"}
+	if err := c.Validate(); err == nil {
+		t.Error("expected error for missing model_path")
+	}
+}
+
+func TestVoiceConfig_Enabled_OK(t *testing.T) {
+	c := VoiceConfig{
+		Enabled:    true,
+		BinaryPath: "/usr/local/bin/whisper-cli",
+		ModelPath:  "/models/ggml-base.bin",
+		SampleRate: 16000,
+		Channels:   1,
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("valid voice should validate, got: %v", err)
+	}
+}
+
+func TestVoiceConfig_ApplyDefaults(t *testing.T) {
+	c := VoiceConfig{}
+	c.ApplyDefaults()
+	if c.Hotkey != "Cmd+Shift+V" {
+		t.Errorf("hotkey = %q", c.Hotkey)
+	}
+	if c.Model != "base" {
+		t.Errorf("model = %q", c.Model)
+	}
+	if c.SampleRate != 16000 {
+		t.Errorf("sample_rate = %d", c.SampleRate)
+	}
+	if c.Channels != 1 {
+		t.Errorf("channels = %d", c.Channels)
+	}
+	if c.VADThreshold != 0.015 {
+		t.Errorf("vad_threshold = %v", c.VADThreshold)
+	}
+	if c.SilenceTimeoutMs != 1500 {
+		t.Errorf("silence_timeout_ms = %d", c.SilenceTimeoutMs)
+	}
+	if c.MaxCaptureDurationSec != 30 {
+		t.Errorf("max_capture_duration_sec = %d", c.MaxCaptureDurationSec)
+	}
+}
+
+func TestDefault_VoiceConfig(t *testing.T) {
+	cfg := Default()
+	if cfg.Voice.Hotkey != "Cmd+Shift+V" {
+		t.Errorf("default hotkey = %q", cfg.Voice.Hotkey)
+	}
+	if cfg.Voice.Model != "base" {
+		t.Errorf("default model = %q", cfg.Voice.Model)
+	}
+	if cfg.Voice.BinaryPath != "" {
+		t.Errorf("default binary_path = %q, want empty", cfg.Voice.BinaryPath)
+	}
+	if cfg.Voice.BinarySHA256 != "" {
+		t.Errorf("default binary_sha256 = %q, want empty", cfg.Voice.BinarySHA256)
+	}
+}

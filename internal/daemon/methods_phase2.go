@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/audit"
@@ -164,6 +165,12 @@ func handleLLMStream(
 }
 
 // handleLLMCancel is the body of the llm.cancel RPC.
+//
+// Accepts both `request_id` and `conversation_id` for backward
+// compatibility. When `request_id` is provided, the specific
+// stream is canceled. When only `conversation_id` is provided,
+// all streams for that conversation are canceled. When both are
+// provided, `request_id` wins.
 func handleLLMCancel(
 	ctx context.Context,
 	params json.RawMessage,
@@ -171,26 +178,47 @@ func handleLLMCancel(
 	auditLog *audit.Log,
 ) (any, error) {
 	var p struct {
-		RequestID string `json:"request_id"`
+		RequestID      string `json:"request_id"`
+		ConversationID int64  `json:"conversation_id"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 	}
-	if p.RequestID == "" {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "request_id is required"}
+	if p.RequestID == "" && p.ConversationID == 0 {
+		return nil, &ipc.Error{
+			Code:    ipc.CodeInvalidParams,
+			Message: "request_id or conversation_id is required",
+		}
 	}
-	if err := sm.Cancel(p.RequestID); err != nil {
-		return nil, mapStreamError(err)
+
+	if p.RequestID != "" {
+		if err := sm.Cancel(p.RequestID); err != nil {
+			return nil, mapStreamError(err)
+		}
+		_ = auditLog.Append(ctx, audit.Event{
+			Actor: actorGUI, Action: "llm.cancel", App: appSynapticG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "request_id=" + p.RequestID,
+		})
+		return map[string]any{
+			"canceled":   true,
+			"request_id": p.RequestID,
+			"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		}, nil
 	}
+
+	// Cancel all streams for the conversation.
+	canceled := sm.CancelByConversation(p.ConversationID)
 	_ = auditLog.Append(ctx, audit.Event{
 		Actor: actorGUI, Action: "llm.cancel", App: appSynapticG,
 		Level: auditLevelInfo, Result: auditResultAllow,
-		Message: "request_id=" + p.RequestID,
+		Message: "conversation_id=" + strconv.FormatInt(p.ConversationID, 10),
 	})
 	return map[string]any{
-		"canceled":   true,
-		"request_id": p.RequestID,
-		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		"canceled":        true,
+		"conversation_id": p.ConversationID,
+		"canceled_count":  canceled,
+		"timestamp":       time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
 

@@ -114,6 +114,7 @@ linters:
         - "0600"
         - "0700"
         - "0755"
+        - "256"
       ignored-functions:
         - "^strconv\\.Itoa$"
         - "^strconv\\.FormatInt$"
@@ -138,6 +139,12 @@ linters:
     paths:
       - internal/hotkey
       - internal/tray
+      - app/web/frontend/node_modules
+      - app/web/frontend/src
+      - web
+      - hub
+      - marketing
+      - app/web/frontend
     rules:
       - path: _test\.go
         linters:

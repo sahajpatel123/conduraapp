@@ -5,6 +5,7 @@ package hotkey
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseSpec_DefaultOverlay(t *testing.T) {
@@ -143,6 +144,31 @@ func TestStop_Idempotent(t *testing.T) {
 	m := New("Cmd+K")
 	m.Stop() // no-op
 	m.Stop() // still no-op
+}
+
+func TestShouldFireHold(t *testing.T) {
+	tests := []struct {
+		name     string
+		dur      time.Duration
+		minMs    int
+		expected bool
+	}{
+		{"zero minMs, any duration", 1 * time.Millisecond, 0, true},
+		{"short hold, 50ms threshold", 30 * time.Millisecond, 50, false},
+		{"equal hold, 50ms threshold", 50 * time.Millisecond, 50, true},
+		{"long hold, 50ms threshold", 200 * time.Millisecond, 50, true},
+		{"negative minMs treated as zero", 1 * time.Millisecond, -10, true},
+		{"zero duration with 100ms threshold", 0, 100, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldFireHold(tt.dur, tt.minMs)
+			if got != tt.expected {
+				t.Errorf("shouldFireHold(%v, %d) = %v, want %v",
+					tt.dur, tt.minMs, got, tt.expected)
+			}
+		})
+	}
 }
 
 func TestStartTap_NilHandler(t *testing.T) {

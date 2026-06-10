@@ -894,6 +894,81 @@ until the real rules engine exists (Phase 5).
 
 ---
 
+## Session 13 — Phase 6 corrections (6A fixes + 6B wiring)
+
+**Date:** 2026-06-10
+**AI Model:** mimo-v2.5-free (opencode)
+**Session ID:** phase-6-corrections
+**Task:** Fix the 7 6A bugs the user identified inside the already-delivered Phase 6 work, plus the high-priority 6B wiring items.
+
+### Files created
+- (none)
+
+### Files modified
+- `internal/session/session.go` — subscribe to SSE broker, accumulate stream.delta events, return real reply; persist user message; remove unused Executor/Gatekeeper fields; add Factory; add OnStatus
+- `internal/session/session_test.go` — keystone test that returns the reply from broker deltas (would have caught 6A #1)
+- `internal/sse/broker.go` — add Subscribe/Unsubscribe API for in-process subscribers
+- `internal/sse/broker_test.go` — tests for Subscribe API
+- `internal/hotkey/hotkey.go` — listenHold actually honors minMs; extracted testable `shouldFireHold` helper
+- `internal/hotkey/hotkey_test.go` — test for shouldFireHold
+- `internal/presence/presence.go` — Capture seam; Summon/Dismiss actually call capture.Start/Stop
+- `internal/presence/presence_test.go` — tests for capture seam
+- `internal/conductor/conductor.go` + `conductor_test.go` — update for new NewOrchestrator signature
+- `internal/config/config.go` — add BinaryPath/ModelPath/BinarySHA256/ModelSHA256 + Validate + ApplyDefaults on VoiceConfig
+- `internal/config/loader.go` — Default() includes new fields; validateVoice split into Basic+Enabled
+- `internal/config/loader_test.go` — tests for new voice config
+- `internal/daemon/subsystems.go` — wire Phase 6: Gatekeeper, GatedAgentExecutor, GatedComputerUseExecutor, Overlay, SessionFactory, Voice (with SHA pins)
+- `internal/daemon/methods_more.go` — overlay.show/hide and tray.update route to real subsystems
+- `internal/daemon/methods_phase2.go` — llm.cancel accepts both request_id and conversation_id
+- `internal/daemon/methods_phase6.go` (NEW) — voice.*, presence.*, agent.* RPC surface
+- `internal/daemon/methods_phase6_test.go` (NEW) — tests for the new RPCs
+- `internal/daemon/methods.go` — register Phase 6 methods
+- `internal/voice/pipeline.go` — add Stop() method (implements voice.Speaker)
+- `internal/audit/log.go` — Append is nil-safe
+- `.golangci.yml` — exclude web/node_modules from Go lint discovery; mnd ignore 256
+
+### 6A fixes (the real bugs in delivered work)
+1. **#1 Session return reply**: Subscribe to SSE broker's stream.delta/finished/error events filtered by request_id; accumulate delta content. This is the keystone fix — the previous code read from the conversation store which was never written. The test `TestSession_ReturnsReplyFromBrokerDeltas` proves it works.
+2. **#2 Persist user message**: New `persistUserMessage` called before StreamMgr.Start. Ensures next turn's history is correct.
+3. **#3 Executor/Gatekeeper unused**: Removed from session.Config. (Tool-call handling is 6B work; the API no longer lies.)
+4. **#4 Status reflects real state**: `setStatus` updates atomic.Int32; exposed via `Status()`. Voice pipeline + session factory both have `OnStatus` callbacks that fan out via SSE broker.
+5. **#5 listenHold minMs**: Extracted `shouldFireHold` testable helper. Hold shorter than minMs now skips both onDown/onUp.
+6. **#6 presence capture seam**: `Capture` interface injected into NewOrchestrator. Summon calls Capture.Start (rolls back overlay on failure). Dismiss calls Capture.Stop.
+7. **#7 voice config surface**: BinaryPath, ModelPath, BinarySHA256, ModelSHA256 added with Validate and ApplyDefaults.
+
+### 6B wiring (runtime, not deferred)
+- **#8 Subsystems fields**: Gatekeeper, GatedAgentExecutor, GatedComputerUseExecutor, Overlay, SessionFactory, Voice all constructed in initSubsystems.
+- **#9 IPC stubs → real**: overlay.show/hide route to Overlay; tray.update broadcasts on SSE broker.
+- **#10 Pipeline status to tray**: Pipeline.OnStatus publishes "tray.status" SSE event.
+- **#12 Gatekeeper at composition root**: `gate := gatekeeper.NewDenyBeyondRead()` shared by both gated executors; "every physical action goes through the Gatekeeper" is now true at runtime.
+- **#14 llm.cancel contract**: Accepts both request_id (specific) and conversation_id (all-streams-for-conversation). Frontend contract preserved; the broken case is now both-compatible.
+- **#15 RPC surface**: voice.status/cancel/speak, presence.summon/dismiss/state, agent.ask/status. All 8 methods registered.
+- **#26 Lint exclusions**: web/node_modules, app/web/frontend excluded from Go lint.
+
+### Test results
+- All 38 packages pass `go test -race -count=1 -timeout=180s ./...`
+- Lint clean `golangci-lint run --timeout=5m ./...` (0 issues)
+- New tests: SSE Subscribe (6), session happy-path with broker (1), presence capture (3), voice config (6), phase6 RPCs (6), hotkey shouldFireHold (1)
+
+### Out of scope (deferred per user's note)
+- 6B #11: conductor with real voice session (needs presence.Orchestrator wiring beyond the capture seam)
+- 6B #13: real malgo mic capture
+- 6B #16: Wails host wiring (app/web/main.go)
+- All of 6C (frontend Voice Orb, live transcript, etc.)
+- 6D #25: Linux hotkey/tray (still no-op stubs)
+
+### Open questions for next session
+- Should the session factory's `OnStatus` also publish to a non-broker sink for direct tray binding in the GUI?
+- The `noopAgentExecutor` is a placeholder; the real computer-use executor is wrapped through `GatedComputerUseExecutor` but the agent loop doesn't call it yet.
+- Voice binary/model paths in Default() are empty; the user must set them in config.yaml or the pipeline is not built.
+
+### Next steps
+1. Wait for CI to confirm green
+2. Begin Phase 7 (next major phase per build order)
+3. The 6B-deferred items above (malgo integration, conductor→voice, Wails host) are explicit follow-up work
+
+---
+
 ## Session 12 — Phase 6: Living Presence End-to-End
 
 **Date:** 2026-06-09

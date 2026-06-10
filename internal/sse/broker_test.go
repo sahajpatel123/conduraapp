@@ -184,3 +184,103 @@ func (n *nopFlusher) Flush() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 }
+
+// TestBroker_SubscribeReceives verifies that an in-process
+// subscription receives events published to the broker.
+func TestBroker_SubscribeReceives(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	sub := b.Subscribe()
+	defer b.Unsubscribe(sub)
+
+	b.PublishJSON("test", map[string]string{"hello": "world"})
+
+	select {
+	case ev := <-sub.Events:
+		if ev.Name != "test" {
+			t.Fatalf("expected event name 'test', got %q", ev.Name)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("did not receive event within 1s")
+	}
+}
+
+// TestBroker_SubscribeIDIsUnique verifies each subscription gets a
+// distinct ID.
+func TestBroker_SubscribeIDIsUnique(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	s1 := b.Subscribe()
+	s2 := b.Subscribe()
+	defer b.Unsubscribe(s1)
+	defer b.Unsubscribe(s2)
+
+	if s1.ID() == s2.ID() {
+		t.Fatalf("expected unique IDs, got %q twice", s1.ID())
+	}
+	if s1.ID() == "" || s2.ID() == "" {
+		t.Fatal("IDs must not be empty")
+	}
+}
+
+// TestBroker_UnsubscribeClosesDone verifies that calling
+// Unsubscribe closes the Done channel.
+func TestBroker_UnsubscribeClosesDone(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	sub := b.Subscribe()
+	b.Unsubscribe(sub)
+
+	select {
+	case <-sub.Done:
+		// expected
+	case <-time.After(time.Second):
+		t.Fatal("Done channel not closed after Unsubscribe")
+	}
+}
+
+// TestBroker_UnsubscribeNilSafe verifies Unsubscribe(nil) is safe.
+func TestBroker_UnsubscribeNilSafe(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+	b.Unsubscribe(nil) // must not panic
+}
+
+// TestBroker_PublishFansOutToSubscribers verifies that a single
+// publish reaches multiple subscribers.
+func TestBroker_PublishFansOutToSubscribers(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	s1 := b.Subscribe()
+	s2 := b.Subscribe()
+	defer b.Unsubscribe(s1)
+	defer b.Unsubscribe(s2)
+
+	b.PublishJSON("test", "payload")
+
+	for i, sub := range []*Subscription{s1, s2} {
+		select {
+		case ev := <-sub.Events:
+			if ev.Name != "test" {
+				t.Errorf("sub[%d] event name = %q, want %q", i, ev.Name, "test")
+			}
+		case <-time.After(time.Second):
+			t.Errorf("sub[%d] did not receive event", i)
+		}
+	}
+}
+
+// TestBroker_UnsubscribeIdempotent verifies that calling
+// Unsubscribe twice is safe.
+func TestBroker_UnsubscribeIdempotent(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	sub := b.Subscribe()
+	b.Unsubscribe(sub)
+	b.Unsubscribe(sub) // must not panic on closed channel
+}

@@ -15,7 +15,10 @@
 // at runtime should go through the IPC API (not direct mutation).
 package config
 
-import "runtime"
+import (
+	"errors"
+	"runtime"
+)
 
 // ConfigSchemaVersion is the current schema version. Bump on breaking changes.
 const ConfigSchemaVersion = 3
@@ -276,6 +279,28 @@ type VoiceConfig struct {
 	// Hotkey is the push-to-talk key combo (default: "Cmd+Shift+V").
 	Hotkey string `yaml:"hotkey"`
 
+	// BinaryPath is the path to the whisper-cli binary. Required
+	// when Enabled is true. The pipeline's SHA256 verification
+	// will refuse to load a binary whose hash doesn't match
+	// BinarySHA256.
+	BinaryPath string `yaml:"binary_path"`
+
+	// ModelPath is the path to the whisper model file (e.g. ggml-base.bin).
+	// Required when Enabled is true. The pipeline's SHA256
+	// verification will refuse to load a model whose hash doesn't
+	// match ModelSHA256.
+	ModelPath string `yaml:"model_path"`
+
+	// BinarySHA256 is the expected hex-encoded SHA256 of the
+	// whisper binary at BinaryPath. Empty disables the check
+	// (development only). Production deployments must set this.
+	BinarySHA256 string `yaml:"binary_sha256"`
+
+	// ModelSHA256 is the expected hex-encoded SHA256 of the
+	// whisper model at ModelPath. Empty disables the check
+	// (development only). Production deployments must set this.
+	ModelSHA256 string `yaml:"model_sha256"`
+
 	// Model is the whisper model variant: "tiny", "base", "small", "medium".
 	// Default: "base" (~142 MB, multilingual, good accuracy/speed balance).
 	Model string `yaml:"model"`
@@ -309,6 +334,60 @@ type VoiceConfig struct {
 
 	// SpeakerRate is the TTS speaking rate (default: 200 words per minute).
 	SpeakerRate int `yaml:"speaker_rate"`
+}
+
+// Validate checks the voice config for internal consistency. The
+// pipeline construction in Phase 6B uses these errors to fail
+// fast at startup.
+func (c VoiceConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.BinaryPath == "" {
+		return errors.New("voice.enabled is true but voice.binary_path is empty")
+	}
+	if c.ModelPath == "" {
+		return errors.New("voice.enabled is true but voice.model_path is empty")
+	}
+	if c.SampleRate == 0 {
+		return errors.New("voice.sample_rate must be > 0 when voice is enabled")
+	}
+	if c.Channels == 0 {
+		return errors.New("voice.channels must be > 0 when voice is enabled")
+	}
+	return nil
+}
+
+// ApplyDefaults fills in zero-valued fields with their documented
+// defaults. Call this after loading config but before validation.
+func (c *VoiceConfig) ApplyDefaults() {
+	if c.Hotkey == "" {
+		c.Hotkey = "Cmd+Shift+V"
+	}
+	if c.Model == "" {
+		c.Model = "base"
+	}
+	if c.SampleRate == 0 {
+		c.SampleRate = 16000
+	}
+	if c.Channels == 0 {
+		c.Channels = 1
+	}
+	if c.VADThreshold == 0 {
+		c.VADThreshold = 0.015
+	}
+	if c.SilenceTimeoutMs == 0 {
+		c.SilenceTimeoutMs = 1500
+	}
+	if c.MaxCaptureDurationSec == 0 {
+		c.MaxCaptureDurationSec = 30
+	}
+	if c.SpeakerEnabled && c.SpeakerVoice == "" {
+		c.SpeakerVoice = "Samantha"
+	}
+	if c.SpeakerEnabled && c.SpeakerRate == 0 {
+		c.SpeakerRate = 200
+	}
 }
 
 // PlatformIsMac returns true if the daemon is running on macOS. It

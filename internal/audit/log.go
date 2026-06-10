@@ -44,6 +44,9 @@ func New(db *sql.DB) *Log {
 
 // Append records one event. The TS is set to time.Now() if zero.
 func (l *Log) Append(ctx context.Context, e Event) error {
+	if l == nil {
+		return nil
+	}
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
 	}
