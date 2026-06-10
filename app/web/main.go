@@ -72,7 +72,11 @@ func main() {
 		// daemon is ready. The conductor's onShow/onHide callbacks
 		// route through the Wails window methods so the overlay
 		// is a real frameless/always-on-top mode, not a noop.
-		appInstance.startConductor(subs)
+		hkSpec := cfg.Hotkey.Overlay
+		if hkSpec == "" {
+			hkSpec = "Cmd+Shift+Space"
+		}
+		appInstance.startConductor(subs, hkSpec)
 	}()
 
 	// Start the Wails app. The Wails runtime takes over the main
@@ -89,6 +93,7 @@ func main() {
 		BackgroundColour:         &options.RGBA{R: 18, G: 18, B: 22, A: 1},
 		OnStartup:                appInstance.startup,
 		OnDomReady:               appInstance.domReady,
+		OnBeforeClose:            appInstance.beforeClose,
 		EnableDefaultContextMenu: true, // right-click → "Inspect Element"
 		Bind: []interface{}{
 			appInstance,

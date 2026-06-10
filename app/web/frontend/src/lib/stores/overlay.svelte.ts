@@ -21,6 +21,12 @@ class OverlayStore {
         void ipc.call('presence.state', {}).then((state: unknown) => {
           this.active = state === 'active'
         }).catch(() => {})
+      }),
+      ipc.on('disconnected', () => {
+        // Daemon gone — dismiss overlay to avoid stale state.
+        if (this.active) {
+          this.hide()
+        }
       })
     )
 

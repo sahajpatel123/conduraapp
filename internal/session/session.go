@@ -20,11 +20,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/audit"
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
+	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
 	"github.com/sahajpatel123/synapticapp/internal/status"
@@ -53,6 +57,8 @@ type Config struct {
 	Conversation   *conversation.Store
 	Broker         *sse.Broker
 	ConversationID int64
+	Gatekeeper     gatekeeper.Gatekeeper
+	Audit          *audit.Log
 }
 
 // Session runs a single user query end-to-end. It is created fresh
@@ -90,6 +96,8 @@ type Factory struct {
 	broker       *sse.Broker
 	speaker      voice.Speaker
 	onStatus     func(status.Status)
+	gate         gatekeeper.Gatekeeper
+	audit        *audit.Log
 }
 
 // NewFactory creates a session factory. An empty providerName
@@ -138,6 +146,12 @@ func (f *Factory) SetOnStatus(fn func(status.Status)) {
 	f.onStatus = fn
 }
 
+// SetGatekeeper injects the safety gatekeeper and audit log.
+func (f *Factory) SetGatekeeper(gate gatekeeper.Gatekeeper, auditLog *audit.Log) {
+	f.gate = gate
+	f.audit = auditLog
+}
+
 // New builds a Session for a specific conversation. The
 // session's lifetime is the lifetime of one Run call.
 func (f *Factory) New(conversationID int64) *Session {
@@ -151,6 +165,8 @@ func (f *Factory) New(conversationID int64) *Session {
 			Broker:         f.broker,
 			Speaker:        f.speaker,
 			ConversationID: conversationID,
+			Gatekeeper:     f.gate,
+			Audit:          f.audit,
 		},
 		OnStatus: f.onStatus,
 	}
@@ -212,13 +228,50 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 		return "", nil
 	}
 
+	// Evaluate the utterance via the gatekeeper (Kind: "chat").
+	if s.cfg.Gatekeeper != nil {
+		action := blastradius.Action{Kind: "chat"}
+		decision, reason := s.cfg.Gatekeeper.Evaluate(runCtx, action)
+
+		// Audit the gatekeeper decision.
+		if s.cfg.Audit != nil {
+			class := blastradius.Classify(action)
+			level := "info"
+			result := "allow"
+			if decision == gatekeeper.Deny {
+				level = "warn"
+				result = "deny"
+			}
+			_ = s.cfg.Audit.Append(runCtx, audit.Event{
+				Actor:   "gatekeeper",
+				Action:  "utterance",
+				App:     "session",
+				Level:   level,
+				Result:  result,
+				Message: fmt.Sprintf("%s [%s]: text=%q reason=%q", class, decision, query, reason),
+			})
+		}
+
+		if decision == gatekeeper.Deny {
+			s.setStatus(status.StatusError)
+			// Publish a stream.error event to the broker so the frontend knows it was blocked
+			if s.cfg.Broker != nil {
+				s.cfg.Broker.PublishJSON("stream", map[string]any{
+					"conversation_id": s.cfg.ConversationID,
+					"err":             "gatekeeper blocked utterance: " + reason,
+					"done":            true,
+				})
+			}
+			return "", fmt.Errorf("gatekeeper denied utterance: %s", reason)
+		}
+	}
+
 	// Persist the user message first so the next turn's history
 	// includes this query, even if the stream fails.
 	if err := s.persistUserMessage(runCtx, query); err != nil {
 		// Persistence failure is not fatal — the stream can still
-		// proceed in-memory. Log via the return path so callers
-		// can surface the error in the audit log.
-		return "", fmt.Errorf("session: persist user message: %w", err)
+		// proceed in-memory. Log and continue.
+		slog.Warn("session: persist user message failed", "err", err)
 	}
 
 	s.setStatus(status.StatusThinking)
@@ -246,52 +299,57 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 		streamReq.ConversationID = s.cfg.ConversationID
 	}
 
+	// Subscribe to the broker BEFORE starting the stream, so we don't miss
+	// any deltas. The stream manager publishes each token as a
+	// stream.delta event; we accumulate those and stop when we
+	// see stream.finished / stream.error / stream.cancelled.
+	sub := s.cfg.Broker.Subscribe()
+	defer s.cfg.Broker.Unsubscribe(sub)
+
 	requestID, err := s.cfg.StreamMgr.Start(runCtx, streamReq)
 	if err != nil {
 		s.setStatus(status.StatusError)
 		return "", fmt.Errorf("session: stream start: %w", err)
 	}
 
-	// Subscribe to the broker BEFORE waiting, so we don't miss
-	// any deltas. The stream manager publishes each token as a
-	// stream.delta event; we accumulate those and stop when we
-	// see stream.finished / stream.error / stream.cancelled.
-	full, err := s.collectAndSpeak(runCtx, requestID)
+	full, err := s.collectAndSpeak(runCtx, requestID, sub)
 	if err != nil {
 		s.setStatus(status.StatusError)
 		return full, err
 	}
+
+	// Persist the assistant response so the next turn's history
+	// includes this reply. Without this, buildMessages would only
+	// see the user message and the LLM would lose multi-turn context.
+	if full != "" {
+		if persistErr := s.persistAssistantMessage(runCtx, full); persistErr != nil {
+			slog.Warn("session: persist assistant message failed", "err", persistErr)
+		}
+	}
+
 	s.setStatus(status.StatusIdle)
 	return full, nil
 }
 
-// collectAndSpeak subscribes to the SSE broker, accumulates delta
-// events for the given requestID, and speaks the result.
+// collectAndSpeak accumulates delta events for the given requestID from the
+// active subscription, and speaks the result.
 //
 // Returns the accumulated text and any error from the stream
 // (cancel, broker subscription failure, or context cancel).
-func (s *Session) collectAndSpeak(ctx context.Context, requestID string) (string, error) {
+func (s *Session) collectAndSpeak(ctx context.Context, requestID string, sub *sse.Subscription) (string, error) {
 	const streamBudget = 60 * time.Second
-	deadline := time.Now().Add(streamBudget)
-
-	sub := s.cfg.Broker.Subscribe()
-	defer s.cfg.Broker.Unsubscribe(sub)
+	timer := time.NewTimer(streamBudget)
+	defer timer.Stop()
 
 	var full string
 	finished := false
 
 	for !finished {
-		// Check context and time budget.
-		if ctx.Err() != nil {
-			return full, ctx.Err()
-		}
-		if time.Now().After(deadline) {
-			return full, fmt.Errorf("session: stream timed out after %s", streamBudget)
-		}
-
 		select {
 		case <-ctx.Done():
 			return full, ctx.Err()
+		case <-timer.C:
+			return full, fmt.Errorf("session: stream timed out after %s", streamBudget)
 		case <-sub.Done:
 			return full, errors.New("session: broker channel closed")
 		case ev := <-sub.Events:
@@ -379,23 +437,32 @@ func (s *Session) persistUserMessage(ctx context.Context, query string) error {
 	})
 }
 
+func (s *Session) persistAssistantMessage(ctx context.Context, reply string) error {
+	if s.cfg.Conversation == nil || s.cfg.ConversationID == 0 {
+		return nil
+	}
+	return s.cfg.Conversation.Append(ctx, s.cfg.ConversationID, conversation.Message{
+		Role:    string(llm.RoleAssistant),
+		Content: reply,
+	})
+}
+
 // buildMessages assembles the chat history with the new user query.
 // The new user query is NOT included — the caller is expected to
 // have persisted it via persistUserMessage (so the next turn
 // already sees it). We only prepend the previous history.
 func (s *Session) buildMessages(ctx context.Context, query string) ([]llm.Message, error) {
 	const historyLimit = 20
-	messages := []llm.Message{
-		{Role: llm.RoleUser, Content: query},
-	}
-	if s.cfg.Conversation == nil {
-		return messages, nil
+	if s.cfg.Conversation == nil || s.cfg.ConversationID == 0 {
+		return []llm.Message{
+			{Role: llm.RoleUser, Content: query},
+		}, nil
 	}
 	history, err := s.cfg.Conversation.GetRecentMessages(ctx, s.cfg.ConversationID, historyLimit)
 	if err != nil {
-		return messages, err
+		return []llm.Message{{Role: llm.RoleUser, Content: query}}, err
 	}
-	out := make([]llm.Message, 0, len(history)+1)
+	out := make([]llm.Message, 0, len(history))
 	for _, m := range history {
 		out = append(out, llm.Message{
 			Role:       llm.Role(m.Role),
@@ -403,7 +470,15 @@ func (s *Session) buildMessages(ctx context.Context, query string) ([]llm.Messag
 			ToolCallID: m.ToolCallID,
 		})
 	}
-	out = append(out, llm.Message{Role: llm.RoleUser, Content: query})
+	// Note: since query was already persisted before buildMessages is called,
+	// it will be the last message in history, so we don't need to append it.
+	// But what if history is empty (e.g. database error or empty history)?
+	// Normally history won't be empty because we just appended query.
+	// To be extremely robust, if history is empty or the last message is not
+	// the query, we can append it.
+	if len(out) == 0 || out[len(out)-1].Content != query || out[len(out)-1].Role != llm.RoleUser {
+		out = append(out, llm.Message{Role: llm.RoleUser, Content: query})
+	}
 	return out, nil
 }
 
@@ -420,6 +495,9 @@ func (s *Session) setStatus(s2 status.Status) {
 	// status.Status is a small int; the int32 conversion is safe
 	// for any value the enum can hold.
 	s.cur.Store(int32(s2)) //nolint:gosec // bounded by status enum
+	if s.OnStatus != nil {
+		s.OnStatus(s2)
+	}
 }
 
 // Cancel aborts the currently-running session, if any. Safe to

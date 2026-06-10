@@ -11,6 +11,14 @@
 
   let state = $state<OrbState>('idle')
   let cleanups: Array<() => void> = []
+  let idleTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearIdleTimer() {
+    if (idleTimer !== null) {
+      clearTimeout(idleTimer)
+      idleTimer = null
+    }
+  }
 
   onMount(() => {
     cleanups.push(
@@ -20,9 +28,10 @@
 
       ipc.on('voice.final' as never, (() => {
         state = 'speaking'
-        // Return to idle after 5 seconds (matching response time)
-        setTimeout(() => {
+        clearIdleTimer()
+        idleTimer = setTimeout(() => {
           state = 'idle'
+          idleTimer = null
         }, 5000)
       }) as never),
 
@@ -35,6 +44,7 @@
   })
 
   onDestroy(() => {
+    clearIdleTimer()
     cleanups.forEach(c => c())
     cleanups = []
   })

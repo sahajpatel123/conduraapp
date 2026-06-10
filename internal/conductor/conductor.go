@@ -9,7 +9,7 @@
 //	mgr := hotkey.New("Cmd+Shift+Space")
 //	overlay := overlay.NewNoopController()
 //	orchestrator := presence.NewOrchestrator(overlay, haltFlag, nil)
-//	conductor := conductor.New(mgr, orchestrator, nil)
+//	conductor := conductor.New(mgr, orchestrator, onShow, onHide)
 //
 //	if err := conductor.Start(); err != nil {
 //	    log.Fatal(err)

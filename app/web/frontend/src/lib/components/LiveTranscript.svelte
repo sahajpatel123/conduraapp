@@ -11,13 +11,20 @@
   let isRecording = $state<boolean>(false)
   let isFinal = $state<boolean>(false)
   let cleanups: Array<() => void> = []
+  let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearHideTimer() {
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer)
+      hideTimer = null
+    }
+  }
 
   onMount(() => {
     cleanups.push(
       ipc.on('voice.partial' as never, ((data: { recording?: boolean; samples?: number }) => {
         isRecording = data.recording ?? false
         if (isRecording && !isFinal) {
-          // Show recording indicator; actual transcript comes from voice.final
           transcript = 'Listening...'
         }
       }) as never),
@@ -26,16 +33,18 @@
         isRecording = false
         isFinal = true
         transcript = data.text ?? ''
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
+        clearHideTimer()
+        hideTimer = setTimeout(() => {
           transcript = ''
           isFinal = false
+          hideTimer = null
         }, 5000)
       }) as never)
     )
   })
 
   onDestroy(() => {
+    clearHideTimer()
     cleanups.forEach(c => c())
     cleanups = []
   })
@@ -119,6 +128,16 @@
     50% {
       opacity: 0.5;
       transform: scale(1.2);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-transcript {
+      animation: none !important;
+    }
+    .pulse {
+      animation: none !important;
+      opacity: 1;
     }
   }
 </style>

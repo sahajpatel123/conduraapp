@@ -46,6 +46,16 @@ func (a *App) domReady(ctx context.Context) {
 	diagLog("domReady: WebView finished loading the frontend")
 }
 
+// beforeClose is called when the user closes the window. It stops
+// the conductor (hotkey listener) so the goroutine doesn't leak.
+func (a *App) beforeClose(ctx context.Context) bool {
+	if a.conductor != nil {
+		a.conductor.Stop()
+		a.conductor = nil
+	}
+	return false // allow close
+}
+
 // Ping is the simplest possible bound method: returns a greeting
 // with a timestamp. Used to verify the TS↔Go bridge works.
 func (a *App) Ping(name string) string {
@@ -134,13 +144,10 @@ func (a *App) ToggleOverlay() {
 // frameless/always-on-top mode, not the daemon's noop controller.
 //
 // This is called from the daemon goroutine after daemonReady is closed.
-func (a *App) startConductor(subs *daemon.Subsystems) {
+func (a *App) startConductor(subs *daemon.Subsystems, hkSpec string) {
 	if subs == nil {
 		return
 	}
-
-	// Read the hotkey spec from config. Default to Cmd+Shift+Space.
-	hkSpec := "Cmd+Shift+Space"
 
 	// Create the hotkey manager.
 	hk := hotkey.New(hkSpec)
