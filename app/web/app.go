@@ -3,11 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/conductor"
+	"github.com/sahajpatel123/synapticapp/internal/daemon"
+	"github.com/sahajpatel123/synapticapp/internal/hotkey"
+	"github.com/sahajpatel123/synapticapp/internal/presence"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -19,6 +24,10 @@ type App struct {
 	// overlay tracks the current mode: false = main chat window,
 	// true = compact overlay (frameless, always-on-top, transparent).
 	overlay atomic.Bool
+
+	// conductor is the hotkey → overlay toggle. Started once the
+	// daemon is ready. Nil until then.
+	conductor *conductor.Conductor
 }// NewApp creates a new App application struct.
 func NewApp() *App {
 	return &App{}
@@ -117,6 +126,47 @@ func (a *App) ToggleOverlay() {
 	} else {
 		a.ShowOverlay()
 	}
+}
+
+// startConductor wires the hotkey → conductor → overlay chain once
+// the daemon is ready. The conductor's onShow/onHide callbacks route
+// through the Wails window methods so the overlay is a real
+// frameless/always-on-top mode, not the daemon's noop controller.
+//
+// This is called from the daemon goroutine after daemonReady is closed.
+func (a *App) startConductor(subs *daemon.Subsystems) {
+	if subs == nil {
+		return
+	}
+
+	// Read the hotkey spec from config. Default to Cmd+Shift+Space.
+	hkSpec := "Cmd+Shift+Space"
+
+	// Create the hotkey manager.
+	hk := hotkey.New(hkSpec)
+
+	// Create the presence orchestrator with the daemon's overlay
+	// controller (noop). The conductor's onShow/onHide callbacks
+	// will route through the Wails window methods instead.
+	orch := presence.NewOrchestrator(subs.Overlay, subs.Halt, nil)
+
+	// Create the conductor with Wails-backed callbacks.
+	c, err := conductor.New(hk, orch,
+		func() { a.ShowOverlay() },
+		func() { a.HideOverlay() },
+	)
+	if err != nil {
+		slog.Warn("conductor init failed", "err", err)
+		return
+	}
+
+	if err := c.Start(); err != nil {
+		slog.Warn("conductor start failed", "err", err)
+		return
+	}
+
+	a.conductor = c
+	slog.Info("conductor ready", "hotkey", hkSpec)
 }
 
 // diagLog appends a line to ~/Library/Logs/synaptic-gui-diag.log so

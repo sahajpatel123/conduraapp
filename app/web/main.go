@@ -33,6 +33,10 @@ var embeddedDaemon *daemon.Subsystems
 // "connected" indicator.
 var daemonReady = make(chan struct{})
 
+// appInstance is the Wails App struct, set before wails.Run so the
+// daemon goroutine can access it for overlay/tray wiring.
+var appInstance *App
+
 func main() {
 	cfg, err := resolveConfig()
 	if err != nil {
@@ -44,6 +48,8 @@ func main() {
 	// which triggers a graceful shutdown inside daemon.Run.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	appInstance = NewApp()
 
 	go func() {
 		subs, err := daemon.Run(ctx, daemon.Options{
@@ -61,11 +67,16 @@ func main() {
 		}
 		embeddedDaemon = subs
 		close(daemonReady)
+
+		// Wire the conductor (hotkey → overlay toggle) once the
+		// daemon is ready. The conductor's onShow/onHide callbacks
+		// route through the Wails window methods so the overlay
+		// is a real frameless/always-on-top mode, not a noop.
+		appInstance.startConductor(subs)
 	}()
 
 	// Start the Wails app. The Wails runtime takes over the main
 	// goroutine; the daemon runs in its own goroutine above.
-	app := NewApp()
 	err = wails.Run(&options.App{
 		Title:     "Synaptic",
 		Width:     1200,
@@ -76,11 +87,11 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour:         &options.RGBA{R: 18, G: 18, B: 22, A: 1},
-		OnStartup:                app.startup,
-		OnDomReady:               app.domReady,
+		OnStartup:                appInstance.startup,
+		OnDomReady:               appInstance.domReady,
 		EnableDefaultContextMenu: true, // right-click → "Inspect Element"
 		Bind: []interface{}{
-			app,
+			appInstance,
 		},
 	})
 	if err != nil {
