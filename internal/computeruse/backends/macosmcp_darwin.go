@@ -13,6 +13,13 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 )
 
+const (
+	mcpScrollDirUp    = "up"
+	mcpScrollDirDown  = "down"
+	mcpScrollDirLeft  = "left"
+	mcpScrollDirRight = "right"
+)
+
 // darwinMCP uses osascript subprocess calls for AppleScript execution.
 type darwinMCP struct{}
 
@@ -167,13 +174,13 @@ func (d *darwinMCP) execFocus(_ *computeruse.Action) error {
 // scrollKeyCode returns the AppleScript key code for a direction.
 func scrollKeyCode(dir string) string {
 	switch dir {
-	case scrollDirUp:
+	case mcpScrollDirUp:
 		return "126"
-	case scrollDirDown:
+	case mcpScrollDirDown:
 		return "125"
-	case scrollDirLeft:
+	case mcpScrollDirLeft:
 		return "123"
-	case scrollDirRight:
+	case mcpScrollDirRight:
 		return "124"
 	default:
 		return "125"
