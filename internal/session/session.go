@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -59,6 +60,12 @@ type Config struct {
 	ConversationID int64
 	Gatekeeper     gatekeeper.Gatekeeper
 	Audit          *audit.Log
+	Memory         MemoryStore
+}
+
+// MemoryStore is the subset of the memory package used by sessions.
+type MemoryStore interface {
+	Recall(ctx context.Context, query string, limit int) ([]string, error)
 }
 
 // Session runs a single user query end-to-end. It is created fresh
@@ -98,6 +105,7 @@ type Factory struct {
 	onStatus     func(status.Status)
 	gate         gatekeeper.Gatekeeper
 	audit        *audit.Log
+	memory       MemoryStore
 
 	mu         sync.Mutex
 	activeSess *Session
@@ -155,6 +163,11 @@ func (f *Factory) SetGatekeeper(gate gatekeeper.Gatekeeper, auditLog *audit.Log)
 	f.audit = auditLog
 }
 
+// SetMemory injects the memory store for context recall.
+func (f *Factory) SetMemory(m MemoryStore) {
+	f.memory = m
+}
+
 // New builds a Session for a specific conversation. The
 // session's lifetime is the lifetime of one Run call.
 func (f *Factory) New(conversationID int64) *Session {
@@ -173,6 +186,7 @@ func (f *Factory) New(conversationID int64) *Session {
 			ConversationID: conversationID,
 			Gatekeeper:     f.gate,
 			Audit:          f.audit,
+			Memory:         f.memory,
 		},
 		OnStatus: f.onStatus,
 	}
@@ -499,6 +513,16 @@ func (s *Session) buildMessages(ctx context.Context, query string) ([]llm.Messag
 	if len(out) == 0 || out[len(out)-1].Content != query || out[len(out)-1].Role != llm.RoleUser {
 		out = append(out, llm.Message{Role: llm.RoleUser, Content: query})
 	}
+
+	// Prepend memory recall as system context if available.
+	if s.cfg.Memory != nil {
+		memCtx, memErr := s.cfg.Memory.Recall(ctx, query, 3)
+		if memErr == nil && len(memCtx) > 0 {
+			ctxMsg := "Relevant context from past interactions:\n" + strings.Join(memCtx, "\n")
+			out = append([]llm.Message{{Role: llm.RoleSystem, Content: ctxMsg}}, out...)
+		}
+	}
+
 	return out, nil
 }
 

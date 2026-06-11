@@ -21,6 +21,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/health"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
+	"github.com/sahajpatel123/synapticapp/internal/memory"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
 	"github.com/sahajpatel123/synapticapp/internal/session"
@@ -86,11 +87,9 @@ type Subsystems struct {
 	// enabled in config and the binary/model are pinned correctly.
 	Voice *voice.Pipeline
 
-	// Phase 7: computer-use execution loop.
-	// CULoop wires the ORAX backend → Router → GatedExecutor →
-	// CUResolver → CULoop pipeline. Non-nil when at least one
-	// computer-use backend is available.
+	// Phase 7: computer-use + memory.
 	CULoop *agent.CULoop
+	Memory *memory.StoreManager
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -130,6 +129,15 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 
 	// Phase 2: wire up the additional subsystems.
 	convStore := conversation.New(db.SQL())
+	memPath := filepath.Join(filepath.Dir(db.Path()), "memory.db")
+	memStore, memErr := memory.NewSQLiteStore(memPath)
+	var memMgr *memory.StoreManager
+	if memErr != nil {
+		log.Warn("memory store init failed; running without memory", "err", memErr)
+	} else {
+		memMgr = memory.NewManager(memStore)
+		log.Info("memory store ready")
+	}
 	auditLog := audit.New(db.SQL())
 	haltFlag := halt.New(db.SQL())
 	_ = haltFlag.Refresh(context.Background())
@@ -174,6 +182,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		return nil, fmt.Errorf("init session factory: %w", err)
 	}
 	sessionFactory.SetGatekeeper(gate, auditLog)
+	if memMgr != nil {
+		sessionFactory.SetMemory(&sessionMemoryAdapter{mgr: memMgr})
+	}
 	log.Info("session factory ready", "primary", primaryName, "model", primaryModel)
 
 	// Fan session status out to the SSE broker so the GUI
@@ -257,6 +268,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		SessionFactory:           sessionFactory,
 		Voice:                    voicePipeline,
 		CULoop:                   cuLoop,
+		Memory:                   memMgr,
 	}, nil
 }
 
