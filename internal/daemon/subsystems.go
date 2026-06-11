@@ -127,7 +127,7 @@ func (s *Subsystems) Close() error {
 // needs. On error, all partially-initialized components are torn
 // down.
 //
-//nolint:gocyclo // wiring all subsystems in one place is intentional
+//nolint:gocyclo,gocognit // wiring all subsystems in one place is intentional
 func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	secretsPath := filepath.Join(cfg.General.DataDir, "secrets.json")
 	sm, err := secrets.New(secretsPath)
@@ -305,13 +305,29 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	if aerr != nil {
 		log.Warn("adaptive store init failed", "err", aerr)
 	} else if primaryName != "" {
-		acfg := adaptive.DefaultConfig()
 		llmProv := &llmProviderAdapter{r: registry, name: primaryName, model: primaryModel}
-		adaptiveComps = buildAdaptiveEngine(astore, llmProv, acfg)
+		var criticProv llm.Provider
+		criticModel := ""
+		for _, name := range []string{"google", "mistral", "openai"} {
+			if prov, ok := registry.Get(name); ok {
+				criticProv = prov
+				criticModel = prov.DefaultModel("chat")
+				break
+			}
+		}
+		var budget adaptive.BudgetChecker
+		if mon != nil {
+			budget = &spendBudgetChecker{m: mon}
+		}
+		adaptiveComps = buildAdaptiveEngine(astore, llmProv, criticProv, criticModel, budget, log)
 		if extractor != nil {
 			extractor.SetObserver(adaptiveComps.Observer)
+			extractor.SetEngine(adaptiveComps.Engine)
 		}
-		log.Info("adaptive engine ready", "strength", acfg.Strength)
+		if adaptiveComps != nil && adaptiveComps.Predictor != nil {
+			sessionFactory.SetPredictor(adaptiveComps.Predictor)
+		}
+		log.Info("adaptive engine ready", "strength", adaptiveComps.Strength)
 	}
 
 	subs := &Subsystems{

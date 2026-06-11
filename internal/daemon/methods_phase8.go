@@ -60,6 +60,9 @@ func registerAdaptiveMethods(srv *ipc.Server, subs *Subsystems) {
 		switch adaptive.Strength(p.Strength) {
 		case adaptive.StrengthOff, adaptive.StrengthCautious, adaptive.StrengthBalanced, adaptive.StrengthAggressive:
 			subs.Adaptive.Strength = adaptive.Strength(p.Strength)
+			if subs.Adaptive.Engine != nil {
+				subs.Adaptive.Engine.SetStrength(adaptive.Strength(p.Strength))
+			}
 		default:
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "invalid strength: " + p.Strength}
 		}

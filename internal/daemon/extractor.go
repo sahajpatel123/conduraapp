@@ -22,11 +22,17 @@ type PostSessionExtractor struct {
 	enabled    bool
 	skillStore io.Closer
 	observer   *adaptive.Observer
+	engine     *adaptive.Engine
 }
 
 // SetObserver wires the adaptive engine's observer.
 func (e *PostSessionExtractor) SetObserver(o *adaptive.Observer) {
 	e.observer = o
+}
+
+// SetEngine wires the adaptive engine for post-session analysis.
+func (e *PostSessionExtractor) SetEngine(eng *adaptive.Engine) {
+	e.engine = eng
 }
 
 // NewPostSessionExtractor creates an async post-session processor.
@@ -69,6 +75,12 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 			AgentReply:    reply,
 			UserInitiated: true,
 		})
+	}
+
+	// Trigger adaptive engine analysis (async, best-effort).
+	if e.engine != nil {
+		//nolint:gosec // intentional: async engine must survive request ctx
+		go e.engine.Run(context.Background())
 	}
 
 	if e.memory != nil {

@@ -70,4 +70,30 @@ func registerMCPMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		return auditOK(), nil
 	})
+
+	srv.Register("mcp.start_server", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Name string `json:"name"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if err := subs.MCP.Start(ctx, p.Name); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return auditOK(), nil
+	})
+
+	srv.Register("mcp.stop_server", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Name string `json:"name"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if err := subs.MCP.Remove(p.Name); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return auditOK(), nil
+	})
 }

@@ -21,6 +21,7 @@ type Client struct {
 	stdin  *bufio.Writer
 	stdout *bufio.Reader
 	mu     sync.Mutex
+	ioMu   sync.Mutex // serializes requests/responses over stdin/stdout
 	reqID  atomic.Int64
 }
 
@@ -73,6 +74,9 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 func (c *Client) call(_ context.Context, method string, params any) (json.RawMessage, error) {
+	c.ioMu.Lock()
+	defer c.ioMu.Unlock()
+
 	id := c.reqID.Add(1)
 	req := JSONRPCRequest{
 		JSONRPC: "2.0",

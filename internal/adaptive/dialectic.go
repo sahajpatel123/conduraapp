@@ -2,7 +2,9 @@ package adaptive
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 )
@@ -117,10 +119,35 @@ const proposerSysPrompt = `You are a user-modeling assistant. Infer structured p
 const criticSysPrompt = `You are a critical reviewer. Check for over-fitting or weak evidence. Adjust confidence scores. Return ONLY valid JSON array.`
 
 func parseProposals(raw string) []Proposal {
-	if raw != "" {
-		return []Proposal{{Category: "verbosity", Field: "preferred_verbosity", Value: "medium", Confidence: 0.5, Reason: raw}} //nolint:mnd
+	if raw == "" {
+		return nil
 	}
-	return nil
+	cleaned := extractJSONBlock(raw)
+	var proposals []Proposal
+	if err := json.Unmarshal([]byte(cleaned), &proposals); err != nil {
+		return nil
+	}
+	for i := range proposals {
+		if proposals[i].Confidence <= 0 {
+			proposals[i].Confidence = 0.5
+		}
+	}
+	return proposals
+}
+
+func extractJSONBlock(raw string) string {
+	s := strings.TrimSpace(raw)
+	if i := strings.Index(s, "```"); i >= 0 {
+		if j := strings.Index(s[i+3:], "```"); j >= 0 {
+			s = s[i+3 : i+3+j]
+		}
+	}
+	if i := strings.Index(s, "["); i >= 0 {
+		if j := strings.LastIndex(s, "]"); j > i {
+			return s[i : j+1]
+		}
+	}
+	return s
 }
 
 func truncate(s string, n int) string {

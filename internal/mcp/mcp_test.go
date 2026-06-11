@@ -31,6 +31,7 @@ func TestParsePrefixed(t *testing.T) {
 		{"mcp__a__b", "a", "b"},
 		{"invalid", "", ""},
 		{"mcp__", "", ""},
+		{"mcp__a", "", ""},
 	}
 	for _, tt := range tests {
 		server, tool := parsePrefixed(tt.input)

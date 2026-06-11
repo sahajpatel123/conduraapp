@@ -61,11 +61,17 @@ type Config struct {
 	Gatekeeper     gatekeeper.Gatekeeper
 	Audit          *audit.Log
 	Memory         MemoryStore
+	Predictor      PredictorStore
 }
 
 // MemoryStore is the subset of the memory package used by sessions.
 type MemoryStore interface {
 	Recall(ctx context.Context, query string, limit int) ([]string, error)
+}
+
+// PredictorStore is the subset of the adaptive package used by sessions.
+type PredictorStore interface {
+	Predict(ctx context.Context, query string) (string, error)
 }
 
 // Session runs a single user query end-to-end. It is created fresh
@@ -106,6 +112,7 @@ type Factory struct {
 	gate         gatekeeper.Gatekeeper
 	audit        *audit.Log
 	memory       MemoryStore
+	predictor    PredictorStore
 
 	mu         sync.Mutex
 	activeSess *Session
@@ -168,6 +175,11 @@ func (f *Factory) SetMemory(m MemoryStore) {
 	f.memory = m
 }
 
+// SetPredictor injects the adaptive engine predictor.
+func (f *Factory) SetPredictor(p PredictorStore) {
+	f.predictor = p
+}
+
 // New builds a Session for a specific conversation. The
 // session's lifetime is the lifetime of one Run call.
 func (f *Factory) New(conversationID int64) *Session {
@@ -187,6 +199,7 @@ func (f *Factory) New(conversationID int64) *Session {
 			Gatekeeper:     f.gate,
 			Audit:          f.audit,
 			Memory:         f.memory,
+			Predictor:      f.predictor,
 		},
 		OnStatus: f.onStatus,
 	}
@@ -520,6 +533,14 @@ func (s *Session) buildMessages(ctx context.Context, query string) ([]llm.Messag
 		if memErr == nil && len(memCtx) > 0 {
 			ctxMsg := "Relevant context from past interactions:\n" + strings.Join(memCtx, "\n")
 			out = append([]llm.Message{{Role: llm.RoleSystem, Content: ctxMsg}}, out...)
+		}
+	}
+
+	// Prepend adaptive predictor context if available.
+	if s.cfg.Predictor != nil {
+		predCtx, predErr := s.cfg.Predictor.Predict(ctx, query)
+		if predErr == nil && predCtx != "" {
+			out = append([]llm.Message{{Role: llm.RoleSystem, Content: predCtx}}, out...)
 		}
 	}
 

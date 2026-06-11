@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
@@ -128,14 +129,13 @@ func prefixedName(server, tool string) string {
 // parsePrefixed splits a prefixed name into server and tool.
 func parsePrefixed(name string) (server, tool string) {
 	prefix := "mcp" + prefixSep
-	if len(name) <= len(prefix) || name[:len(prefix)] != prefix {
+	if !strings.HasPrefix(name, prefix) {
 		return "", ""
 	}
 	rest := name[len(prefix):]
-	for i := 0; i < len(rest); i++ {
-		if rest[i:i+len(prefixSep)] == prefixSep {
-			return rest[:i], rest[i+len(prefixSep):]
-		}
+	idx := strings.Index(rest, prefixSep)
+	if idx < 0 {
+		return "", ""
 	}
-	return "", ""
+	return rest[:idx], rest[idx+len(prefixSep):]
 }

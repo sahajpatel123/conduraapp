@@ -1,18 +1,98 @@
 package adaptive
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 // Predictor provides next-action suggestions based on the user model.
 // Injected into session.buildMessages via a PredictorStore interface
 // (following the same pattern as MemoryStore).
 type Predictor struct {
-	store Store
+	store    Store
+	strength func() Strength
 }
 
 // PredictorStore is the interface injected into the session.
-// Mirrors the MemoryStore pattern in session.go.
 type PredictorStore interface {
 	Predict(ctx context.Context, query string) (string, error)
+}
+
+// NewPredictor creates a predictor backed by the user model store.
+// strength is a callback so the live setting is always read fresh.
+func NewPredictor(store Store, strength func() Strength) *Predictor {
+	return &Predictor{store: store, strength: strength}
+}
+
+// Predict returns context. Only active at balanced/aggressive strength.
+//
+//nolint:gocyclo
+func (p *Predictor) Predict(ctx context.Context, query string) (string, error) {
+	_ = ctx
+
+	if p.strength == nil || p.strength() == StrengthOff || p.strength() == StrengthCautious {
+		return "", nil
+	}
+
+	model, err := p.store.Load()
+	if err != nil {
+		return "", nil //nolint:nilerr // best-effort
+	}
+
+	const minConfidence = 0.5
+	_ = minConfidence
+
+	var parts []string
+
+	// Communication style.
+	if model.Communication.Value != "" && model.Communication.Confidence > 0.4 {
+		parts = append(parts, fmt.Sprintf("User communication style: %s", model.Communication.Value))
+	}
+
+	// Identity.
+	if model.Identity.Value != "" && model.Identity.Confidence > 0.4 {
+		parts = append(parts, fmt.Sprintf("User identity: %s", model.Identity.Value))
+	}
+
+	// Risk tolerance.
+	if model.RiskTolerance.Value != "" && model.RiskTolerance.Confidence > 0.4 {
+		parts = append(parts, fmt.Sprintf("Risk tolerance: %s", model.RiskTolerance.Value))
+	}
+
+	// Style.
+	if model.Style.Value != "" && model.Style.Confidence > 0.4 {
+		parts = append(parts, model.Style.Value)
+	}
+
+	// Preferences (filter high-confidence).
+	for _, pref := range model.Preferences {
+		if pref.Confidence > minConfidence {
+			parts = append(parts, fmt.Sprintf("Prefers: %s", pref.Value))
+		}
+	}
+
+	// Expertise.
+	for _, exp := range model.Expertise {
+		if exp.Confidence > minConfidence {
+			parts = append(parts, fmt.Sprintf("Expert in: %s", exp.Value))
+		}
+	}
+
+	// Model prefs.
+	if len(model.ModelPrefs) > 0 {
+		var mps []string
+		for k, v := range model.ModelPrefs {
+			mps = append(mps, fmt.Sprintf("%s=%s", k, v))
+		}
+		parts = append(parts, fmt.Sprintf("Model preferences: %s", strings.Join(mps, ", ")))
+	}
+
+	if len(parts) == 0 {
+		return "", nil
+	}
+
+	return "User profile:\n" + strings.Join(parts, "\n"), nil
 }
 
 // Prediction is a structured suggestion for the next action.
@@ -20,27 +100,6 @@ type Prediction struct {
 	Suggestion string  `json:"suggestion"`
 	Confidence float64 `json:"confidence"`
 	Category   string  `json:"category"`
-}
-
-// NewPredictor creates a predictor backed by the user model store.
-func NewPredictor(store Store) *Predictor {
-	return &Predictor{store: store}
-}
-
-// Predict returns a context string to prepend to the LLM prompt.
-// Implements PredictorStore.
-func (p *Predictor) Predict(ctx context.Context, query string) (string, error) {
-	model, err := p.store.Load()
-	if err != nil {
-		return "", err
-	}
-	_ = ctx
-	_ = query
-	_ = model
-
-	// Predictions are applied only at balanced/aggressive strength.
-	// The caller (session via Factory) gates this.
-	return "", nil
 }
 
 // Visibility provides the user-facing profile for the Settings UI.
@@ -93,7 +152,7 @@ func (v *Visibility) Forget(ctx context.Context, field, value string) error {
 	return v.store.Save(model)
 }
 
-// Reset clears all user model data and regenerates defaults.
+// Reset clears all user model data.
 func (v *Visibility) Reset(ctx context.Context) error {
 	return v.store.Reset()
 }

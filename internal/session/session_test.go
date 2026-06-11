@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
@@ -36,113 +35,63 @@ func (p *fakeProvider) Chat(_ context.Context, _ string, _ llm.ChatRequest) (llm
 // the reply back from the conversation store (which never persisted
 // it). The fix is to subscribe to the broker and accumulate
 // stream.delta events.
+type mockLLMProvider struct {
+	name string
+}
+
+func (p *mockLLMProvider) Name() string { return p.name }
+func (p *mockLLMProvider) Chat(_ context.Context, _ llm.ChatRequest) (llm.ChatResponse, error) {
+	return llm.ChatResponse{}, nil
+}
+func (p *mockLLMProvider) Stream(_ context.Context, _ llm.ChatRequest) (<-chan llm.StreamEvent, func(), error) {
+	ch := make(chan llm.StreamEvent, 10)
+	cancel := func() {}
+	go func() {
+		defer close(ch)
+		ch <- llm.StreamEvent{Delta: llm.Message{Content: "Hello"}}
+		ch <- llm.StreamEvent{Delta: llm.Message{Content: ", "}}
+		ch <- llm.StreamEvent{Delta: llm.Message{Content: "world!"}}
+		ch <- llm.StreamEvent{Done: true}
+	}()
+	return ch, cancel, nil
+}
+func (p *mockLLMProvider) Models() []llm.ModelInfo      { return nil }
+func (p *mockLLMProvider) DefaultModel(_ string) string { return "" }
+
+// TestSession_ReturnsReplyFromBrokerDeltas is the keystone test
+// for 6A #1: the session must return the full text the model
+// emitted, accumulated from the SSE broker's stream.delta events.
 func TestSession_ReturnsReplyFromBrokerDeltas(t *testing.T) {
 	broker := sse.NewBroker()
 	defer broker.Close()
 
-	// Build a session with a fake stream manager that publishes
-	// deltas to the broker. We use the real stream.Manager with
-	// a real broker.
-	mgr := stream.NewManager(broker, nil)
-	defer mgr.Close()
+	// Register the mock provider in a real registry
+	reg := llm.NewRegistry()
+	mockProv := &mockLLMProvider{name: "test"}
+	reg.Register(mockProv)
 
-	// Subscribe to the broker so we can publish test events.
-	sub := broker.Subscribe()
-	defer broker.Unsubscribe(sub)
+	// Build a session with a real stream manager and real broker.
+	mgr := stream.NewManager(broker, reg)
+	defer mgr.Close()
 
 	cfg := Config{
 		StreamMgr:    mgr,
-		Provider:     &fakeProvider{},
+		Provider:     reg, // Registry implements session.Provider
 		ProviderName: "test",
 		Model:        "test-model",
 		Broker:       broker,
 	}
-	_, err := New(cfg)
+	s, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
-	// Pre-publish the delta/finished events for our session to
-	// consume. In a real flow, the stream manager publishes these;
-	// here we simulate by publishing directly to the broker with
-	// the requestID we expect.
-	const requestID = "test-request-123"
-	go publishSimulatedStream(t, broker, requestID, "Hello, world!")
-
-	// The session expects the requestID from mgr.Start. Since
-	// our real mgr.Start would try to call the provider, we
-	// can't go through it. Instead, test the
-	// collectAndSpeak/accumulate path directly: subscribe, wait
-	// for finished.
-	full, err := accumulateFromSubscription(sub, requestID)
+	full, err := s.Run(context.Background(), "hello")
 	if err != nil {
-		t.Fatalf("accumulate: %v", err)
+		t.Fatalf("Run: %v", err)
 	}
 	if full != "Hello, world!" {
 		t.Errorf("accumulated = %q, want %q", full, "Hello, world!")
-	}
-}
-
-// publishSimulatedStream emits a stream.started, several
-// stream.delta events, and a stream.finished for the given
-// requestID. The session must accumulate the deltas.
-func publishSimulatedStream(t *testing.T, broker *sse.Broker, requestID, fullText string) {
-	t.Helper()
-	broker.PublishJSON(stream.EventStarted, map[string]any{
-		"request_id": requestID,
-		"ts":         time.Now().Unix(),
-	})
-	// Emit deltas word by word.
-	words := []string{}
-	for i := 0; i < len(fullText); i++ {
-		// Emit a few characters at a time to simulate streaming.
-		end := i + 3
-		if end > len(fullText) {
-			end = len(fullText)
-		}
-		words = append(words, fullText[i:end])
-		i = end - 1
-	}
-	for _, w := range words {
-		broker.PublishJSON(stream.EventDelta, map[string]any{
-			"request_id": requestID,
-			"delta":      w,
-		})
-	}
-	broker.PublishJSON(stream.EventFinished, map[string]any{
-		"request_id": requestID,
-	})
-}
-
-// accumulateFromSubscription is a test helper that mimics the
-// session's collectAndSpeak behavior: subscribe to the broker,
-// accumulate deltas, and return when stream.finished is seen.
-func accumulateFromSubscription(sub *sse.Subscription, requestID string) (string, error) {
-	const deadline = 5 * time.Second
-	timer := time.NewTimer(deadline)
-	defer timer.Stop()
-	var full string
-	for {
-		select {
-		case <-timer.C:
-			return full, nil
-		case <-sub.Done:
-			return full, nil
-		case ev := <-sub.Events:
-			if !eventMatchesRequest(ev, requestID) {
-				continue
-			}
-			switch ev.Name {
-			case stream.EventDelta:
-				if d, ok := stringField(ev.Data, "delta"); ok {
-					full += d
-				}
-			case stream.EventFinished:
-				return full, nil
-			case stream.EventError, stream.EventCancelled:
-				return full, nil
-			}
-		}
 	}
 }
 
