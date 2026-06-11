@@ -213,6 +213,15 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 )
 
+const (
+	mcMaxDepth       = 50
+	mcScrollLines    = 3.0
+	mcScrollDirUp    = "up"
+	mcScrollDirDown  = "down"
+	mcScrollDirLeft  = "left"
+	mcScrollDirRight = "right"
+)
+
 // darwinMC is the CGo implementation of macCUAImpl for macOS.
 type darwinMC struct{}
 
@@ -250,7 +259,7 @@ func (d *darwinMC) getAXTree() (*computeruse.AXTree, error) {
 }
 
 func (d *darwinMC) buildNode(el C.AXUIElementRef, depth int) (*computeruse.AXNode, error) {
-	if depth > maxAXDepth {
+	if depth > mcMaxDepth {
 		return nil, fmt.Errorf("mac-cua: max depth")
 	}
 	n := &computeruse.AXNode{Attributes: make(map[string]interface{})}
@@ -343,16 +352,16 @@ func (d *darwinMC) execType(action *computeruse.Action, pid C.pid_t) error {
 }
 
 func (d *darwinMC) execScroll(action *computeruse.Action, pid C.pid_t) error {
-	const dl = defaultScrollLines
+	const dl = mcScrollLines
 	dx, dy := 0.0, -dl
 	switch action.Value {
-	case scrollDirUp:
+	case mcScrollDirUp:
 		dx, dy = 0.0, dl
-	case scrollDirDown:
+	case mcScrollDirDown:
 		dx, dy = 0.0, -dl
-	case scrollDirLeft:
+	case mcScrollDirLeft:
 		dx, dy = -dl, 0.0
-	case scrollDirRight:
+	case mcScrollDirRight:
 		dx, dy = dl, 0.0
 	}
 	if C.mc_scrollToPid(C.double(dx), C.double(dy), pid) == 0 {

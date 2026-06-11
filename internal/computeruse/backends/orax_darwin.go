@@ -244,6 +244,15 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 )
 
+const (
+	maxAXDepth         = 50
+	defaultScrollLines = 3.0
+	scrollDirUp        = "up"
+	scrollDirDown      = "down"
+	scrollDirLeft      = "left"
+	scrollDirRight     = "right"
+)
+
 // darwinORAX is the CGo implementation of oraXImpl for macOS.
 type darwinORAX struct{}
 
@@ -306,10 +315,8 @@ func (d *darwinORAX) getAXTree() (*computeruse.AXTree, error) {
 	}, nil
 }
 
-const maxDepth = 50
-
 func (d *darwinORAX) buildNode(element C.AXUIElementRef, depth int) (*computeruse.AXNode, error) {
-	if depth > maxDepth {
+	if depth > maxAXDepth {
 		return nil, fmt.Errorf("orax: max depth exceeded at %d", depth)
 	}
 
@@ -444,16 +451,15 @@ func (d *darwinORAX) execScroll(action *computeruse.Action) error {
 	if err != nil {
 		return err
 	}
-	const defaultScrollLines = 3.0
 	dx, dy := 0.0, -defaultScrollLines
 	switch action.Value {
-	case "up":
+	case scrollDirUp:
 		dx, dy = 0.0, defaultScrollLines
-	case "down":
+	case scrollDirDown:
 		dx, dy = 0.0, -defaultScrollLines
-	case "left":
+	case scrollDirLeft:
 		dx, dy = -defaultScrollLines, 0.0
-	case "right":
+	case scrollDirRight:
 		dx, dy = defaultScrollLines, 0.0
 	}
 	if C.orax_scrollAt(C.double(x), C.double(y), C.double(dx), C.double(dy)) == 0 {
