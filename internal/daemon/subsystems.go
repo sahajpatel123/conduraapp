@@ -23,6 +23,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/health"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
+	"github.com/sahajpatel123/synapticapp/internal/mcp"
 	"github.com/sahajpatel123/synapticapp/internal/memory"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
@@ -100,6 +101,9 @@ type Subsystems struct {
 
 	// Phase 8: user-adaptive engine.
 	Adaptive *AdaptiveComponents
+
+	// Phase 8: MCP Gateway.
+	MCP *mcp.Manager
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
@@ -326,6 +330,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Memory:                   memMgr,
 		Extractor:                extractor,
 		Adaptive:                 adaptiveComps,
+		MCP:                      mcp.NewManager(gate),
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
