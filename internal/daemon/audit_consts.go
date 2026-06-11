@@ -33,3 +33,8 @@ const (
 	auditResultDeny  = "deny"
 	auditResultError = "error"
 )
+
+// JSON field keys used across method registration files.
+const (
+	keyConversationID = "conversation_id"
+)

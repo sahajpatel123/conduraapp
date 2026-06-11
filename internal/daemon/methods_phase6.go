@@ -66,11 +66,15 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		if subs.Voice == nil {
 			return nil, &ipc.Error{Code: ipc.CodeMethodNotFound, Message: ErrNoVoice.Error()}
 		}
-		subs.Voice.Cancel()
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "voice.cancel", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		if subs.Voice != nil {
+			subs.Voice.Cancel()
+		}
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "voice.cancel", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+			})
+		}
 		return auditOK(), nil
 	})
 
@@ -88,11 +92,13 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := subs.Voice.Speak(ctx, p.Text); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "voice.speak", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "len=" + itoa(int64(len(p.Text))),
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "voice.speak", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+				Message: "len=" + itoa(int64(len(p.Text))),
+			})
+		}
 		return auditOK(), nil
 	})
 }
@@ -103,10 +109,12 @@ func registerPresenceMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := subs.Overlay.Show(ctx, overlay.ShowOpts{AtCursor: true}); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "presence.summon", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "presence.summon", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+			})
+		}
 		return auditOK(), nil
 	})
 
@@ -115,10 +123,12 @@ func registerPresenceMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := subs.Overlay.Hide(); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "presence.dismiss", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "presence.dismiss", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+			})
+		}
 		return auditOK(), nil
 	})
 
@@ -162,23 +172,48 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 			}
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "agent.ask", App: appSynapticG,
-			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "conversation_id=" + itoa(p.ConversationID) + " reply_len=" + itoa(int64(len(reply))),
-		})
+		if subs.Audit != nil {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "agent.ask", App: appSynapticG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+				Message: "conversation_id=" + itoa(p.ConversationID) + " reply_len=" + itoa(int64(len(reply))),
+			})
+		}
 		return map[string]any{
 			"reply":           reply,
-			"conversation_id": p.ConversationID,
+			keyConversationID: p.ConversationID,
 		}, nil
+	})
+
+	// agent.ask-complete: internal hook fired by the frontend
+	// after a session completes to trigger async memory and
+	// skill extraction. Best-effort, never fails the caller.
+	srv.Register("agent.ask-complete", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if subs.Extractor == nil {
+			return auditOK(), nil
+		}
+		var p struct {
+			ConversationID int64  `json:"conversation_id"`
+			UserMessage    string `json:"user_message"`
+			AssistantReply string `json:"assistant_reply"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		subs.Extractor.AfterSession(ctx, p.UserMessage, p.AssistantReply, p.ConversationID)
+		return auditOK(), nil
 	})
 
 	// agent.status: return the current session status. Note
 	// that this is a snapshot; for a live status feed, the
 	// GUI should subscribe to "tray.status" on the SSE broker.
 	srv.Register("agent.status", func(_ context.Context, _ json.RawMessage) (any, error) {
+		statusStr := status.StatusIdle.String()
+		if subs.SessionFactory != nil {
+			statusStr = subs.SessionFactory.Status().String()
+		}
 		return map[string]any{
-			statusKey: status.StatusIdle.String(),
+			statusKey: statusStr,
 		}, nil
 	})
 }

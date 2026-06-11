@@ -25,6 +25,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
 	"github.com/sahajpatel123/synapticapp/internal/session"
+	"github.com/sahajpatel123/synapticapp/internal/skills"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
 	"github.com/sahajpatel123/synapticapp/internal/status"
 	"github.com/sahajpatel123/synapticapp/internal/storage"
@@ -90,6 +91,10 @@ type Subsystems struct {
 	// Phase 7: computer-use + memory.
 	CULoop *agent.CULoop
 	Memory *memory.StoreManager
+
+	// Extractor runs async post-session memory extraction and
+	// skill auto-creation. Nil when disabled.
+	Extractor *PostSessionExtractor
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -137,6 +142,17 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	} else {
 		memMgr = memory.NewManager(memStore)
 		log.Info("memory store ready")
+	}
+
+	// Create skill store and async extractor.
+	skillPath := filepath.Join(filepath.Dir(db.Path()), "skills.db")
+	skillStore, skillErr := skills.NewSQLiteStore(skillPath)
+	var extractor *PostSessionExtractor
+	if skillErr == nil && memMgr != nil {
+		extractor = NewPostSessionExtractor(memMgr, skillStore, log, true)
+	}
+	if skillErr != nil {
+		log.Warn("skill store init failed; skill creation disabled", "err", skillErr)
 	}
 	auditLog := audit.New(db.SQL())
 	haltFlag := halt.New(db.SQL())
@@ -269,6 +285,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Voice:                    voicePipeline,
 		CULoop:                   cuLoop,
 		Memory:                   memMgr,
+		Extractor:                extractor,
 	}, nil
 }
 
