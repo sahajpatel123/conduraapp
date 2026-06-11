@@ -85,6 +85,12 @@ type Subsystems struct {
 	// Voice is the voice pipeline. Non-nil only when voice is
 	// enabled in config and the binary/model are pinned correctly.
 	Voice *voice.Pipeline
+
+	// Phase 7: computer-use execution loop.
+	// CULoop wires the ORAX backend → Router → GatedExecutor →
+	// CUResolver → CULoop pipeline. Non-nil when at least one
+	// computer-use backend is available.
+	CULoop *agent.CULoop
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -167,6 +173,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init session factory: %w", err)
 	}
+	sessionFactory.SetGatekeeper(gate, auditLog)
 	log.Info("session factory ready", "primary", primaryName, "model", primaryModel)
 
 	// Fan session status out to the SSE broker so the GUI
@@ -190,12 +197,22 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	gatedAgentExec := agent.NewGatedExecutor(noopAgentExecutor{}, gate, auditLog)
 
 	// GatedComputerUseExecutor is the parallel wrapper for the
-	// computer-use backends. Until the 4-tier router is wired
-	// in 6B.1, the wrapped inner is a noop; the gatekeeper
-	// still applies and decisions are still audited.
-	cuBackend := &computeruse.NoopBackend{}
-	cu := computeruse.New(cuBackend)
-	gatedCUExec := computeruse.NewGatedExecutor(cu, gate)
+	// computer-use backends. It uses the ORAX backend if available;
+	// falls back to a noop if no real backend exists. The gatekeeper
+	// always applies; decisions are audited.
+	cuComps := buildCUComponents(gate, haltFlag)
+	gatedCUExec := cuComps.gated
+	cuLoop := cuComps.loop
+
+	// Fan status out to the SSE broker.
+	if cuLoop != nil {
+		cuLoop.OnStatus = func(s status.Status) {
+			broker.PublishJSON("tray.status", map[string]any{
+				statusKey: s.String(),
+			})
+		}
+		log.Info("computer-use loop ready")
+	}
 
 	// Voice pipeline. Constructed only when voice is enabled and
 	// the binary/model paths are present. Failure to construct is
@@ -239,6 +256,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Overlay:                  ovl,
 		SessionFactory:           sessionFactory,
 		Voice:                    voicePipeline,
+		CULoop:                   cuLoop,
 	}, nil
 }
 
