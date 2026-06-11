@@ -239,9 +239,18 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	// computer-use backends. It uses the ORAX backend if available;
 	// falls back to a noop if no real backend exists. The gatekeeper
 	// always applies; decisions are audited.
-	cuComps := buildCUComponents(gate, haltFlag)
-	gatedCUExec := cuComps.gated
-	cuLoop := cuComps.loop
+	cuComps := buildCUComponents(gate, haltFlag, &registryPlannerAdapter{r: registry, name: primaryName}, primaryModel)
+	var gatedCUExec *computeruse.GatedExecutor
+	var cuLoop *agent.CULoop
+	if cuComps != nil {
+		gatedCUExec = cuComps.gated
+		cuLoop = cuComps.loop
+	} else {
+		// No LLM provider available — fall back to noop.
+		cuBackend := &computeruse.NoopBackend{}
+		cu := computeruse.New(cuBackend)
+		gatedCUExec = computeruse.NewGatedExecutor(cu, gate)
+	}
 
 	// Fan status out to the SSE broker.
 	if cuLoop != nil {
@@ -482,4 +491,14 @@ func initExtractor(dataDir string, memMgr *memory.StoreManager, log *slog.Logger
 		return nil
 	}
 	return NewPostSessionExtractor(memMgr, skillStore, log, true)
+}
+
+// registryPlannerAdapter adapts llm.Registry → agent.PlannerProvider.
+type registryPlannerAdapter struct {
+	r    *llm.Registry
+	name string
+}
+
+func (a *registryPlannerAdapter) Chat(ctx context.Context, req llm.ChatRequest) (llm.ChatResponse, error) {
+	return a.r.Chat(ctx, a.name, req)
 }

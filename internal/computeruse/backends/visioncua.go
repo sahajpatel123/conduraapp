@@ -15,6 +15,13 @@ import (
 )
 
 // VisionCUAConfig controls the Vision CUA backend settings.
+// Enabled defaults to false — Vision CUA requires explicit user
+// opt-in because it sends screenshots to a cloud LLM (network/privacy
+// boundary per MISSION §2: local-first, no surveillance).
+//
+// Design: resolve-only (provides coordinates, does not execute).
+// The resolved coordinates are returned as Bounds on the ActionResult
+// and must still pass through the Gatekeeper before physical execution.
 type VisionCUAConfig struct {
 	Enabled             bool
 	Provider            llm.Provider

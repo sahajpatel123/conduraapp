@@ -121,9 +121,13 @@ func extractPreference(query, reply string) string {
 }
 
 func (e *PostSessionExtractor) maybeCreateSkill(ctx context.Context, query, reply string) {
-	// Check if we have enough similar sessions to auto-create a skill.
-	// For now, this is a placeholder — real implementation requires
-	// tracking session similarity across multiple calls.
+	// Skill auto-creation requires tracking session similarity across
+	// multiple calls. The full implementation (per MISSION §15.2) needs:
+	// 1. Store completed sessions in memory with task vectors
+	// 2. Cluster similar sessions (≥N with matching patterns)
+	// 3. Extract common steps from the cluster
+	// 4. Create a Skill with the pattern and steps
+	// Deferred to Phase 8 (User-Adaptive Engine).
 	_ = ctx
 	_ = query
 	_ = reply

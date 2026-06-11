@@ -179,6 +179,10 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 				Message: "conversation_id=" + itoa(p.ConversationID) + " reply_len=" + itoa(int64(len(reply))),
 			})
 		}
+		// Trigger async memory extraction on success (fire-and-forget).
+		if subs.Extractor != nil && reply != "" {
+			go subs.Extractor.AfterSession(context.Background(), p.Query, reply, p.ConversationID) //nolint:gosec // intentional: async, must survive request ctx
+		}
 		return map[string]any{
 			"reply":           reply,
 			keyConversationID: p.ConversationID,
