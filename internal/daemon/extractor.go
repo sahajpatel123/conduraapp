@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/adaptive"
 	"github.com/sahajpatel123/synapticapp/internal/memory"
 	"github.com/sahajpatel123/synapticapp/internal/skills"
 )
@@ -20,6 +21,12 @@ type PostSessionExtractor struct {
 	log        *slog.Logger
 	enabled    bool
 	skillStore io.Closer
+	observer   *adaptive.Observer
+}
+
+// SetObserver wires the adaptive engine's observer.
+func (e *PostSessionExtractor) SetObserver(o *adaptive.Observer) {
+	e.observer = o
 }
 
 // NewPostSessionExtractor creates an async post-session processor.
@@ -52,6 +59,17 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 	// Copy values for the goroutines since the caller may reuse.
 	query := userMessage
 	reply := assistantReply
+
+	// Fire observer for adaptive engine (user-initiated evidence).
+	if e.observer != nil {
+		//nolint:gosec // intentional: async observer must survive request ctx
+		go e.observer.Record(context.Background(), adaptive.Observation{
+			SessionID:     newID("sess"),
+			UserQuery:     query,
+			AgentReply:    reply,
+			UserInitiated: true,
+		})
+	}
 
 	if e.memory != nil {
 		go e.storeEpisode(ctx, query, reply, conversationID)

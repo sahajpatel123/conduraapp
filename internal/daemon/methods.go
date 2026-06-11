@@ -63,6 +63,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerWindowMethods(srv, subs)
 	registerPhase6Methods(srv, subs)
 	registerCUMethods(srv, subs)
+	registerAdaptiveMethods(srv, subs)
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.

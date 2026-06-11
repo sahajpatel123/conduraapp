@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/adaptive"
 	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
@@ -97,6 +98,9 @@ type Subsystems struct {
 	// skill auto-creation. Nil when disabled.
 	Extractor *PostSessionExtractor
 
+	// Phase 8: user-adaptive engine.
+	Adaptive *AdaptiveComponents
+
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
 }
@@ -164,7 +168,6 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		log.Info("memory store ready")
 	}
 
-	// Create skill store and async extractor.
 	extractor := initExtractor(db.Path(), memMgr, log)
 	auditLog := audit.New(db.SQL())
 	haltFlag := halt.New(db.SQL())
@@ -292,6 +295,21 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		}
 	}
 
+	// Phase 8: user-adaptive engine. Uses storage.DB encryption.
+	var adaptiveComps *AdaptiveComponents
+	astore, aerr := adaptive.NewEncryptedStore(db.SQL(), db.EncryptString, db.DecryptString)
+	if aerr != nil {
+		log.Warn("adaptive store init failed", "err", aerr)
+	} else if primaryName != "" {
+		acfg := adaptive.DefaultConfig()
+		llmProv := &llmProviderAdapter{r: registry, name: primaryName, model: primaryModel}
+		adaptiveComps = buildAdaptiveEngine(astore, llmProv, acfg)
+		if extractor != nil {
+			extractor.SetObserver(adaptiveComps.Observer)
+		}
+		log.Info("adaptive engine ready", "strength", acfg.Strength)
+	}
+
 	subs := &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
@@ -307,6 +325,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		CULoop:                   cuLoop,
 		Memory:                   memMgr,
 		Extractor:                extractor,
+		Adaptive:                 adaptiveComps,
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
@@ -501,4 +520,34 @@ type registryPlannerAdapter struct {
 
 func (a *registryPlannerAdapter) Chat(ctx context.Context, req llm.ChatRequest) (llm.ChatResponse, error) {
 	return a.r.Chat(ctx, a.name, req)
+}
+
+// llmProviderAdapter implements llm.Provider from llm.Registry.
+type llmProviderAdapter struct {
+	r     *llm.Registry
+	name  string
+	model string
+}
+
+func (a *llmProviderAdapter) Name() string { return a.name }
+func (a *llmProviderAdapter) Chat(ctx context.Context, req llm.ChatRequest) (llm.ChatResponse, error) {
+	return a.r.Chat(ctx, a.name, req)
+}
+func (a *llmProviderAdapter) Stream(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamEvent, func(), error) {
+	return a.r.Stream(ctx, a.name, req)
+}
+func (a *llmProviderAdapter) Models() []llm.ModelInfo {
+	if prov, ok := a.r.Get(a.name); ok {
+		return prov.Models()
+	}
+	return nil
+}
+func (a *llmProviderAdapter) DefaultModel(task string) string {
+	if a.model != "" {
+		return a.model
+	}
+	if prov, ok := a.r.Get(a.name); ok {
+		return prov.DefaultModel(task)
+	}
+	return ""
 }
