@@ -303,6 +303,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	if memStore != nil {
 		subs.closers = append(subs.closers, memStore)
 	}
+	if extractor != nil {
+		subs.closers = append(subs.closers, extractor)
+	}
 	return subs, nil
 }
 

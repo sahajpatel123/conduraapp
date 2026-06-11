@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"time"
 
@@ -14,20 +15,30 @@ import (
 // auto-creation after a session completes. Both operations are
 // fire-and-forget, best-effort, and config-gated.
 type PostSessionExtractor struct {
-	memory  *memory.StoreManager
-	skills  skills.Store
-	log     *slog.Logger
-	enabled bool
+	memory     *memory.StoreManager
+	skills     skills.Store
+	log        *slog.Logger
+	enabled    bool
+	skillStore io.Closer
 }
 
 // NewPostSessionExtractor creates an async post-session processor.
 func NewPostSessionExtractor(mem *memory.StoreManager, skillStore skills.Store, log *slog.Logger, enabled bool) *PostSessionExtractor {
 	return &PostSessionExtractor{
-		memory:  mem,
-		skills:  skillStore,
-		log:     log,
-		enabled: enabled,
+		memory:     mem,
+		skills:     skillStore,
+		log:        log,
+		enabled:    enabled,
+		skillStore: skillStore.(io.Closer),
 	}
+}
+
+// Close releases resources held by the extractor.
+func (e *PostSessionExtractor) Close() error {
+	if e.skillStore != nil {
+		return e.skillStore.Close()
+	}
+	return nil
 }
 
 // AfterSession is called after a session completes. It fires
