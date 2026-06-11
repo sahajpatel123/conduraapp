@@ -160,5 +160,6 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	// Best-effort teardown.
 	_ = subs.Storage.Close()
+	_ = subs.Close()
 	return subs, nil
 }

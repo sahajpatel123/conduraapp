@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -95,11 +96,30 @@ type Subsystems struct {
 	// Extractor runs async post-session memory extraction and
 	// skill auto-creation. Nil when disabled.
 	Extractor *PostSessionExtractor
+
+	// closers holds resources that must be closed on shutdown.
+	closers []io.Closer
+}
+
+// Close releases all resources held by subsystems.
+func (s *Subsystems) Close() error {
+	var errs []error
+	for _, c := range s.closers {
+		if err := c.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("subsystems close: %v", errs)
+	}
+	return nil
 }
 
 // initSubsystems constructs every long-lived component the daemon
 // needs. On error, all partially-initialized components are torn
 // down.
+//
+//nolint:gocyclo // wiring all subsystems in one place is intentional
 func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	secretsPath := filepath.Join(cfg.General.DataDir, "secrets.json")
 	sm, err := secrets.New(secretsPath)
@@ -145,15 +165,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	}
 
 	// Create skill store and async extractor.
-	skillPath := filepath.Join(filepath.Dir(db.Path()), "skills.db")
-	skillStore, skillErr := skills.NewSQLiteStore(skillPath)
-	var extractor *PostSessionExtractor
-	if skillErr == nil && memMgr != nil {
-		extractor = NewPostSessionExtractor(memMgr, skillStore, log, true)
-	}
-	if skillErr != nil {
-		log.Warn("skill store init failed; skill creation disabled", "err", skillErr)
-	}
+	extractor := initExtractor(db.Path(), memMgr, log)
 	auditLog := audit.New(db.SQL())
 	haltFlag := halt.New(db.SQL())
 	_ = haltFlag.Refresh(context.Background())
@@ -271,7 +283,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		}
 	}
 
-	return &Subsystems{
+	subs := &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
 		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
@@ -286,7 +298,12 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		CULoop:                   cuLoop,
 		Memory:                   memMgr,
 		Extractor:                extractor,
-	}, nil
+	}
+	// Register closers for cleanup on shutdown (Windows file-lock).
+	if memStore != nil {
+		subs.closers = append(subs.closers, memStore)
+	}
+	return subs, nil
 }
 
 // pickPrimaryProvider returns the first enabled LLM provider
@@ -448,4 +465,18 @@ func healthCheckIPC() health.Check {
 		Name: "ipc", Required: false, Timeout: 1 * time.Second,
 		Check: func(_ context.Context) error { return nil },
 	}
+}
+
+// initExtractor creates the post-session extractor if stores are available.
+func initExtractor(dataDir string, memMgr *memory.StoreManager, log *slog.Logger) *PostSessionExtractor {
+	skillPath := filepath.Join(filepath.Dir(dataDir), "skills.db")
+	skillStore, err := skills.NewSQLiteStore(skillPath)
+	if err != nil {
+		log.Warn("skill store init failed; disabled", "err", err)
+		return nil
+	}
+	if memMgr == nil {
+		return nil
+	}
+	return NewPostSessionExtractor(memMgr, skillStore, log, true)
 }
