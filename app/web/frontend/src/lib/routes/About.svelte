@@ -22,8 +22,10 @@
 <div class="about-page">
   <header>
     <h2>About Synaptic</h2>
-    <p class="muted">A free, on-device AI agent.</p>
+    <p class="muted"><em>A free, on-device AI agent.</em></p>
   </header>
+
+  <div class="divider"></div>
 
   <section class="card">
     <h3>Version</h3>
@@ -74,21 +76,38 @@
     max-width: 760px;
     margin: 0 auto;
   }
+  .about-page header {
+    padding: var(--space-4) 0;
+  }
   .about-page header h2 {
-    font-size: var(--size-2xl);
+    font-size: 32px;
     font-weight: 600;
     margin-bottom: var(--space-2);
+    background: var(--color-accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   .muted {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
   }
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-accent), transparent);
+    opacity: 0.3;
+    margin-bottom: var(--space-4);
+  }
   .card {
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
     padding: var(--space-5);
     margin-top: var(--space-5);
+    transition: border-color var(--transition-base);
+  }
+  .card:hover {
+    border-color: rgba(255,255,255,0.12);
   }
   .card h3 {
     font-size: var(--size-lg);
@@ -98,8 +117,12 @@
   .kv {
     display: flex;
     justify-content: space-between;
-    padding: var(--space-1) 0;
+    padding: var(--space-2) 0;
     font-size: var(--size-md);
+    border-bottom: 1px dotted var(--glass-border);
+  }
+  .kv:last-child {
+    border-bottom: none;
   }
   .kv .k {
     color: var(--color-text-muted);
@@ -117,22 +140,24 @@
   }
   .check-list li {
     display: grid;
-    grid-template-columns: 80px 1fr 2fr;
+    grid-template-columns: 90px 1fr 2fr;
     gap: var(--space-3);
     align-items: center;
     padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-border);
   }
   .check-list li:last-child {
     border-bottom: none;
   }
   .badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-pill);
     font-size: var(--size-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    font-weight: 500;
+    text-align: center;
   }
   .badge.health-ok {
     background: rgba(74, 222, 128, 0.15);
@@ -162,5 +187,12 @@
   }
   .links li {
     padding: var(--space-2) 0;
+  }
+  .links a {
+    transition: all var(--transition-fast);
+  }
+  .links a:hover {
+    text-shadow: var(--shadow-glow);
+    text-decoration: underline;
   }
 </style>

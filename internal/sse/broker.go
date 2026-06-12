@@ -257,6 +257,9 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (b *Broker) removeClient(c *Client) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if _, ok := b.clients[c]; !ok {
+		return
+	}
 	delete(b.clients, c)
 	close(c.done)
 }

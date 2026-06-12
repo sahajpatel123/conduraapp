@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -210,8 +211,13 @@ func TestPipeline_ListenAndProcess_TranscribesAndReturns(t *testing.T) {
 		t.Fatalf("NewPipeline: %v", err)
 	}
 
+	var stateMu sync.Mutex
 	var states []status.Status
-	p.OnStatus = func(s status.Status) { states = append(states, s) }
+	p.OnStatus = func(s status.Status) {
+		stateMu.Lock()
+		states = append(states, s)
+		stateMu.Unlock()
+	}
 
 	result, err := p.ListenAndProcess(context.Background())
 	if err != nil {
@@ -231,14 +237,21 @@ func TestPipeline_ListenAndProcess_TranscribesAndReturns(t *testing.T) {
 	}
 	// States: listening → thinking → idle.
 	want := []status.Status{status.StatusListening, status.StatusThinking, status.StatusIdle}
-	if len(states) != len(want) {
+	stateMu.Lock()
+	statesLen := len(states)
+	stateMu.Unlock()
+	if statesLen != len(want) {
+		stateMu.Lock()
 		t.Fatalf("states = %v, want %v", states, want)
+		stateMu.Unlock()
 	}
+	stateMu.Lock()
 	for i := range want {
 		if states[i] != want[i] {
 			t.Errorf("state[%d] = %v, want %v", i, states[i], want[i])
 		}
 	}
+	stateMu.Unlock()
 }
 
 func TestPipeline_ListenAndProcess_EmptyAudio(t *testing.T) {
@@ -331,8 +344,13 @@ func TestPipeline_Speak(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeline: %v", err)
 	}
+	var stateMu sync.Mutex
 	var states []status.Status
-	p.OnStatus = func(s status.Status) { states = append(states, s) }
+	p.OnStatus = func(s status.Status) {
+		stateMu.Lock()
+		states = append(states, s)
+		stateMu.Unlock()
+	}
 
 	if err := p.Speak(context.Background(), "hello world"); err != nil {
 		t.Fatalf("Speak: %v", err)
@@ -344,8 +362,13 @@ func TestPipeline_Speak(t *testing.T) {
 		t.Errorf("spoken text = %q", got)
 	}
 	want := []status.Status{status.StatusSpeaking, status.StatusIdle}
-	if len(states) != len(want) {
+	stateMu.Lock()
+	statesLen := len(states)
+	stateMu.Unlock()
+	if statesLen != len(want) {
+		stateMu.Lock()
 		t.Fatalf("states = %v, want %v", states, want)
+		stateMu.Unlock()
 	}
 }
 

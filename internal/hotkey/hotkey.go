@@ -81,19 +81,32 @@ func (m *Manager) Start(handler func()) error {
 // listen blocks on the hotkey's Registered channel and dispatches
 // the callback. Exits when the Manager is Stop()'d.
 func (m *Manager) listen() {
-	for m.hk != nil {
-		<-m.hk.Keydown()
+	for {
+		m.mu.Lock()
+		hk := m.hk
+		m.mu.Unlock()
+		if hk == nil {
+			break
+		}
+
+		<-hk.Keydown()
+
+		m.mu.Lock()
+		started := m.started
+		m.mu.Unlock()
+		if !started {
+			break
+		}
+
 		m.presses.Add(1)
-		if cb := m.callbackLocked(); cb != nil {
+		if cb := m.getCallback(); cb != nil {
 			cb()
 		}
 	}
 }
 
-// callbackLocked returns the callback without holding the mutex.
-// The callback is only ever reassigned inside Start, so the read
-// is safe as long as Start is not called concurrently.
-func (m *Manager) callbackLocked() func() {
+// getCallback returns the callback under the mutex.
+func (m *Manager) getCallback() func() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.callback
@@ -161,22 +174,43 @@ func shouldFireHold(duration time.Duration, minMs int) bool {
 // hotkey delivery latency (typically <16ms), so this is accurate
 // to within a frame.
 func (m *Manager) listenHold(onDown, onUp func(), minMs int) {
-	for m.hk != nil {
-		downAt := time.Now()
-		<-m.hk.Keydown()
-		m.presses.Add(1)
-
-		<-m.hk.Keyup()
-		held := time.Since(downAt)
-
-		if !shouldFireHold(held, minMs) {
-			// Hold was too short — treat as accidental tap and
-			// skip both callbacks. This is the actual debounce.
-			continue
+	for {
+		m.mu.Lock()
+		hk := m.hk
+		m.mu.Unlock()
+		if hk == nil {
+			break
 		}
 
-		onDown()
-		onUp()
+		<-hk.Keydown()
+
+		m.mu.Lock()
+		started := m.started
+		m.mu.Unlock()
+		if !started {
+			break
+		}
+
+		m.presses.Add(1)
+
+		// Debounce accidental taps: wait for minMs. If the key is released before
+		// minMs, we treat it as an accidental tap and skip both callbacks.
+		timer := time.NewTimer(time.Duration(minMs) * time.Millisecond)
+		select {
+		case <-hk.Keyup():
+			// Released before minMs — ignore tap
+			if !timer.Stop() {
+				<-timer.C
+			}
+			continue
+		case <-timer.C:
+			// Held for at least minMs — fire onDown immediately while still held
+			onDown()
+
+			// Now wait for Keyup to fire onUp
+			<-hk.Keyup()
+			onUp()
+		}
 	}
 }
 
@@ -217,36 +251,40 @@ func (m *Manager) StartTap(onTap func(), tapCount int, windowMs int) error {
 // happen within window of each other. Resets the count when the
 // window expires.
 func (m *Manager) listenTap(onTap func(), tapCount int, window time.Duration) {
+	var lastPress time.Time
 	presses := 0
 
-	for m.hk != nil {
-		<-m.hk.Keydown()
+	for {
+		m.mu.Lock()
+		hk := m.hk
+		m.mu.Unlock()
+		if hk == nil {
+			break
+		}
+
+		<-hk.Keydown()
+
+		m.mu.Lock()
+		started := m.started
+		m.mu.Unlock()
+		if !started {
+			break
+		}
+
 		m.presses.Add(1)
-		presses++
+
+		now := time.Now()
+		if presses > 0 && now.Sub(lastPress) > window {
+			// Window expired — reset to 1 press (the current one)
+			presses = 1
+		} else {
+			presses++
+		}
+		lastPress = now
 
 		if presses >= tapCount {
 			presses = 0
 			onTap()
-			continue
-		}
-
-		// Arm the debounce window. If the timer fires before the
-		// next press, reset the count.
-		timer := time.NewTimer(window)
-		select {
-		case <-m.hk.Keydown():
-			m.presses.Add(1)
-			presses++
-			if !timer.Stop() {
-				<-timer.C
-			}
-			if presses >= tapCount {
-				presses = 0
-				onTap()
-			}
-		case <-timer.C:
-			// Window expired — reset and wait for the next press.
-			presses = 0
 		}
 	}
 }

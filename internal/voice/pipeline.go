@@ -188,20 +188,24 @@ func (p *Pipeline) ListenAndProcess(ctx context.Context) (Result, error) {
 	// 1. Listening
 	p.setStatus(status.StatusListening)
 
+	// Emit voice.partial events during recording so the frontend
+	// can show a live recording indicator. These fire periodically
+	// with the current sample count.
+	recordCtx, cancelRecord := context.WithCancel(ctx)
+	defer cancelRecord()
+
+	if p.cfg.Broker != nil {
+		go p.emitPartials(recordCtx)
+	}
+
 	// 2-3. Record
-	if err := p.cfg.Recorder.Start(ctx); err != nil {
+	if err := p.cfg.Recorder.Start(recordCtx); err != nil {
 		p.setStatus(status.StatusError)
 		return Result{}, fmt.Errorf("voice: recorder start: %w", err)
 	}
 
-	// Emit voice.partial events during recording so the frontend
-	// can show a live recording indicator. These fire periodically
-	// with the current sample count.
-	if p.cfg.Broker != nil {
-		go p.emitPartials(ctx)
-	}
-
 	wav, err := p.cfg.Recorder.Stop()
+	cancelRecord()
 	if err != nil {
 		p.setStatus(status.StatusError)
 		return Result{}, fmt.Errorf("voice: recorder stop: %w", err)
@@ -243,6 +247,19 @@ func (p *Pipeline) Speak(ctx context.Context, text string) error {
 	if text == "" {
 		return nil
 	}
+	p.mu.Lock()
+	if p.busy {
+		p.mu.Unlock()
+		return ErrAlreadyRunning
+	}
+	p.busy = true
+	p.mu.Unlock()
+	defer func() {
+		p.mu.Lock()
+		p.busy = false
+		p.mu.Unlock()
+	}()
+
 	p.setStatus(status.StatusSpeaking)
 	defer p.setStatus(status.StatusIdle)
 	return p.cfg.Speaker.Speak(ctx, text)

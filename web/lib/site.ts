@@ -5,9 +5,9 @@
 
 export const SITE = {
   name: "Synaptic",
-  tagline: "Every AI on your machine. One conductor.",
+  tagline: "A permissioned intelligence layer for your OS.",
   description:
-    "Synaptic is a free, OS-native AI agent that conducts every other AI tool on your computer — summoned by hotkey, governed by a deterministic Gatekeeper, local-first and telemetry-free.",
+    "Synaptic is a free, local-first desktop AI agent that appears from the operating system, routes work through your own models, and stops at deterministic safety boundaries before acting.",
   url: "https://synaptic.app",
 } as const;
 
@@ -17,8 +17,8 @@ export const NAV_LINKS = [
   { href: "/download", label: "Download" },
 ] as const;
 
-/** The tools Synaptic conducts — the orchestra roster. */
-export const ORCHESTRA = [
+/** The local/model delegates Synaptic can route through. */
+export const TOOL_ROSTER = [
   "Claude Code",
   "Codex",
   "Antigravity",

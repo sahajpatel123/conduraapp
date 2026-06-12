@@ -22,23 +22,25 @@
   </header>
 
   <div class="filter-bar">
-    <input
-      type="text"
-      bind:value={filterAction}
-      placeholder="Action contains…"
-      class="input"
-      onchange={applyFilter}
-    />
-    <select
-      bind:value={filterLevel}
-      class="input"
-      onchange={applyFilter}
-    >
-      <option value="">All levels</option>
-      <option value="info">info</option>
-      <option value="warn">warn</option>
-      <option value="error">error</option>
-    </select>
+    <div class="filter-pill">
+      <input
+        type="text"
+        bind:value={filterAction}
+        placeholder="Action contains…"
+        class="input"
+        onchange={applyFilter}
+      />
+      <select
+        bind:value={filterLevel}
+        class="select"
+        onchange={applyFilter}
+      >
+        <option value="">All levels</option>
+        <option value="info">info</option>
+        <option value="warn">warn</option>
+        <option value="error">error</option>
+      </select>
+    </div>
     <button class="btn btn-ghost" onclick={applyFilter}>Apply</button>
   </div>
 
@@ -102,6 +104,9 @@
     font-size: var(--size-2xl);
     font-weight: 600;
     margin-bottom: var(--space-2);
+    background: var(--color-accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   .muted {
     color: var(--color-text-muted);
@@ -109,41 +114,63 @@
   }
   .filter-bar {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-3);
     margin: var(--space-4) 0;
+    align-items: center;
+  }
+  .filter-pill {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    flex: 1;
+    transition: border-color var(--transition-base);
+  }
+  .filter-pill:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-glow);
   }
   .input,
   .select {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
+    background: transparent;
+    border: none;
     color: var(--color-text);
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
+    padding: 8px 16px;
     font-size: var(--size-md);
   }
   .input {
     flex: 1;
+    border-right: 1px solid var(--glass-border);
+  }
+  .input:focus,
+  .select:focus {
+    outline: none;
   }
   .btn {
     padding: 8px 16px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-pill);
     font-size: var(--size-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: none;
   }
   .btn-ghost {
-    background: transparent;
+    background: var(--glass-bg);
     color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--glass-border);
   }
   .btn-ghost:hover:not(:disabled) {
     color: var(--color-text);
-    border-color: var(--color-border-strong);
+    border-color: rgba(255,255,255,0.15);
   }
   .audit-table {
     width: 100%;
     border-collapse: collapse;
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
     overflow: hidden;
   }
   .audit-table th,
@@ -151,15 +178,21 @@
     text-align: left;
     padding: var(--space-3);
     font-size: var(--size-sm);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-border);
   }
   .audit-table th {
-    background: var(--color-bg-overlay);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: var(--size-xs);
     font-weight: 600;
+  }
+  .audit-table tr {
+    transition: background var(--transition-base);
+  }
+  .audit-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
   }
   .audit-table tr:last-child td {
     border-bottom: none;
@@ -174,11 +207,12 @@
   }
   .badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: var(--radius-pill);
-    font-size: var(--size-xs);
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    font-weight: 500;
   }
   .badge.level-info {
     background: var(--color-accent-soft);

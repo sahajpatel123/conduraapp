@@ -9,8 +9,23 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--size-md);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Atmospheric radial gradient overlay — adds depth and ambient glow. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 10%, rgba(99, 102, 241, 0.04), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 90% 90%, rgba(139, 92, 246, 0.035), transparent 60%);
 }
 
 #app {
@@ -19,24 +34,25 @@ body {
   flex-direction: column;
 }
 
-/* Scrollbar — subtle, dark-theme aware. */
+/* Scrollbar — translucent glass look. */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-pill);
+  transition: background var(--transition-fast);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-strong);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* Selection */
 ::selection {
-  background: var(--color-accent-soft);
+  background: rgba(99, 102, 241, 0.3);
   color: var(--color-text);
 }
