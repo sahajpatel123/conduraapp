@@ -423,7 +423,41 @@ adaptive:
 
 ## 10. The Safety Layer
 
-5 modules, all critical. **Built before any agent logic.**
+> ## ⚠️ BUILD STATUS & RELEASE GATE — read this first
+>
+> **The Safety Layer is the spine of the Survival Rule (§2).** It was *specified*
+> first, but in practice it was **built only partially** while agent capability
+> raced ahead. Closing that gap is now the **highest-priority debt in the
+> project.** Per §2, a feature that reaches a user without the armor under it is
+> *the wrong feature.*
+>
+> **Hard gate: no public `v0.1.0` binary ships until every module below is built,
+> tested with `-race`, and lint-clean.** Treat the missing modules as a dedicated
+> milestone — **"The Armor"** — and finish it before distribution.
+>
+> | # | Module | Status | Package |
+> |---|---|---|---|
+> | 10.1 | Blast Radius Classifier | ✅ built | `internal/blastradius` |
+> | 10.2 | Gatekeeper **policy engine** (rules · consent · native modal · queue) | ❌ **v0 STUB** — `DenyBeyondRead` denies *every* non-READ action at runtime | `internal/gatekeeper` |
+> | 10.3 | Kill Switch (3 layers) | ✅ built | `internal/halt` + hotkey |
+> | 10.4 | **Behavioral Anomaly Detector** | ❌ **MISSING** | — |
+> | 10.5 | Audit Log (HMAC-chained) | ✅ built | `internal/audit` |
+> | 10.6 | **Model Isolation / Sanitizers** | ❌ **MISSING** | — |
+> | 10.7 | **Sensitive Site Detector** | ❌ **MISSING** | — |
+> | 10.8 | Spend Monitor | ✅ built | `internal/failover` |
+> | 10.9 | **Autonomy Matrix** | ◐ config-only, **no engine** | `internal/config` |
+>
+> **Owed: the real 10.2 engine, plus 10.4, 10.6, 10.7, and the 10.9 engine.**
+> Until 10.2 is real, **every non-READ action is denied at runtime** — the
+> computer-use and MCP systems already "built" are gated to READ-only, and a
+> future sub-agent spawn (a non-READ action) cannot execute. So the Armor is not
+> just hardening; it is the **functional unblock for the entire agent**, and it
+> must be built **before** the Conductor (delegation). These are not polish —
+> they are the difference between "a powerful agent" and "an agent safe enough to
+> hand to an ordinary person." Every one of them gates the first release.
+
+5 modules, all critical. **Specified before any agent logic; must be _completed_
+before any public binary ships (see the Build Status gate above).**
 
 ### 10.1 Blast Radius Classifier
 Classifies every action: READ / WRITE / NETWORK / DESTRUCTIVE.
