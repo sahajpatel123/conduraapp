@@ -1,0 +1,24 @@
+{
+  "name": "synaptic-demo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Synaptic — The Free AI Conductor. ~60s cinematic demo, built in Remotion.",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render Demo out/synaptic-demo.mp4 --codec=h264",
+    "still": "remotion still Demo out/poster.png --frame=240",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "4.0.476",
+    "@remotion/shapes": "4.0.476",
+    "remotion": "4.0.476",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.476",
+    "@types/react": "19.0.0",
+    "typescript": "5.5.4"
+  }
+}
