@@ -115,6 +115,9 @@ linters:
         - "0700"
         - "0755"
         - "256"
+        - "24"
+        - "0o600"
+        - "0o700"
       ignored-functions:
         - "^strconv\\.Itoa$"
         - "^strconv\\.FormatInt$"

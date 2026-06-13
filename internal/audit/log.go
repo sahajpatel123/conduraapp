@@ -242,7 +242,7 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		query += ` AND kind = ?`
 		args = append(args, q.Kind)
 	}
-	query += ` ORDER BY ts DESC LIMIT ? OFFSET ?`
+	query += ` ORDER BY ts DESC LIMIT ? OFFSET ?` //nolint:gosec // limit/offset are validated to int; no injection surface
 	args = append(args, q.Limit, q.Offset)
 	rows, err := l.db.QueryContext(ctx, query, args...)
 	if err != nil {

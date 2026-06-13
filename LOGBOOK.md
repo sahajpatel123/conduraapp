@@ -1194,6 +1194,61 @@ Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 
 
 ---
 
+## Session 18 — Phase 11 sub-phase 11A: Action Replay + audit HMAC chain
+
+**Date:** 2026-06-14
+**AI Model:** Claude Opus 4.8 (opencode), partner-implementer
+**Task:** Build sub-phase 11A — Action Replay (24h scrubbable timeline). Per the plan, the audit log is the source of truth, but it had no HMAC chain. The chain was added as a prerequisite.
+
+### Decisions made
+- **HMAC chain added now, not deferred.** The plan said Replay must "verify the HMAC chain and surface tampering", but the existing audit_log table had no `prev_hash` or `hmac` column. The right answer was to add the chain in 11A, not ship a "Replay" that verified nothing. Foundation first.
+- **Master key for HMAC = same as storage.DB master key.** Reuse, not a separate key. (Backup encryption, 11B, will follow the same pattern — derive a sub-key if needed.)
+- **Append serializes the chain write under a mutex.** The prev_hash/next hmac relationship is a single critical section; without serialization, two concurrent Appends would race and produce a broken chain.
+- **Replay package is read-only.** It reads the audit log and exposes timeline APIs; it never modifies the log.
+- **Screenshot store: 24h TTL, encrypted, on-disk ring buffer under `<data-dir>/replay/<YYYY-MM-DD>/<id>.bin`.** Same master key as the DB. Metadata in `replay_screenshots` table (new in migration v3).
+- **Replay is a record, not a time machine.** Doc comments are explicit about this — irreversible OS actions are not undoable from Replay. (MISSION §18.4 honesty principle.)
+- **Sentinel errors.** `audit.ErrEventNotFound` and `replay.ErrFrameNotFound` so callers can `errors.Is` across the layer boundary.
+
+### Files created
+- `internal/replay/replay.go` — `Replay` struct, `Timeline`, `FrameByID`, `VerifyIntegrity`, `Outcome` enum
+- `internal/replay/screenshots.go` — `ScreenshotStore` (encrypted on-disk, TTL-pruned)
+- `internal/replay/replay_test.go` — 11 tests: timeline, prune, outcome classification, frame lookup, integrity, screenshot round-trip, TTL prune, encrypted-on-disk, bad position, missing audit
+
+### Files modified
+- `internal/storage/migrations.go` — migration v3: ALTER TABLE audit_log adds prev_hash, hmac, and 10 structured fields; CREATE TABLE replay_screenshots
+- `internal/storage/db.go` — store + expose `masterKey` via `DB.MasterKey()` so audit log can use it as the HMAC secret
+- `internal/storage/db_test.go` — added `replay_screenshots` to the all-tables test; updated `OnMigrate` test to expect `[1, 2, 3]`
+- `internal/audit/log.go` — full rewrite: `Event` enriched with 10 structured fields; `Append` computes the HMAC chain inside a transaction; new `GetByID`; new `VerifyChain`; new `ChainReport`; `ErrEventNotFound` sentinel; serialization of chain writes under a mutex
+- `internal/audit/log_test.go` — added 5 chain/integrity tests; fixed old tests that relied on the now-rejected empty-Actor/empty-Action
+- `internal/daemon/subsystems.go` — pass `db.MasterKey()` to `audit.New`
+- `internal/daemon/stream_integration_test.go` — same
+- `.golangci.yml` — added `24`, `0o600`, `0o700` to mnd ignore-numbers
+
+### Verification
+- `go test -race -count=1 -timeout=300s ./...` — all 48 packages green.
+- `golangci-lint run --timeout=5m ./...` — 0 issues.
+- The 5 new audit tests prove the chain: genesis hash, link integrity, tamper detection, structured field round-trip, required-actor/action validation.
+- The 11 new replay tests prove: timeline reconstruction, TTL pruning, outcome classification, encrypted-on-disk (plaintext NOT in the .bin file), bad position rejection, integrity verification.
+
+### Sub-phase 11A — Complete ✓
+The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The HMAC chain foundation (the missing MISSION §5.4 invariant) is now in place.
+
+### Open questions for next session (11B)
+- **Backup encryption key:** plan says "encrypts the whole archive with the master key". Reuse the storage.DB master key (same pattern as the HMAC chain), or derive a separate backup key? My recommendation: reuse — one keyring entry, one source of truth. If user wipes keychain, both DB and backups are unreadable. (This is consistent with the existing encryption invariant.)
+- **Schema-compat policy for restore:** refuse newer-schema → older-binary (data loss risk). Same direction as Phase 2's v1→v2 migration. Need an explicit `BackupManifest.SchemaVersion` field.
+- **Restore atomicity:** stop daemon writers / acquire global lock → swap in restored files. The daemon already has a single-instance lock; can we reuse it for the restore window?
+
+### Next steps
+- 11B: Backup & Restore (encrypted archive, gated restore, scheduler).
+- 11C: Rollback (honest scope).
+- 11D: Clean Uninstall (the most dangerous sub-phase — review carefully).
+- 11E: Permissions + Onboarding backend.
+- 11F: Finish Skills auto-create.
+- 11G: Wiring, RPC, Forcing E2E.
+
+
+---
+
 ## [2026-06-14 01:05 UTC] AI Model: kimi-k2.7-code (Claude Code loop iteration)
 **Session ID:** loop-phase9-10-audit-01
 **Branch:** main
