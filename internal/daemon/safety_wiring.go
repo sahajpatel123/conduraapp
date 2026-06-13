@@ -71,7 +71,7 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger)
 		Engine:    engine,
 		Anomaly:   detector,
 		Consent:   consent,
-		Sanitizer: defaultSanitizers(),
+		Sanitizer: sanitize.DefaultChain(),
 	}
 }
 
@@ -82,35 +82,22 @@ type rpcConsentProvider struct {
 }
 
 func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
-	// Redact PII before display.
-	body := ticket.ActionKind
-	if p.publish != nil {
-		p.publish(ticket.Nonce, body)
+	// No publish callback → no GUI connected → fail-closed.
+	if p.publish == nil {
+		return false, nil
 	}
+	p.publish(ticket.Nonce, ticket.ActionKind)
 
-	// Expiry timer so consent doesn't deadlock if GUI is absent.
 	timer := time.NewTimer(time.Until(ticket.ExpiresAt))
 	defer timer.Stop()
-
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
 	case <-timer.C:
-		return false, nil // expired
+		return false, nil
 	case result := <-ticket.Result:
 		return result, nil
 	}
 }
 
 func (p *rpcConsentProvider) IsAvailable() bool { return true }
-
-// defaultSanitizers returns the standard safety sanitizer chain.
-func defaultSanitizers() []sanitize.Sanitizer {
-	return []sanitize.Sanitizer{
-		sanitize.NewShellSanitizer(nil),
-		sanitize.NewPathSanitizer(),
-		sanitize.NewURLSanitizer(),
-		sanitize.NewPIIRegexSanitizer(),
-		sanitize.NewPythonImportSanitizer(),
-	}
-}

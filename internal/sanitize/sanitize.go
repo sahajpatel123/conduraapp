@@ -43,3 +43,14 @@ func Chain(sanitizers []Sanitizer, input string) (string, error) {
 	}
 	return input, nil
 }
+
+// DefaultChain returns the standard sanitizer chain.
+func DefaultChain() []Sanitizer {
+	return []Sanitizer{
+		NewShellSanitizer(nil),
+		NewPathSanitizer(),
+		NewURLSanitizer(),
+		NewPIIRegexSanitizer(),
+		NewPythonImportSanitizer(),
+	}
+}

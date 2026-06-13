@@ -186,6 +186,11 @@ func (e *Engine) ReloadPolicy(p *Policy) {
 	e.policy.Store(p)
 }
 
+// SetConsentProvider swaps the consent provider (for testing).
+func (e *Engine) SetConsentProvider(c ConsentProvider) {
+	e.consent = c
+}
+
 // ConsentTicket represents an in-flight consent request.
 type ConsentTicket struct {
 	ActionKind string    `json:"action_kind"`
