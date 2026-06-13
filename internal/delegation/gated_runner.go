@@ -1,0 +1,206 @@
+package delegation
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os/exec"
+	"strings"
+	"time"
+
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+)
+
+// runner is an unexported subprocess manager. Only GatedRunner can
+// create and use one — structural enforcement that every spawn goes
+// through the Gatekeeper.
+type runner struct {
+	cfg    AgentConfig
+	cmd    *exec.Cmd
+	stdin  *bufio.Writer
+	stdout *bufio.Reader
+}
+
+func newRunner(cfg AgentConfig) *runner {
+	return &runner{cfg: cfg}
+}
+
+func (r *runner) start(ctx context.Context, req *SpawnRequest) error {
+	args := r.buildArgs(req)
+	r.cmd = exec.CommandContext(ctx, r.cfg.Command, args...) //nolint:gosec // CLI is user-installed, not arbitrary
+	stdinPipe, err := r.cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("delegation: stdin: %w", err)
+	}
+	stdoutPipe, err := r.cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("delegation: stdout: %w", err)
+	}
+	r.stdin = bufio.NewWriter(stdinPipe)
+	r.stdout = bufio.NewReader(stdoutPipe)
+	// Write the task to stdin.
+	if _, err := r.stdin.WriteString(req.Task + "\n"); err != nil {
+		return fmt.Errorf("delegation: write task: %w", err)
+	}
+	if err := r.stdin.Flush(); err != nil {
+		return fmt.Errorf("delegation: flush: %w", err)
+	}
+	return r.cmd.Start()
+}
+
+func (r *runner) buildArgs(req *SpawnRequest) []string {
+	args := make([]string, len(r.cfg.ArgsTemplate))
+	copy(args, r.cfg.ArgsTemplate)
+	if req.Model != "" && r.cfg.ModelFlag != "" {
+		for i, a := range args {
+			if a == r.cfg.ModelFlag {
+				if i+1 < len(args) {
+					args[i+1] = req.Model
+				}
+				break
+			}
+		}
+	}
+	return args
+}
+
+func (r *runner) readOutput() (string, error) {
+	var b strings.Builder
+	scanner := bufio.NewScanner(r.stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if r.cfg.OutputFormat == FmtStreamJSON {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		} else {
+			b.WriteString(line)
+		}
+	}
+	return b.String(), scanner.Err()
+}
+
+func (r *runner) wait() error {
+	if r.cmd != nil && r.cmd.Process != nil {
+		return r.cmd.Wait()
+	}
+	return nil
+}
+
+func (r *runner) kill() {
+	if r.cmd != nil && r.cmd.Process != nil {
+		_ = r.cmd.Process.Kill()
+	}
+}
+
+// GatedRunner is the only exported type that can spawn sub-agents.
+// Every spawn passes through Engine.Evaluate. Sub-agent output
+// containing structured ActionRequests is gated and executed by the
+// daemon — sub-agents have zero direct FS/network/terminal access.
+type GatedRunner struct {
+	cfg    Config
+	engine gatekeeper.Gatekeeper
+	limit  *Limiter
+}
+
+// NewGatedRunner creates a gated delegation runner.
+func NewGatedRunner(cfg Config, engine gatekeeper.Gatekeeper, limit *Limiter) *GatedRunner {
+	return &GatedRunner{cfg: cfg, engine: engine, limit: limit}
+}
+
+// Spawn runs a sub-agent task. The spawn is gated through the
+// Gatekeeper; if denied, nothing runs.
+func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResult, error) {
+	agentCfg, ok := g.cfg.FindAgent(req.AgentName)
+	if !ok {
+		return nil, ErrAgentNotFound
+	}
+
+	// Gate the spawn through the real Engine (Phase 9).
+	ba := blastradius.Action{
+		Kind:      "delegation.spawn",
+		TargetApp: req.AgentName,
+		Body:      req.Task,
+	}
+	decision, reason := g.engine.Evaluate(ctx, ba)
+	if decision != gatekeeper.Allow {
+		return nil, fmt.Errorf("%w: %s", ErrGatedDeny, reason)
+	}
+
+	// Check limits: recursion depth + budget.
+	if err := g.limit.CheckSpawn(ctx, req.AgentName, req.Depth, req.Budget); err != nil {
+		if errors.Is(err, ErrBudgetExceeded) {
+			g.limit.ReleaseBudget(req.AgentName, req.Budget)
+		}
+		return nil, err
+	}
+
+	// Run the sub-agent.
+	start := time.Now()
+	r := newRunner(agentCfg)
+	if err := r.start(ctx, req); err != nil {
+		g.limit.ReleaseBudget(req.AgentName, req.Budget)
+		return nil, err
+	}
+
+	// Wait for completion or timeout.
+	done := make(chan struct{})
+	var output string
+	var runErr error
+	go func() {
+		output, runErr = r.readOutput()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		r.kill()
+		g.limit.ReleaseBudget(req.AgentName, req.Budget)
+		return nil, ctx.Err()
+	case <-time.After(agentCfg.Timeout):
+		r.kill()
+		g.limit.ReleaseBudget(req.AgentName, req.Budget)
+		return nil, ErrTimeout
+	case <-done:
+	}
+
+	_ = r.wait()
+
+	result := &SpawnResult{
+		AgentName: req.AgentName,
+		Task:      req.Task,
+		Output:    output,
+		Duration:  time.Since(start),
+	}
+	if runErr != nil {
+		result.Output = fmt.Sprintf("error: %v", runErr)
+	}
+	return result, nil
+}
+
+// ActionRequests extracts structured action requests from a result.
+// The daemon gates each one before execution.
+func (g *GatedRunner) ActionRequests(result *SpawnResult) []ActionRequest {
+	if result == nil || result.Output == "" {
+		return nil
+	}
+	var requests []ActionRequest
+	// Stream-JSON: each line is a JSON object. Parse for action requests.
+	for _, line := range strings.Split(result.Output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "{") {
+			continue
+		}
+		var ar ActionRequest
+		if err := json.Unmarshal([]byte(line), &ar); err != nil {
+			continue
+		}
+		if ar.Kind != "" {
+			ar.AgentName = result.AgentName
+			requests = append(requests, ar)
+		}
+	}
+	return requests
+}

@@ -194,6 +194,8 @@ func (e *Engine) SetConsentProvider(c ConsentProvider) {
 // ConsentTicket represents an in-flight consent request.
 type ConsentTicket struct {
 	ActionKind string    `json:"action_kind"`
+	Actor      string    `json:"actor"`
+	Detail     string    `json:"detail"`
 	Verdict    Verdict   `json:"verdict"`
 	CreatedAt  time.Time `json:"created_at"`
 	ExpiresAt  time.Time `json:"expires_at"`

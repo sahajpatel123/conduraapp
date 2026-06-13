@@ -1,0 +1,92 @@
+package delegation
+
+import (
+	"context"
+	"sync"
+
+	"github.com/sahajpatel123/synapticapp/internal/failover"
+)
+
+// Limiter enforces recursion depth and per-agent budget bounds.
+type Limiter struct {
+	cfg          Config
+	spendMon     *failover.SpendMonitor
+	agentBudgets map[string]agentBudget
+	mu           sync.Mutex
+}
+
+type agentBudget struct {
+	spent float64
+	cap   float64
+}
+
+// BudgetChecker is the subset of SpendMonitor we delegate to.
+type BudgetChecker interface {
+	Allow(amount float64) bool
+}
+
+// NewLimiter creates a spawn limiter.
+func NewLimiter(cfg Config, spendMon *failover.SpendMonitor) *Limiter {
+	if spendMon == nil {
+		spendMon = &failover.SpendMonitor{}
+	}
+	return &Limiter{
+		cfg:          cfg,
+		spendMon:     spendMon,
+		agentBudgets: make(map[string]agentBudget),
+	}
+}
+
+// CheckSpawn atomically checks recursion depth and budget, reserving
+// the budget on success. Call ReleaseBudget on error to roll back.
+func (l *Limiter) CheckSpawn(ctx context.Context, agentName string, depth int, amount float64) error {
+	_ = ctx
+	agentCfg, ok := l.cfg.FindAgent(agentName)
+	if !ok {
+		return ErrAgentNotFound
+	}
+
+	// Recursion depth check.
+	if depth > agentCfg.MaxDepth {
+		return ErrRecursionLimit
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Per-agent budget check.
+	ab, exists := l.agentBudgets[agentName]
+	if !exists {
+		ab = agentBudget{cap: agentCfg.BudgetCap}
+	}
+	if ab.cap > 0 && ab.spent+amount > ab.cap {
+		return ErrBudgetExceeded
+	}
+
+	// Global budget check (SpendMonitor).
+	if !l.spendMon.Allow(amount) {
+		return ErrBudgetExceeded
+	}
+
+	ab.spent += amount
+	l.agentBudgets[agentName] = ab
+	return nil
+}
+
+// ReleaseBudget rolls back a reserved budget amount.
+func (l *Limiter) ReleaseBudget(agentName string, amount float64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ab, exists := l.agentBudgets[agentName]
+	if exists && ab.spent >= amount {
+		ab.spent -= amount
+		l.agentBudgets[agentName] = ab
+	}
+}
+
+// Spend returns the amount spent per agent.
+func (l *Limiter) Spend(agentName string) float64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.agentBudgets[agentName].spent
+}

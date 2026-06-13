@@ -18,6 +18,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
+	"github.com/sahajpatel123/synapticapp/internal/delegation"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
@@ -109,6 +110,9 @@ type Subsystems struct {
 	// Phase 9: safety layer.
 	Safety  *SafetyComponents
 	Anomaly *anomaly.Detector
+
+	// Phase 10: delegation bus.
+	Delegation *delegation.GatedRunner
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
@@ -366,6 +370,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		MCP:                      mcp.NewManager(gate),
 		Safety:                   safety,
 		Anomaly:                  safety.Anomaly,
+		Delegation:               buildDelegationBus(gate, mon),
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
