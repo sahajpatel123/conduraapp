@@ -39,9 +39,30 @@ func (s *SQLiteStore) migrate() error {
 			trust TEXT NOT NULL DEFAULT 'community', trigger_pattern TEXT NOT NULL DEFAULT '',
 			steps TEXT NOT NULL DEFAULT '[]', dependencies TEXT NOT NULL DEFAULT '[]',
 			success_count INTEGER NOT NULL DEFAULT 0, failure_count INTEGER NOT NULL DEFAULT 0,
-			created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, last_used DATETIME NOT NULL
+			created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, last_used DATETIME NOT NULL,
+			author TEXT NOT NULL DEFAULT '', author_key TEXT NOT NULL DEFAULT '',
+			license TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'local',
+			hub_id TEXT NOT NULL DEFAULT '', checksum TEXT NOT NULL DEFAULT '',
+			published_at DATETIME
 		)`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Ensure provenance columns exist (migration for existing installs).
+	provenanceCols := []struct{ name, def string }{
+		{"author", "TEXT NOT NULL DEFAULT ''"},
+		{"author_key", "TEXT NOT NULL DEFAULT ''"},
+		{"license", "TEXT NOT NULL DEFAULT ''"},
+		{"source", "TEXT NOT NULL DEFAULT 'local'"},
+		{"hub_id", "TEXT NOT NULL DEFAULT ''"},
+		{"checksum", "TEXT NOT NULL DEFAULT ''"},
+		{"published_at", "DATETIME"},
+	}
+	for _, col := range provenanceCols {
+		_, _ = s.db.ExecContext(context.Background(),
+			fmt.Sprintf("ALTER TABLE skills ADD COLUMN %s %s DEFAULT ''", col.name, col.def))
+	}
+	return nil
 }
 
 // Create persists a new skill.
@@ -49,10 +70,11 @@ func (s *SQLiteStore) Create(ctx context.Context, sk *Skill) error {
 	stepsJSON, _ := json.Marshal(sk.Steps)
 	depsJSON, _ := json.Marshal(sk.Dependencies)
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO skills VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		`INSERT INTO skills VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		sk.ID, sk.Name, sk.Description, sk.Version, string(sk.Trust),
 		sk.TriggerPattern, string(stepsJSON), string(depsJSON),
 		sk.SuccessCount, sk.FailureCount, sk.CreatedAt, sk.UpdatedAt, sk.LastUsed,
+		sk.Author, sk.AuthorKey, sk.License, sk.Source, sk.HubID, sk.Checksum, sk.PublishedAt,
 	)
 	return err
 }
@@ -90,10 +112,11 @@ func (s *SQLiteStore) Update(ctx context.Context, sk *Skill) error {
 	stepsJSON, _ := json.Marshal(sk.Steps)
 	depsJSON, _ := json.Marshal(sk.Dependencies)
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE skills SET name=?,description=?,version=?,trust=?,trigger_pattern=?,steps=?,dependencies=?,success_count=?,failure_count=?,updated_at=?,last_used=? WHERE id=?`,
+		`UPDATE skills SET name=?,description=?,version=?,trust=?,trigger_pattern=?,steps=?,dependencies=?,success_count=?,failure_count=?,updated_at=?,last_used=?,author=?,author_key=?,license=?,source=?,hub_id=?,checksum=? WHERE id=?`,
 		sk.Name, sk.Description, sk.Version, string(sk.Trust),
 		sk.TriggerPattern, string(stepsJSON), string(depsJSON),
-		sk.SuccessCount, sk.FailureCount, sk.UpdatedAt, sk.LastUsed, sk.ID,
+		sk.SuccessCount, sk.FailureCount, sk.UpdatedAt, sk.LastUsed,
+		sk.Author, sk.AuthorKey, sk.License, sk.Source, sk.HubID, sk.Checksum, sk.ID,
 	)
 	return err
 }
@@ -123,7 +146,8 @@ func scanSkill(row *sql.Row) (*Skill, error) {
 	var stepsJSON, depsJSON, trust string
 	err := row.Scan(&sk.ID, &sk.Name, &sk.Description, &sk.Version, &trust,
 		&sk.TriggerPattern, &stepsJSON, &depsJSON,
-		&sk.SuccessCount, &sk.FailureCount, &sk.CreatedAt, &sk.UpdatedAt, &sk.LastUsed)
+		&sk.SuccessCount, &sk.FailureCount, &sk.CreatedAt, &sk.UpdatedAt, &sk.LastUsed,
+		&sk.Author, &sk.AuthorKey, &sk.License, &sk.Source, &sk.HubID, &sk.Checksum, &sk.PublishedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +164,8 @@ func scanSkills(rows *sql.Rows) ([]*Skill, error) {
 		var stepsJSON, depsJSON, trust string
 		if err := rows.Scan(&sk.ID, &sk.Name, &sk.Description, &sk.Version, &trust,
 			&sk.TriggerPattern, &stepsJSON, &depsJSON,
-			&sk.SuccessCount, &sk.FailureCount, &sk.CreatedAt, &sk.UpdatedAt, &sk.LastUsed); err != nil {
+			&sk.SuccessCount, &sk.FailureCount, &sk.CreatedAt, &sk.UpdatedAt, &sk.LastUsed,
+			&sk.Author, &sk.AuthorKey, &sk.License, &sk.Source, &sk.HubID, &sk.Checksum, &sk.PublishedAt); err != nil {
 			return out, err
 		}
 		sk.Trust = TrustLevel(trust)

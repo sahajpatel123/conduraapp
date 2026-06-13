@@ -23,6 +23,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/health"
+	"github.com/sahajpatel123/synapticapp/internal/hub"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
@@ -35,6 +36,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/status"
 	"github.com/sahajpatel123/synapticapp/internal/storage"
 	"github.com/sahajpatel123/synapticapp/internal/stream"
+	"github.com/sahajpatel123/synapticapp/internal/sync"
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 	"github.com/sahajpatel123/synapticapp/internal/voice"
@@ -113,6 +115,9 @@ type Subsystems struct {
 
 	// Phase 10: delegation bus.
 	Delegation *delegation.GatedRunner
+
+	// Phase 12: reach & ecosystem.
+	Phase12 *Phase12Components
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
@@ -371,6 +376,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Safety:                   safety,
 		Anomaly:                  safety.Anomaly,
 		Delegation:               buildDelegationBus(gate, mon),
+		Phase12:                  buildPhase12(cfg, log),
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
@@ -380,6 +386,57 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		subs.closers = append(subs.closers, extractor)
 	}
 	return subs, nil
+}
+
+// buildPhase12 constructs the Phase 12 components (Hub + Sync).
+func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
+	p12 := &Phase12Components{}
+
+	// Skills Hub client.
+	if cfg.Hub.Enabled {
+		baseURL := cfg.Hub.BaseURL
+		if baseURL == "" {
+			baseURL = "https://hub.synaptic.app"
+		}
+		p12.HubClient = hub.NewClient(baseURL)
+		log.Info("hub client ready", "base_url", baseURL)
+	}
+
+	// Skill store (shared with extractor).
+	skillPath := filepath.Join(cfg.General.DataDir, "skills.db")
+	skillStore, err := skills.NewSQLiteStore(skillPath)
+	if err != nil {
+		log.Warn("skill store init failed for hub", "err", err)
+	} else {
+		p12.SkillStore = skillStore
+	}
+
+	// P2P Sync engine.
+	if cfg.Sync.Enabled {
+		deviceName := cfg.Sync.DeviceName
+		if deviceName == "" {
+			deviceName = "synaptic-device"
+		}
+		identity, err := sync.LoadIdentity(cfg.General.DataDir, deviceName)
+		if err != nil {
+			log.Warn("sync identity init failed", "err", err)
+		} else {
+			store := sync.NewStore()
+			port := cfg.Sync.DiscoveryPort
+			if port == 0 {
+				port = 7667
+			}
+			discovery := sync.NewDiscovery(identity, port)
+			engine := sync.NewEngine(identity, store, discovery, log)
+			p12.SyncEngine = engine
+			log.Info("sync engine ready",
+				"device_id", identity.DeviceID,
+				"fingerprint", identity.Fingerprint(),
+			)
+		}
+	}
+
+	return p12
 }
 
 // pickPrimaryProvider returns the first enabled LLM provider

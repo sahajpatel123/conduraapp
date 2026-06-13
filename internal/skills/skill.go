@@ -32,6 +32,15 @@ type Skill struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	LastUsed       time.Time  `json:"last_used"`
+
+	// Provenance fields (Phase 12C — Skills Hub).
+	Author      string `json:"author,omitempty"`
+	AuthorKey   string `json:"author_key,omitempty"`   // hex Ed25519 public key
+	License     string `json:"license,omitempty"`
+	Source      string `json:"source,omitempty"`       // "hub", "local", "url"
+	HubID       string `json:"hub_id,omitempty"`       // ID on hub.synaptic.app
+	Checksum    string `json:"checksum,omitempty"`     // SHA-256 of archive
+	PublishedAt *time.Time `json:"published_at,omitempty"`
 }
 
 // Store is the interface for skill persistence.

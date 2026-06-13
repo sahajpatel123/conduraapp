@@ -72,6 +72,12 @@ type Config struct {
 
 	// Voice input/output configuration.
 	Voice VoiceConfig `yaml:"voice"`
+
+	// Skills Hub configuration.
+	Hub HubConfig `yaml:"hub"`
+
+	// P2P Sync configuration.
+	Sync SyncConfig `yaml:"sync"`
 }
 
 // -----------------------------------------------------------------------------
@@ -400,3 +406,25 @@ func PlatformIsWindows() bool { return runtime.GOOS == "windows" }
 
 // PlatformIsLinux returns true if the daemon is running on Linux.
 func PlatformIsLinux() bool { return runtime.GOOS == "linux" }
+
+// HubConfig controls the Skills Hub connection.
+type HubConfig struct {
+	// Enabled toggles hub connectivity. Default: true.
+	Enabled bool `yaml:"enabled"`
+	// BaseURL is the hub server URL. Default: "https://hub.synaptic.app".
+	BaseURL string `yaml:"base_url"`
+	// AutoUpdate enables automatic skill updates. Default: false.
+	AutoUpdate bool `yaml:"auto_update"`
+}
+
+// SyncConfig controls P2P synchronization.
+type SyncConfig struct {
+	// Enabled toggles P2P sync. Default: false.
+	Enabled bool `yaml:"enabled"`
+	// DeviceName is the human-readable name for this device.
+	DeviceName string `yaml:"device_name"`
+	// DiscoveryPort is the UDP port for LAN discovery. Default: 7667.
+	DiscoveryPort int `yaml:"discovery_port"`
+	// AutoAnnounce enables periodic LAN broadcast. Default: true.
+	AutoAnnounce bool `yaml:"auto_announce"`
+}
