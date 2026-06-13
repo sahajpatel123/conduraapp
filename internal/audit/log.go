@@ -28,8 +28,9 @@ import (
 	"time"
 )
 
-// ErrNotFound is returned when a requested audit row does not exist.
-var ErrNotFound = errors.New("audit: not found")
+// ErrEventNotFound is returned by GetByID when no row exists for
+// the given id. Callers compare with errors.Is.
+var ErrEventNotFound = errors.New("audit: event not found")
 
 // Event is one row in the audit log. The structured fields added in
 // Phase 11 (Kind, BlastClass, Verdict, TargetApp/URL/Path/Command,
@@ -292,7 +293,7 @@ func (l *Log) GetByID(ctx context.Context, id int64) (*Event, error) {
 		&e.prevHash, &e.hmac,
 	)
 	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
+		return nil, ErrEventNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -337,6 +338,7 @@ func (l *Log) VerifyChain(ctx context.Context, sinceID int64, limit int) (*Chain
 		FROM audit_log
 		WHERE id >= ?
 		ORDER BY id ASC`
+	//nolint:gosec // G202: limit is a validated non-negative int.
 	query += limitClause(limit)
 	rows, err := l.db.QueryContext(ctx, query, sinceID)
 	if err != nil {
