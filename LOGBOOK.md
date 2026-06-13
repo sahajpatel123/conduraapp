@@ -1241,3 +1241,21 @@ Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 
 - `make build` produces `bin/synapticd` and `bin/synaptic`.
 
 ---
+
+## [2026-06-14 01:20 UTC] AI Model: kimi-k2.7-code (loop follow-up)
+**Session ID:** loop-phase9-10-audit-01-followup
+**Branch:** main
+**Task:** Fix CI lint failure on the previous commit.
+
+### Files modified
+- `internal/audit/log.go` — add call-site `//nolint:gosec` for the safe `limitClause` helper; CI's golangci-lint v2.12.2 required suppression at the use site, not just the helper definition.
+- `LOGBOOK.md` — this entry.
+
+### Bugs / issues encountered
+- First push's CI Lint job failed with G202 at `internal/audit/log.go:340` (`query += limitClause(limit)`). Local golangci-lint had accepted the helper-level `//nolint:gosec`, but CI did not.
+
+### Verification
+- CI run `27479249136` completed successfully.
+- `golangci-lint run ./internal/audit/...` clean locally.
+
+---
