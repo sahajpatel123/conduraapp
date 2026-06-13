@@ -94,6 +94,7 @@ var classByKind = map[string]Class{
 	"email.send":         NETWORK,
 	"click.link":         NETWORK,
 	"computeruse.launch": NETWORK,
+	"delegation.spawn":   NETWORK,
 	// DESTRUCTIVE
 	"file.delete":       DESTRUCTIVE,
 	"shell.exec":        DESTRUCTIVE,

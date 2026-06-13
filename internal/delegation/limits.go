@@ -25,14 +25,11 @@ type BudgetChecker interface {
 	Allow(amount float64) bool
 }
 
-// NewLimiter creates a spawn limiter.
-func NewLimiter(cfg Config, spendMon *failover.SpendMonitor) *Limiter {
-	if spendMon == nil {
-		spendMon = &failover.SpendMonitor{}
-	}
+// NewLimiter creates a spawn limiter. sp may be nil (skip global check).
+func NewLimiter(cfg Config, sp *failover.SpendMonitor) *Limiter {
 	return &Limiter{
 		cfg:          cfg,
-		spendMon:     spendMon,
+		spendMon:     sp,
 		agentBudgets: make(map[string]agentBudget),
 	}
 }
@@ -63,8 +60,8 @@ func (l *Limiter) CheckSpawn(ctx context.Context, agentName string, depth int, a
 		return ErrBudgetExceeded
 	}
 
-	// Global budget check (SpendMonitor).
-	if !l.spendMon.Allow(amount) {
+	// Global budget check.
+	if l.spendMon != nil && !l.spendMon.Allow(amount) {
 		return ErrBudgetExceeded
 	}
 
