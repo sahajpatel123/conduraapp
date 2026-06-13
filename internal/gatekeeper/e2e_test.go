@@ -62,14 +62,25 @@ func TestPolicy_UnknownKindIsDefaultDeny(t *testing.T) {
 
 func TestPolicy_SensitiveAppDenied(t *testing.T) {
 	p := DefaultPolicy()
-	// "click" is WRITE, and since there's no target_app context
-	// in the action, the first WRITE rule matches and allows it.
-	// The sensitive-app deny rule requires target_app context.
-	// This test verifies the rule structure is present.
-	v := p.Evaluate(blastradius.Action{Kind: "shell.exec"})
-	// "shell.exec" is DESTRUCTIVE → require_presence_and_consent.
-	if v.Decision != RequirePresenceAndConsent {
-		t.Logf("shell.exec got %v", v.Decision)
+	v := p.Evaluate(blastradius.Action{Kind: "chat", TargetApp: "1Password"})
+	if v.Decision != Deny {
+		t.Fatalf("READ against sensitive app should be denied, got %v", v.Decision)
+	}
+}
+
+func TestPolicy_UnknownDelegationDenied(t *testing.T) {
+	p := DefaultPolicy()
+	v := p.Evaluate(blastradius.Action{Kind: "delegation.spawn", TargetApp: "unknown-agent"})
+	if v.Decision != Deny {
+		t.Fatalf("unknown delegation.spawn should be denied, got %v", v.Decision)
+	}
+}
+
+func TestPolicy_KnownDelegationRequiresConsent(t *testing.T) {
+	p := DefaultPolicy()
+	v := p.Evaluate(blastradius.Action{Kind: "delegation.spawn", TargetApp: "claude"})
+	if v.Decision != RequireConsent {
+		t.Fatalf("known delegation.spawn should require consent, got %v", v.Decision)
 	}
 }
 

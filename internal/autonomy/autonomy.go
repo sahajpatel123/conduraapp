@@ -7,6 +7,7 @@ package autonomy
 type Level int
 
 const (
+	Unset      Level = -1
 	Block      Level = iota
 	Warn       Level = iota
 	Ask        Level = iota
@@ -36,7 +37,7 @@ type Matrix struct {
 
 // NewMatrix creates an autonomy matrix from a config map.
 func NewMatrix(defaultLevel Level, mapping map[string]Level) *Matrix {
-	if defaultLevel == 0 {
+	if defaultLevel == Unset {
 		defaultLevel = Warn
 	}
 	return &Matrix{defaultLevel: defaultLevel, mapping: mapping}

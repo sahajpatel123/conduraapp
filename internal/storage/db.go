@@ -44,6 +44,7 @@ import (
 type DB struct {
 	sql       *sql.DB
 	gcm       cipher.AEAD
+	masterKey []byte     // raw 32-byte master key, exposed via MasterKey()
 	mu        sync.Mutex // guards nonce generation & schema_version writes
 	path      string
 	closing   chan struct{}
@@ -119,11 +120,12 @@ func Open(ctx context.Context, cfg Config) (*DB, error) {
 	}
 
 	db := &DB{
-		sql:      sdb,
-		gcm:      gcm,
-		path:     cfg.Path,
-		closing:  make(chan struct{}),
-		openedAt: time.Now(),
+		sql:       sdb,
+		gcm:       gcm,
+		masterKey: key,
+		path:      cfg.Path,
+		closing:   make(chan struct{}),
+		openedAt:  time.Now(),
 	}
 	if err := db.migrate(ctx, cfg.OnMigrate); err != nil {
 		_ = sdb.Close()
@@ -147,6 +149,12 @@ func (d *DB) Path() string { return d.path }
 
 // OpenedAt returns when the database was opened.
 func (d *DB) OpenedAt() time.Time { return d.openedAt }
+
+// MasterKey returns the raw 32-byte master key. Callers that need
+// to derive additional secrets (e.g. the audit log HMAC key) should
+// call this. Returning the key is safe because it is only ever in
+// memory after Open; it is never written to disk in plaintext.
+func (d *DB) MasterKey() []byte { return d.masterKey }
 
 // SQL returns the underlying *sql.DB for advanced use.
 // Most callers should use the typed methods on this package.

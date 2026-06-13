@@ -138,6 +138,25 @@ func TestGatedRunner_RecursionBlocked(t *testing.T) {
 	}
 }
 
+func TestRunner_BuildArgs_AppendsModel(t *testing.T) {
+	cfg := AgentConfig{
+		Name:         "claude",
+		ArgsTemplate: []string{"--print", "--output-format", "stream-json", "--model"},
+		ModelFlag:    "--model",
+	}
+	r := newRunner(cfg)
+	args := r.buildArgs(&SpawnRequest{Model: "claude-sonnet-4-5"})
+	want := []string{"--print", "--output-format", "stream-json", "--model", "claude-sonnet-4-5"}
+	if len(args) != len(want) {
+		t.Fatalf("args = %v, want %v", args, want)
+	}
+	for i := range want {
+		if args[i] != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, args[i], want[i])
+		}
+	}
+}
+
 func TestGatedRunner_ActionRequests(t *testing.T) {
 	cfg := DefaultConfig()
 	l := NewLimiter(cfg, nil)

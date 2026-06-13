@@ -228,6 +228,58 @@ CREATE TABLE IF NOT EXISTS update_cache (
 INSERT OR IGNORE INTO update_cache (id) VALUES (1);
 `,
 	},
+	{
+		// Phase 11 (Trust & Recovery): Action Replay.
+		// 1. HMAC chain on audit_log so tampering is detectable (MISSION §5.4).
+		// 2. Structured fields on audit_log so Replay reconstructs the
+		//    timeline from real data, not string-parsing the Message column.
+		// Additive, backfill NULL: existing rows remain valid; new rows
+		// carry the structured payload. The first row to use the chain
+		// (id=1) has prev_hash=0; every subsequent row's prev_hash
+		// matches the prior row's hmac.
+		Version: 3,
+		Name:    "audit log HMAC chain + structured fields",
+		SQL: `
+-- HMAC chain: prev_hash is the hex SHA-256 of the prior row's HMAC
+-- (or 64 zeros for the first row). hmac is the hex SHA-256 of the
+-- canonical serialization of this row (excluding the hmac column).
+ALTER TABLE audit_log ADD COLUMN prev_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN hmac TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_audit_hmac ON audit_log(id, hmac);
+
+-- Structured fields for Action Replay. All NULL-safe.
+ALTER TABLE audit_log ADD COLUMN kind TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN blast_class TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN verdict TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN target_app TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN target_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN path TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN command TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN consent_result TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN screenshot_before_ref TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN screenshot_after_ref TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_log ADD COLUMN session_id TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_audit_session ON audit_log(session_id) WHERE session_id != '';
+CREATE INDEX IF NOT EXISTS idx_audit_kind ON audit_log(kind) WHERE kind != '';
+
+-- Replay screenshots: on-disk store referenced by audit_log.
+-- The actual image bytes live in <data_dir>/replay/; this table
+-- is a metadata index. Encryption is the storage.DB's domain
+-- (encrypted via the same master key when written to a sidecar
+-- metadata file).
+CREATE TABLE IF NOT EXISTS replay_screenshots (
+    id TEXT PRIMARY KEY,
+    captured_at TEXT NOT NULL,
+    audit_event_id INTEGER NOT NULL,
+    position TEXT NOT NULL CHECK (position IN ('before', 'after')),
+    width INTEGER NOT NULL DEFAULT 0,
+    height INTEGER NOT NULL DEFAULT 0,
+    byte_size INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_replay_captured_at ON replay_screenshots(captured_at);
+CREATE INDEX IF NOT EXISTS idx_replay_audit_event ON replay_screenshots(audit_event_id);
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

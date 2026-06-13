@@ -13,7 +13,10 @@ import (
 func buildDelegationBus(engine gatekeeper.Gatekeeper, sp *failover.SpendMonitor) *delegation.GatedRunner {
 	cfg := delegation.DefaultConfig()
 	limiter := delegation.NewLimiter(cfg, sp)
-	return delegation.NewGatedRunner(cfg, engine, limiter)
+	runner := delegation.NewGatedRunner(cfg, engine, limiter)
+	// MISSION S13.4: per-agent limit 4, global limit from config.
+	runner.SetSemaphoreManager(delegation.NewSemaphoreManager(0, cfg.GlobalLimit))
+	return runner
 }
 
 // registerDelegationMethods registers delegation RPC methods.

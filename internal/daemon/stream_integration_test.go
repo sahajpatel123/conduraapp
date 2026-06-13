@@ -109,7 +109,7 @@ func bringUpPipeline(t *testing.T, providers ...llm.Provider) (addr string, mgr 
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditLog := audit.New(db.SQL())
+	auditLog := audit.New(db.SQL(), db.MasterKey())
 	convStore := conversation.New(db.SQL())
 	haltFlag := halt.New(db.SQL())
 	_ = haltFlag.Refresh(context.Background())

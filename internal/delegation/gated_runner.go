@@ -59,6 +59,8 @@ func (r *runner) buildArgs(req *SpawnRequest) []string {
 			if a == r.cfg.ModelFlag {
 				if i+1 < len(args) {
 					args[i+1] = req.Model
+				} else {
+					args = append(args, req.Model)
 				}
 				break
 			}
@@ -103,11 +105,18 @@ type GatedRunner struct {
 	cfg    Config
 	engine gatekeeper.Gatekeeper
 	limit  *Limiter
+	sema   *SemaphoreManager
 }
 
 // NewGatedRunner creates a gated delegation runner.
 func NewGatedRunner(cfg Config, engine gatekeeper.Gatekeeper, limit *Limiter) *GatedRunner {
 	return &GatedRunner{cfg: cfg, engine: engine, limit: limit}
+}
+
+// SetSemaphoreManager wires the concurrency limiter. The runner uses
+// nil-safe semantics: a nil semaphore is a no-op (useful in tests).
+func (g *GatedRunner) SetSemaphoreManager(sema *SemaphoreManager) {
+	g.sema = sema
 }
 
 // Spawn runs a sub-agent task. The spawn is gated through the
@@ -135,6 +144,15 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 			g.limit.ReleaseBudget(req.AgentName, req.Budget)
 		}
 		return nil, err
+	}
+
+	// Acquire concurrency slot.
+	if g.sema != nil {
+		if err := g.sema.Acquire(ctx, req.AgentName); err != nil {
+			g.limit.ReleaseBudget(req.AgentName, req.Budget)
+			return nil, err
+		}
+		defer g.sema.Release(req.AgentName)
 	}
 
 	// Run the sub-agent.
@@ -166,16 +184,24 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 	case <-done:
 	}
 
-	_ = r.wait()
+	waitErr := r.wait()
+	exitCode := 0
+	if r.cmd != nil && r.cmd.ProcessState != nil {
+		exitCode = r.cmd.ProcessState.ExitCode()
+	}
 
 	result := &SpawnResult{
 		AgentName: req.AgentName,
 		Task:      req.Task,
 		Output:    output,
+		ExitCode:  exitCode,
 		Duration:  time.Since(start),
 	}
 	if runErr != nil {
-		result.Output = fmt.Sprintf("error: %v", runErr)
+		result.Output = fmt.Sprintf("error reading output: %v\n%s", runErr, output)
+	}
+	if waitErr != nil {
+		return result, fmt.Errorf("delegation: sub-agent exited with code %d: %w", exitCode, waitErr)
 	}
 	return result, nil
 }

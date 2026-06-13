@@ -152,33 +152,49 @@ func (e *Engine) Pending() []*ConsentTicket {
 // ApproveTicket approves a pending consent by nonce.
 func (e *Engine) ApproveTicket(nonce string) bool {
 	e.pendingMu.Lock()
-	defer e.pendingMu.Unlock()
+	var ticket *ConsentTicket
 	for _, t := range e.pending {
 		if t.Nonce == nonce {
 			t.Approved = true
-			if t.Result != nil {
-				t.Result <- true
-			}
-			return true
+			ticket = t
+			break
 		}
 	}
-	return false
+	e.pendingMu.Unlock()
+	if ticket == nil {
+		return false
+	}
+	if ticket.Result != nil {
+		select {
+		case ticket.Result <- true:
+		default:
+		}
+	}
+	return true
 }
 
 // DenyTicket denies a pending consent by nonce.
 func (e *Engine) DenyTicket(nonce string) bool {
 	e.pendingMu.Lock()
-	defer e.pendingMu.Unlock()
+	var ticket *ConsentTicket
 	for _, t := range e.pending {
 		if t.Nonce == nonce {
 			t.Approved = false
-			if t.Result != nil {
-				t.Result <- false
-			}
-			return true
+			ticket = t
+			break
 		}
 	}
-	return false
+	e.pendingMu.Unlock()
+	if ticket == nil {
+		return false
+	}
+	if ticket.Result != nil {
+		select {
+		case ticket.Result <- false:
+		default:
+		}
+	}
+	return true
 }
 
 // ReloadPolicy atomically swaps the policy.

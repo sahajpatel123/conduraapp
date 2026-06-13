@@ -182,7 +182,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	}
 
 	extractor := initExtractor(db.Path(), memMgr, log)
-	auditLog := audit.New(db.SQL())
+	auditLog := audit.New(db.SQL(), db.MasterKey())
 	haltFlag := halt.New(db.SQL())
 	_ = haltFlag.Refresh(context.Background())
 	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)

@@ -18,6 +18,13 @@ func TestMatrix_Evaluate(t *testing.T) {
 	}
 }
 
+func TestMatrix_DefaultBlockIsHonored(t *testing.T) {
+	m := NewMatrix(Block, nil)
+	if m.Evaluate("chat", "Safari") != Block {
+		t.Error("explicit Block default should be honored")
+	}
+}
+
 func TestCanAutoApply_DestructiveCarveOut(t *testing.T) {
 	if CanAutoApply(Autonomous, false) != true {
 		t.Error("autonomous should apply to non-destructive")

@@ -1191,3 +1191,53 @@ Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 
 
 ### Next steps
 - Phase 11: Trust & Recovery (Action Replay, auto-backup, uninstall, maybeCreateSkill).
+
+---
+
+## [2026-06-14 01:05 UTC] AI Model: kimi-k2.7-code (Claude Code loop iteration)
+**Session ID:** loop-phase9-10-audit-01
+**Branch:** main
+**Task:** Autonomous /loop iteration: audit Phase 9 (Safety Layer) and Phase 10 (Delegation Bus) for bugs, apply minimal fixes, verify, and push if green.
+
+### Files created
+- None.
+
+### Files modified
+- `internal/sanitize/shell.go` — reject newline/control-character command separators before tokenizing.
+- `internal/sanitize/sanitize_test.go` — add `TestShellSanitizer_RejectsNewlineCommandSeparator`.
+- `internal/gatekeeper/defaults.yaml` — reorder rules so sensitive-app deny, sensitive-URL presence, and delegation spawn deny/consent take precedence over broad class-based rules.
+- `internal/gatekeeper/e2e_test.go` — add policy ordering tests for sensitive apps and known/unknown delegation.
+- `internal/gatekeeper/engine.go` — release `pendingMu` before sending on `ConsentTicket.Result`; use non-blocking select to prevent deadlock.
+- `internal/anomaly/detector.go` — protect `detectorState` with mutex (concurrent `Reset` vs. background `loop`).
+- `internal/autonomy/autonomy.go` — add `Unset` sentinel so an explicit `Block` default (0) is honored.
+- `internal/autonomy/autonomy_test.go` — add `TestMatrix_DefaultBlockIsHonored`.
+- `internal/delegation/gated_runner.go` — wire `SemaphoreManager`; append model value when `--model` is the last arg template element; capture sub-agent exit code/error.
+- `internal/delegation/delegation_test.go` — add `TestRunner_BuildArgs_AppendsModel`.
+- `internal/daemon/delegation_wiring.go` — construct and attach `SemaphoreManager` with per-agent 4 / global `cfg.GlobalLimit`.
+- `internal/audit/log.go` — fix pre-existing build typo (`return hmac` → `return hmacValue`); add `ErrNotFound` comment; reuse `limitClause` to clear lint issues.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Included the already-in-progress Phase 11 audit-log HMAC-chain work (uncommitted in working tree) in the same push because it was green and shared `internal/audit/log.go` with the build-typo fix.
+- Chose a `SetSemaphoreManager` setter over changing `NewGatedRunner` signature to keep existing unit tests unchanged.
+- Fixed the autonomy `Block` default bug with a non-breaking `Unset` sentinel so existing callers passing `Warn` (1) are unaffected.
+
+### Bugs / issues encountered
+- `internal/audit/log.go` had a build-breaking typo (`return hmac` instead of `return hmacValue`) that only surfaced when `cmd/synaptic` built `synapticd` as a subprocess; package-level tests did not trigger it.
+- `make test` with the default 120s timeout flaked on `cmd/synaptic` binary builds; rerunning with `-timeout=300s` succeeded.
+- Lint issues in `internal/audit/log.go` (gosec SQL concat, revive missing comment, unused `limitClause`) appeared once the file was touched; all three were cleared by reusing `limitClause` and adding a doc comment.
+
+### Open questions for next session
+- The remaining Phase 10 medium/low findings from the audit are not yet addressed (cancel stub, action-request execution, goroutine leak on timeout/cancel, negative-budget validation, error-code mapping, list_agents config coupling, BudgetChecker unused interface). Tackle in the next loop iteration or when Phase 10C work begins.
+- Phase 9 engine autonomy hook still ignores `Warn`/`Ask` semantics; integrate with `autonomy.NeedsConsent` when autonomy wiring is completed.
+
+### Next steps
+1. Push the current commit and monitor CI.
+2. Next loop iteration: continue with Phase 10 medium findings and any new issues surfaced by CI.
+
+### Verification
+- `go test -race -count=1 -timeout=300s ./...` passes.
+- `make lint` passes (0 issues).
+- `make build` produces `bin/synapticd` and `bin/synaptic`.
+
+---

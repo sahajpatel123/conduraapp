@@ -4,13 +4,17 @@
 //nolint:revive,mnd // threshold constants; exported types are self-documenting
 package anomaly
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // Detector tracks behavioral anomalies across an agent run.
 type Detector struct {
 	actions chan actionRecord
 	stop    chan struct{}
 	onTrip  func(Trip)
+	mu      sync.Mutex
 	state   detectorState
 }
 
@@ -69,6 +73,8 @@ func (d *Detector) Record(kind string, x, y float64, success bool) {
 
 // Reset clears all counters for a new conversation.
 func (d *Detector) Reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.state = detectorState{}
 	d.state.startTime = time.Now()
 	d.state.coordWindow = make([][2]float64, 0, 5)
@@ -96,6 +102,8 @@ func (d *Detector) loop() {
 }
 
 func (d *Detector) process(a actionRecord) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.state.count++
 	if !a.success {
 		d.state.failures++
@@ -122,6 +130,8 @@ func (d *Detector) process(a actionRecord) {
 }
 
 func (d *Detector) checkRate() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if timeframe := time.Since(d.state.startTime); timeframe > 0 {
 		rate := float64(d.state.count) / timeframe.Minutes()
 		if rate > 20 {

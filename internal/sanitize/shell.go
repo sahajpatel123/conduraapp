@@ -26,6 +26,11 @@ func (s *ShellSanitizer) Sanitize(input string) (string, error) {
 	if input == "" {
 		return input, nil
 	}
+	// Reject command separators that strings.Fields would silently swallow
+	// (e.g. "ls\nrm -rf /").
+	if strings.ContainsAny(input, "\n\r\t\x00\x0b\x0c") {
+		return "", ErrShellDenied
+	}
 	tokens := strings.Fields(input)
 	if len(tokens) == 0 {
 		return input, nil

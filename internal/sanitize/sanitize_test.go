@@ -42,6 +42,14 @@ func TestShellSanitizer_RejectsCommandSub(t *testing.T) {
 	}
 }
 
+func TestShellSanitizer_RejectsNewlineCommandSeparator(t *testing.T) {
+	s := NewShellSanitizer(nil)
+	_, err := s.Sanitize("ls\nrm -rf /")
+	if err == nil {
+		t.Fatal("newline command separator should be rejected")
+	}
+}
+
 func TestPathSanitizer_RejectsTraversal(t *testing.T) {
 	s := NewPathSanitizer()
 	_, err := s.Sanitize("../../../etc/passwd")

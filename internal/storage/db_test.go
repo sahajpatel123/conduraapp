@@ -294,7 +294,7 @@ func TestMigrations_OnMigrate(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	mu.Lock()
 	defer mu.Unlock()
-	assert.Equal(t, []int{1, 2}, called)
+	assert.Equal(t, []int{1, 2, 3}, called)
 }
 
 func TestMigrations_OnMigrateError(t *testing.T) {
@@ -397,6 +397,7 @@ func TestSchema_AllTablesExist(t *testing.T) {
 	for _, table := range []string{
 		"schema_version", "api_keys", "llm_calls", "spend_daily",
 		"audit_log", "provider_health", "memory_entries",
+		"replay_screenshots",
 	} {
 		var name string
 		err := db.SQL().QueryRowContext(context.Background(),
