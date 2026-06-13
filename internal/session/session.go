@@ -285,7 +285,7 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 			class := blastradius.Classify(action)
 			level := "info"
 			result := "allow"
-			if decision == gatekeeper.Deny {
+			if decision != gatekeeper.Allow {
 				level = "warn"
 				result = "deny"
 			}
@@ -299,7 +299,7 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 			})
 		}
 
-		if decision == gatekeeper.Deny {
+		if decision != gatekeeper.Allow {
 			s.setStatus(status.StatusError)
 			// Publish a stream.error event to the broker so the frontend knows it was blocked
 			if s.cfg.Broker != nil {

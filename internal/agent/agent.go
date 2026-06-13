@@ -60,7 +60,7 @@ func (l *Loop) Ask(ctx context.Context, req AskRequest) (AskResult, error) {
 		})
 	}
 
-	if decision == gatekeeper.Deny {
+	if decision != gatekeeper.Allow {
 		result.Finish = "blocked"
 		// Audit the block.
 		if l.Audit != nil {

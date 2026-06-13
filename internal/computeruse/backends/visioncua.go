@@ -110,7 +110,7 @@ func (b *VisionCUABackend) doExecute(action *computeruse.Action) (*computeruse.A
 	if b.cfg.Gatekeeper != nil {
 		ba := action.ToBlastRadius()
 		decision, _ := b.cfg.Gatekeeper.Evaluate(ctx, ba)
-		if decision == gatekeeper.Deny {
+		if decision != gatekeeper.Allow {
 			err := fmt.Errorf("vision-cua: gatekeeper denied action")
 			return failResult(action, start, err), err
 		}

@@ -183,7 +183,7 @@ func (a *Action) ToBlastRadius() blastradius.Action {
 func (ge *GatedExecutor) Execute(ctx context.Context, action *Action) (*ActionResult, error) {
 	ba := action.ToBlastRadius()
 	decision, reason := ge.gate.Evaluate(ctx, ba)
-	if decision == gatekeeper.Deny {
+	if decision != gatekeeper.Allow {
 		return &ActionResult{
 			Success: false,
 			Error:   fmt.Errorf("gatekeeper denied: %s", reason),

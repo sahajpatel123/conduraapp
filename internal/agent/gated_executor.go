@@ -43,7 +43,7 @@ func (g *GatedExecutor) Execute(ctx context.Context, action *Action) (*StepResul
 
 	g.recordDecision(ctx, action, class, decision, reason)
 
-	if decision == gatekeeper.Deny {
+	if decision != gatekeeper.Allow {
 		err := fmt.Errorf("gatekeeper denied %s action: %s", class, reason)
 		return &StepResult{
 			Success: false,
@@ -63,7 +63,7 @@ func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, clas
 	}
 	level := "info"
 	result := "allow"
-	if decision == gatekeeper.Deny {
+	if decision != gatekeeper.Allow {
 		level = "warn"
 		result = "deny"
 	}
