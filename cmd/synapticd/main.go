@@ -27,6 +27,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/crash"
 	"github.com/sahajpatel123/synapticapp/internal/daemon"
 	"github.com/sahajpatel123/synapticapp/internal/version"
 )
@@ -34,10 +35,11 @@ import (
 const addrFilePerm = 0o600
 
 func main() {
+	defer crash.Recover() //nolint:gocritic // Recover catches panics; os.Exit is the normal error path.
 	flags, err := parseFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // intentional: pre-daemon exit; no resources to clean up
 	}
 	if flags.quit {
 		return

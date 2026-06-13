@@ -386,6 +386,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	if extractor != nil {
 		subs.closers = append(subs.closers, extractor)
 	}
+	if subs.Phase12 != nil && subs.Phase12.SkillStore != nil {
+		subs.closers = append(subs.closers, subs.Phase12.SkillStore)
+	}
 	return subs, nil
 }
 
