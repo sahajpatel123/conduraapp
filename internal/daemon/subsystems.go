@@ -24,6 +24,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/health"
 	"github.com/sahajpatel123/synapticapp/internal/hub"
+	"github.com/sahajpatel123/synapticapp/internal/i18n"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
@@ -388,9 +389,22 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	return subs, nil
 }
 
-// buildPhase12 constructs the Phase 12 components (Hub + Sync).
+// buildPhase12 constructs the Phase 12 components (Hub + Sync + i18n).
 func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
 	p12 := &Phase12Components{}
+
+	// i18n catalog (always loaded; used for translated log messages and RPC responses).
+	catalog, err := i18n.NewCatalog()
+	if err != nil {
+		log.Warn("i18n catalog init failed; using English defaults", "err", err)
+		catalog = i18n.MustNewCatalog()
+	}
+	p12.Catalog = catalog
+	lang := cfg.General.Language
+	if lang == "" || lang == "auto" {
+		lang = "en"
+	}
+	log.Info("i18n catalog ready", "locale", lang, "available", len(catalog.Locales()))
 
 	// Skills Hub client.
 	if cfg.Hub.Enabled {

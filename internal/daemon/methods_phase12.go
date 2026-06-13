@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/sahajpatel123/synapticapp/internal/hub"
+	"github.com/sahajpatel123/synapticapp/internal/i18n"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 	"github.com/sahajpatel123/synapticapp/internal/skills"
 	"github.com/sahajpatel123/synapticapp/internal/sync"
@@ -16,15 +17,50 @@ type Phase12Components struct {
 	HubClient  *hub.Client
 	SkillStore *skills.SQLiteStore
 	SyncEngine *sync.Engine
+	Catalog    *i18n.Catalog
 }
 
-// registerPhase12Methods wires hub.* and sync.* RPC methods.
+// registerPhase12Methods wires hub.*, sync.*, and i18n.* RPC methods.
 func registerPhase12Methods(srv *ipc.Server, p12 *Phase12Components) {
 	if p12 == nil {
 		return
 	}
 	registerHubMethods(srv, p12)
 	registerSyncMethods(srv, p12)
+	registerI18nMethods(srv, p12)
+}
+
+// registerI18nMethods adds i18n.locale and i18n.locales RPC methods.
+func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
+	// i18n.locales: list available locales.
+	srv.Register("i18n.locales", func(_ context.Context, _ json.RawMessage) (any, error) {
+		if p12.Catalog == nil {
+			return []string{"en"}, nil
+		}
+		return p12.Catalog.Locales(), nil
+	})
+
+	// i18n.locale: return all translations for a locale.
+	srv.Register("i18n.locale", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Locale string `json:"locale"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p.Locale == "" {
+			p.Locale = "en"
+		}
+		if p12.Catalog == nil {
+			return map[string]any{"locale": p.Locale, "translations": map[string]string{}}, nil
+		}
+		keys := p12.Catalog.Keys(p.Locale)
+		translations := make(map[string]string, len(keys))
+		for _, k := range keys {
+			translations[k] = p12.Catalog.T(p.Locale, k)
+		}
+		return map[string]any{"locale": p.Locale, "translations": translations}, nil
+	})
 }
 
 const errHubNotConfigured = "hub not configured"
