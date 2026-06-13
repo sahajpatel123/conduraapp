@@ -182,7 +182,7 @@ func (g *GatedClient) CallTool(ctx context.Context, name string, args map[string
 	start := time.Now()
 
 	// Gatekeeper: evaluate before execution.
-	ba := blastradius.Action{Kind: "mcp.tool_call"}
+	ba := blastradius.Action{Kind: "mcp.tool_call", TargetApp: g.client.cfg.Name, Body: fmt.Sprintf("%v", args)}
 	decision, reason := g.gate.Evaluate(ctx, ba)
 	if decision != gatekeeper.Allow {
 		return &ToolCallResult{

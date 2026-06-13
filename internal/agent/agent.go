@@ -45,7 +45,7 @@ func (l *Loop) Ask(ctx context.Context, req AskRequest) (AskResult, error) {
 	result := AskResult{RequestID: req.RequestID}
 
 	// Step 1: Gatekeeper check — classify the utterance as a chat action.
-	action := blastradius.Action{Kind: "chat"}
+	action := blastradius.Action{Kind: "chat", Body: req.Text}
 	decision, reason := l.Gatekeeper.Evaluate(ctx, action)
 
 	// Audit the gatekeeper decision.

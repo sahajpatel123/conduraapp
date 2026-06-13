@@ -277,7 +277,7 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 
 	// Evaluate the utterance via the gatekeeper (Kind: "chat").
 	if s.cfg.Gatekeeper != nil {
-		action := blastradius.Action{Kind: "chat"}
+		action := blastradius.Action{Kind: "chat", Body: query}
 		decision, reason := s.cfg.Gatekeeper.Evaluate(runCtx, action)
 
 		// Audit the gatekeeper decision.

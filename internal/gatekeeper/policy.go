@@ -140,6 +140,28 @@ func (r *Rule) matches(class blastradius.Class, a blastradius.Action) bool {
 			return false
 		}
 	}
+	// Target app match. Supports comma-separated list.
+	if len(r.Match.TargetApp) > 0 {
+		if a.TargetApp == "" {
+			return false
+		}
+		matched := false
+		for _, ta := range r.Match.TargetApp {
+			if strings.EqualFold(a.TargetApp, ta) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	// Target URL match.
+	if r.Match.TargetURL != "" {
+		if a.TargetURL == "" || !strings.Contains(strings.ToLower(a.TargetURL), strings.ToLower(r.Match.TargetURL)) {
+			return false
+		}
+	}
 	return true
 }
 

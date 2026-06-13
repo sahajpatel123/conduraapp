@@ -13,8 +13,9 @@ import (
 
 // cuComponents bundles the computer-use executor and loop.
 type cuComponents struct {
-	gated *computeruse.GatedExecutor
-	loop  *agent.CULoop
+	gated    *computeruse.GatedExecutor
+	loop     *agent.CULoop
+	resolver *CUResolver
 }
 
 // buildCUComponents constructs the 4-tier computer-use pipeline:
@@ -51,7 +52,7 @@ func buildCUComponents(gate gatekeeper.Gatekeeper, halt agent.HaltChecker, provi
 	loop := agent.NewCULoop(planner, verifier, resolver, halt)
 	loop.StepTimeout = defaultActionTimeout
 
-	return &cuComponents{gated: cuGate, loop: loop}
+	return &cuComponents{gated: cuGate, loop: loop, resolver: resolver}
 }
 
 // registerCUMethods registers computer-use RPC methods.

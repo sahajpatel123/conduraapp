@@ -45,9 +45,10 @@ type CULoop struct {
 	// the action. nil means all actions proceed (no modal).
 	BeforeAction func(step *Step) bool
 
-	// OnStatus fires on every state transition so the daemon can
-	// fan out to the SSE broker for tray/overlay updates.
+	// OnStatus fires on every state transition.
 	OnStatus func(status.Status)
+	// OnStart fires at the beginning of each Run() call.
+	OnStart func()
 }
 
 // NewCULoop creates a computer-use execution loop.
@@ -66,6 +67,9 @@ func NewCULoop(planner Planner, verifier Verifier, executor Executor, halt HaltC
 // It delegates to the LLMPlanner for decomposition, then executes
 // each step through the CUResolver with pause-for-halt checks.
 func (l *CULoop) Run(ctx context.Context, task string, planCtx *Context) (*PlanResult, error) {
+	if l.OnStart != nil {
+		l.OnStart()
+	}
 	l.emit(status.StatusThinking)
 
 	plan, err := l.planner.Decompose(ctx, task, planCtx)

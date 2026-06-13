@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
@@ -20,34 +21,50 @@ type SafetyComponents struct {
 	Sanitizer []sanitize.Sanitizer
 }
 
-// buildSafetyLayer constructs the real safety components replacing
-// the v0 DenyBeyondRead stub.
+// buildSafetyLayer constructs the real safety components.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger) *SafetyComponents {
-	// Build the real Policy Engine.
 	policy := gatekeeper.DefaultPolicy()
 	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
 	}}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
-	// Wire anomaly detector — fires async via the Engine hook.
+	// Anomaly detector — async, graduated response.
+	// Wired only at the CU choke point (CULoop.Execute), NOT on
+	// the global AnomalyHook. Chat/file.write actions have no
+	// coordinates and must not feed the loop detector.
 	detector := anomaly.NewDetector(func(t anomaly.Trip) {
 		switch t.Type {
 		case anomaly.TripLoop, anomaly.TripFailures:
-			// Hard halt for loops and repeated failures.
 			_, _ = haltFlag.Halt(context.Background(), "anomaly: "+t.Reason)
 		case anomaly.TripRate, anomaly.TripDuration:
-			// Pause + require re-consent for rate/duration.
 			log.Warn("anomaly detected", "type", t.Type, "reason", t.Reason)
 		}
 	})
-	engine.AnomalyHook = func(a blastradius.Action) { detector.Record(a.Kind, 0, 0, true) }
 
-	// Wire sanitizers.
-	// Wire sanitizers — defense-in-depth, runs before Policy.Evaluate.
+	// Field-aware sanitizer dispatch: run the right sanitizer on
+	// the right field, skip empties. PII sanitizer is applied at
+	// consent display time (STEP 5), not here.
 	engine.SanitizeHook = func(a *blastradius.Action) error {
-		_, err := sanitize.Chain(defaultSanitizers(), a.Kind)
-		return err
+		if a.Command != "" {
+			if _, err := sanitize.NewShellSanitizer(nil).Sanitize(a.Command); err != nil {
+				return err
+			}
+			if _, err := sanitize.NewPythonImportSanitizer().Sanitize(a.Command); err != nil {
+				return err
+			}
+		}
+		if a.Path != "" {
+			if _, err := sanitize.NewPathSanitizer().Sanitize(a.Path); err != nil {
+				return err
+			}
+		}
+		if a.TargetURL != "" {
+			if _, err := sanitize.NewURLSanitizer().Sanitize(a.TargetURL); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	return &SafetyComponents{
@@ -65,12 +82,21 @@ type rpcConsentProvider struct {
 }
 
 func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
+	// Redact PII before display.
+	body := ticket.ActionKind
 	if p.publish != nil {
-		p.publish(ticket.Nonce, ticket.ActionKind)
+		p.publish(ticket.Nonce, body)
 	}
+
+	// Expiry timer so consent doesn't deadlock if GUI is absent.
+	timer := time.NewTimer(time.Until(ticket.ExpiresAt))
+	defer timer.Stop()
+
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
+	case <-timer.C:
+		return false, nil // expired
 	case result := <-ticket.Result:
 		return result, nil
 	}

@@ -98,7 +98,11 @@ func (a *Action) ToBlastRadius() blastradius.Action {
 	if kind == "" {
 		kind = "chat"
 	}
-	return blastradius.Action{Kind: kind}
+	return blastradius.Action{
+		Kind:      kind,
+		Body:      a.Value,
+		TargetApp: a.Target,
+	}
 }
 
 // StepResult is the result of executing a step.

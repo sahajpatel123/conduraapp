@@ -174,7 +174,11 @@ type ActionResult struct {
 // three action types (blastradius, computeruse, agent).
 func (a *Action) ToBlastRadius() blastradius.Action {
 	kind := "computeruse." + string(a.Type)
-	return blastradius.Action{Kind: kind}
+	ba := blastradius.Action{Kind: kind, Body: a.Value}
+	if a.Target != nil {
+		ba.TargetApp = a.Target.Title
+	}
+	return ba
 }
 
 // Execute performs the action through the Gatekeeper. If the

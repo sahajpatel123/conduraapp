@@ -265,6 +265,17 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		gatedCUExec = computeruse.NewGatedExecutor(cu, gate)
 	}
 
+	// Wire anomaly detector into CU resolver (real coordinates).
+	if cuComps != nil && cuComps.resolver != nil && safety != nil && safety.Anomaly != nil {
+		det := safety.Anomaly
+		cuComps.resolver.SetAnomalyHook(func(kind string, x, y float64, success bool) {
+			det.Record(kind, x, y, success)
+		})
+		if cuLoop != nil {
+			cuLoop.OnStart = func() { det.Reset() }
+		}
+	}
+
 	// Fan status out to the SSE broker.
 	if cuLoop != nil {
 		cuLoop.OnStatus = func(s status.Status) {

@@ -46,16 +46,21 @@ func (c Class) String() string {
 	}
 }
 
-// Action describes a single proposed action. For v0 the Kind is the only
-// discriminator; later fields (target app, path, URL) will refine the
-// classification when the real rules engine lands in Phase 5.
+// Action describes a proposed agent action. Used by every caller
+// that routes through the Gatekeeper. The payload fields are fed
+// to sanitizers (command/path/URL/body), policy target-matching
+// (target app/URL), and anomaly detection (coordinates).
 type Action struct {
-	// Kind is the action verb, e.g. "chat", "file.write", "shell.exec".
-	Kind string
+	Kind      string // e.g. "chat", "file.write", "shell.exec", "mcp.tool_call"
+	TargetApp string // app/window name, e.g. "1Password", "Code"
+	TargetURL string // for NETWORK actions
+	Path      string // filesystem path for file ops
+	Command   string // shell command text
+	Body      string // message/text/code body (chat, type, email, python)
 }
 
-// classByKind maps known action kinds to their blast radius. Any kind not
-// listed here falls through to DESTRUCTIVE in Classify.
+// classByKind maps known action kinds to their blast radius.
+// Missing or empty kinds classify to DESTRUCTIVE (conservative default).
 var classByKind = map[string]Class{
 	// READ
 	"chat":                   READ,
@@ -97,6 +102,7 @@ var classByKind = map[string]Class{
 	"format":            DESTRUCTIVE,
 	"key.send":          DESTRUCTIVE,
 	"computeruse.shell": DESTRUCTIVE,
+	"mcp.tool_call":     DESTRUCTIVE,
 }
 
 // Classify returns the blast radius of an action. The kind is normalized

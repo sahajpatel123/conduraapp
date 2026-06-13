@@ -45,17 +45,22 @@ const (
 // "AXButton" titled "Submit" at process 1234 with bounds {100,200,80,30}).
 //
 // It wraps the GatedComputerUseExecutor so every resolved action
-// still passes through the Gatekeeper before physical execution
-// (MISSION §2.2: "the Gatekeeper is the only path to physical action").
+// still passes through the Gatekeeper before physical execution.
 type CUResolver struct {
-	cu   *computeruse.ComputerUse
-	gate *computeruse.GatedExecutor
+	cu       *computeruse.ComputerUse
+	gate     *computeruse.GatedExecutor
+	onCUStep func(kind string, x, y float64, success bool)
 }
 
 // NewCUResolver creates an ActionResolver that bridges the agent
 // and computer-use type systems.
 func NewCUResolver(cu *computeruse.ComputerUse, gate *computeruse.GatedExecutor) *CUResolver {
 	return &CUResolver{cu: cu, gate: gate}
+}
+
+// SetAnomalyHook wires the anomaly detector to fire on every CU step.
+func (r *CUResolver) SetAnomalyHook(fn func(kind string, x, y float64, success bool)) {
+	r.onCUStep = fn
 }
 
 // Execute resolves an agent-level action into a computer-use
@@ -68,6 +73,16 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 	}
 
 	result, err := r.gate.Execute(ctx, cuAction)
+
+	// Anomaly recording: real coordinates from CU action.
+	if r.onCUStep != nil && result != nil {
+		x, y := 0.0, 0.0
+		if cuAction.Bounds != nil {
+			x, y = cuAction.Bounds.X, cuAction.Bounds.Y
+		}
+		r.onCUStep(string(cuAction.Type), x, y, result.Success)
+	}
+
 	if err != nil {
 		return &agent.StepResult{
 			Success:  result != nil && result.Success,
