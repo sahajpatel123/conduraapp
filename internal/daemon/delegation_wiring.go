@@ -67,9 +67,19 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 		return map[string]any{"agents": agents}, nil
 	})
 
-	srv.Register("delegate.cancel", func(ctx context.Context, params json.RawMessage) (any, error) {
-		_ = ctx
-		_ = params
+	srv.Register("delegate.cancel", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			SpawnID string `json:"spawn_id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p.SpawnID == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "spawn_id is required"}
+		}
+		if !subs.Delegation.Cancel(p.SpawnID) {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown or already finished spawn_id"}
+		}
 		return auditOK(), nil
 	})
 }

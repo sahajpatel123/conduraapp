@@ -1314,3 +1314,43 @@ The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The
 - `golangci-lint run ./internal/audit/...` clean locally.
 
 ---
+
+## [2026-06-14 01:30 UTC] AI Model: kimi-k2.7-code (loop iteration 2)
+**Session ID:** loop-phase9-10-audit-02
+**Branch:** main
+**Task:** Continue Phase 10 audit: fix cancel stub, goroutine leak, budget validation, stdin close, and false-green E2E tests.
+
+### Files created
+- None.
+
+### Files modified
+- `internal/delegation/gated_runner.go` — add spawn-ID tracking and `Cancel()` method; close stdin after writing task; extract `runAgent` and `finalizeKilled` helpers to fix goroutine leaks on timeout/cancel and reduce cyclomatic complexity.
+- `internal/delegation/config.go` — add `SpawnID` field to `SpawnResult`.
+- `internal/delegation/limits.go` — reject negative and NaN budget amounts in `CheckSpawn`; guard `ReleaseBudget` against non-positive/NaN values.
+- `internal/delegation/delegation_test.go` — add `TestBudget_NegativeRejected`, `TestBudget_NaNRejected`, `TestGatedRunner_CancelUnknown`.
+- `internal/daemon/delegation_wiring.go` — implement `delegate.cancel` RPC using `GatedRunner.Cancel`.
+- `internal/daemon/delegation_e2e_test.go` — fix false-green tests: assert `errors.Is(err, ErrGatedDeny)` and add unknown agent to config so the gatekeeper policy path is exercised.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Did **not** touch the uncommitted Phase 11 work in `internal/i18n/`, `internal/replay/`, `internal/storage/`, `internal/audit/log.go`, and `.golangci.yml` — those are the user's in-progress changes and were left out of this commit.
+- Refactored `Spawn` into `runAgent` + `finalizeKilled` to keep `gocyclo` under 15 while adding cancellation logic.
+- Used a simple incrementing `spawnID` counter protected by `GatedRunner.mu` instead of UUIDs — sufficient for a single-process daemon and avoids new dependencies.
+
+### Bugs / issues encountered
+- `go test ./internal/daemon/...` cannot run locally because the working tree has uncommitted Phase 11 changes (`internal/daemon/subsystems.go` imports the broken `internal/i18n/catalog.go`). Delegation package tests pass locally; full-repo verification will run on CI against the committed state.
+- The previous `Spawn` function's cyclomatic complexity hit 19 after adding cancellation; extracted helpers to satisfy the 15 limit.
+
+### Open questions for next session
+- Remaining Phase 10 low findings: error-code mapping in `delegate.spawn`, `delegate.list_agents` config coupling, unused `BudgetChecker` interface, large-output scanner truncation. Also: ActionRequest execution path is still unimplemented.
+- The uncommitted Phase 11 i18n/replay/scaffolding needs the user's attention before it can build.
+
+### Next steps
+1. Push this commit and monitor CI.
+2. Next loop iteration: address remaining Phase 10 low findings or audit Phase 11 once the user commits the scaffolding.
+
+### Verification
+- `go test -race -count=1 -timeout=120s ./internal/delegation/...` passes.
+- `golangci-lint run --timeout=5m ./internal/delegation/...` passes (0 issues).
+
+---

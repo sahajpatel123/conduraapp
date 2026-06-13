@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
@@ -47,6 +48,11 @@ func (r *runner) start(ctx context.Context, req *SpawnRequest) error {
 	}
 	if err := r.stdin.Flush(); err != nil {
 		return fmt.Errorf("delegation: flush: %w", err)
+	}
+	// Close stdin so the sub-agent sees EOF and does not hang waiting
+	// for more input.
+	if err := stdinPipe.Close(); err != nil {
+		return fmt.Errorf("delegation: close stdin: %w", err)
 	}
 	return r.cmd.Start()
 }
@@ -106,11 +112,19 @@ type GatedRunner struct {
 	engine gatekeeper.Gatekeeper
 	limit  *Limiter
 	sema   *SemaphoreManager
+	mu     sync.Mutex
+	nextID int
+	active map[string]context.CancelFunc
 }
 
 // NewGatedRunner creates a gated delegation runner.
 func NewGatedRunner(cfg Config, engine gatekeeper.Gatekeeper, limit *Limiter) *GatedRunner {
-	return &GatedRunner{cfg: cfg, engine: engine, limit: limit}
+	return &GatedRunner{
+		cfg:    cfg,
+		engine: engine,
+		limit:  limit,
+		active: make(map[string]context.CancelFunc),
+	}
 }
 
 // SetSemaphoreManager wires the concurrency limiter. The runner uses
@@ -155,32 +169,48 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 		defer g.sema.Release(req.AgentName)
 	}
 
+	// Create a cancellable sub-context so delegate.cancel can interrupt
+	// the spawn even when the caller did not supply a deadline.
+	spawnCtx, cancel := context.WithCancel(ctx)
+	spawnID := g.registerSpawn(cancel)
+	defer g.unregisterSpawn(spawnID)
+
 	// Run the sub-agent.
+	result, runErr := g.runAgent(spawnCtx, spawnID, agentCfg, req)
+	if runErr != nil {
+		g.limit.ReleaseBudget(req.AgentName, req.Budget)
+	}
+	return result, runErr
+}
+
+// runAgent executes a single sub-agent run and waits for completion,
+// timeout, or cancellation. It returns a non-nil SpawnResult even when
+// the sub-agent exits with an error, so callers can inspect Output.
+func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg AgentConfig, req *SpawnRequest) (*SpawnResult, error) {
 	start := time.Now()
 	r := newRunner(agentCfg)
+
 	if err := r.start(ctx, req); err != nil {
-		g.limit.ReleaseBudget(req.AgentName, req.Budget)
 		return nil, err
 	}
 
-	// Wait for completion or timeout.
+	// Wait for completion, timeout, or cancellation.
 	done := make(chan struct{})
 	var output string
-	var runErr error
+	var readErr error
 	go func() {
-		output, runErr = r.readOutput()
+		output, readErr = r.readOutput()
 		close(done)
 	}()
 
+	timer := time.NewTimer(agentCfg.Timeout)
+	defer timer.Stop()
+
 	select {
 	case <-ctx.Done():
-		r.kill()
-		g.limit.ReleaseBudget(req.AgentName, req.Budget)
-		return nil, ctx.Err()
-	case <-time.After(agentCfg.Timeout):
-		r.kill()
-		g.limit.ReleaseBudget(req.AgentName, req.Budget)
-		return nil, ErrTimeout
+		return g.finalizeKilled(r, done, start, spawnID, req, ctx.Err())
+	case <-timer.C:
+		return g.finalizeKilled(r, done, start, spawnID, req, ErrTimeout)
 	case <-done:
 	}
 
@@ -196,14 +226,66 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 		Output:    output,
 		ExitCode:  exitCode,
 		Duration:  time.Since(start),
+		SpawnID:   spawnID,
 	}
-	if runErr != nil {
-		result.Output = fmt.Sprintf("error reading output: %v\n%s", runErr, output)
+	if readErr != nil {
+		result.Output = fmt.Sprintf("error reading output: %v\n%s", readErr, output)
 	}
 	if waitErr != nil {
 		return result, fmt.Errorf("delegation: sub-agent exited with code %d: %w", exitCode, waitErr)
 	}
 	return result, nil
+}
+
+// finalizeKilled kills a sub-agent, drains the output goroutine, and
+// returns a result wrapping the reason (context cancellation or timeout).
+func (g *GatedRunner) finalizeKilled(r *runner, done chan struct{}, start time.Time, spawnID string, req *SpawnRequest, reason error) (*SpawnResult, error) {
+	r.kill()
+	// Drain the output goroutine to avoid leaking the reader/pipe.
+	_ = r.cmd.Wait()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+	}
+	exitCode := 0
+	if r.cmd != nil && r.cmd.ProcessState != nil {
+		exitCode = r.cmd.ProcessState.ExitCode()
+	}
+	return &SpawnResult{
+		AgentName: req.AgentName,
+		Task:      req.Task,
+		ExitCode:  exitCode,
+		Duration:  time.Since(start),
+		SpawnID:   spawnID,
+	}, reason
+}
+
+func (g *GatedRunner) registerSpawn(cancel context.CancelFunc) string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.nextID++
+	id := fmt.Sprintf("spawn-%d", g.nextID)
+	g.active[id] = cancel
+	return id
+}
+
+func (g *GatedRunner) unregisterSpawn(id string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	delete(g.active, id)
+}
+
+// Cancel interrupts a running spawn by SpawnID. Returns true if the spawn
+// was known and a cancellation was triggered.
+func (g *GatedRunner) Cancel(spawnID string) bool {
+	g.mu.Lock()
+	cancel, ok := g.active[spawnID]
+	g.mu.Unlock()
+	if ok && cancel != nil {
+		cancel()
+		return true
+	}
+	return false
 }
 
 // ActionRequests extracts structured action requests from a result.

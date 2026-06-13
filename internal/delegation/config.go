@@ -56,6 +56,7 @@ type SpawnResult struct {
 	ExitCode   int           `json:"exit_code"`
 	Duration   time.Duration `json:"duration"`
 	TokenCount int           `json:"token_count,omitempty"`
+	SpawnID    string        `json:"spawn_id,omitempty"`
 }
 
 // ActionRequest is a structured physical-action request from a sub-agent.

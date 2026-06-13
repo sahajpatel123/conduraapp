@@ -2,6 +2,7 @@ package delegation
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	"github.com/sahajpatel123/synapticapp/internal/failover"
@@ -48,6 +49,12 @@ func (l *Limiter) CheckSpawn(ctx context.Context, agentName string, depth int, a
 		return ErrRecursionLimit
 	}
 
+	// Validate budget amount: negative values corrupt accounting and NaN
+	// poisons the ledger permanently.
+	if math.IsNaN(amount) || amount < 0 {
+		return ErrBudgetExceeded
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -72,6 +79,9 @@ func (l *Limiter) CheckSpawn(ctx context.Context, agentName string, depth int, a
 
 // ReleaseBudget rolls back a reserved budget amount.
 func (l *Limiter) ReleaseBudget(agentName string, amount float64) {
+	if math.IsNaN(amount) || amount <= 0 {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	ab, exists := l.agentBudgets[agentName]

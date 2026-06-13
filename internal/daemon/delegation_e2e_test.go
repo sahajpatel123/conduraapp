@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/sahajpatel123/synapticapp/internal/delegation"
@@ -34,8 +35,8 @@ func TestDelegation_RealEngine_ClaudeSpawnApproved(t *testing.T) {
 	})
 	// Real spawn may fail because claude binary isn't installed —
 	// that's fine. What matters: the gate passes (no ErrGatedDeny).
-	if err != nil && err.Error() == delegation.ErrGatedDeny.Error()+": consent denied" {
-		t.Fatal("claude spawn should not be gated with consent approved")
+	if errors.Is(err, delegation.ErrGatedDeny) {
+		t.Fatalf("claude spawn should not be gated with consent approved, got %v", err)
 	}
 	t.Logf("spawn result: %v", err)
 }
@@ -47,6 +48,12 @@ func TestDelegation_RealEngine_UnknownAgentDenied(t *testing.T) {
 	engine.SetConsentProvider(&approveConsent{})
 
 	cfg := delegation.DefaultConfig()
+	// Add the unknown agent to the config so FindAgent succeeds and
+	// the spawn actually reaches the gatekeeper policy path.
+	cfg.Agents = append(cfg.Agents, delegation.AgentConfig{
+		Name:    "evil-agent",
+		Command: "evil-agent",
+	})
 	limiter := delegation.NewLimiter(cfg, nil)
 	g := delegation.NewGatedRunner(cfg, engine, limiter)
 
@@ -55,6 +62,9 @@ func TestDelegation_RealEngine_UnknownAgentDenied(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("unknown agent spawn must be denied by the real Engine")
+	}
+	if !errors.Is(err, delegation.ErrGatedDeny) {
+		t.Fatalf("expected gatekeeper deny, got %v", err)
 	}
 }
 

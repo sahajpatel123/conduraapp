@@ -2,6 +2,7 @@ package delegation
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -182,5 +183,30 @@ func TestBudget_LowLimitBlocks(t *testing.T) {
 	err := l.CheckSpawn(context.Background(), "claude", 0, 1000.0)
 	if err == nil {
 		t.Fatal("expected budget exceeded")
+	}
+}
+
+func TestBudget_NegativeRejected(t *testing.T) {
+	cfg := DefaultConfig()
+	l := NewLimiter(cfg, nil)
+	if err := l.CheckSpawn(context.Background(), "claude", 0, -1.0); err == nil {
+		t.Fatal("negative budget must be rejected")
+	}
+}
+
+func TestBudget_NaNRejected(t *testing.T) {
+	cfg := DefaultConfig()
+	l := NewLimiter(cfg, nil)
+	if err := l.CheckSpawn(context.Background(), "claude", 0, math.NaN()); err == nil {
+		t.Fatal("NaN budget must be rejected")
+	}
+}
+
+func TestGatedRunner_CancelUnknown(t *testing.T) {
+	cfg := DefaultConfig()
+	l := NewLimiter(cfg, nil)
+	g := NewGatedRunner(cfg, allowGate{}, l)
+	if g.Cancel("spawn-999") {
+		t.Fatal("cancel of unknown spawn_id must return false")
 	}
 }
