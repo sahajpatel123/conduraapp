@@ -85,3 +85,38 @@ func (l *Lock) Release() error {
 	}
 	return nil
 }
+
+// IsInstalled checks whether Synaptic is installed on this machine
+// by looking for the data directory. Used by the installer to block
+// a second installation (§22.5).
+func IsInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(home, ".synaptic"))
+	return err == nil
+}
+
+// InstalledMarkerPath returns the path to the installed-marker file.
+func InstalledMarkerPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".synaptic", "installed"), nil
+}
+
+// MarkInstalled writes the installed marker. Call this from the
+// post-install script so IsInstalled returns true on the next run.
+func MarkInstalled() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".synaptic")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "installed"), []byte("1"), 0o600)
+}
