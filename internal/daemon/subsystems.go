@@ -12,6 +12,7 @@ import (
 
 	"github.com/sahajpatel123/synapticapp/internal/adaptive"
 	"github.com/sahajpatel123/synapticapp/internal/agent"
+	"github.com/sahajpatel123/synapticapp/internal/anomaly"
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
@@ -105,6 +106,10 @@ type Subsystems struct {
 	// Phase 8: MCP Gateway.
 	MCP *mcp.Manager
 
+	// Phase 9: safety layer.
+	Safety  *SafetyComponents
+	Anomaly *anomaly.Detector
+
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
 }
@@ -194,8 +199,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	// Gatekeeper is the deterministic rules engine. Built once
 	// and shared by every gated executor in the daemon so the
 	// safety layer is the single source of truth.
-	gate := gatekeeper.NewDenyBeyondRead()
-	log.Info("gatekeeper ready", "policy", "deny-beyond-read")
+	safety := buildSafetyLayer(haltFlag, log)
+	gate := safety.Engine
+	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 
 	// SessionFactory builds end-to-end sessions on demand. It
 	// pulls the LLM from the registry (currently the primary
@@ -347,6 +353,8 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Extractor:                extractor,
 		Adaptive:                 adaptiveComps,
 		MCP:                      mcp.NewManager(gate),
+		Safety:                   safety,
+		Anomaly:                  safety.Anomaly,
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
