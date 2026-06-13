@@ -36,6 +36,8 @@ type Engine struct {
 	// hooks for 9B-9E (stubbed until those sub-phases).
 	AnomalyHook  func(a blastradius.Action)
 	SanitizeHook func(a *blastradius.Action) error
+	// AutonomyHook returns the current autonomy level. If nil, autonomy is disabled.
+	AutonomyHook func(taskType, app string) (level int)
 }
 
 // NewEngine creates the real Gatekeeper engine.
@@ -58,6 +60,23 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 	// Anomaly (9B hook, stubbed).
 	if e.AnomalyHook != nil {
 		e.AnomalyHook(a)
+	}
+
+	// Autonomy pre-check (9E): if autonomous level, bypass consent
+	// for allowed classes. DESTRUCTIVE always requires consent.
+	if e.AutonomyHook != nil {
+		lvl := e.AutonomyHook(a.Kind, a.TargetApp)
+		if lvl == 0 { // Block
+			return Deny, fmt.Sprintf("autonomy: blocked for %s/%s", a.Kind, a.TargetApp)
+		}
+		// autonomous: check ApplyAutonomous
+		// Note: lvl=0=Block, 1=Warn, 2=Ask, 3=Autonomous
+		if lvl >= 3 { // Autonomous
+			class := blastradius.Classify(a)
+			if class != blastradius.DESTRUCTIVE {
+				return Allow, "autonomous: auto-allowed (non-destructive)"
+			}
+		}
 	}
 
 	// Pure policy verdict.

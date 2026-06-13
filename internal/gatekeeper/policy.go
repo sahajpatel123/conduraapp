@@ -156,9 +156,20 @@ func (r *Rule) matches(class blastradius.Class, a blastradius.Action) bool {
 			return false
 		}
 	}
-	// Target URL match.
+	// Target URL match. Comma-separated list of substrings.
 	if r.Match.TargetURL != "" {
-		if a.TargetURL == "" || !strings.Contains(strings.ToLower(a.TargetURL), strings.ToLower(r.Match.TargetURL)) {
+		if a.TargetURL == "" {
+			return false
+		}
+		lower := strings.ToLower(a.TargetURL)
+		matched := false
+		for _, p := range strings.Split(r.Match.TargetURL, ",") {
+			if strings.Contains(lower, strings.TrimSpace(p)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return false
 		}
 	}
