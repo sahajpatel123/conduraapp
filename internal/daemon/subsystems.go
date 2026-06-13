@@ -23,7 +23,6 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/health"
-	"github.com/sahajpatel123/synapticapp/internal/i18n"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
@@ -114,9 +113,6 @@ type Subsystems struct {
 
 	// Phase 10: delegation bus.
 	Delegation *delegation.GatedRunner
-
-	// Phase 12: i18n.
-	I18n *i18n.Catalog
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer

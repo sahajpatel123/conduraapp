@@ -1354,3 +1354,28 @@ The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The
 - `golangci-lint run --timeout=5m ./internal/delegation/...` passes (0 issues).
 
 ---
+
+## [2026-06-14 01:40 UTC] AI Model: kimi-k2.7-code (loop follow-up)
+**Session ID:** loop-phase9-10-audit-02-followup
+**Branch:** main
+**Task:** Fix CI failure caused by uncommitted Phase 11 i18n scaffolding.
+
+### Files modified
+- `internal/daemon/subsystems.go` — remove the `internal/i18n` import and `I18n` field that referenced the not-yet-committed Phase 12 i18n package. The user's in-progress `internal/i18n/` files remain untouched in the working tree.
+- `LOGBOOK.md` — this entry.
+
+### Bugs / issues encountered
+- CI run `27479610428` failed Lint and all build/test jobs because `internal/daemon/subsystems.go` imported `internal/i18n`, which was not present in the committed repo. This was part of the user's uncommitted Phase 11/12 scaffolding.
+
+### Decisions made
+- Reverted only the import/field addition so `main` builds. The rest of the Phase 11 work (`internal/replay/`, `internal/storage/migrations.go`, `internal/audit/log.go` HMAC chain, etc.) is preserved in the working tree for the user to commit when ready.
+
+### Verification
+- `golangci-lint run --timeout=5m ./internal/daemon/...` passes locally.
+
+### Next steps
+1. Push this follow-up commit.
+2. Wait for CI to turn green.
+3. Continue Phase 10 audit loop once main is stable.
+
+---
