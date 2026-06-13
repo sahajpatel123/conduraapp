@@ -5,6 +5,7 @@
 /out/
 /synapticd
 /synaptic
+/synaptic-tui
 /synapticctl
 *.exe
 *.dmg

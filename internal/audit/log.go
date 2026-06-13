@@ -93,30 +93,28 @@ type Log struct {
 // New returns a Log wrapping the given database. The secret is the
 // HMAC key used to chain entries. Pass the same master key that
 // protects the rest of the database (or a key derived from it).
+// New returns a Log wrapping the given database. The secret is the
+// HMAC key used to chain entries. An empty secret is a programming
+// error; callers must provide a non-empty key.
 func New(db *sql.DB, secret []byte) *Log {
 	if len(secret) == 0 {
-		// Tests / ephemeral mode: deterministic zero key. The chain
-		// is still well-formed (the hmac values are still computed
-		// correctly), it just isn't secret. This is intentionally
-		// permissive — an empty secret in production is the caller's
-		// bug, not a panic.
-		secret = make([]byte, 32)
+		panic("audit: empty HMAC secret")
 	}
 	return &Log{db: db, secret: secret}
 }
 
 // NewWithHexSecret is a convenience for callers that store the secret
-// as a hex string (e.g. in config).
-func NewWithHexSecret(db *sql.DB, hexSecret string) *Log {
+// as a hex string (e.g. in config). An empty or invalid hex secret
+// returns an error.
+func NewWithHexSecret(db *sql.DB, hexSecret string) (*Log, error) {
 	if hexSecret == "" {
-		return New(db, nil)
+		return nil, errors.New("audit: empty HMAC secret")
 	}
 	b, err := hex.DecodeString(hexSecret)
 	if err != nil {
-		// Fall back to zero key — log will be chained but not secret.
-		return New(db, nil)
+		return nil, fmt.Errorf("audit: invalid hex secret: %w", err)
 	}
-	return New(db, b)
+	return New(db, b), nil
 }
 
 // genesisHash is the prev_hash value for the first row in the chain.
@@ -130,7 +128,7 @@ const genesisHash = "00000000000000000000000000000000000000000000000000000000000
 // relationship is correct even under concurrent callers.
 func (l *Log) Append(ctx context.Context, e Event) error {
 	if l == nil {
-		return nil
+		return errors.New("audit: nil Log")
 	}
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
@@ -364,6 +362,12 @@ func (l *Log) VerifyChain(ctx context.Context, sinceID int64, limit int) (*Chain
 		e.TS, _ = time.Parse(time.RFC3339Nano, ts)
 		rep.RowsChecked++
 
+		// Legacy rows from before the HMAC-chain migration have empty
+		// hmac/prev_hash; skip them without updating expectedPrev.
+		if e.hmac == "" {
+			continue
+		}
+
 		// Check that this row's prev_hash matches what we expect.
 		if e.prevHash != expectedPrev {
 			rep.FirstBreakID = e.ID
@@ -459,7 +463,9 @@ func (l *Log) computeHMAC(e Event) string {
 	sb.WriteString(e.prevHash)
 
 	mac := hmac.New(sha256.New, l.secret)
-	mac.Write([]byte(sb.String()))
+	if _, err := mac.Write([]byte(sb.String())); err != nil {
+		panic(fmt.Sprintf("audit: hmac.Write failed: %v", err))
+	}
 	return hex.EncodeToString(mac.Sum(nil))
 }
 

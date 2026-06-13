@@ -1,0 +1,125 @@
+{
+  "daemon.starting": "Starting Synaptic daemon...",
+  "daemon.ready": "Daemon ready",
+  "daemon.shutdown": "Shutting down...",
+  "daemon.halted": "Daemon halted: %s",
+
+  "config.loaded": "Configuration loaded from %s",
+  "config.invalid": "Invalid configuration: %s",
+
+  "storage.opened": "Storage opened at %s",
+  "storage.failed": "Failed to open storage: %s",
+
+  "secrets.backend": "Secrets backend: %s",
+  "secrets.failed": "Failed to initialize secrets: %s",
+
+  "llm.registry.ready": "LLM registry ready (%d providers)",
+  "llm.provider.registered": "Registered provider: %s (%d models)",
+  "llm.no_provider": "No LLM provider configured",
+  "llm.chat_failed": "Chat request failed: %s",
+  "llm.stream_failed": "Stream request failed: %s",
+
+  "failover.ready": "Failover ready (%d providers)",
+  "failover.switched": "Switched to fallback provider: %s",
+  "failover.all_down": "All providers unavailable",
+
+  "spend.limit_exceeded": "Daily spend limit exceeded ($%.2f)",
+  "spend.warning": "Spend warning: $%.2f / $%.2f today",
+
+  "ipc.listening": "IPC listening on %s",
+  "ipc.auth_failed": "Authentication failed: %s",
+  "ipc.request_failed": "Request failed: %s",
+
+  "audit.appended": "Audit entry appended",
+  "audit.chain_verified": "Audit chain verified (%d rows)",
+  "audit.chain_broken": "Audit chain broken at row %d: %s",
+
+  "halt.triggered": "Kill switch triggered: %s",
+  "halt.resumed": "Kill switch cleared",
+
+  "consent.request": "Action requires your consent",
+  "consent.granted": "Consent granted",
+  "consent.denied": "Consent denied",
+  "consent.expired": "Consent request expired",
+  "consent.destructive_warning": "This action is DESTRUCTIVE and cannot be undone. Are you sure?",
+
+  "gatekeeper.allowed": "Action allowed: %s",
+  "gatekeeper.denied": "Action denied: %s",
+  "gatekeeper.consent_required": "Action requires consent: %s",
+  "gatekeeper.presence_required": "Action requires your presence and consent: %s",
+  "gatekeeper.sanitizer_blocked": "Action blocked by sanitizer: %s",
+
+  "anomaly.rate_exceeded": "Action rate exceeded (%d/min)",
+  "anomaly.loop_detected": "Coordinate loop detected",
+  "anomaly.duration_exceeded": "Task duration exceeded 30 minutes",
+  "anomaly.failures_exceeded": "Consecutive failures exceeded threshold",
+
+  "sanitize.shell_denied": "Shell command denied: %s",
+  "sanitize.path_denied": "Path denied: %s",
+  "sanitize.url_denied": "URL denied (SSRF): %s",
+  "sanitize.pii_detected": "PII detected in input",
+  "sanitize.python_import_denied": "Banned Python import detected: %s",
+
+  "voice.pipeline_ready": "Voice pipeline ready",
+  "voice.pipeline_failed": "Voice pipeline failed: %s",
+  "voice.no_device": "No audio capture device found",
+  "voice.recording_started": "Recording started",
+  "voice.recording_stopped": "Recording stopped",
+  "voice.transcribing": "Transcribing...",
+  "voice.speaking": "Speaking...",
+
+  "session.started": "Session started",
+  "session.ended": "Session ended",
+  "session.halted": "Session halted: %s",
+
+  "overlay.shown": "Overlay shown",
+  "overlay.hidden": "Overlay hidden",
+
+  "tray.status_idle": "Idle",
+  "tray.status_listening": "Listening...",
+  "tray.status_thinking": "Thinking...",
+  "tray.status_speaking": "Speaking...",
+  "tray.status_halted": "HALTED",
+  "tray.status_error": "Error",
+
+  "hotkey.registered": "Hotkey registered: %s",
+  "hotkey.failed": "Failed to register hotkey: %s",
+
+  "updater.checking": "Checking for updates...",
+  "updater.available": "Update available: %s",
+  "updater.applying": "Applying update...",
+  "updater.up_to_date": "Already up to date",
+  "updater.failed": "Update failed: %s",
+
+  "mcp.server_added": "MCP server added: %s",
+  "mcp.server_removed": "MCP server removed: %s",
+  "mcp.tool_call": "MCP tool call: %s",
+
+  "skills.loaded": "Loaded %d skills",
+  "skills.created": "Created skill: %s",
+  "skills.updated": "Updated skill: %s",
+  "skills.deleted": "Deleted skill: %s",
+
+  "memory.stored": "Memory stored",
+  "memory.recalled": "Recalled %d memories",
+  "memory.extracted": "Extracted %d patterns",
+
+  "p2p.sync_started": "P2P sync started with %s",
+  "p2p.sync_completed": "P2P sync completed",
+  "p2p.sync_failed": "P2P sync failed: %s",
+  "p2p.pairing_request": "Pairing request from %s",
+  "p2p.pairing_confirmed": "Pairing confirmed with %s",
+
+  "hub.browsing": "Browsing Skills Hub...",
+  "hub.installing": "Installing skill: %s",
+  "hub.installed": "Skill installed: %s",
+  "hub.publish_success": "Skill published: %s",
+  "hub.signature_invalid": "Invalid signature on skill: %s",
+  "hub.scan_failed": "Safety scan failed: %s",
+
+  "error.internal": "Internal error: %s",
+  "error.not_found": "Not found: %s",
+  "error.unauthorized": "Unauthorized",
+  "error.timeout": "Operation timed out",
+  "error.cancelled": "Operation cancelled"
+}

@@ -4,6 +4,7 @@
   import { updateStore } from '../stores/update.svelte'
   import { halt } from '../stores/halt.svelte'
   import { spend } from '../stores/spend.svelte'
+  import LocaleSelector from '../components/LocaleSelector.svelte'
 
   let hotkeyInput = $state('')
   let telemetryInput = $state(false)
@@ -65,6 +66,14 @@
     <h2>Settings</h2>
     <p class="muted">Configuration is stored in <code>~/.synaptic/config.yaml</code>. Changes here write to that file via the daemon.</p>
   </header>
+
+  <section class="card">
+    <h3>Language</h3>
+    <p class="muted">Select your preferred language. Changes apply immediately.</p>
+    <div class="row">
+      <LocaleSelector />
+    </div>
+  </section>
 
   <section class="card">
     <h3>Spend</h3>
@@ -228,8 +237,7 @@
     align-items: center;
     margin-top: var(--space-3);
   }
-  .input,
-  .select {
+  .input {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--glass-border);
     color: var(--color-text);
@@ -239,8 +247,7 @@
     flex: 1;
     transition: all var(--transition-base);
   }
-  .input:focus,
-  .select:focus {
+  .input:focus {
     outline: none;
     border-color: var(--color-accent);
     box-shadow: var(--shadow-glow);

@@ -28,9 +28,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
+
+var screenshotIDRegex = regexp.MustCompile("^[0-9a-f]{16}$")
 
 // ScreenshotStore is the on-disk screenshot buffer for replay.
 type ScreenshotStore struct {
@@ -150,8 +154,14 @@ func (s *ScreenshotStore) Get(ctx context.Context, id string) ([]byte, error) {
 	}
 	capturedAt, _ := time.Parse(time.RFC3339Nano, capturedAtStr)
 	day := capturedAt.UTC().Format("2006-01-02")
+	if !screenshotIDRegex.MatchString(id) {
+		return nil, fmt.Errorf("replay: invalid screenshot id %q", id)
+	}
 	path := filepath.Join(s.root, day, id+".bin")
-	sealed, err := os.ReadFile(path) //nolint:gosec // path is constructed from a row id validated by SQLite lookup
+	if !strings.HasPrefix(filepath.Clean(path), s.root) {
+		return nil, fmt.Errorf("replay: screenshot path escapes root")
+	}
+	sealed, err := os.ReadFile(path) //nolint:gosec // id validated and path root-checked above
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
