@@ -1,73 +1,69 @@
 // Package gatekeeper is the only path from a model's intent to a physical
-// action. It is deterministic code, never a model (MISSION §2.1 invariant
-// 1, §5.7): the Strategist decides WHAT to do, the Gatekeeper decides
-// WHETHER it is safe to do.
+// action. It is deterministic code, never a model (MISSION S2.1 invariant 1).
 //
-// This package ships the v0 implementation, DenyBeyondRead, which allows
-// READ actions and denies everything else. It is the safety seam for
-// Phase 4's "Living Presence": the agent gains voice and presence now,
-// but cannot click, type, write, or exec, because the only code path to
-// those actions runs through Evaluate, and Evaluate denies them until the
-// real rules engine (policy.yaml, consent dialogs, queueing — MISSION
-// §10.2) replaces this one behind the same interface in Phase 5.
+// Two layers per the authorization contract:
+//  1. Policy.Evaluate(action) -> Verdict — pure, no I/O, unit-testable.
+//  2. Engine.Evaluate(ctx, action) -> (Decision, reason) — terminal interface,
+//     drives consent provider, blocks on ctx+halt, collapses to Allow/Deny.
+//
+// DenyBeyondRead is retained for test backward compatibility.
 package gatekeeper
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 )
 
-// Decision is the Gatekeeper's verdict on a proposed action. v0 uses only
-// Allow and Deny; the real engine will add RequireConsent and Queue.
+// Decision is the terminal verdict. Engine always returns Allow or Deny.
+// RequireConsent and RequirePresenceAndConsent are internal Policy verdicts;
+// they never cross the gatekeeper.Gatekeeper interface boundary.
 type Decision int
 
 const (
 	// Allow permits the action to proceed.
 	Allow Decision = iota
-	// Deny blocks the action. The reason returned alongside it explains
-	// why, for the audit log and the user-facing message.
+	// Deny blocks the action with a reason.
 	Deny
+	// RequireConsent is an internal verdict requiring user consent.
+	RequireConsent
+	// RequirePresenceAndConsent requires user presence and consent.
+	RequirePresenceAndConsent
 )
 
-// String renders the decision for logs and audit entries.
 func (d Decision) String() string {
 	switch d {
 	case Allow:
 		return "Allow"
 	case Deny:
 		return "Deny"
+	case RequireConsent:
+		return "RequireConsent"
+	case RequirePresenceAndConsent:
+		return "RequirePresenceAndConsent"
 	default:
 		return "Deny"
 	}
 }
 
-// Gatekeeper evaluates a proposed action and returns a Decision plus a
-// human-readable reason. Implementations MUST be deterministic.
+// Gatekeeper evaluates a proposed action. Implementations MUST be deterministic.
 type Gatekeeper interface {
 	Evaluate(ctx context.Context, a blastradius.Action) (Decision, string)
 }
 
-// DenyBeyondRead is the Phase 4 Gatekeeper: it allows READ actions and
-// denies every higher class. It carries no state.
+// DenyBeyondRead is the Phase 4 stub — v0 safety seam. Retained for
+// test backward compatibility. Production uses Engine.
 type DenyBeyondRead struct{}
 
-// NewDenyBeyondRead returns the v0 deny-beyond-read Gatekeeper.
-func NewDenyBeyondRead() DenyBeyondRead {
-	return DenyBeyondRead{}
-}
+// NewDenyBeyondRead returns the v0 safety stub.
+func NewDenyBeyondRead() DenyBeyondRead { return DenyBeyondRead{} }
 
-// Evaluate allows READ actions and denies all others, naming the blocked
-// class and explaining that the real safety layer is not yet built.
+// Evaluate allows READ actions and denies everything else.
 func (DenyBeyondRead) Evaluate(_ context.Context, a blastradius.Action) (Decision, string) {
 	class := blastradius.Classify(a)
 	if class == blastradius.READ {
 		return Allow, "READ action permitted"
 	}
-	return Deny, fmt.Sprintf(
-		"%s action blocked: the deterministic safety layer is not yet "+
-			"implemented (Phase 5); only READ actions are permitted",
-		class,
-	)
+	classStr := class.String()
+	return Deny, classStr + " action blocked by v0 safety stub"
 }

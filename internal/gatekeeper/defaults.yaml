@@ -1,0 +1,17 @@
+version: "1"
+rules:
+  - match: { class: read }
+    decide: allow
+  - match: { class: write, target_app: ["Code", "VS Code", "Cursor", "Terminal", "Finder"] }
+    decide: allow
+  - match: { class: write }
+    decide: require_consent
+    consent: { type: native_dialog, timeout_seconds: 300, on_timeout: queue }
+  - match: { class: network }
+    decide: require_consent
+    consent: { type: native_dialog, timeout_seconds: 300, on_timeout: queue }
+  - match: { class: destructive }
+    decide: require_presence_and_consent
+    consent: { type: native_dialog, timeout_seconds: 120, require_user_active: true, on_user_absent: queue }
+  - match: { target_app: ["1Password", "Keychain Access", "System Settings"] }
+    decide: deny
