@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/crash"
 	"github.com/sahajpatel123/synapticapp/internal/lockfile"
 	"github.com/sahajpatel123/synapticapp/internal/version"
 )
@@ -83,6 +84,7 @@ type ListenSpec struct {
 // (so the Wails App struct can call into it directly). Standalone
 // callers can ignore it.
 func Run(ctx context.Context, opts Options) (*Subsystems, error) {
+	defer crash.Recover()
 	if opts.Config == nil {
 		return nil, fmt.Errorf("daemon: Config is required")
 	}
