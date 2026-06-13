@@ -22,8 +22,10 @@ func setupDataDir(t *testing.T) (dataDir, siblingDir, configPath string, masterK
 	mustWrite(t, filepath.Join(dataDir, "synaptic.db"), []byte("MAIN-DB-CONTENT"))
 	// memory DB
 	mustWrite(t, filepath.Join(dataDir, "memory.db"), []byte("MEMORY-DB-CONTENT"))
-	// skills DB lives one level up
+	// skills DB lives one level up (with WAL/SHM sidecars).
 	mustWrite(t, filepath.Join(siblingDir, "skills.db"), []byte("SKILLS-DB-CONTENT"))
+	mustWrite(t, filepath.Join(siblingDir, "skills.db-wal"), []byte("SKILLS-WAL-CONTENT"))
+	mustWrite(t, filepath.Join(siblingDir, "skills.db-shm"), []byte("SKILLS-SHM-CONTENT"))
 	// secrets.json
 	mustWrite(t, filepath.Join(dataDir, "secrets.json"), []byte(`{"master_key":"k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4="}`))
 	// config.yaml
@@ -130,6 +132,8 @@ func TestCreate_ArchiveContainsExpectedFiles(t *testing.T) {
 		"memory.db",
 		"secrets.json",
 		"skills.db",
+		"skills.db-shm",
+		"skills.db-wal",
 		"synaptic.db",
 	}
 	if len(names) != len(want) {
@@ -223,10 +227,26 @@ func TestRestore_RoundTripPreservesContents(t *testing.T) {
 	if string(got) != "MEMORY-DB-CONTENT" {
 		t.Errorf("memory.db = %q, want %q", got, "MEMORY-DB-CONTENT")
 	}
-	// Skills DB lives at the parent.
-	got, _ = os.ReadFile(filepath.Join(filepath.Dir(restoreDir), "skills.db"))
+	// Skills DB lives at the parent, with WAL/SHM sidecars next to it.
+	parent := filepath.Dir(restoreDir)
+	got, _ = os.ReadFile(filepath.Join(parent, "skills.db"))
 	if string(got) != "SKILLS-DB-CONTENT" {
 		t.Errorf("skills.db = %q, want %q", got, "SKILLS-DB-CONTENT")
+	}
+	got, _ = os.ReadFile(filepath.Join(parent, "skills.db-wal"))
+	if string(got) != "SKILLS-WAL-CONTENT" {
+		t.Errorf("skills.db-wal = %q, want %q", got, "SKILLS-WAL-CONTENT")
+	}
+	got, _ = os.ReadFile(filepath.Join(parent, "skills.db-shm"))
+	if string(got) != "SKILLS-SHM-CONTENT" {
+		t.Errorf("skills.db-shm = %q, want %q", got, "SKILLS-SHM-CONTENT")
+	}
+	// Ensure WAL/SHM did NOT end up inside the restored data dir.
+	if _, err := os.Stat(filepath.Join(restoreDir, "skills.db-wal")); err == nil {
+		t.Errorf("skills.db-wal leaked into data dir")
+	}
+	if _, err := os.Stat(filepath.Join(restoreDir, "skills.db-shm")); err == nil {
+		t.Errorf("skills.db-shm leaked into data dir")
 	}
 	got, _ = os.ReadFile(filepath.Join(restoreDir, "secrets.json"))
 	if !stringContains(got, "master_key") {

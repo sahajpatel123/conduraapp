@@ -41,7 +41,13 @@ import (
 
 // siblingFiles are archive entries that live outside the data dir
 // (e.g., skills.db is at <data-dir>/../skills.db per MISSION §24).
-var siblingFiles = map[string]bool{"skills.db": true}
+// SQLite WAL/SHM sidecars must live next to the main DB, not inside
+// the restored data dir.
+var siblingFiles = map[string]bool{
+	"skills.db":     true,
+	"skills.db-wal": true,
+	"skills.db-shm": true,
+}
 
 // ErrSchemaIncompatible is returned when a backup's schema version
 // is newer than the binary's current schema version.
