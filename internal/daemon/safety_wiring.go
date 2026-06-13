@@ -9,6 +9,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/sanitize"
+	"github.com/sahajpatel123/synapticapp/internal/sse"
 )
 
 // SafetyComponents bundles the real safety layer.
@@ -21,10 +22,12 @@ type SafetyComponents struct {
 
 // buildSafetyLayer constructs the real safety components replacing
 // the v0 DenyBeyondRead stub.
-func buildSafetyLayer(haltFlag *halt.Flag, log *slog.Logger) *SafetyComponents {
+func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger) *SafetyComponents {
 	// Build the real Policy Engine.
 	policy := gatekeeper.DefaultPolicy()
-	consent := &rpcConsentProvider{log: log}
+	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
+		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
+	}}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
 	// Wire anomaly detector — fires async via the Engine hook.
@@ -41,7 +44,11 @@ func buildSafetyLayer(haltFlag *halt.Flag, log *slog.Logger) *SafetyComponents {
 	engine.AnomalyHook = func(a blastradius.Action) { detector.Record(a.Kind, 0, 0, true) }
 
 	// Wire sanitizers.
-	engine.SanitizeHook = nil // sanitizers are applied per-action in the CU/MCP paths
+	// Wire sanitizers — defense-in-depth, runs before Policy.Evaluate.
+	engine.SanitizeHook = func(a *blastradius.Action) error {
+		_, err := sanitize.Chain(defaultSanitizers(), a.Kind)
+		return err
+	}
 
 	return &SafetyComponents{
 		Engine:    engine,
@@ -51,16 +58,16 @@ func buildSafetyLayer(haltFlag *halt.Flag, log *slog.Logger) *SafetyComponents {
 	}
 }
 
-// rpcConsentProvider is the SSE→RPC consent flow. The daemon
-// publishes consent requests on the SSE broker; the GUI displays
-// a modal and calls safety.consent.approve/deny.
+// rpcConsentProvider publishes consent requests on SSE for GUI display.
 type rpcConsentProvider struct {
-	log *slog.Logger
+	log     *slog.Logger
+	publish func(nonce string, action any)
 }
 
 func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
-	// Publish consent request on SSE broker for the GUI to display.
-	// The GUI calls safety.consent.approve/deny which resolves the ticket.
+	if p.publish != nil {
+		p.publish(ticket.Nonce, ticket.ActionKind)
+	}
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()

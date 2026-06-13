@@ -199,7 +199,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	// Gatekeeper is the deterministic rules engine. Built once
 	// and shared by every gated executor in the daemon so the
 	// safety layer is the single source of truth.
-	safety := buildSafetyLayer(haltFlag, log)
+	safety := buildSafetyLayer(haltFlag, broker, log)
 	gate := safety.Engine
 	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 

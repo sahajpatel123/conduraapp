@@ -95,6 +95,7 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 		CreatedAt:  time.Now(),
 		ExpiresAt:  time.Now().Add(time.Duration(v.TimeoutSecs) * time.Second),
 		Nonce:      fmt.Sprintf("%d", time.Now().UnixNano()),
+		Result:     make(chan bool, 1),
 	}
 
 	// Track pending ticket for GUI enumeration.
