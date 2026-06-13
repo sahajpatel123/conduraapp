@@ -13,6 +13,10 @@ import (
 // SQLiteStore implements Store using SQLite.
 type SQLiteStore struct{ db *sql.DB }
 
+// defaultText is the SQLite column type used for optional text
+// provenance fields. Extracted to avoid repeated literals.
+const defaultTextCol = "TEXT NOT NULL DEFAULT ''"
+
 // NewSQLiteStore opens a SQLite-backed skill store.
 func NewSQLiteStore(path string) (*SQLiteStore, error) {
 	db, err := sql.Open("sqlite", path)
@@ -32,7 +36,7 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 }
 
 func (s *SQLiteStore) migrate() error {
-	_, err := s.db.ExecContext(context.Background(), `
+	schema := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS skills (
 			id TEXT PRIMARY KEY, name TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '', version TEXT NOT NULL DEFAULT '0.1.0',
@@ -40,22 +44,23 @@ func (s *SQLiteStore) migrate() error {
 			steps TEXT NOT NULL DEFAULT '[]', dependencies TEXT NOT NULL DEFAULT '[]',
 			success_count INTEGER NOT NULL DEFAULT 0, failure_count INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, last_used DATETIME NOT NULL,
-			author TEXT NOT NULL DEFAULT '', author_key TEXT NOT NULL DEFAULT '',
-			license TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'local',
-			hub_id TEXT NOT NULL DEFAULT '', checksum TEXT NOT NULL DEFAULT '',
+			author %s, author_key %s,
+			license %s, source TEXT NOT NULL DEFAULT 'local',
+			hub_id %s, checksum %s,
 			published_at DATETIME
-		)`)
+		)`, defaultTextCol, defaultTextCol, defaultTextCol, defaultTextCol, defaultTextCol)
+	_, err := s.db.ExecContext(context.Background(), schema)
 	if err != nil {
 		return err
 	}
 	// Ensure provenance columns exist (migration for existing installs).
 	provenanceCols := []struct{ name, def string }{
-		{"author", "TEXT NOT NULL DEFAULT ''"},
-		{"author_key", "TEXT NOT NULL DEFAULT ''"},
-		{"license", "TEXT NOT NULL DEFAULT ''"},
+		{"author", defaultTextCol},
+		{"author_key", defaultTextCol},
+		{"license", defaultTextCol},
 		{"source", "TEXT NOT NULL DEFAULT 'local'"},
-		{"hub_id", "TEXT NOT NULL DEFAULT ''"},
-		{"checksum", "TEXT NOT NULL DEFAULT ''"},
+		{"hub_id", defaultTextCol},
+		{"checksum", defaultTextCol},
 		{"published_at", "DATETIME"},
 	}
 	for _, col := range provenanceCols {

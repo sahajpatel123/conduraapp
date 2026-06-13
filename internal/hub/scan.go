@@ -9,9 +9,9 @@ import (
 
 // ScanResult is the outcome of a safety scan on a downloaded skill.
 type ScanResult struct {
-	Safe    bool     `json:"safe"`
-	Issues  []string `json:"issues,omitempty"`
-	Checksum string  `json:"checksum"`
+	Safe     bool     `json:"safe"`
+	Issues   []string `json:"issues,omitempty"`
+	Checksum string   `json:"checksum"`
 }
 
 // Verify checks the SHA-256 checksum of the downloaded data against

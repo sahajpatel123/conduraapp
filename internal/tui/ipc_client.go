@@ -1,26 +1,30 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 )
 
-// IPCClient wraps the daemon's JSON-RPC connection for the TUI.
+// IPCClient communicates with the daemon via HTTP JSON-RPC.
 type IPCClient struct {
-	conn    net.Conn
-	encoder *json.Encoder
-	decoder *json.Decoder
-	mu      sync.Mutex
-	pending map[int]chan *ipc.Response
-	nextID  int
-	logger  *slog.Logger
+	baseURL    string
+	httpClient *http.Client
+	mu         sync.Mutex
+	nextID     int
+	logger     *slog.Logger
 }
 
 type rpcRequest struct {
@@ -37,100 +41,132 @@ type rpcResponse struct {
 	Error   *ipc.Error      `json:"error,omitempty"`
 }
 
-// NewIPCClient connects to the daemon via Unix socket or TCP.
-func NewIPCClient(addr string, logger *slog.Logger) (*IPCClient, error) {
-	var conn net.Conn
-	var err error
-	for i := 0; i < 10; i++ {
-		conn, err = net.Dial("unix", addr)
-		if err == nil {
-			break
+// parseAddr splits "scheme://host:port" into scheme and host.
+func parseAddr(addr string) (string, string) {
+	for i := 0; i < len(addr); i++ {
+		if addr[i] == ':' && i+2 < len(addr) && addr[i+1] == '/' && addr[i+2] == '/' {
+			return addr[:i], addr[i+3:]
 		}
-		conn, err = net.Dial("tcp", addr)
-		if err == nil {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
 	}
+	return "tcp", addr
+}
+
+// NewIPCClient connects to the daemon at the given address.
+func NewIPCClient(addr string, logger *slog.Logger) (*IPCClient, error) {
+	scheme, host := parseAddr(addr)
+	baseURL := "http://" + host
+
+	var transport http.RoundTripper
+	if scheme == "unix" {
+		transport = &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", host)
+			},
+		}
+	} else {
+		transport = &http.Transport{
+			DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		}
+	}
+
+	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
+
+	// Verify connectivity.
+	pingBody, _ := json.Marshal(rpcRequest{JSONRPC: "2.0", ID: 0, Method: "ping"})
+	httpReq, err := http.NewRequest(http.MethodPost, baseURL, bytes.NewReader(pingBody))
 	if err != nil {
 		return nil, fmt.Errorf("connect to daemon at %s: %w", addr, err)
 	}
-
-	c := &IPCClient{
-		conn:    conn,
-		encoder: json.NewEncoder(conn),
-		decoder: json.NewDecoder(conn),
-		pending: make(map[int]chan *ipc.Response),
-		logger:  logger,
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("connect to daemon at %s: %w", addr, err)
 	}
-	go c.readLoop()
-	return c, nil
+	_ = resp.Body.Close()
+
+	return &IPCClient{
+		baseURL:    baseURL,
+		httpClient: client,
+		logger:     logger,
+	}, nil
 }
 
-func (c *IPCClient) readLoop() {
-	for {
-		var resp rpcResponse
-		if err := c.decoder.Decode(&resp); err != nil {
-			c.logger.Debug("IPC read error", "err", err)
-			return
-		}
-		c.mu.Lock()
-		ch, ok := c.pending[resp.ID]
-		if ok {
-			delete(c.pending, resp.ID)
-		}
-		c.mu.Unlock()
-		if ok {
-			res := &ipc.Response{Result: resp.Result, Error: resp.Error}
-			select {
-			case ch <- res:
-			default:
-			}
-		}
-	}
-}
-
-// Call sends a JSON-RPC request and waits for response.
+// Call sends a JSON-RPC request and waits for the response.
 func (c *IPCClient) Call(ctx context.Context, method string, params any) (*ipc.Response, error) {
 	c.mu.Lock()
 	id := c.nextID
 	c.nextID++
-	ch := make(chan *ipc.Response, 1)
-	c.pending[id] = ch
 	c.mu.Unlock()
 
 	paramsBytes, _ := json.Marshal(params)
 	req := rpcRequest{JSONRPC: "2.0", ID: id, Method: method, Params: paramsBytes}
-	if err := c.encoder.Encode(req); err != nil {
-		c.mu.Lock()
-		delete(c.pending, id)
-		c.mu.Unlock()
+	body, err := json.Marshal(req)
+	if err != nil {
 		return nil, err
 	}
 
-	select {
-	case <-ctx.Done():
-		c.mu.Lock()
-		delete(c.pending, id)
-		c.mu.Unlock()
-		return nil, ctx.Err()
-	case resp := <-ch:
-		return resp, nil
-	case <-time.After(30 * time.Second):
-		c.mu.Lock()
-		delete(c.pending, id)
-		c.mu.Unlock()
-		return nil, fmt.Errorf("request timeout")
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
 	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var rpcResp rpcResponse
+	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &ipc.Response{Result: rpcResp.Result, Error: rpcResp.Error}, nil
 }
 
 // Notify sends a notification (no response expected).
 func (c *IPCClient) Notify(method string, params any) error {
 	paramsBytes, _ := json.Marshal(params)
 	req := rpcRequest{JSONRPC: "2.0", Method: method, Params: paramsBytes}
-	return c.encoder.Encode(req)
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
 }
 
-func (c *IPCClient) Close() error {
-	return c.conn.Close()
+// Close is a no-op; HTTP connections are managed by the transport.
+func (c *IPCClient) Close() error { return nil }
+
+// FindDaemonAddr discovers the daemon's IPC address.
+func FindDaemonAddr() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	for _, dataDir := range []string{filepath.Join(home, ".synaptic"), "/tmp/synaptic"} {
+		addrFile := filepath.Join(dataDir, "synapticd.addr")
+		data, err := os.ReadFile(addrFile)
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+		sockPath := filepath.Join(dataDir, "synapticd.sock")
+		if _, err := os.Stat(sockPath); err == nil {
+			return "unix://" + sockPath
+		}
+	}
+	return ""
 }

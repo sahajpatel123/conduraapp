@@ -41,7 +41,7 @@ type SkillMeta struct {
 	License     string   `json:"license"`
 	Tags        []string `json:"tags"`
 	Trust       string   `json:"trust"`
-	Checksum    string   `json:"checksum"`    // SHA-256 of the archive
+	Checksum    string   `json:"checksum"` // SHA-256 of the archive
 	Downloads   int      `json:"downloads"`
 	PublishedAt string   `json:"published_at"` // RFC 3339
 	UpdatedAt   string   `json:"updated_at"`   // RFC 3339

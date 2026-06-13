@@ -4,26 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
 // Peer represents a discovered device on the local network.
 type Peer struct {
-	DeviceID   string    `json:"device_id"`
-	Name       string    `json:"name"`
-	PublicKey  string    `json:"public_key"`  // hex-encoded
-	Address    string    `json:"address"`     // host:port
-	LastSeen   time.Time `json:"last_seen"`
-	Fingerprint string   `json:"fingerprint"` // short hex
+	DeviceID    string    `json:"device_id"`
+	Name        string    `json:"name"`
+	PublicKey   string    `json:"public_key"`
+	Address     string    `json:"address"`
+	LastSeen    time.Time `json:"last_seen"`
+	Fingerprint string    `json:"fingerprint"`
 }
 
-// Discovery announces and discovers peers on the local network using
-// UDP broadcast. For LAN-only sync without infrastructure.
+// Discovery announces and discovers peers on the local network using UDP broadcast.
 type Discovery struct {
 	device   *DeviceIdentity
 	port     int
+	mu       sync.RWMutex
 	peers    map[string]*Peer
- onUpdate func(*Peer)
+	onUpdate func(*Peer)
 }
 
 // NewDiscovery creates a LAN discovery service.
@@ -60,7 +61,10 @@ func (d *Discovery) Announce() error {
 		Fingerprint: d.device.Fingerprint(),
 		Port:        d.port,
 	}
-	data, _ := json.Marshal(msg)
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("sync: marshal announce: %w", err)
+	}
 	_, err = conn.Write(data)
 	return err
 }
@@ -88,7 +92,7 @@ func (d *Discovery) Listen() error {
 			continue
 		}
 		if msg.DeviceID == d.device.DeviceID {
-			continue // ignore self
+			continue
 		}
 		peer := &Peer{
 			DeviceID:    msg.DeviceID,
@@ -98,7 +102,9 @@ func (d *Discovery) Listen() error {
 			LastSeen:    time.Now().UTC(),
 			Fingerprint: msg.Fingerprint,
 		}
+		d.mu.Lock()
 		d.peers[peer.DeviceID] = peer
+		d.mu.Unlock()
 		if d.onUpdate != nil {
 			d.onUpdate(peer)
 		}
@@ -107,6 +113,8 @@ func (d *Discovery) Listen() error {
 
 // Peers returns the currently known peers.
 func (d *Discovery) Peers() []*Peer {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	out := make([]*Peer, 0, len(d.peers))
 	for _, p := range d.peers {
 		out = append(out, p)

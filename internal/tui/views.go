@@ -101,10 +101,6 @@ func (m Model) headerView() string {
 }
 
 func (m Model) activeView() string {
-	if m.err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: %v", m.err))
-	}
-
 	switch m.activeTab {
 	case tabChat:
 		return m.chatView()
@@ -130,13 +126,8 @@ func (m Model) chatView() string {
 	b.WriteString(titleStyle.Render(" " + convTitle + " "))
 	b.WriteByte('\n')
 
-	msgs := m.messages
-	if m.currentConv != nil && len(m.currentConv.Messages) > 0 {
-		msgs = m.currentConv.Messages
-	}
-
 	content := ""
-	for _, msg := range msgs {
+	for _, msg := range m.messages {
 		style := chatUserStyle
 		label := "user"
 		switch msg.Role {
@@ -162,7 +153,7 @@ func (m Model) chatView() string {
 	b.WriteByte('\n')
 
 	if m.currentConv == nil {
-		b.WriteString(helpStyle.Render("Type a conversation title to create one"))
+		b.WriteString(helpStyle.Render("Type a message to create a new conversation"))
 		b.WriteByte('\n')
 	}
 	b.WriteString(m.chatInput.View())
@@ -254,7 +245,11 @@ func (m Model) settingsView() string {
 			if p.Enabled {
 				status = successStyle.Render("enabled")
 			}
-			b.WriteString(fmt.Sprintf("  %s: %s [%s]\n", p.Name, p.DefaultModel, status))
+			model := p.Models
+			if model == "" {
+				model = "default"
+			}
+			b.WriteString(fmt.Sprintf("  %s: %s [%s]\n", p.Name, model, status))
 		}
 	}
 
@@ -263,18 +258,16 @@ func (m Model) settingsView() string {
 	b.WriteString(fmt.Sprintf("  Spent: $%.4f / $%.2f (remaining: $%.4f)\n",
 		m.spend.Spent, m.spend.Cap, m.spend.Remaining))
 
-	if m.cfg != nil {
-		b.WriteByte('\n')
-		b.WriteString(successStyle.Render("Configuration") + "\n")
-		b.WriteString(fmt.Sprintf("  Data Dir: %s\n", m.cfg.General.DataDir))
-		b.WriteString(fmt.Sprintf("  Log Level: %s\n", m.cfg.Logging.Level))
-		b.WriteString(fmt.Sprintf("  Telemetry Enabled: %v\n", m.cfg.Telemetry.Enabled))
-		b.WriteString(fmt.Sprintf("  Spend Limit/Day: $%.2f\n", m.cfg.Security.SpendLimitUSDPerDay))
-		b.WriteString(fmt.Sprintf("  Voice Enabled: %v\n", m.cfg.Voice.Enabled))
+	b.WriteByte('\n')
 
-		content := b.String()
+	if m.cfg != nil {
+		content := fmt.Sprintf("Configuration\n")
+		content += fmt.Sprintf("  Data Dir: %s\n", m.cfg.General.DataDir)
+		content += fmt.Sprintf("  Log Level: %s\n", m.cfg.Logging.Level)
+		content += fmt.Sprintf("  Telemetry Enabled: %v\n", m.cfg.Telemetry.Enabled)
+		content += fmt.Sprintf("  Spend Limit/Day: $%.2f\n", m.cfg.Security.SpendLimitUSDPerDay)
+		content += fmt.Sprintf("  Voice Enabled: %v\n", m.cfg.Voice.Enabled)
 		m.cfgViewport.SetContent(content)
-		b.Reset()
 		b.WriteString(borderStyle.Width(m.width - 4).Render(m.cfgViewport.View()))
 	}
 

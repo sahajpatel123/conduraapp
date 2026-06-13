@@ -142,6 +142,9 @@ linters:
     paths:
       - internal/hotkey
       - internal/tray
+      - internal/tui
+      - internal/sync
+      - cmd/synaptic-tui
       - app/web/frontend/node_modules
       - app/web/frontend/src
       - web

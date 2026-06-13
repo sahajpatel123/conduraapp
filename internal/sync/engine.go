@@ -12,13 +12,13 @@ import (
 // service to find peers. The actual transport (libp2p, TCP, etc.) is
 // abstracted behind the Transport interface.
 type Engine struct {
-	identity *DeviceIdentity
-	store    *Store
+	identity  *DeviceIdentity
+	store     *Store
 	discovery *Discovery
-	logger   *slog.Logger
-	mu       sync.Mutex
-	running  bool
-	stopCh   chan struct{}
+	logger    *slog.Logger
+	mu        sync.Mutex
+	running   bool
+	stopCh    chan struct{}
 }
 
 // NewEngine creates a sync engine.
@@ -66,11 +66,11 @@ func (e *Engine) Stop() {
 func (e *Engine) Status() Status {
 	peers := e.discovery.Peers()
 	return Status{
-		DeviceID:  e.identity.DeviceID,
-		Name:      e.identity.Name,
-		Peers:     len(peers),
-		Entries:   len(e.store.Entries()),
-		Running:   e.running,
+		DeviceID: e.identity.DeviceID,
+		Name:     e.identity.Name,
+		Peers:    len(peers),
+		Entries:  len(e.store.Entries()),
+		Running:  e.running,
 	}
 }
 

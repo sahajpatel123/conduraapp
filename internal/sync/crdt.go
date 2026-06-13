@@ -13,12 +13,12 @@ import (
 // The vector clock ensures causal ordering; on conflict, the entry
 // with the higher timestamp wins (last-writer-wins per key).
 type Entry struct {
-	Key       string            `json:"key"`
-	Value     []byte            `json:"value"`
-	Version   VectorClock        `json:"version"`
-	DeviceID  string            `json:"device_id"`
-	Timestamp time.Time         `json:"timestamp"`
-	Deleted   bool              `json:"deleted,omitempty"`
+	Key       string      `json:"key"`
+	Value     []byte      `json:"value"`
+	Version   VectorClock `json:"version"`
+	DeviceID  string      `json:"device_id"`
+	Timestamp time.Time   `json:"timestamp"`
+	Deleted   bool        `json:"deleted,omitempty"`
 }
 
 // VectorClock is a per-device logical clock. Each device increments
@@ -43,11 +43,18 @@ func (vc VectorClock) Merge(other VectorClock) {
 // HappensBefore returns true if vc causally precedes other.
 func (vc VectorClock) HappensBefore(other VectorClock) bool {
 	less := false
+	// Check all devices in vc.
 	for dev, ts := range vc {
 		if ts > other[dev] {
 			return false
 		}
 		if ts < other[dev] {
+			less = true
+		}
+	}
+	// Check devices only in other (vc doesn't know about them yet).
+	for dev, ts := range other {
+		if _, ok := vc[dev]; !ok && ts > 0 {
 			less = true
 		}
 	}

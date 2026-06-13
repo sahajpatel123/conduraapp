@@ -16,9 +16,9 @@ import (
 type DeviceIdentity struct {
 	PublicKey  ed25519.PublicKey  `json:"-"`
 	PrivateKey ed25519.PrivateKey `json:"-"`
-	DeviceID   string            `json:"device_id"`
-	Name       string            `json:"name"`
-	CreatedAt  time.Time         `json:"created_at"`
+	DeviceID   string             `json:"device_id"`
+	Name       string             `json:"name"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 // identityJSON is the JSON representation of a device identity

@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -35,9 +32,9 @@ const (
 var tabNames = []string{"Chat", "Conversations", "Audit", "Settings", "Health"}
 
 type providerInfo struct {
-	Name         string `json:"name"`
-	DefaultModel string `json:"default_model"`
-	Enabled      bool   `json:"enabled"`
+	Name     string `json:"name"`
+	Models   string `json:"models"`
+	Enabled  bool   `json:"enabled"`
 }
 
 type spendInfo struct {
@@ -82,25 +79,6 @@ type Model struct {
 	statusMsg string
 }
 
-func FindDaemonAddr() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	for _, dataDir := range []string{filepath.Join(home, ".synaptic"), "/tmp/synaptic"} {
-		addrFile := filepath.Join(dataDir, "synapticd.addr")
-		data, err := os.ReadFile(addrFile)
-		if err == nil {
-			return strings.TrimSpace(string(data))
-		}
-		sockPath := filepath.Join(dataDir, "synapticd.sock")
-		if _, err := os.Stat(sockPath); err == nil {
-			return "unix://" + sockPath
-		}
-	}
-	return ""
-}
-
 type tickMsg time.Time
 
 func doTick() tea.Cmd {
@@ -124,20 +102,20 @@ func InitialModel(client *IPCClient, logger *slog.Logger) Model {
 	convVP := viewport.New(80, 20)
 
 	return Model{
-		client:       client,
-		logger:       logger,
-		chatInput:    ti,
-		chatViewport: chatVP,
-		auditVP:      auditVP,
-		cfgViewport:  cfgVP,
-		healthVP:     healthVP,
-		convVP:       convVP,
-		convCursor:   -1,
-		activeTab:    tabChat,
-		providers:    []providerInfo{},
-		auditEvents:  []audit.Event{},
+		client:        client,
+		logger:        logger,
+		chatInput:     ti,
+		chatViewport:  chatVP,
+		auditVP:       auditVP,
+		cfgViewport:   cfgVP,
+		healthVP:      healthVP,
+		convVP:        convVP,
+		convCursor:    -1,
+		activeTab:     tabChat,
+		providers:     []providerInfo{},
+		auditEvents:   []audit.Event{},
 		conversations: []conversation.Meta{},
-		messages:     []conversation.Message{},
+		messages:      []conversation.Message{},
 	}
 }
 
@@ -232,9 +210,35 @@ func (m Model) fetchProvidersCmd() tea.Cmd {
 		if err != nil {
 			return errMsg{err}
 		}
-		var provs []providerInfo
-		if err := decodeResp(resp, &provs); err != nil {
-			return errMsg{err}
+		// providers.list returns []llm.Provider which has different fields.
+		// Extract name + enabled from the raw JSON.
+		raw, _ := resp.Result.(json.RawMessage)
+		if raw == nil {
+			return loadedProvidersMsg([]providerInfo{})
+		}
+		var rawList []map[string]any
+		if err := json.Unmarshal(raw, &rawList); err != nil {
+			return loadedProvidersMsg([]providerInfo{})
+		}
+		provs := make([]providerInfo, 0, len(rawList))
+		for _, r := range rawList {
+			name, _ := r["name"].(string)
+			if name == "" {
+				name, _ = r["Name"].(string)
+			}
+			enabled, _ := r["enabled"].(bool)
+			if !enabled {
+				enabled, _ = r["Enabled"].(bool)
+			}
+			models := ""
+			if m, ok := r["default_model"].(string); ok {
+				models = m
+			}
+			provs = append(provs, providerInfo{
+				Name:    name,
+				Models:  models,
+				Enabled: enabled,
+			})
 		}
 		return loadedProvidersMsg(provs)
 	}
@@ -279,6 +283,10 @@ type loadedProvidersMsg []providerInfo
 type loadedConfigMsg *config.Config
 type loadedConversationMsg *conversation.Conversation
 type chatRespMsg string
+type convCreatedMsg struct {
+	meta conversation.Meta
+	cmd  tea.Cmd
+}
 
 func (m Model) loadConversationCmd(id int64) tea.Cmd {
 	return func() tea.Msg {
@@ -296,10 +304,11 @@ func (m Model) loadConversationCmd(id int64) tea.Cmd {
 	}
 }
 
-func (m Model) createConversationCmd(title string) tea.Cmd {
+func (m Model) createAndSendCmd(title, content string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		// Create conversation.
 		resp, err := m.client.Call(ctx, "conversations.create", map[string]any{"title": title})
 		if err != nil {
 			return errMsg{err}
@@ -308,23 +317,45 @@ func (m Model) createConversationCmd(title string) tea.Cmd {
 		if err := decodeResp(resp, &meta); err != nil {
 			return errMsg{err}
 		}
-		return meta
-	}
-}
-
-func (m Model) sendChatCmd(convID int64, content string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		resp, err := m.client.Call(ctx, "conversations.append", map[string]any{
-			"id":      convID,
+		// Send first message.
+		_, err = m.client.Call(ctx, "conversations.append", map[string]any{
+			"id":      meta.ID,
 			"message": conversation.Message{Role: "user", Content: content},
 		})
 		if err != nil {
 			return errMsg{err}
 		}
-		_ = resp
-		return chatRespMsg("sent")
+		// Load the full conversation.
+		resp2, err := m.client.Call(ctx, "conversations.get", map[string]any{"id": meta.ID})
+		if err != nil {
+			return errMsg{err}
+		}
+		var conv conversation.Conversation
+		if err := decodeResp(resp2, &conv); err != nil {
+			return errMsg{err}
+		}
+		return loadedConversationMsg(&conv)
+	}
+}
+
+func (m Model) deleteConversationCmd(id int64) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := m.client.Call(ctx, "conversations.delete", map[string]any{"id": id})
+		if err != nil {
+			return errMsg{err}
+		}
+		// Refresh list.
+		resp, err := m.client.Call(ctx, "conversations.list", nil)
+		if err != nil {
+			return errMsg{err}
+		}
+		var list []conversation.Meta
+		if err := decodeResp(resp, &list); err != nil {
+			return errMsg{err}
+		}
+		return loadedConversationsMsg(list)
 	}
 }
 
@@ -417,6 +448,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentConv != nil {
 			return m, m.loadConversationCmd(m.currentConv.ID)
 		}
+
+	case errMsg:
+		m.err = msg.err
+		m.statusMsg = ""
 	}
 
 	return m, nil
@@ -432,13 +467,35 @@ func (m Model) updateChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if len(title) > 40 {
 				title = title[:40]
 			}
-			return m, m.createConversationCmd(title)
+			content := m.chatInput.Value()
+			m.chatInput.SetValue("")
+			return m, m.createAndSendCmd(title, content)
 		}
 		content := m.chatInput.Value()
-		return m, m.sendChatCmd(m.currentConv.ID, content)
+		m.chatInput.SetValue("")
+		return m, tea.Batch(
+			m.sendChatCmd(m.currentConv.ID, content),
+			m.loadConversationCmd(m.currentConv.ID),
+		)
 	}
 
 	return m, cmd
+}
+
+func (m Model) sendChatCmd(convID int64, content string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		resp, err := m.client.Call(ctx, "conversations.append", map[string]any{
+			"id":      convID,
+			"message": conversation.Message{Role: "user", Content: content},
+		})
+		if err != nil {
+			return errMsg{err}
+		}
+		_ = resp
+		return chatRespMsg("sent")
+	}
 }
 
 func (m Model) updateConversations(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -459,14 +516,11 @@ func (m Model) updateConversations(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "n":
 		title := fmt.Sprintf("Conversation %d", len(m.conversations)+1)
-		return m, m.createConversationCmd(title)
+		return m, m.createAndSendCmd(title, "")
 	case "d":
 		if m.convCursor >= 0 && m.convCursor < len(m.conversations) {
 			id := m.conversations[m.convCursor].ID
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_, _ = m.client.Call(ctx, "conversations.delete", map[string]any{"id": id})
-			return m, m.fetchConversationsCmd()
+			return m, m.deleteConversationCmd(id)
 		}
 	}
 	return m, nil

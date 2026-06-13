@@ -13,9 +13,9 @@ import (
 
 // Phase12Components bundles the Phase 12 subsystems.
 type Phase12Components struct {
-	HubClient   *hub.Client
-	SkillStore  *skills.SQLiteStore
-	SyncEngine  *sync.Engine
+	HubClient  *hub.Client
+	SkillStore *skills.SQLiteStore
+	SyncEngine *sync.Engine
 }
 
 // registerPhase12Methods wires hub.* and sync.* RPC methods.
@@ -26,6 +26,8 @@ func registerPhase12Methods(srv *ipc.Server, p12 *Phase12Components) {
 	registerHubMethods(srv, p12)
 	registerSyncMethods(srv, p12)
 }
+
+const errHubNotConfigured = "hub not configured"
 
 func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// hub.search: search the Skills Hub for skills.
@@ -41,7 +43,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			p.Limit = 20
 		}
 		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "hub not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		return p12.HubClient.Search(p.Query, p.Limit)
 	})
@@ -55,7 +57,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "hub not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		return p12.HubClient.Get(p.ID)
 	})
@@ -69,53 +71,12 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "hub not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "skill store not available"}
 		}
-
-		// Download from hub.
-		data, checksum, err := p12.HubClient.Download(p.ID)
-		if err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
-		}
-
-		// Verify checksum.
-		if err := hub.Verify(data, checksum); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "checksum verification failed: " + err.Error()}
-		}
-
-		// Safety scan.
-		scan := hub.Scan(data)
-		if !scan.Safe {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError,
-				Message: fmt.Sprintf("skill failed safety scan: %v", scan.Issues)}
-		}
-
-		// Fetch metadata.
-		meta, err := p12.HubClient.Get(p.ID)
-		if err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
-		}
-
-		// Install into local store.
-		sk := &skills.Skill{
-			ID:          meta.ID,
-			Name:        meta.Name,
-			Description: meta.Description,
-			Version:     meta.Version,
-			Trust:       skills.TrustCommunity,
-			Source:      "hub",
-			HubID:       meta.ID,
-			Checksum:    checksum,
-			Author:      meta.Author,
-			License:     meta.License,
-		}
-		if err := p12.SkillStore.Create(ctx, sk); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "install: " + err.Error()}
-		}
-		return map[string]any{"ok": true, "id": sk.ID}, nil
+		return installSkillFromHub(ctx, p.ID, p12.HubClient, p12.SkillStore)
 	})
 
 	// hub.publish: upload a local skill to the hub.
@@ -127,26 +88,74 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "hub not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "skill store not available"}
 		}
-		sk, err := p12.SkillStore.Get(ctx, p.ID)
-		if err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found"}
-		}
-		meta := hub.SkillMeta{
-			ID:          sk.ID,
-			Name:        sk.Name,
-			Description: sk.Description,
-			Version:     sk.Version,
-			Author:      sk.Author,
-			License:     sk.License,
-			Trust:       string(sk.Trust),
-		}
-		return nil, p12.HubClient.Publish(nil, meta)
+		return publishSkillToHub(ctx, p.ID, p12.SkillStore, p12.HubClient)
 	})
+}
+
+func installSkillFromHub(ctx context.Context, id string, client *hub.Client, store *skills.SQLiteStore) (any, error) {
+	// Download from hub.
+	data, checksum, err := client.Download(id)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+
+	// Verify checksum.
+	if err := hub.Verify(data, checksum); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "checksum verification failed: " + err.Error()}
+	}
+
+	// Safety scan.
+	scan := hub.Scan(data)
+	if !scan.Safe {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError,
+			Message: fmt.Sprintf("skill failed safety scan: %v", scan.Issues)}
+	}
+
+	// Fetch metadata.
+	meta, err := client.Get(id)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+
+	// Install into local store.
+	sk := &skills.Skill{
+		ID:          meta.ID,
+		Name:        meta.Name,
+		Description: meta.Description,
+		Version:     meta.Version,
+		Trust:       skills.TrustCommunity,
+		Source:      "hub",
+		HubID:       meta.ID,
+		Checksum:    checksum,
+		Author:      meta.Author,
+		License:     meta.License,
+	}
+	if err := store.Create(ctx, sk); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "install: " + err.Error()}
+	}
+	return map[string]any{"ok": true, "id": sk.ID}, nil
+}
+
+func publishSkillToHub(ctx context.Context, id string, store *skills.SQLiteStore, client *hub.Client) (any, error) {
+	sk, err := store.Get(ctx, id)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found"}
+	}
+	meta := hub.SkillMeta{
+		ID:          sk.ID,
+		Name:        sk.Name,
+		Description: sk.Description,
+		Version:     sk.Version,
+		Author:      sk.Author,
+		License:     sk.License,
+		Trust:       string(sk.Trust),
+	}
+	return nil, client.Publish(nil, meta)
 }
 
 func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {

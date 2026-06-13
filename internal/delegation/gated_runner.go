@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -169,11 +168,10 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 	spawnID := g.registerSpawn(cancel)
 	defer g.unregisterSpawn(spawnID)
 
-	// Check limits: recursion depth + budget.
+	// Check limits: recursion depth + budget. The limiter only
+	// subtracts budget on success paths; if CheckSpawn fails, no
+	// budget was reserved, so we must NOT call ReleaseBudget.
 	if err := g.limit.CheckSpawn(spawnCtx, req.AgentName, req.Depth, req.Budget); err != nil {
-		if errors.Is(err, ErrBudgetExceeded) {
-			g.limit.ReleaseBudget(req.AgentName, req.Budget)
-		}
 		return nil, err
 	}
 
@@ -205,14 +203,20 @@ func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg Age
 		return nil, err
 	}
 
-	// Wait for completion, timeout, or cancellation.
-	done := make(chan readResult)
+	// Wait for completion, timeout, or cancellation. Use a buffered
+	// channel so the reader goroutine can exit even if the parent
+	// times out its drain and returns early.
+	done := make(chan readResult, 1)
 	go func() {
 		out, err := r.readOutput()
 		done <- readResult{out: out, err: err}
 	}()
 
-	timer := time.NewTimer(agentCfg.Timeout)
+	timeout := agentCfg.Timeout
+	if req.Timeout > 0 {
+		timeout = req.Timeout
+	}
+	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
 	var readRes readResult
