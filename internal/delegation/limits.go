@@ -4,14 +4,12 @@ import (
 	"context"
 	"math"
 	"sync"
-
-	"github.com/sahajpatel123/synapticapp/internal/failover"
 )
 
 // Limiter enforces recursion depth and per-agent budget bounds.
 type Limiter struct {
 	cfg          Config
-	spendMon     *failover.SpendMonitor
+	spendMon     BudgetChecker
 	agentBudgets map[string]agentBudget
 	mu           sync.Mutex
 }
@@ -27,7 +25,7 @@ type BudgetChecker interface {
 }
 
 // NewLimiter creates a spawn limiter. sp may be nil (skip global check).
-func NewLimiter(cfg Config, sp *failover.SpendMonitor) *Limiter {
+func NewLimiter(cfg Config, sp BudgetChecker) *Limiter {
 	return &Limiter{
 		cfg:          cfg,
 		spendMon:     sp,
@@ -49,9 +47,9 @@ func (l *Limiter) CheckSpawn(ctx context.Context, agentName string, depth int, a
 		return ErrRecursionLimit
 	}
 
-	// Validate budget amount: negative values corrupt accounting and NaN
-	// poisons the ledger permanently.
-	if math.IsNaN(amount) || amount < 0 {
+	// Validate budget amount: negative values corrupt accounting; NaN or Inf
+	// poison the ledger permanently.
+	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount < 0 {
 		return ErrBudgetExceeded
 	}
 

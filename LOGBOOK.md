@@ -1379,3 +1379,41 @@ The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The
 3. Continue Phase 10 audit loop once main is stable.
 
 ---
+
+## [2026-06-14 01:50 UTC] AI Model: kimi-k2.7-code (loop iteration 3)
+**Session ID:** loop-phase9-10-audit-03
+**Branch:** main
+**Task:** Continue Phase 10 audit: error code mapping, config accessor, scanner buffer, cancellation, budget Inf, stdin leak, partial output.
+
+### Files created
+- None.
+
+### Files modified
+- `internal/delegation/gated_runner.go`:
+  - Increase `bufio.Scanner` buffer to 64 KB initial / 16 MiB max to prevent large stream-JSON line truncation.
+  - Create `spawnCtx` and register the spawn ID *before* `sema.Acquire` so `delegate.cancel` can interrupt a spawn blocked on concurrency limits.
+  - Pass partial output through `readResult` channel so `finalizeKilled` returns output already read on cancel/timeout.
+  - Add `GatedRunner.Config()` read-only accessor.
+  - Add `defer stdinPipe.Close()` on `runner.start` error paths to fix FD leak.
+- `internal/delegation/limits.go`:
+  - Change `Limiter.spendMon` and `NewLimiter` to use `BudgetChecker` interface instead of concrete `*failover.SpendMonitor`.
+  - Reject `+Inf`/`-Inf` budget amounts in `CheckSpawn`.
+- `internal/daemon/delegation_wiring.go`:
+  - Add `mapSpawnError` and return appropriate RPC codes for `ErrAgentNotFound`, `ErrRecursionLimit`, `ErrBudgetExceeded`, `ErrGatedDeny`, and `context.Canceled`.
+  - `delegate.list_agents` now uses `subs.Delegation.Config()` instead of `delegation.DefaultConfig()`.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Did **not** implement the `ActionRequest` execution path — it needs executor wiring and is a larger Phase 10C/11 design task, not a minimal bug fix.
+- Kept the user's uncommitted WAI (`app/web/frontend/i18n`, `internal/i18n/`) out of this commit.
+
+### Verification
+- `go test -race -count=1 -timeout=300s ./...` passes (46 packages).
+- `golangci-lint run --timeout=5m ./...` passes (0 issues).
+
+### Next steps
+1. Commit and push these changes.
+2. Wait for CI.
+3. Next iteration: audit the uncommitted Phase 11 scaffolding (i18n, replay, audit HMAC chain) once the user is ready, or continue with Phase 10 remaining low issues.
+
+---

@@ -36,6 +36,9 @@ func (r *runner) start(ctx context.Context, req *SpawnRequest) error {
 	if err != nil {
 		return fmt.Errorf("delegation: stdin: %w", err)
 	}
+	// Always close stdin on error paths; overridden on success below.
+	defer func() { _ = stdinPipe.Close() }()
+
 	stdoutPipe, err := r.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("delegation: stdout: %w", err)
@@ -50,7 +53,8 @@ func (r *runner) start(ctx context.Context, req *SpawnRequest) error {
 		return fmt.Errorf("delegation: flush: %w", err)
 	}
 	// Close stdin so the sub-agent sees EOF and does not hang waiting
-	// for more input.
+	// for more input. Drop the error-path defer since we are about to
+	// start the process, which owns the pipe from here.
 	if err := stdinPipe.Close(); err != nil {
 		return fmt.Errorf("delegation: close stdin: %w", err)
 	}
@@ -78,6 +82,8 @@ func (r *runner) buildArgs(req *SpawnRequest) []string {
 func (r *runner) readOutput() (string, error) {
 	var b strings.Builder
 	scanner := bufio.NewScanner(r.stdout)
+	// Stream-JSON lines can carry large payloads; cap at 16 MiB per line.
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if r.cfg.OutputFormat == FmtStreamJSON {
@@ -133,6 +139,11 @@ func (g *GatedRunner) SetSemaphoreManager(sema *SemaphoreManager) {
 	g.sema = sema
 }
 
+// Config returns the runner's agent configuration (read-only).
+func (g *GatedRunner) Config() Config {
+	return g.cfg
+}
+
 // Spawn runs a sub-agent task. The spawn is gated through the
 // Gatekeeper; if denied, nothing runs.
 func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResult, error) {
@@ -152,8 +163,14 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 		return nil, fmt.Errorf("%w: %s", ErrGatedDeny, reason)
 	}
 
+	// Create a cancellable sub-context so delegate.cancel can interrupt
+	// the spawn even when the caller did not supply a deadline.
+	spawnCtx, cancel := context.WithCancel(ctx)
+	spawnID := g.registerSpawn(cancel)
+	defer g.unregisterSpawn(spawnID)
+
 	// Check limits: recursion depth + budget.
-	if err := g.limit.CheckSpawn(ctx, req.AgentName, req.Depth, req.Budget); err != nil {
+	if err := g.limit.CheckSpawn(spawnCtx, req.AgentName, req.Depth, req.Budget); err != nil {
 		if errors.Is(err, ErrBudgetExceeded) {
 			g.limit.ReleaseBudget(req.AgentName, req.Budget)
 		}
@@ -162,18 +179,12 @@ func (g *GatedRunner) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResul
 
 	// Acquire concurrency slot.
 	if g.sema != nil {
-		if err := g.sema.Acquire(ctx, req.AgentName); err != nil {
+		if err := g.sema.Acquire(spawnCtx, req.AgentName); err != nil {
 			g.limit.ReleaseBudget(req.AgentName, req.Budget)
 			return nil, err
 		}
 		defer g.sema.Release(req.AgentName)
 	}
-
-	// Create a cancellable sub-context so delegate.cancel can interrupt
-	// the spawn even when the caller did not supply a deadline.
-	spawnCtx, cancel := context.WithCancel(ctx)
-	spawnID := g.registerSpawn(cancel)
-	defer g.unregisterSpawn(spawnID)
 
 	// Run the sub-agent.
 	result, runErr := g.runAgent(spawnCtx, spawnID, agentCfg, req)
@@ -195,23 +206,22 @@ func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg Age
 	}
 
 	// Wait for completion, timeout, or cancellation.
-	done := make(chan struct{})
-	var output string
-	var readErr error
+	done := make(chan readResult)
 	go func() {
-		output, readErr = r.readOutput()
-		close(done)
+		out, err := r.readOutput()
+		done <- readResult{out: out, err: err}
 	}()
 
 	timer := time.NewTimer(agentCfg.Timeout)
 	defer timer.Stop()
 
+	var readRes readResult
 	select {
 	case <-ctx.Done():
 		return g.finalizeKilled(r, done, start, spawnID, req, ctx.Err())
 	case <-timer.C:
 		return g.finalizeKilled(r, done, start, spawnID, req, ErrTimeout)
-	case <-done:
+	case readRes = <-done:
 	}
 
 	waitErr := r.wait()
@@ -223,13 +233,13 @@ func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg Age
 	result := &SpawnResult{
 		AgentName: req.AgentName,
 		Task:      req.Task,
-		Output:    output,
+		Output:    readRes.out,
 		ExitCode:  exitCode,
 		Duration:  time.Since(start),
 		SpawnID:   spawnID,
 	}
-	if readErr != nil {
-		result.Output = fmt.Sprintf("error reading output: %v\n%s", readErr, output)
+	if readRes.err != nil {
+		result.Output = fmt.Sprintf("error reading output: %v\n%s", readRes.err, readRes.out)
 	}
 	if waitErr != nil {
 		return result, fmt.Errorf("delegation: sub-agent exited with code %d: %w", exitCode, waitErr)
@@ -237,14 +247,21 @@ func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg Age
 	return result, nil
 }
 
+type readResult struct {
+	out string
+	err error
+}
+
 // finalizeKilled kills a sub-agent, drains the output goroutine, and
 // returns a result wrapping the reason (context cancellation or timeout).
-func (g *GatedRunner) finalizeKilled(r *runner, done chan struct{}, start time.Time, spawnID string, req *SpawnRequest, reason error) (*SpawnResult, error) {
+func (g *GatedRunner) finalizeKilled(r *runner, done chan readResult, start time.Time, spawnID string, req *SpawnRequest, reason error) (*SpawnResult, error) {
 	r.kill()
 	// Drain the output goroutine to avoid leaking the reader/pipe.
 	_ = r.cmd.Wait()
+
+	var readRes readResult
 	select {
-	case <-done:
+	case readRes = <-done:
 	case <-time.After(2 * time.Second):
 	}
 	exitCode := 0
@@ -254,6 +271,7 @@ func (g *GatedRunner) finalizeKilled(r *runner, done chan struct{}, start time.T
 	return &SpawnResult{
 		AgentName: req.AgentName,
 		Task:      req.Task,
+		Output:    readRes.out,
 		ExitCode:  exitCode,
 		Duration:  time.Since(start),
 		SpawnID:   spawnID,

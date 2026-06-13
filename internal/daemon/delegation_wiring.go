@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/sahajpatel123/synapticapp/internal/delegation"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
@@ -17,6 +18,25 @@ func buildDelegationBus(engine gatekeeper.Gatekeeper, sp *failover.SpendMonitor)
 	// MISSION S13.4: per-agent limit 4, global limit from config.
 	runner.SetSemaphoreManager(delegation.NewSemaphoreManager(0, cfg.GlobalLimit))
 	return runner
+}
+
+// Error codes for delegation RPC responses.
+const (
+	codeGatekeeperDeny = -32001
+	codeCancelled      = -32002
+)
+
+func mapSpawnError(err error) *ipc.Error {
+	switch {
+	case errors.Is(err, delegation.ErrAgentNotFound), errors.Is(err, delegation.ErrRecursionLimit), errors.Is(err, delegation.ErrBudgetExceeded):
+		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	case errors.Is(err, delegation.ErrGatedDeny):
+		return &ipc.Error{Code: codeGatekeeperDeny, Message: err.Error()}
+	case errors.Is(err, context.Canceled):
+		return &ipc.Error{Code: codeCancelled, Message: err.Error()}
+	default:
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
 }
 
 // registerDelegationMethods registers delegation RPC methods.
@@ -48,13 +68,13 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		result, err := subs.Delegation.Spawn(ctx, req)
 		if err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+			return nil, mapSpawnError(err)
 		}
 		return result, nil
 	})
 
 	srv.Register("delegate.list_agents", func(_ context.Context, _ json.RawMessage) (any, error) {
-		cfg := delegation.DefaultConfig()
+		cfg := subs.Delegation.Config()
 		agents := make([]map[string]any, len(cfg.Agents))
 		for i := range cfg.Agents { //nolint:gocritic
 			a := cfg.Agents[i]
