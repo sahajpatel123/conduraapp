@@ -1095,3 +1095,99 @@ Next.js 16 (App Router, all routes static-prerendered) + React 19 + Tailwind v4 
 ### Next steps
 1. Deploy and point synaptic.app.
 2. Consider sound-off haptic flicker on the contact moment, branded 404.
+
+---
+
+## Session 15 — Phase 8: User-Adaptive Engine + MCP Gateway
+
+**Date:** 2026-06-11
+**AI Model:** deepseek-v4-pro (opencode)
+**Task:** Implement the User-Adaptive Engine (crown jewel) and MCP Gateway.
+
+### What was built
+- `internal/adaptive/` — UserModel with encrypted persistence, Observer (user-initiated only), Dialectic (proposer+critic+adjudicator), Predictor with session injection, Visibility/Reset
+- `internal/skills/` — agentskills.io-compatible skill system with SQLite store
+- `internal/mcp/` — MCP Gateway: JSON-RPC client, GatedClient with Gatekeeper enforcement, Manager, prefix registry (mcp__server__tool)
+
+### Key decisions
+- Engine was inert at first commit — tests passed but ParseProposals was a stub, Dialectic.Analyze never called, Predictor returned "". Same false-green pattern as Phase 7.
+- Fixed with forcing E2E tests: Engine.Run() wired into PostSessionExtractor, Predictor.Predict returns real context, decay (ForgetAfterDays) implemented, critic model + SpendMonitor wired.
+- MCP: every tool call through Gatekeeper (same invariant as computer-use).
+
+### Test results
+- 42/42 packages pass with -race, lint clean (after wiring fix).
+- Forcing E2E: Engine_LearnsAndPredicts, Engine_Decay, Engine_PendingConfirmations.
+
+### Deferred
+- maybeCreateSkill — requires session-similarity clustering (deferred to Phase 11).
+- Skill auto-creation — placeholder until adaptive engine provides the substrate.
+
+---
+
+## Session 16 — Phase 9: The Armor (Safety Layer)
+
+**Date:** 2026-06-11
+**AI Model:** deepseek-v4-pro (opencode)
+**Task:** Replace DenyBeyondRead stub with real Policy Engine + consent runtime + sanitizers + anomaly detector + autonomy matrix.
+
+### What was built
+- `internal/gatekeeper/` — Policy (YAML rules + go:embed defaults), Engine (terminal interface + consent runtime), Decision enum expanded, fail-closed flip (all 8 call sites != Allow)
+- `internal/sanitize/` — 5 sanitizers: Shell (binary allowlist), Path (no ..), URL/SSRF (RFC1918), PII (Luhn+SSN), PythonImport (banned imports)
+- `internal/anomaly/` — async graduated detector (rate/duration→pause, loop/failures→halt)
+- `internal/autonomy/` — autonomy matrix with DESTRUCTIVE carve-out
+- `internal/blastradius/` — enriched Action with 6 payload fields (TargetApp, TargetURL, Path, Command, Body)
+- `internal/daemon/` — safety wiring (buildSafetyLayer), consent RPCs, anomaly at CU choke point
+
+### Key decisions
+- Two-layer authorization: pure Policy (stateless, testable) + terminal Engine (drives consent, blocks on ctx+halt). Rich verdicts stay internal; interface unchanged.
+- Consent provider = SSE→RPC seam (rpcConsentProvider), not osascript. GUI displays modal via SSE.
+- Fail-closed everywhere: unknown actions → DESTRUCTIVE, unmatched rules → default-deny, no consent provider → deny.
+- Runtime bugs caught and fixed: ConsentTicket.Result channel nil (deadlock), rpcConsentProvider no SSE publish, SanitizeHook nil. All three found by code review, not tests.
+- E2E tests initially used bare NewEngine (bypassing SanitizeHook+AnomalyHook). Fixed to drive real buildSafetyLayer().
+
+### Test results
+- 48/48 packages pass with -race, lint clean.
+- 22 sanitize unit tests, 4 anomaly tests, 3 autonomy tests, 5 forcing E2E (chat passes, shell sanitizer catches pipe, chat doesn't halt, write blocked, halt blocks).
+
+### Deferred to Phase 12
+- Kill-switch Layer 3 (network isolation — needs root).
+- Threat model doc (docs/threat-model.md).
+
+---
+
+## Session 17 — Phase 10: The Conductor (Delegation Bus)
+
+**Date:** 2026-06-11
+**AI Model:** deepseek-v4-pro (opencode)
+**Task:** Build the gated sub-agent delegation bus — leaves-only architecture for v0.1.0.
+
+### What was built
+- `internal/delegation/` — Config-driven agents (one AgentConfig type), unexported runner (structural enforcement), GatedRunner (sole spawn path through Engine.Evaluate), Limiter (atomic CheckSpawn with depth+budget), SemaphoreManager (per-agent 4 + global 5)
+- `internal/daemon/` — delegation wiring (buildDelegationBus), RPCs (delegate.spawn/list_agents/cancel), forcing E2E against real buildSafetyLayer Engine
+- ConsentTicket extended with Actor+Detail for delegation modal context
+
+### Key decisions
+- Leaves-only (Option A): sub-agents return output, zero direct FS/network/terminal access. Physical actions are structured requests the daemon gates and executes.
+- Unexported runner — only GatedRunner can spawn. Compile-time enforcement.
+- delegation.spawn classified NETWORK. Policy: known agents (claude, ollama) → require_consent; unknown → deny.
+- Per-agent budget caps + global SpendMonitor.Allow() — Limiter wraps both.
+- SpendMonitor zero-value has nil nowFn → panic. Limiter now skips global check when spendMon is nil.
+
+### Critical fixes (same false-green pattern as Phase 7/8)
+- E2E tests initially used allowGate/denyGate stubs — proved nothing against real Engine.
+- delegation.spawn was unclassified → fell to DESTRUCTIVE default → blocked at runtime.
+- Fixed: rewrote E2E against real buildSafetyLayer(), added delegation spawn policy rules.
+
+### Test results
+- 48/48 packages pass with -race, lint clean.
+- 14 delegation tests: config, semaphore, limiter, gated runner, forcing E2E against real Engine.
+- Structural test: un-gated path unreachable (compile-time).
+
+### Deferred to 10C / v0.2.0
+- Remaining 6 CLI agents (Codex, Antigravity, OpenCode, Kilo, Hermes, Gemini).
+- CE-MCP (token reduction — unmeasured, defer until data exists).
+- Peer/sidecar protocol (Option B) and capability tokens.
+- Bidirectional NL-output gating.
+
+### Next steps
+- Phase 11: Trust & Recovery (Action Replay, auto-backup, uninstall, maybeCreateSkill).
