@@ -144,6 +144,7 @@ linters:
       - internal/tray
       - internal/tui
       - internal/sync
+      - internal/onboarding
       - cmd/synaptic-tui
       - app/web/frontend/node_modules
       - app/web/frontend/src
