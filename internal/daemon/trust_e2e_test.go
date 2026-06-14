@@ -132,6 +132,11 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	cleanup := func() {
 		_ = httpSrv.Close()
 		_ = subs.Close()
+		// On Windows, SQLite file handles may not be fully
+		// released immediately after Close(). A small sleep
+		// gives the OS time to release them before t.TempDir()
+		// cleanup tries to remove the directory.
+		time.Sleep(100 * time.Millisecond)
 	}
 	return addr, subs, cleanup
 }

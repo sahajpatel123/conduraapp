@@ -135,10 +135,10 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		os.Remove(dbPath + "-shm") //nolint:errcheck
 		// Also clean up WAL/SHM for memory.db and skills.db.
 		dataDir := filepath.Dir(dbPath)
-		os.Remove(filepath.Join(dataDir, "memory.db-wal"))  //nolint:errcheck
-		os.Remove(filepath.Join(dataDir, "memory.db-shm"))  //nolint:errcheck
-		os.Remove(filepath.Join(dataDir, "skills.db-wal"))  //nolint:errcheck
-		os.Remove(filepath.Join(dataDir, "skills.db-shm"))  //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "memory.db-wal")) //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "memory.db-shm")) //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "skills.db-wal")) //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "skills.db-shm")) //nolint:errcheck
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
 			DataDir:              subs.GeneralDataDir(),
