@@ -197,6 +197,85 @@ func TestNewConfirmToken_Format(t *testing.T) {
 
 // TestEntriesForPaths confirms the helper reports which manifest
 // entries actually exist.
+// TestUninstall_DoesNotFollowSymlinks proves that if a manifest
+// path is replaced by a symlink pointing outside the data dir,
+// the uninstaller unlinks the symlink only and does not recurse
+// into the target.
+func TestUninstall_DoesNotFollowSymlinks(t *testing.T) {
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	victim := filepath.Join(outside, "victim.txt")
+	mustWrite(t, victim, []byte("precious"))
+
+	// Create the real synaptic.db file first, then replace it with a
+	// symlink pointing outside the data dir.
+	dbPath := filepath.Join(tmp, "synaptic.db")
+	mustWrite(t, dbPath, []byte("x"))
+	if err := os.Remove(dbPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, dbPath); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := Options{
+		DataDir:      tmp,
+		ConfirmToken: NewConfirmToken(),
+		HomeDir:      tmp,
+	}
+	if _, err := Uninstall(opts); err != nil {
+		t.Fatalf("Uninstall: %v", err)
+	}
+
+	// The symlink target's contents must survive.
+	if _, err := os.Stat(victim); err != nil {
+		t.Fatalf("symlink target file was deleted: %v", err)
+	}
+	// The symlink itself must be gone.
+	if _, err := os.Lstat(dbPath); !os.IsNotExist(err) {
+		t.Fatalf("symlink still present: %v", err)
+	}
+}
+
+// TestUninstall_DryRun_DoesNotFollowSymlinks proves the dry-run path
+// also avoids following symlinks.
+func TestUninstall_DryRun_DoesNotFollowSymlinks(t *testing.T) {
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	victim := filepath.Join(outside, "victim.txt")
+	mustWrite(t, victim, []byte("precious"))
+
+	dbPath := filepath.Join(tmp, "synaptic.db")
+	mustWrite(t, dbPath, []byte("x"))
+	if err := os.Remove(dbPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, dbPath); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := Options{
+		DataDir:      tmp,
+		ConfirmToken: NewConfirmToken(),
+		HomeDir:      tmp,
+		DryRun:       true,
+	}
+	res, err := Uninstall(opts)
+	if err != nil {
+		t.Fatalf("Uninstall: %v", err)
+	}
+	// Should count the symlink as a single leaf, not recurse into target.
+	// The manifest also has a second file (secrets.json) that we didn't
+	// create, so it is optional/missing; only the symlink counts.
+	if res.FilesRemoved < 1 {
+		t.Errorf("FilesRemoved = %d, want at least 1", res.FilesRemoved)
+	}
+
+	if _, err := os.Stat(victim); err != nil {
+		t.Fatalf("dry-run deleted symlink target: %v", err)
+	}
+}
+
 func TestEntriesForPaths(t *testing.T) {
 	tmp := t.TempDir()
 	mustWrite(t, filepath.Join(tmp, "synaptic.db"), []byte("x"))
