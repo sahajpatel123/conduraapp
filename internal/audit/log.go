@@ -418,49 +418,37 @@ func (l *Log) lastHMAC(ctx context.Context) (string, error) {
 // of e, using the log's secret. The hmac column itself is excluded
 // from the payload.
 func (l *Log) computeHMAC(e Event) string {
-	// Canonical payload: pipe-separated, stable field order. The format
-	// is internal — callers must never parse this. We only need it to be
-	// deterministic and to cover every field that contributes to identity.
+	// Canonical payload: length-prefixed fields in a stable order. The
+	// format is internal — callers must never parse this. Length-prefixing
+	// prevents attacker-controlled '|' characters in fields from acting as
+	// ambiguous delimiters, which would weaken the tamper-evidence
+	// guarantee.
 	var sb strings.Builder
-	sb.WriteString(strconv.FormatInt(e.ID, 10))
-	sb.WriteByte('|')
-	sb.WriteString(e.TS.UTC().Format(time.RFC3339Nano))
-	sb.WriteByte('|')
-	sb.WriteString(e.Actor)
-	sb.WriteByte('|')
-	sb.WriteString(e.Action)
-	sb.WriteByte('|')
-	sb.WriteString(e.App)
-	sb.WriteByte('|')
-	sb.WriteString(e.Level)
-	sb.WriteByte('|')
-	sb.WriteString(e.Result)
-	sb.WriteByte('|')
-	sb.WriteString(e.Message)
-	sb.WriteByte('|')
-	sb.WriteString(e.Kind)
-	sb.WriteByte('|')
-	sb.WriteString(e.BlastClass)
-	sb.WriteByte('|')
-	sb.WriteString(e.Verdict)
-	sb.WriteByte('|')
-	sb.WriteString(e.TargetApp)
-	sb.WriteByte('|')
-	sb.WriteString(e.TargetURL)
-	sb.WriteByte('|')
-	sb.WriteString(e.Path)
-	sb.WriteByte('|')
-	sb.WriteString(e.Command)
-	sb.WriteByte('|')
-	sb.WriteString(e.ConsentResult)
-	sb.WriteByte('|')
-	sb.WriteString(e.SSBeforeRef)
-	sb.WriteByte('|')
-	sb.WriteString(e.SSAfterRef)
-	sb.WriteByte('|')
-	sb.WriteString(e.SessionID)
-	sb.WriteByte('|')
-	sb.WriteString(e.prevHash)
+	writeField := func(s string) {
+		sb.WriteString(strconv.Itoa(len(s)))
+		sb.WriteByte(':')
+		sb.WriteString(s)
+	}
+	writeField(strconv.FormatInt(e.ID, 10))
+	writeField(e.TS.UTC().Format(time.RFC3339Nano))
+	writeField(e.Actor)
+	writeField(e.Action)
+	writeField(e.App)
+	writeField(e.Level)
+	writeField(e.Result)
+	writeField(e.Message)
+	writeField(e.Kind)
+	writeField(e.BlastClass)
+	writeField(e.Verdict)
+	writeField(e.TargetApp)
+	writeField(e.TargetURL)
+	writeField(e.Path)
+	writeField(e.Command)
+	writeField(e.ConsentResult)
+	writeField(e.SSBeforeRef)
+	writeField(e.SSAfterRef)
+	writeField(e.SessionID)
+	writeField(e.prevHash)
 
 	mac := hmac.New(sha256.New, l.secret)
 	if _, err := mac.Write([]byte(sb.String())); err != nil {
