@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
@@ -42,7 +43,7 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 		}
 		frame, err := subs.Replay.FrameByID(ctx, p.ID)
 		if err != nil {
-			if err == replay.ErrFrameNotFound {
+			if errors.Is(err, replay.ErrFrameNotFound) {
 				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "no frame with that id"}
 			}
 			return nil, err

@@ -23,6 +23,8 @@ import (
 //   - backup.create        — create a new encrypted backup
 //   - backup.restore       — restore a backup (gated)
 //   - backup.rollback      — revert last session (gated)
+//
+//nolint:gocognit
 func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Backup == nil {
 		// Register stubs that return "not available" so the

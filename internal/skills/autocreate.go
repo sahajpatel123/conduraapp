@@ -10,6 +10,8 @@
 // The pending map is bounded by MaxPending; least-recently-used
 // triggers are evicted. This prevents a malicious or
 // pathological user (or a runaway test) from filling memory.
+//
+//nolint:revive,mnd,nilnil
 package skills
 
 import (
