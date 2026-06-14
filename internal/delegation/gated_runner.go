@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"sync"
@@ -318,26 +319,36 @@ func (g *GatedRunner) Cancel(spawnID string) bool {
 }
 
 // ActionRequests extracts structured action requests from a result.
-// The daemon gates each one before execution.
+// The daemon gates each one before execution. Handles both single-line
+// and pretty-printed/multi-line JSON objects in the output.
 func (g *GatedRunner) ActionRequests(result *SpawnResult) []ActionRequest {
 	if result == nil || result.Output == "" {
 		return nil
 	}
 	var requests []ActionRequest
-	// Stream-JSON: each line is a JSON object. Parse for action requests.
-	for _, line := range strings.Split(result.Output, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || !strings.HasPrefix(line, "{") {
-			continue
+	data := result.Output
+	for len(data) > 0 {
+		i := strings.IndexByte(data, '{')
+		if i < 0 {
+			break
 		}
+		data = data[i:]
+		dec := json.NewDecoder(strings.NewReader(data))
 		var ar ActionRequest
-		if err := json.Unmarshal([]byte(line), &ar); err != nil {
+		if err := dec.Decode(&ar); err != nil {
+			if err == io.EOF {
+				break
+			}
+			// Not a valid object starting here; advance one byte and
+			// look for the next '{'.
+			data = data[1:]
 			continue
 		}
 		if ar.Kind != "" {
 			ar.AgentName = result.AgentName
 			requests = append(requests, ar)
 		}
+		data = data[dec.InputOffset():]
 	}
 	return requests
 }
