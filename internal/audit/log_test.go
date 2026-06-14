@@ -234,6 +234,36 @@ func TestLog_StructuredFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestLog_HMAC_LengthPrefixing prevents delimiter collisions: two
+// different events whose concatenated fields differ only in where the
+// boundary lies must produce different HMACs.
+func TestLog_HMAC_LengthPrefixing(t *testing.T) {
+	l := setupTestLog(t)
+	ctx := context.Background()
+	// These two events would collide under a naive pipe-separated
+	// canonicalization because "a|b" + "c" vs "a" + "b|c" serialize
+	// identically. Length-prefixing must distinguish them.
+	e1 := Event{Actor: "a|b", Action: "c", App: "x"}
+	e2 := Event{Actor: "a", Action: "b|c", App: "x"}
+	if err := l.Append(ctx, e1); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Append(ctx, e2); err != nil {
+		t.Fatal(err)
+	}
+	e1Stored, err := l.GetByID(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e2Stored, err := l.GetByID(ctx, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e1Stored.hmac == e2Stored.hmac {
+		t.Fatal("length-prefixing failed: HMACs collide for delimiter-shifted fields")
+	}
+}
+
 // TestLog_AppendRequiresActorAndAction guards against the silent
 // "Actor=” Action=”" footgun that the old code allowed.
 func TestLog_AppendRequiresActorAndAction(t *testing.T) {
