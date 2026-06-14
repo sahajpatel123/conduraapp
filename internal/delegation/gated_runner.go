@@ -42,6 +42,13 @@ func (r *runner) start(ctx context.Context, req *SpawnRequest) error {
 	if err != nil {
 		return fmt.Errorf("delegation: stdout: %w", err)
 	}
+	// If start fails before cmd.Start(), close the read end so we don't
+	// leak the pipe fd. Once the process has started it owns the pipe.
+	defer func() {
+		if r.cmd != nil && r.cmd.Process == nil {
+			_ = stdoutPipe.Close()
+		}
+	}()
 	r.stdin = bufio.NewWriter(stdinPipe)
 	r.stdout = bufio.NewReader(stdoutPipe)
 	// Write the task to stdin.
