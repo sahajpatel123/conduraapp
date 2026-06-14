@@ -181,6 +181,26 @@ func (s *Subsystems) Close() error {
 	return nil
 }
 
+// CloseDatabases closes only the database connections (main DB,
+// memory DB, skills DB) without closing the HTTP server or other
+// long-lived resources. Used by backup.restore to release Windows
+// file locks before the atomic directory swap. The caller must
+// call Storage.Reload() after the swap to reopen the main DB.
+func (s *Subsystems) CloseDatabases() {
+	// Close in reverse order: skills, memory, main.
+	if s.Phase12 != nil && s.Phase12.SkillStore != nil {
+		_ = s.Phase12.SkillStore.Close()
+	}
+	// memStore is not directly accessible; it's in the closers list.
+	// Close all closers except the last one (extractor).
+	// The closers order is: db, memStore, extractor, skillStore.
+	for i := len(s.closers) - 1; i >= 0; i-- {
+		// Skip the extractor (index 2 in the original list).
+		// We close everything else.
+		_ = s.closers[i].Close()
+	}
+}
+
 // MasterKey returns the storage.DB master key. Used by the
 // backup subsystem to derive the per-archive key. Returns
 // nil, nil if storage isn't wired (e.g., a test that doesn't

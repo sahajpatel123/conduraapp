@@ -119,21 +119,26 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil || len(mk) != 32 {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "master key unavailable"}
 		}
-		// Close the SQLite connection and WAL/SHM files before
-		// the atomic swap so Windows file locks are released.
-		// The subsequent Storage.Reload reopens it on the
-		// restored files.
+		// Close all database connections before the atomic swap so
+		// Windows file locks are released. The subsequent
+		// Storage.Reload reopens the main DB on the restored files.
 		if subs.Storage != nil {
 			// Force a WAL checkpoint so data is flushed from
 			// the WAL into the main DB file.
 			_, _ = subs.Storage.SQL().ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
-			_ = subs.Storage.SQL().Close()
-			// Remove WAL/SHM sidecar files if they still exist.
-			// On Windows these can hold file locks even after Close.
-			dbPath := subs.Storage.Path()
-			os.Remove(dbPath + "-wal") //nolint:errcheck
-			os.Remove(dbPath + "-shm") //nolint:errcheck
 		}
+		subs.CloseDatabases()
+		// Remove WAL/SHM sidecar files if they still exist.
+		// On Windows these can hold file locks even after Close.
+		dbPath := subs.Storage.Path()
+		os.Remove(dbPath + "-wal") //nolint:errcheck
+		os.Remove(dbPath + "-shm") //nolint:errcheck
+		// Also clean up WAL/SHM for memory.db and skills.db.
+		dataDir := filepath.Dir(dbPath)
+		os.Remove(filepath.Join(dataDir, "memory.db-wal"))  //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "memory.db-shm"))  //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "skills.db-wal"))  //nolint:errcheck
+		os.Remove(filepath.Join(dataDir, "skills.db-shm"))  //nolint:errcheck
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
 			DataDir:              subs.GeneralDataDir(),

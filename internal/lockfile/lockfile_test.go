@@ -95,7 +95,9 @@ func TestTryAcquire_NilSafe(t *testing.T) {
 }
 
 func TestIsInstalled_NotInstalled(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir) // Windows
 	if IsInstalled() {
 		t.Fatal("should not be installed on fresh temp dir")
 	}
@@ -112,12 +114,15 @@ func TestMarkInstalled_ThenIsInstalled(t *testing.T) {
 }
 
 func TestInstalledMarkerPath(t *testing.T) {
-	t.Setenv("HOME", "/tmp/test-home")
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir) // Windows
 	path, err := InstalledMarkerPath()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/tmp/test-home/.synaptic/installed" {
-		t.Errorf("path = %q", path)
+	expected := filepath.Join(dir, ".synaptic", "installed")
+	if path != expected {
+		t.Errorf("path = %q, want %q", path, expected)
 	}
 }
