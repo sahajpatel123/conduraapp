@@ -538,8 +538,8 @@ func TestReload_RefreshesOnDiskContents(t *testing.T) {
 	require.NoError(t, db.SQL().Close())
 	// Remove stale WAL/SHM files left by the original DB.
 	// These are best-effort cleanup; ignore errors (file may not exist).
-	os.Remove(path + "-wal")  //nolint:errcheck
-	os.Remove(path + "-shm")  //nolint:errcheck
+	os.Remove(path + "-wal") //nolint:errcheck
+	os.Remove(path + "-shm") //nolint:errcheck
 	// Atomic move: rename sibling onto path. (This is what
 	// the backup package's atomicSwap does at a directory
 	// level; at a file level the same effect.)

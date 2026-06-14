@@ -214,3 +214,9 @@ func (s *Scheduler) Rotate() error {
 	}
 	return nil
 }
+
+// Cfg returns the scheduler's resolved configuration (with
+// defaults applied). Callers can read this to log the actual
+// cadence and backup dir after NewScheduler has filled in
+// any missing fields.
+func (s *Scheduler) Cfg() SchedulerConfig { return s.cfg }
