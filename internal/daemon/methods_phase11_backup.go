@@ -24,7 +24,7 @@ import (
 //   - backup.restore       — restore a backup (gated)
 //   - backup.rollback      — revert last session (gated)
 //
-//nolint:gocognit
+//nolint:gocognit,gocyclo
 func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Backup == nil {
 		// Register stubs that return "not available" so the

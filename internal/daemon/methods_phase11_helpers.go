@@ -66,6 +66,5 @@ func buildAuditEvent(action, app, result, message string) audit.Event {
 	}
 }
 
-// jsonRaw returns params unchanged. Convenience for inline
-// call sites that need to forward params.
-func jsonRaw(params json.RawMessage) json.RawMessage { return params }
+// jsonRaw returns params unchanged.
+func jsonRaw(params json.RawMessage) json.RawMessage { return params } //nolint:unused
