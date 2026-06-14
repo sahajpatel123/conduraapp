@@ -989,11 +989,13 @@ func buildBackupScheduler(bm *backup.Manager, log *slog.Logger) *backup.Schedule
 	// interval, 7 archives retained. If cfg.Backup.IntervalHours
 	// is set, we honor it; otherwise the DefaultSchedulerConfig
 	// value (24h) applies.
+	// Note: NewScheduler fills cfg.BackupDir from the manager's
+	// data dir if it's empty, so we log AFTER construction.
 	s := backup.NewScheduler(cfg, bm, log)
 	log.Info("auto-backup scheduler ready",
 		"interval", cfg.Interval,
 		"keep_n", cfg.KeepN,
-		"backup_dir", cfg.BackupDir,
+		"backup_dir", s.Cfg().BackupDir,
 	)
 	return s
 }

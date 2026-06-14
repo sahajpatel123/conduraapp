@@ -118,6 +118,12 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil || len(mk) != 32 {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "master key unavailable"}
 		}
+		// Close the SQLite connection before the atomic swap so
+		// Windows file locks are released. The subsequent
+		// Storage.Reload reopens it on the restored files.
+		if subs.Storage != nil {
+			_ = subs.Storage.SQL().Close()
+		}
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
 			DataDir:              subs.GeneralDataDir(),

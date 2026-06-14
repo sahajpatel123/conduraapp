@@ -537,8 +537,9 @@ func TestReload_RefreshesOnDiskContents(t *testing.T) {
 	// struct alive so we can call Reload on it).
 	require.NoError(t, db.SQL().Close())
 	// Remove stale WAL/SHM files left by the original DB.
-	os.Remove(path + "-wal")
-	os.Remove(path + "-shm")
+	// These are best-effort cleanup; ignore errors (file may not exist).
+	os.Remove(path + "-wal")  //nolint:errcheck
+	os.Remove(path + "-shm")  //nolint:errcheck
 	// Atomic move: rename sibling onto path. (This is what
 	// the backup package's atomicSwap does at a directory
 	// level; at a file level the same effect.)
