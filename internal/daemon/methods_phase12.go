@@ -41,6 +41,7 @@ func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
 	})
 
 	// i18n.locale: return all translations for a locale.
+	// Returns raw format strings (with {0} placeholders for the frontend).
 	srv.Register("i18n.locale", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Locale string `json:"locale"`
@@ -54,11 +55,9 @@ func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
 		if p12.Catalog == nil {
 			return map[string]any{"locale": p.Locale, "translations": map[string]string{}}, nil
 		}
-		keys := p12.Catalog.Keys(p.Locale)
-		translations := make(map[string]string, len(keys))
-		for _, k := range keys {
-			translations[k] = p12.Catalog.T(p.Locale, k)
-		}
+		// Return raw format strings from the locale files.
+		// The frontend's t() function handles {0} placeholder replacement.
+		translations := p12.Catalog.RawTranslations(p.Locale)
 		return map[string]any{"locale": p.Locale, "translations": translations}, nil
 	})
 }

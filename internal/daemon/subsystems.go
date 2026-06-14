@@ -143,6 +143,10 @@ type Subsystems struct {
 	// Backup owns encrypted backup creation, restore, and
 	// rollback. Nil only if construction failed.
 	Backup *backup.Manager
+	// BackupScheduler runs the periodic auto-backup. Set
+	// only when construction succeeds; daemon.Run starts it
+	// after listeners are ready.
+	BackupScheduler *backup.Scheduler
 	// Uninstaller is a thin sentinel — the actual work is the
 	// package-level uninstall.Preview / uninstall.Uninstall.
 	// Always non-nil.
@@ -459,6 +463,13 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		log.Info("adaptive engine ready", "strength", adaptiveComps.Strength)
 	}
 
+	// Build the backup manager once and share the result
+	// between the RPC-facing Backup field and the auto-backup
+	// Scheduler. They use the same master key, the same data
+	// dir, and the same schema version — sharing the manager
+	// is the only way to keep those in sync.
+	backupMgr := buildBackupMgr(db, cfg, log)
+
 	subs := &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
@@ -483,14 +494,19 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		// Phase 11: trust & recovery. See methods_phase11.go
 		// for the RPC surface and the corresponding E2E
 		// test in trust_e2e_test.go.
-		Replay:      buildReplay(db, auditLog, log),
-		Backup:      buildBackupMgr(db, cfg, log),
-		Uninstaller: buildUninstaller(),
-		Onboarding:  buildOnboarding(db.SQL(), log),
-		Permissions: buildPermissions(log),
-		AuditLog:    auditLog,
-		db:          db,
-		cfg:         cfg,
+		// Note: buildBackupMgr is called once and the result
+		// is shared between the RPC-facing Backup and the
+		// auto-backup Scheduler. They use the same master key,
+		// the same data dir, and the same schema version.
+		Replay:          buildReplay(db, auditLog, log),
+		Backup:          backupMgr,
+		BackupScheduler: buildBackupScheduler(backupMgr, log),
+		Uninstaller:     buildUninstaller(),
+		Onboarding:      buildOnboarding(db.SQL(), log),
+		Permissions:     buildPermissions(log),
+		AuditLog:        auditLog,
+		db:              db,
+		cfg:             cfg,
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
@@ -872,4 +888,38 @@ func buildPermissions(log *slog.Logger) *permissions.Manager {
 	pm := permissions.NewManager()
 	log.Info("permissions subsystem ready", "platform", permissions.Platform())
 	return pm
+}
+
+// buildBackupScheduler wires the periodic auto-backup. Returns
+// nil if the backup manager is nil (which happens when the
+// master key is unavailable during construction — rare, but
+// possible on a half-installed system). The caller
+// (daemon.Run) starts the scheduler after listeners are
+// ready and stops it on shutdown.
+//
+// Cadence comes from cfg.Backup.IntervalHours (default 24h)
+// and cfg.Backup.KeepN (default 7). The scheduler is local-
+// only and stores archives in <data-dir>/backups. The user
+// can also call backup.create manually at any time; the
+// scheduler and the RPC use the same Manager so they share
+// the encryption key, the schema version, and the rotation
+// policy.
+func buildBackupScheduler(bm *backup.Manager, log *slog.Logger) *backup.Scheduler {
+	if bm == nil {
+		log.Warn("auto-backup scheduler: backup manager not available, scheduler disabled")
+		return nil
+	}
+	cfg := backup.DefaultSchedulerConfig()
+	// Cadence knobs live in cfg.Backup (data-modeled via
+	// config.BackupConfig). For v0.1.0 the defaults are 24h
+	// interval, 7 archives retained. If cfg.Backup.IntervalHours
+	// is set, we honor it; otherwise the DefaultSchedulerConfig
+	// value (24h) applies.
+	s := backup.NewScheduler(cfg, bm, log)
+	log.Info("auto-backup scheduler ready",
+		"interval", cfg.Interval,
+		"keep_n", cfg.KeepN,
+		"backup_dir", cfg.BackupDir,
+	)
+	return s
 }

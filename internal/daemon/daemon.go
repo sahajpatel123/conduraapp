@@ -150,6 +150,15 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		log.Info("ipc listening", "addr", subs.IPCAddr, "sse_enabled", true)
 	}
 
+	// Start the auto-backup scheduler if it was constructed.
+	// Best-effort: failure to start the scheduler does not
+	// prevent the daemon from running. The user can still
+	// call backup.create manually via RPC.
+	if subs.BackupScheduler != nil {
+		go subs.BackupScheduler.Run(ctx)
+		log.Info("auto-backup scheduler started")
+	}
+
 	// Release the lock when ctx is canceled.
 	go func() {
 		<-ctx.Done()
@@ -159,6 +168,14 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	<-ctx.Done()
 	log.Info("synapticd stopped")
+
+	// Stop the auto-backup scheduler. The Scheduler.Run
+	// goroutine watches ctx and exits on cancel, but calling
+	// Stop explicitly is idempotent and lets us log the
+	// transition cleanly.
+	if subs.BackupScheduler != nil {
+		subs.BackupScheduler.Stop()
+	}
 
 	// Best-effort teardown. Close side stores first, main DB last.
 	// Force WAL checkpoint so Windows file locks are released cleanly.

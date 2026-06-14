@@ -136,6 +136,28 @@ func (c *Catalog) Keys(locale string) []string {
 	return keys
 }
 
+// RawTranslations returns the raw format strings for a locale without
+// applying fmt.Sprintf. Used by the i18n.locale RPC to return strings
+// with {0} placeholders for the frontend's t() function.
+func (c *Catalog) RawTranslations(locale string) map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	m, ok := c.locales[locale]
+	if !ok {
+		// Fall back to default locale.
+		m, ok = c.locales[c.defaults]
+		if !ok {
+			return map[string]string{}
+		}
+	}
+	// Return a copy to avoid data races.
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
 // AllKeys returns the union of all keys across all locales.
 func (c *Catalog) AllKeys() []string {
 	c.mu.RLock()

@@ -144,6 +144,42 @@ func (d *DB) Close() error {
 	return err
 }
 
+// Reload closes the current SQLite handle and reopens a fresh
+// one against the same on-disk file. Use this after a backup
+// restore (or any other operation that replaces the file
+// underneath us) so the in-memory connection pool re-reads
+// the new file's contents. The master key, encryption
+// parameters, and migration history are preserved — only
+// the *sql.DB connection is rebuilt.
+//
+// Safe to call from any goroutine; the underlying SQLite
+// driver handles the close/open sequencing.
+func (d *DB) Reload(ctx context.Context) error {
+	if d == nil {
+		return errors.New("storage: nil receiver")
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	// Close the existing handle. We don't use d.Close()
+	// because that runs closeOnce; subsequent Closes should
+	// still be no-ops. Close the *sql.DB directly.
+	if d.sql != nil {
+		_ = d.sql.Close()
+	}
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", d.path)
+	sdb, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return fmt.Errorf("storage: reopen sqlite: %w", err)
+	}
+	sdb.SetMaxOpenConns(1)
+	if err := sdb.PingContext(ctx); err != nil {
+		_ = sdb.Close()
+		return fmt.Errorf("storage: ping after reload: %w", err)
+	}
+	d.sql = sdb
+	return nil
+}
+
 // Path returns the on-disk path of the database.
 func (d *DB) Path() string { return d.path }
 
