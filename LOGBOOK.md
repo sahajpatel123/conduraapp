@@ -1697,3 +1697,90 @@ The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The
 4. Phase 11 final retro per STYLE.md. Then Phase 12.
 
 ---
+
+## Session — Phase 12: CI Green Fix & Windows File Locking (2026-06-14)
+
+### Starting state
+- Phase 12 (Reach & Ecosystem) features were all implemented
+  across 12B (i18n), 12A (TUI), 12C (Hub), 12D (P2P), 12E (Wiring/E2E)
+- CI had ~15 failures across macOS, Ubuntu, and Windows
+- Tier 3 runtime verification showed RPCs working correctly
+
+### What happened
+Fixed every CI failure through a systematic, iterative approach:
+
+1. **i18n.locale RPC fix**: Added `RawTranslations()` method to
+   `i18n.Catalog` — frontend uses `{0}` format, Go uses `%s`.
+
+2. **Build errors**: Fixed duplicate `BackupScheduler` field in
+   `Subsystems`, syntax error in composite literal, `gatekeeper.Decision`
+   is `int` not `string`.
+
+3. **Windows file locking (db closer)**: Registered `storage.DB` in
+   `subs.closers` so SQLite connections are closed on shutdown.
+
+4. **Cross-platform paths**: Changed hardcoded `"/"` concatenation to
+   `filepath.Join` in `backupDir` and `listBackupArchives`.
+
+5. **TestReload flaky**: Added WAL `TRUNCATE` checkpoint + stale
+   WAL/SHM file cleanup + `os.Rename` atomic swap.
+
+6. **GatekeeperAllow real engine routing**: Replaced `return true`
+   shortcut with real `Safety.Engine.Evaluate` + audit logging.
+
+7. **Consent hang in tests**: Added `installPermissivePolicy()` helper
+   that loads a catch-all allow rule via `gatekeeper.LoadPolicy`.
+
+8. **Backup scheduler wiring**: Added `BackupScheduler` to `Subsystems`,
+   `buildBackupScheduler()` function, `Cfg()` on `backup.Scheduler`,
+   lifecycle in `daemon.Run()`.
+
+9. **Backup restore Windows fix**: Close all databases via
+   `CloseDatabases()`, force WAL checkpoint, remove WAL/SHM for all DBs
+   before `atomicSwap`; `Storage.Reload()` after.
+
+10. **Lockfile tests Windows**: Set `USERPROFILE` env, use `t.TempDir()`
+    + `filepath.Join` instead of hardcoded `/tmp` paths.
+
+### Root cause of the persistent Windows failure
+`storage.DB.Close()` used `sync.Once`. After `Reload()` opened a new
+`*sql.DB` handle, subsequent `Close()` calls were no-ops — the file
+handle was never released. Fixed by switching to mutex-based nil check
+so `Close()` works correctly after `Reload()`.
+
+### Final fix
+Changed `Close()` from `closeOnce.Do` to `mu.Lock()` + nil check on
+`d.sql`. Changed `Reload()` to recreate `closing` channel. Simplified
+test cleanup to basic `httpSrv.Close()` + `subs.Close()`.
+
+### Commits pushed (11 total on 2026-06-14)
+1. `3255f60` — fix: i18n.locale RPC returns raw format strings
+2. `f1c5fc1` — fix: Windows CI + GatekeeperAllow real engine
+3. `a691813` — fix: close DB before backup restore atomic swap
+4. `72db23d` — fix: add missing Cfg() method
+5. `6790372` — fix: force WAL checkpoint + remove WAL/SHM
+6. `6f0f72d` — fix: lint errcheck in backup restore handler
+7. `0202cdb` — fix: gofmt formatting in backup restore handler
+8. `488c273` — fix: Windows CI — close all databases before restore
+9. `b1385f8` — fix: gofmt + cleanup delay for Windows
+10. `dc8c54a` — fix: explicitly remove SQLite files in test cleanup
+11. `2efd15f` — fix: force GC + delay in test cleanup
+12. `c1fd2ad` — fix: remove data directory in test cleanup
+13. `1e99631` — fix: storage.DB.Close handles post-Reload state
+
+### Result
+**ALL CI GREEN** across macOS (arm64, amd64), Ubuntu (arm64, amd64),
+Windows (arm64, amd64), all builds, lint, security scan, and
+integration tests.
+
+### Key decisions
+- `storage.DB.Close()` uses mutex instead of `sync.Once` to support
+  `Reload()` → `Close()` sequences (backup restore + test cleanup).
+- Test cleanup is simple: just close HTTP server and subsystems.
+- Windows file locking is a real concern — `sync.Once` on Close is
+  incompatible with `Reload()` patterns.
+
+### Open questions for next session
+- Tier 3 runtime verification against real built binary still needed
+  to complete Phase 12 per STYLE.md mandate.
+- Phase 12 completion audit and final retro per STYLE.md.
