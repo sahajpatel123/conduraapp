@@ -135,10 +135,12 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 		_ = subs.Close()
 		// On Windows, SQLite file handles may not be fully
 		// released even after Close(). Force GC to run any
-		// pending finalizers that might hold file descriptors,
-		// then wait for the OS to release the locks.
+		// pending finalizers that might hold file descriptors.
 		runtime.GC()
-		time.Sleep(200 * time.Millisecond)
+		// Explicitly remove the data directory contents so
+		// t.TempDir() cleanup doesn't fail with "file is being
+		// used by another process" on Windows.
+		_ = os.RemoveAll(dir)
 	}
 	return addr, subs, cleanup
 }
