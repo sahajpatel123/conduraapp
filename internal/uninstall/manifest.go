@@ -175,6 +175,12 @@ func NewConfirmToken() string {
 	return hex.EncodeToString(b[:])
 }
 
+// Manager is a thin sentinel that lets the daemon hold the
+// uninstall package as a Subsystem. The actual work is done by
+// the package-level Preview / Uninstall functions; this struct
+// just acts as a "subsystem present" sentinel.
+type Manager struct{}
+
 // Preview returns the list of artifacts Uninstall would remove,
 // without actually removing anything. Safe to call from the
 // GUI to populate the uninstall dialog.

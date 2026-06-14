@@ -97,6 +97,20 @@ func Check(k Kind) Status {
 	return probeOne(k).Status
 }
 
+// Manager is a thin sentinel that lets the daemon hold the
+// permissions package as a Subsystem. The actual work is done
+// by the package-level Probe / Check / RequestGuide functions.
+type Manager struct{}
+
+// NewManager returns a Manager. Always succeeds; the package
+// has no construction state.
+func NewManager() *Manager { return &Manager{} }
+
+// Platform returns the current OS identifier (e.g. "darwin",
+// "windows", "linux"). Wraps runtime.GOOS for use in RPC
+// responses and logs.
+func Platform() string { return runtime.GOOS }
+
 // Guide is a per-platform, per-kind set of steps the user
 // follows to grant the permission. macOS gets specific
 // System Settings paths; Windows gets Settings + capabilities;

@@ -32,9 +32,9 @@ const (
 var tabNames = []string{"Chat", "Conversations", "Audit", "Settings", "Health"}
 
 type providerInfo struct {
-	Name     string `json:"name"`
-	Models   string `json:"models"`
-	Enabled  bool   `json:"enabled"`
+	Name    string `json:"name"`
+	Models  string `json:"models"`
+	Enabled bool   `json:"enabled"`
 }
 
 type spendInfo struct {

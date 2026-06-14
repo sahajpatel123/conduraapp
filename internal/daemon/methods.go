@@ -68,6 +68,12 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerSafetyMethods(srv, subs)
 	registerDelegationMethods(srv, subs)
 	registerPhase12Methods(srv, subs.Phase12)
+	// Phase 11: trust & recovery.
+	registerPhase11Methods(srv, subs)
+	registerBackupMethods(srv, subs)
+	registerUninstallMethods(srv, subs)
+	registerPermissionMethods(srv, subs)
+	registerOnboardingMethods(srv, subs)
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.

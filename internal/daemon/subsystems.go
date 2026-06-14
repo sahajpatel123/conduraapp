@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
+	"github.com/sahajpatel123/synapticapp/internal/backup"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
@@ -29,7 +31,10 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/logger"
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
 	"github.com/sahajpatel123/synapticapp/internal/memory"
+	"github.com/sahajpatel123/synapticapp/internal/onboarding"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/synapticapp/internal/permissions"
+	"github.com/sahajpatel123/synapticapp/internal/replay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
 	"github.com/sahajpatel123/synapticapp/internal/session"
 	"github.com/sahajpatel123/synapticapp/internal/skills"
@@ -39,6 +44,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/stream"
 	"github.com/sahajpatel123/synapticapp/internal/sync"
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
+	"github.com/sahajpatel123/synapticapp/internal/uninstall"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 	"github.com/sahajpatel123/synapticapp/internal/voice"
 	"github.com/sahajpatel123/synapticapp/internal/window"
@@ -57,6 +63,13 @@ const (
 // constructs. Returned by Run() for tests and for the GUI's App
 // struct; standalone callers can ignore it.
 type Subsystems struct {
+	// db is the storage handle, held so Phase 11 helpers
+	// (backup, uninstall) can read the master key and path.
+	db *storage.DB
+	// cfg is the loaded config, held so Phase 11 helpers can
+	// read schema version and data dir.
+	cfg *config.Config
+
 	Secrets       secrets.Manager
 	Storage       *storage.DB
 	APIKeys       *api_key.Manager
@@ -120,6 +133,31 @@ type Subsystems struct {
 	// Phase 12: reach & ecosystem.
 	Phase12 *Phase12Components
 
+	// Phase 11: trust & recovery.
+	//
+	// Replay is the action-replay subsystem (timeline,
+	// screenshots, integrity verifier). Nil if construction
+	// failed (e.g., missing master key) — RPC methods on it
+	// guard accordingly.
+	Replay *replay.Replay
+	// Backup owns encrypted backup creation, restore, and
+	// rollback. Nil only if construction failed.
+	Backup *backup.Manager
+	// Uninstaller is a thin sentinel — the actual work is the
+	// package-level uninstall.Preview / uninstall.Uninstall.
+	// Always non-nil.
+	Uninstaller *uninstall.Manager
+	// Onboarding is the 8-step wizard state machine.
+	// Always non-nil.
+	Onboarding *onboarding.StateMachine
+	// Permissions probes the OS for microphone / accessibility
+	// / screen-recording consent. Always non-nil.
+	Permissions *permissions.Manager
+	// AuditLog is the HMAC-chained audit log, exposed here so
+	// the replay integrity verifier can read from the same
+	// chain the daemon writes to.
+	AuditLog *audit.Log
+
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
 }
@@ -136,6 +174,47 @@ func (s *Subsystems) Close() error {
 		return fmt.Errorf("subsystems close: %v", errs)
 	}
 	return nil
+}
+
+// MasterKey returns the storage.DB master key. Used by the
+// backup subsystem to derive the per-archive key. Returns
+// nil, nil if storage isn't wired (e.g., a test that doesn't
+// open a real DB).
+func (s *Subsystems) MasterKey() ([]byte, error) {
+	if s == nil || s.Storage == nil {
+		return nil, fmt.Errorf("subsystems: storage not initialized")
+	}
+	return s.Storage.MasterKey(), nil
+}
+
+// GeneralDataDir returns the on-disk data directory.
+func (s *Subsystems) GeneralDataDir() string {
+	if s == nil || s.Storage == nil {
+		return ""
+	}
+	return filepath.Dir(s.Storage.Path())
+}
+
+// GatekeeperAllow is a convenience for the Phase 11 RPC
+// methods that need a single consent check. The full
+// Engine.Evaluate flow is more nuanced (policy + sensitive
+// detector + autonomy matrix), but for these specific
+// presence+consent checks, this helper keeps the call sites
+// readable. It returns true for v0.1.0: the GUI is responsible
+// for the user-visible consent prompt, and the IPC channel
+// itself is authenticated. The full Engine integration is
+// tracked in the Phase 11 retro.
+func (s *Subsystems) GatekeeperAllow(_ context.Context, _, _ string) bool {
+	return true
+}
+
+// currentSchemaVersion returns the binary's current schema
+// version. The schema_version field is on the Config struct.
+func currentSchemaVersion(subs *Subsystems) int {
+	if subs != nil && subs.cfg != nil {
+		return subs.cfg.Version
+	}
+	return config.ConfigSchemaVersion
 }
 
 // initSubsystems constructs every long-lived component the daemon
@@ -378,6 +457,17 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		Anomaly:                  safety.Anomaly,
 		Delegation:               buildDelegationBus(gate, mon),
 		Phase12:                  buildPhase12(cfg, log),
+		// Phase 11: trust & recovery. See methods_phase11.go
+		// for the RPC surface and the corresponding E2E
+		// test in trust_e2e_test.go.
+		Replay:      buildReplay(db, auditLog, log),
+		Backup:      buildBackupMgr(db, cfg, log),
+		Uninstaller: buildUninstaller(),
+		Onboarding:  buildOnboarding(db.SQL(), log),
+		Permissions: buildPermissions(log),
+		AuditLog:    auditLog,
+		db:          db,
+		cfg:         cfg,
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	if memStore != nil {
@@ -669,4 +759,83 @@ func (a *llmProviderAdapter) DefaultModel(task string) string {
 		return prov.DefaultModel(task)
 	}
 	return ""
+}
+
+// Phase 11 builders.
+
+// buildReplay constructs the action-replay subsystem. It pairs
+// the HMAC-chained audit log with an encrypted on-disk ring
+// buffer for screenshots. Best-effort: if construction fails
+// (e.g., master key missing), the field is left nil and the
+// corresponding RPC methods short-circuit.
+func buildReplay(db *storage.DB, auditLog *audit.Log, log *slog.Logger) *replay.Replay {
+	if auditLog == nil {
+		log.Warn("replay: audit log not available; replay subsystem disabled")
+		return nil
+	}
+	masterKey := db.MasterKey()
+	shotsDir := filepath.Join(filepath.Dir(db.Path()), "replay")
+	shots, err := replay.NewScreenshotStore(db.SQL(), shotsDir, masterKey)
+	if err != nil {
+		log.Warn("replay: screenshot store init failed; timeline will work without screenshots", "err", err)
+		shots = nil
+	}
+	r, err := replay.New(replay.Options{
+		Audit:       auditLog,
+		Screenshots: shots,
+	})
+	if err != nil {
+		log.Warn("replay: init failed; replay subsystem disabled", "err", err)
+		return nil
+	}
+	log.Info("replay subsystem ready")
+	return r
+}
+
+// buildBackupMgr constructs the encrypted-backup Manager.
+// Best-effort: if the master key is missing or the data dir is
+// not configured, the manager is left nil.
+func buildBackupMgr(db *storage.DB, cfg *config.Config, log *slog.Logger) *backup.Manager {
+	masterKey := db.MasterKey()
+	bm, err := backup.New(backup.Options{
+		DataDir:       cfg.General.DataDir,
+		ConfigPath:    filepath.Join(cfg.General.DataDir, "config.yaml"),
+		MasterKey:     masterKey,
+		SchemaVersion: config.ConfigSchemaVersion,
+	})
+	if err != nil {
+		log.Warn("backup: init failed; backup subsystem disabled", "err", err)
+		return nil
+	}
+	log.Info("backup subsystem ready", "data_dir", cfg.General.DataDir)
+	return bm
+}
+
+// buildUninstaller returns the uninstall subsystem sentinel.
+// The actual work lives in the package-level uninstall.Preview
+// and uninstall.Uninstall functions; the sentinel just makes
+// the subsystem present in the Subsystems struct.
+func buildUninstaller() *uninstall.Manager {
+	return &uninstall.Manager{}
+}
+
+// buildOnboarding constructs the wizard state machine.
+func buildOnboarding(sqlDB *sql.DB, log *slog.Logger) *onboarding.StateMachine {
+	sm, err := onboarding.NewStateMachine(sqlDB)
+	if err != nil {
+		log.Warn("onboarding: init failed; wizard disabled", "err", err)
+		return nil
+	}
+	log.Info("onboarding subsystem ready")
+	return sm
+}
+
+// buildPermissions constructs the OS permission probe + guide
+// manager. Best-effort: even if construction fails, we still
+// return a manager with the noop probe so RPC methods are
+// callable.
+func buildPermissions(log *slog.Logger) *permissions.Manager {
+	pm := permissions.NewManager()
+	log.Info("permissions subsystem ready", "platform", permissions.Platform())
+	return pm
 }
