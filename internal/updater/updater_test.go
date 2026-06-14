@@ -1,9 +1,11 @@
 package updater
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -175,5 +177,69 @@ func TestSha256Sum(t *testing.T) {
 	}
 	if sum == "" {
 		t.Fatal("empty sum")
+	}
+}
+
+func TestUpdater_Apply_WritesBinary(t *testing.T) {
+	pub, priv := testKeyPair()
+
+	// Prepare binary content and compute SHA256.
+	binContent := []byte("fake-binary-v0.1.0")
+	binHash := hex.EncodeToString(func() []byte { h := sha256.Sum256(binContent); return h[:] }())
+
+	sm := SignedManifest{
+		Version:     "9.9.9",
+		Channel:     "stable",
+		DownloadURL: "",
+		SHA256:      binHash,
+		Mandatory:   false,
+	}
+	signManifest(&sm, priv)
+
+	// Serve manifest + binary.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/binary" {
+			_, _ = w.Write(binContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(sm)
+	}))
+	defer srv.Close()
+
+	sm.DownloadURL = srv.URL + "/binary"
+
+	// Re-sign with the download URL included.
+	signManifest(&sm, priv)
+
+	manifestSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(sm)
+	}))
+	defer manifestSrv.Close()
+
+	u := New(nil, manifestSrv.URL)
+	u.pubKey = pub
+	u.cacheDir = t.TempDir()
+
+	result, err := u.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !result.UpdateAvailable {
+		t.Fatal("expected update available")
+	}
+
+	_, err = u.Apply(context.Background(), result)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	// Verify the binary was written to the cache dir.
+	dst := u.cacheDir + "/synaptic-update-" + sm.Version
+	data, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("binary not written: %v", err)
+	}
+	if !bytes.Equal(data, binContent) {
+		t.Errorf("binary content mismatch: got %d bytes, want %d", len(data), len(binContent))
 	}
 }

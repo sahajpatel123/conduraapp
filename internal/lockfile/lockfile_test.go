@@ -93,3 +93,31 @@ func TestTryAcquire_NilSafe(t *testing.T) {
 		t.Fatalf("nil Release: %v", err)
 	}
 }
+
+func TestIsInstalled_NotInstalled(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if IsInstalled() {
+		t.Fatal("should not be installed on fresh temp dir")
+	}
+}
+
+func TestMarkInstalled_ThenIsInstalled(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := MarkInstalled(); err != nil {
+		t.Fatalf("MarkInstalled: %v", err)
+	}
+	if !IsInstalled() {
+		t.Fatal("should be installed after MarkInstalled")
+	}
+}
+
+func TestInstalledMarkerPath(t *testing.T) {
+	t.Setenv("HOME", "/tmp/test-home")
+	path, err := InstalledMarkerPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/tmp/test-home/.synaptic/installed" {
+		t.Errorf("path = %q", path)
+	}
+}
