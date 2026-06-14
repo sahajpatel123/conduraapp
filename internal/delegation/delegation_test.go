@@ -177,6 +177,30 @@ func TestGatedRunner_ActionRequests(t *testing.T) {
 	}
 }
 
+func TestGatedRunner_ActionRequests_PrettyPrintedJSON(t *testing.T) {
+	cfg := DefaultConfig()
+	l := NewLimiter(cfg, nil)
+	g := NewGatedRunner(cfg, allowGate{}, l)
+
+	output := "some log line\n" +
+		"{\n  \"kind\": \"shell.exec\",\n  \"command\": \"echo hello\"\n}\n" +
+		"another log line\n"
+	result := &SpawnResult{AgentName: "claude", Output: output}
+	requests := g.ActionRequests(result)
+	if len(requests) != 1 {
+		t.Fatalf("got %d action requests, want 1", len(requests))
+	}
+	if requests[0].Kind != "shell.exec" {
+		t.Errorf("kind = %q, want shell.exec", requests[0].Kind)
+	}
+	if requests[0].Command != "echo hello" {
+		t.Errorf("command = %q, want echo hello", requests[0].Command)
+	}
+	if requests[0].AgentName != "claude" {
+		t.Errorf("agent_name = %q, want claude", requests[0].AgentName)
+	}
+}
+
 func TestBudget_LowLimitBlocks(t *testing.T) {
 	cfg := DefaultConfig()
 	l := NewLimiter(cfg, nil)
