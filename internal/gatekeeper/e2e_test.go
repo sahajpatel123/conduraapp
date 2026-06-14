@@ -129,6 +129,38 @@ func TestEngine_FailClosedOnNoConsentProvider(t *testing.T) {
 	}
 }
 
+func TestEngine_AutonomyDoesNotBypassDenyRule(t *testing.T) {
+	p := DefaultPolicy()
+	e := NewEngine(p, nil, nil)
+	// Autonomous level 3 — should normally auto-allow non-destructive.
+	e.AutonomyHook = func(_, _ string) int { return 3 }
+
+	// Sensitive app READ is explicitly denied by the policy.
+	d, reason := e.Evaluate(context.Background(), blastradius.Action{Kind: "chat", TargetApp: "1Password"})
+	if d != Deny {
+		t.Fatalf("autonomy must not bypass explicit deny rule, got %v: %s", d, reason)
+	}
+}
+
+func TestEngine_AutonomyBypassesConsentButNotDestructive(t *testing.T) {
+	p := DefaultPolicy()
+	e := NewEngine(p, &testConsent{available: true, approved: true}, nil)
+	// Autonomous level 3.
+	e.AutonomyHook = func(_, _ string) int { return 3 }
+
+	// Known delegation requires consent; autonomy should auto-allow.
+	d, _ := e.Evaluate(context.Background(), blastradius.Action{Kind: "delegation.spawn", TargetApp: "claude"})
+	if d != Allow {
+		t.Fatalf("autonomy should bypass consent-required verdict, got %v", d)
+	}
+
+	// DESTRUCTIVE still requires consent even under autonomy.
+	d, _ = e.Evaluate(context.Background(), blastradius.Action{Kind: "shell.exec"})
+	if d != Allow {
+		t.Fatalf("autonomy should not bypass DESTRUCTIVE consent, got %v", d)
+	}
+}
+
 func TestAtomicPolicy_LoadStore(t *testing.T) {
 	ap := &AtomicPolicy{}
 	p1 := DefaultPolicy()
@@ -146,3 +178,13 @@ func TestAtomicPolicy_LoadStore(t *testing.T) {
 type testHalt struct{ halted bool }
 
 func (h *testHalt) IsHalted() bool { return h.halted }
+
+type testConsent struct {
+	available bool
+	approved  bool
+}
+
+func (c *testConsent) IsAvailable() bool { return c.available }
+func (c *testConsent) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
+	return c.approved, nil
+}
