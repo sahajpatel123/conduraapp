@@ -75,8 +75,14 @@ func DefaultManifest(dataDir string) Manifest {
 		home, _ := os.UserHomeDir()
 		dataDir = filepath.Join(home, ".synaptic")
 	}
-	// Sibling of data dir (where skills.db lives per subsystems.go).
-	sibling := filepath.Dir(dataDir)
+	// Every artifact (main DB, memory DB, skills DB, and all
+	// WAL/SHM sidecars) lives INSIDE the data dir. Previously
+	// this manifest put skills.db at the parent of the data
+	// dir, which disagreed with the daemon (subsystems.go:
+	// buildPhase12 uses cfg.General.DataDir/skills.db). That
+	// meant uninstall.execute would skip the real skills.db
+	// the user actually created. Hard lesson: there is no
+	// sibling-dir convention. Everything is in the data dir.
 
 	m := Manifest{
 		{Name: "main DB (encrypted)", Path: filepath.Join(dataDir, "synaptic.db"), Description: "Encrypted SQLite: API keys, audit log, memory index, spend."},
@@ -85,9 +91,9 @@ func DefaultManifest(dataDir string) Manifest {
 		{Name: "memory DB", Path: filepath.Join(dataDir, "memory.db"), Description: "Episodic + semantic + procedural memory."},
 		{Name: "memory DB WAL", Path: filepath.Join(dataDir, "memory.db-wal"), Optional: true},
 		{Name: "memory DB SHM", Path: filepath.Join(dataDir, "memory.db-shm"), Optional: true},
-		{Name: "skills DB", Path: filepath.Join(sibling, "skills.db"), Description: "Learned skills store."},
-		{Name: "skills DB WAL", Path: filepath.Join(sibling, "skills.db-wal"), Optional: true},
-		{Name: "skills DB SHM", Path: filepath.Join(sibling, "skills.db-shm"), Optional: true},
+		{Name: "skills DB", Path: filepath.Join(dataDir, "skills.db"), Description: "Learned skills store."},
+		{Name: "skills DB WAL", Path: filepath.Join(dataDir, "skills.db-wal"), Optional: true},
+		{Name: "skills DB SHM", Path: filepath.Join(dataDir, "skills.db-shm"), Optional: true},
 		{Name: "secrets file", Path: filepath.Join(dataDir, "secrets.json"), Description: "OS-keyring fallback: master key, OAuth tokens."},
 		{Name: "config file", Path: filepath.Join(dataDir, "config.yaml"), Description: "User-edited configuration."},
 		{Name: "config backup", Path: filepath.Join(dataDir, "config.yaml.bak"), Optional: true, Description: "Backup of the previous config, written by config update."},

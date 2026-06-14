@@ -39,15 +39,12 @@ import (
 	"time"
 )
 
-// siblingFiles are archive entries that live outside the data dir
-// (e.g., skills.db is at <data-dir>/../skills.db per MISSION §24).
-// SQLite WAL/SHM sidecars must live next to the main DB, not inside
-// the restored data dir.
-var siblingFiles = map[string]bool{
-	"skills.db":     true,
-	"skills.db-wal": true,
-	"skills.db-shm": true,
-}
+// (No siblingFiles table any more. Every artifact lives in the
+// data dir alongside the main DB. Previously skills.db was
+// assumed to live at <data-dir>/../skills.db, but the daemon
+// (internal/daemon/subsystems.go buildPhase12) actually creates
+// it at <data-dir>/skills.db. The old restore would write the
+// file to the parent dir on restore, which is wrong.)
 
 // ErrSchemaIncompatible is returned when a backup's schema version
 // is newer than the binary's current schema version.
@@ -213,7 +210,7 @@ func openAndStage(ctx context.Context, opts RestoreOptions, manifest *Manifest, 
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
-		if err := decryptAndStage(zr, mf, stageDir, opts.DataDir, archiveKey); err != nil {
+		if err := decryptAndStage(zr, mf, stageDir, archiveKey); err != nil {
 			return "", err
 		}
 	}
@@ -232,7 +229,7 @@ func validateManifest(opts RestoreOptions, m *Manifest) error {
 // decryptAndStage opens one zip entry, decrypts it, verifies the
 // SHA-256, and writes it to the stage dir (or its final sibling
 // location for files like skills.db).
-func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir, dataDir string, key []byte) error {
+func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir string, key []byte) error {
 	if !isSafeArchivePath(mf.Path) {
 		return fmt.Errorf("backup: unsafe archive path %q", mf.Path)
 	}
@@ -287,13 +284,10 @@ func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir, dataDir stri
 		return fmt.Errorf("%w: %s", ErrChecksumMismatch, mf.Path)
 	}
 
-	// Write to the stage dir, or to the sibling location for files
-	// that live outside the data dir (e.g., skills.db).
-	dstDir := stageDir
-	if siblingFiles[mf.Path] {
-		dstDir = filepath.Dir(dataDir)
-	}
-	dst := filepath.Join(dstDir, mf.Path)
+	// Write to the stage dir. Every artifact (main DB, memory
+	// DB, skills DB, plus all WAL/SHM sidecars) lives in the
+	// data dir; we don't have any sibling files any more.
+	dst := filepath.Join(stageDir, mf.Path)
 	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return fmt.Errorf("backup: mkdir for %s: %w", mf.Path, err)
 	}

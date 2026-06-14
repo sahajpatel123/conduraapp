@@ -12,22 +12,28 @@ import (
 )
 
 // setupDataDir creates a temp data dir populated with a minimal
-// "live" state: a main DB, a memory DB, a skills DB at the sibling
-// location, secrets.json, and a config.yaml. Returns the data dir
-// and the master key (32 bytes, base64).
-func setupDataDir(t *testing.T) (dataDir, siblingDir, configPath string, masterKey []byte) {
+// "live" state: a main DB, a memory DB, a skills DB, secrets.json,
+// and a config.yaml. Returns the data dir and the master key
+// (32 bytes, base64).
+//
+// All artifacts live INSIDE the data dir. Previously skills.db
+// was placed in the sibling dir, but the daemon (subsystems.go
+// buildPhase12) and the production daemon (verified via curl
+// against a real synapticd) put it in the data dir. Tests must
+// match production.
+func setupDataDir(t *testing.T) (dataDir, configPath string, masterKey []byte) {
 	t.Helper()
 	dataDir = t.TempDir()
-	siblingDir = filepath.Dir(dataDir)
 
 	// main DB
 	mustWrite(t, filepath.Join(dataDir, "synaptic.db"), []byte("MAIN-DB-CONTENT"))
 	// memory DB
 	mustWrite(t, filepath.Join(dataDir, "memory.db"), []byte("MEMORY-DB-CONTENT"))
-	// skills DB lives one level up (with WAL/SHM sidecars).
-	mustWrite(t, filepath.Join(siblingDir, "skills.db"), []byte("SKILLS-DB-CONTENT"))
-	mustWrite(t, filepath.Join(siblingDir, "skills.db-wal"), []byte("SKILLS-WAL-CONTENT"))
-	mustWrite(t, filepath.Join(siblingDir, "skills.db-shm"), []byte("SKILLS-SHM-CONTENT"))
+	// skills DB lives in the data dir (matches subsystems.go
+	// buildPhase12 and verified by curl smoke test).
+	mustWrite(t, filepath.Join(dataDir, "skills.db"), []byte("SKILLS-DB-CONTENT"))
+	mustWrite(t, filepath.Join(dataDir, "skills.db-wal"), []byte("SKILLS-WAL-CONTENT"))
+	mustWrite(t, filepath.Join(dataDir, "skills.db-shm"), []byte("SKILLS-SHM-CONTENT"))
 	// secrets.json
 	mustWrite(t, filepath.Join(dataDir, "secrets.json"), []byte(`{"master_key":"k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4="}`))
 	// config.yaml
@@ -39,7 +45,7 @@ func setupDataDir(t *testing.T) (dataDir, siblingDir, configPath string, masterK
 	for i := range masterKey {
 		masterKey[i] = byte(i + 1)
 	}
-	return
+	return dataDir, configPath, masterKey
 }
 
 func mustWrite(t *testing.T, path string, data []byte) {
@@ -55,7 +61,7 @@ func mustWrite(t *testing.T, path string, data []byte) {
 func newTestManager(t *testing.T) (dataDir, outPath string, bm *Manager, masterKey []byte) {
 	t.Helper()
 	var cfgPath string
-	dataDir, _, cfgPath, masterKey = setupDataDir(t)
+	dataDir, cfgPath, masterKey = setupDataDir(t)
 	outPath = filepath.Join(dataDir, "test-backup.zip")
 	bmIface, err := New(Options{
 		DataDir:       dataDir,
@@ -229,26 +235,32 @@ func TestRestore_RoundTripPreservesContents(t *testing.T) {
 	if string(got) != "MEMORY-DB-CONTENT" {
 		t.Errorf("memory.db = %q, want %q", got, "MEMORY-DB-CONTENT")
 	}
-	// Skills DB lives at the parent, with WAL/SHM sidecars next to it.
-	parent := filepath.Dir(restoreDir)
-	got, _ = os.ReadFile(filepath.Join(parent, "skills.db"))
+	// Skills DB lives in the data dir, with WAL/SHM sidecars
+	// next to it. (Round-trip test exercises the same layout
+	// the production daemon uses.)
+	got, _ = os.ReadFile(filepath.Join(restoreDir, "skills.db"))
 	if string(got) != "SKILLS-DB-CONTENT" {
 		t.Errorf("skills.db = %q, want %q", got, "SKILLS-DB-CONTENT")
 	}
-	got, _ = os.ReadFile(filepath.Join(parent, "skills.db-wal"))
+	got, _ = os.ReadFile(filepath.Join(restoreDir, "skills.db-wal"))
 	if string(got) != "SKILLS-WAL-CONTENT" {
 		t.Errorf("skills.db-wal = %q, want %q", got, "SKILLS-WAL-CONTENT")
 	}
-	got, _ = os.ReadFile(filepath.Join(parent, "skills.db-shm"))
+	got, _ = os.ReadFile(filepath.Join(restoreDir, "skills.db-shm"))
 	if string(got) != "SKILLS-SHM-CONTENT" {
 		t.Errorf("skills.db-shm = %q, want %q", got, "SKILLS-SHM-CONTENT")
 	}
-	// Ensure WAL/SHM did NOT end up inside the restored data dir.
-	if _, err := os.Stat(filepath.Join(restoreDir, "skills.db-wal")); err == nil {
-		t.Errorf("skills.db-wal leaked into data dir")
+	// Ensure WAL/SHM did NOT end up at the parent of the data
+	// dir (the old broken assumption).
+	parent := filepath.Dir(restoreDir)
+	if _, err := os.Stat(filepath.Join(parent, "skills.db")); err == nil {
+		t.Errorf("skills.db leaked into parent dir")
 	}
-	if _, err := os.Stat(filepath.Join(restoreDir, "skills.db-shm")); err == nil {
-		t.Errorf("skills.db-shm leaked into data dir")
+	if _, err := os.Stat(filepath.Join(parent, "skills.db-wal")); err == nil {
+		t.Errorf("skills.db-wal leaked into parent dir")
+	}
+	if _, err := os.Stat(filepath.Join(parent, "skills.db-shm")); err == nil {
+		t.Errorf("skills.db-shm leaked into parent dir")
 	}
 	got, _ = os.ReadFile(filepath.Join(restoreDir, "secrets.json"))
 	if !stringContains(got, "master_key") {

@@ -54,6 +54,8 @@ func fileSize(path string) (int64, error) {
 // that returns a fully-populated audit.Event the caller can
 // tweak and Append. We avoid clashing with the existing
 // auditEvent(ctx, subs, action, msg) helper in methods_more.go.
+//
+//nolint:unparam // app is passed through; future callers may vary it
 func buildAuditEvent(action, app, result, message string) audit.Event {
 	return audit.Event{
 		Actor:   actorDaemon,

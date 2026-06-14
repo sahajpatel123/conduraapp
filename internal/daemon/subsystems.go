@@ -195,6 +195,29 @@ func (s *Subsystems) GeneralDataDir() string {
 	return filepath.Dir(s.Storage.Path())
 }
 
+// SkillDBPath returns the absolute path of the skills.db file.
+// The skills store lives in the data dir alongside the main
+// DB, NOT in the parent of the data dir. This is the single
+// source of truth — every caller (the daemon builder, the
+// backup subsystem, the uninstall subsystem) must use this
+// or the constant Path() of the same name. Hard-coded
+// `filepath.Dir(dataDir)/skills.db` in any package is a bug.
+func (s *Subsystems) SkillDBPath() string {
+	if s == nil || s.Storage == nil {
+		return ""
+	}
+	return filepath.Join(s.GeneralDataDir(), "skills.db")
+}
+
+// MemoryDBPath returns the absolute path of memory.db. Same
+// single-source-of-truth rule as SkillDBPath.
+func (s *Subsystems) MemoryDBPath() string {
+	if s == nil || s.Storage == nil {
+		return ""
+	}
+	return filepath.Join(s.GeneralDataDir(), "memory.db")
+}
+
 // GatekeeperAllow is a convenience for the Phase 11 RPC
 // methods that need a single consent check. The full
 // Engine.Evaluate flow is more nuanced (policy + sensitive
@@ -708,8 +731,19 @@ func healthCheckIPC() health.Check {
 }
 
 // initExtractor creates the post-session extractor if stores are available.
+// `dataDir` is conventionally the *synaptic.db* path (e.g.
+// "/var/synaptic/synaptic.db"); the skills store lives at
+// the parent dir + "skills.db" = "/var/synaptic/skills.db".
+// We unwrap the file part explicitly here so the path is
+// obvious from the call site and the test suite can grep for it.
 func initExtractor(dataDir string, memMgr *memory.StoreManager, log *slog.Logger) *PostSessionExtractor {
-	skillPath := filepath.Join(filepath.Dir(dataDir), "skills.db")
+	// dataDir may be either a directory OR a file (synaptic.db).
+	// Accept both shapes; if it's a file, take its parent.
+	parent := dataDir
+	if filepath.Base(parent) == "synaptic.db" {
+		parent = filepath.Dir(parent)
+	}
+	skillPath := filepath.Join(parent, "skills.db")
 	skillStore, err := skills.NewSQLiteStore(skillPath)
 	if err != nil {
 		log.Warn("skill store init failed; disabled", "err", err)

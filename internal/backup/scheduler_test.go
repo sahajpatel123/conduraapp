@@ -26,6 +26,14 @@ func TestScheduler_DefaultBackupDir(t *testing.T) {
 
 func TestScheduler_CreateAndRotate(t *testing.T) {
 	dir := t.TempDir()
+	// Populate a minimal "live" data dir so Create succeeds
+	// (the daemon's real data dir has all of these; the test
+	// fixture must match). Every file backup.New tries to read
+	// must exist; the production daemon guarantees this.
+	mustWriteForTest(t, filepath.Join(dir, "synaptic.db"), []byte("X"))
+	mustWriteForTest(t, filepath.Join(dir, "memory.db"), []byte("X"))
+	mustWriteForTest(t, filepath.Join(dir, "skills.db"), []byte("X"))
+	mustWriteForTest(t, filepath.Join(dir, "secrets.json"), []byte(`{"master_key":"k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4="}`))
 	mk := make([]byte, 32)
 	for i := range mk {
 		mk[i] = byte(i + 1)
@@ -86,5 +94,18 @@ func TestScheduler_TryBackupMakesDir(t *testing.T) {
 	s.tryBackup(context.Background())
 	if _, err := os.Stat(custom); err != nil {
 		t.Fatalf("custom backup dir not created: %v", err)
+	}
+}
+
+// mustWriteForTest is a tiny helper for scheduler tests. It
+// writes data to path, creating parent dirs as needed, and
+// fails the test on any error.
+func mustWriteForTest(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }

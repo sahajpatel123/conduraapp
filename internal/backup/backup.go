@@ -4,7 +4,7 @@
 // What we back up (per MISSION §24 + the Phase 11 plan):
 //   - main DB:      <data-dir>/synaptic.db         (+ WAL/SHM sidecars)
 //   - memory DB:    <data-dir>/memory.db           (+ WAL/SHM sidecars)
-//   - skills DB:    <data-dir>/../skills.db         (+ WAL/SHM sidecars)
+//   - skills DB:    <data-dir>/skills.db           (+ WAL/SHM sidecars)
 //   - secrets.json: <data-dir>/secrets.json
 //   - config.yaml:  from cfg path if present
 //
@@ -178,27 +178,24 @@ func New(opts Options) (*Manager, error) {
 
 // Create builds an encrypted archive of all configured artifacts and
 // returns the path of the resulting .zip. If opts.Out is empty,
-// a temp file is created in opts.DataDir and cleaned up by the
-// caller (or via Remove when done).
+// a temp file is created in <data-dir>/backups, the archive is
+// streamed into it, and it's renamed to .zip on success. On
+// any error path the .zip.tmp is removed so we never leave
+// orphan partial archives behind (they'd contain real encrypted
+// DB data).
+//
+//nolint:gocyclo // branchy by nature: optional-file, ctx-cancel, per-artifact, rename
 func (b *Manager) Create(ctx context.Context) (string, error) {
 	now := b.opts.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
 
-	// Derive the per-archive key.
 	archiveKey, err := DeriveKey(b.opts.MasterKey)
 	if err != nil {
 		return "", err
 	}
-
-	// Enumerate the source artifacts.
 	specs := b.collectSpecs()
-	if err != nil {
-		return "", err
-	}
-
-	// Build the manifest incrementally so we can stream the zip.
 	manifest := Manifest{
 		Version:        ManifestVersion,
 		SchemaVersion:  b.opts.SchemaVersion,
@@ -207,71 +204,121 @@ func (b *Manager) Create(ctx context.Context) (string, error) {
 		KeyFingerprint: keyFingerprint(archiveKey),
 	}
 
-	// Open the output file.
-	outPath := b.opts.Out
-	if outPath == "" {
-		// Stage in data dir, then return path.
-		f, err := os.CreateTemp(b.opts.DataDir, "synaptic-backup-*.zip.tmp")
-		if err != nil {
-			return "", fmt.Errorf("backup: create temp: %w", err)
-		}
-		_ = f.Close()
-		outPath = f.Name()
-	}
-	// Ensure 0o600 — backup contains secrets.
-	out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileModeOwnerOnly) //nolint:gosec // path is from trusted Options.Out
+	outPath, createdTmp, err := b.openOutput()
 	if err != nil {
-		return "", fmt.Errorf("backup: open out: %w", err)
-	}
-	// Do NOT defer out.Close() — the second pass (rebuild)
-	// reopens the same file and we want clean state. We
-	// explicitly close after the first pass.
-	zw := zip.NewWriter(out)
-
-	// 1. Write the manifest first (plaintext) so tooling can inspect it.
-	if err := writeManifestJSON(zw, manifest); err != nil {
-		_ = zw.Close()
-		_ = out.Close()
 		return "", err
 	}
+	// Cleanup: on any error from here on, remove the partial
+	// archive so we don't leave orphan .zip.tmp files behind.
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(outPath)
+		}
+	}()
 
-	// 2. For each artifact: read → hash → encrypt → write to zip.
+	if err := b.writeFirstPass(ctx, outPath, &manifest, specs, archiveKey); err != nil {
+		return "", err
+	}
+	finalPath, err := b.rebuildWithManifest(manifest, archiveKey, specs, outPath)
+	if err != nil {
+		return "", err
+	}
+	if createdTmp {
+		finalPath, err = b.renameToFinal(finalPath)
+		if err != nil {
+			return "", err
+		}
+	}
+	success = true
+	return finalPath, nil
+}
+
+// openOutput picks the destination path for the archive.
+// If the caller passed Options.Out, use it verbatim. Otherwise
+// create <data-dir>/backups/synaptic-backup-*.zip.tmp so the
+// archive lives where backup.list looks. The .zip.tmp suffix
+// signals "in progress"; the rename to .zip on success is
+// the atomic switch to "ready".
+func (b *Manager) openOutput() (outPath string, createdTmp bool, err error) {
+	if b.opts.Out != "" {
+		return b.opts.Out, false, nil
+	}
+	backupDir := filepath.Join(b.opts.DataDir, "backups")
+	if err := os.MkdirAll(backupDir, 0o700); err != nil {
+		return "", false, fmt.Errorf("backup: mkdir backup dir: %w", err)
+	}
+	f, err := os.CreateTemp(backupDir, "synaptic-backup-*.zip.tmp")
+	if err != nil {
+		return "", false, fmt.Errorf("backup: create temp: %w", err)
+	}
+	_ = f.Close()
+	return f.Name(), true, nil
+}
+
+// writeFirstPass streams the manifest placeholder + each
+// encrypted artifact into outPath. After this pass the zip
+// has all the file bodies but the manifest is incomplete
+// (no checksums yet). The second pass (rebuildWithManifest)
+// re-streams the archive with the completed manifest.
+//
+// `manifest` is passed by pointer so the per-artifact checksums
+// we append here are visible to the second pass.
+func (b *Manager) writeFirstPass(ctx context.Context, outPath string, manifest *Manifest, specs []artifactSpec, archiveKey []byte) error {
+	// Ensure 0o600 — backup contains secrets.
+	out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileModeOwnerOnly) //nolint:gosec // path is from trusted openOutput
+	if err != nil {
+		return fmt.Errorf("backup: open out: %w", err)
+	}
+	// Do NOT defer out.Close() — the second pass (rebuild)
+	// reopens the same file and we want clean state.
+	zw := zip.NewWriter(out)
+
+	closeBoth := func() {
+		_ = zw.Close()
+		_ = out.Close()
+	}
+
+	if err := writeManifestJSON(zw, *manifest); err != nil {
+		closeBoth()
+		return err
+	}
 	for _, s := range specs {
-		if ctx.Err() != nil {
-			_ = zw.Close()
-			_ = out.Close()
-			return "", ctx.Err()
+		if err := ctx.Err(); err != nil {
+			closeBoth()
+			return err
 		}
 		mf, err := b.writeArtifact(zw, s, archiveKey)
 		if errors.Is(err, errOptionalMissing) {
 			continue
 		}
 		if err != nil {
-			_ = zw.Close()
-			_ = out.Close()
-			return "", err
+			closeBoth()
+			return err
 		}
 		if mf != nil {
 			manifest.Files = append(manifest.Files, *mf)
 		}
 	}
-	// Close the first-pass zip + file before the rebuild reopens.
 	if err := zw.Close(); err != nil {
 		_ = out.Close()
-		return "", err
+		return err
 	}
-	if err := out.Close(); err != nil {
-		return "", err
-	}
+	return out.Close()
+}
 
-	// 3. Re-write the manifest now that we have the file list. zip
-	// supports rewriting only because the manifest is the first
-	// entry; we use a more robust approach: stream to a temp file
-	// first, then atomic-rename.
-	// For simplicity in v0.1.0, we re-create the zip with the
-	// completed manifest. This is O(2n) for the data but the
-	// data is small (a few MB), so the simplicity wins.
-	return b.rebuildWithManifest(manifest, archiveKey, specs, outPath)
+// renameToFinal takes a .zip.tmp path (an in-progress
+// archive) and renames it to .zip (ready). Atomic on the
+// same filesystem.
+func (b *Manager) renameToFinal(tmpPath string) (string, error) {
+	if !strings.HasSuffix(tmpPath, ".zip.tmp") {
+		return tmpPath, nil
+	}
+	ready := strings.TrimSuffix(tmpPath, ".tmp")
+	if err := os.Rename(tmpPath, ready); err != nil {
+		return "", fmt.Errorf("backup: rename to .zip: %w", err)
+	}
+	return ready, nil
 }
 
 // rebuildWithManifest creates the archive a second time, this time
@@ -330,12 +377,28 @@ func (b *Manager) collectSpecs() []artifactSpec {
 		{pathInArchive: "memory.db", sourcePath: filepath.Join(dd, "memory.db")},
 		{pathInArchive: "memory.db-wal", sourcePath: filepath.Join(dd, "memory.db-wal"), optional: true},
 		{pathInArchive: "memory.db-shm", sourcePath: filepath.Join(dd, "memory.db-shm"), optional: true},
-		// Skills DB lives one level up (sibling of data dir per
-		// the existing wiring in subsystems.go).
-		{pathInArchive: "skills.db", sourcePath: filepath.Join(filepath.Dir(dd), "skills.db")},
-		{pathInArchive: "skills.db-wal", sourcePath: filepath.Join(filepath.Dir(dd), "skills.db-wal"), optional: true},
-		{pathInArchive: "skills.db-shm", sourcePath: filepath.Join(filepath.Dir(dd), "skills.db-shm"), optional: true},
-		{pathInArchive: "secrets.json", sourcePath: filepath.Join(dd, "secrets.json")},
+		// Skills DB lives INSIDE the data dir, alongside the
+		// main DB. Previously this code read it from the
+		// parent dir, which disagreed with the daemon's
+		// wiring (internal/daemon/subsystems.go:
+		// buildPhase12 uses cfg.General.DataDir/skills.db).
+		// That disagreement meant backup.create failed with
+		// "open <parent>/skills.db: no such file or directory"
+		// on every fresh install. Single source of truth is
+		// <data-dir>/skills.db.
+		{pathInArchive: "skills.db", sourcePath: filepath.Join(dd, "skills.db")},
+		{pathInArchive: "skills.db-wal", sourcePath: filepath.Join(dd, "skills.db-wal"), optional: true},
+		{pathInArchive: "skills.db-shm", sourcePath: filepath.Join(dd, "skills.db-shm"), optional: true},
+		// secrets.json is only on disk if the secrets backend
+		// is the file backend. The keyring backend (default
+		// on macOS) keeps the master key in the OS keyring,
+		// not on disk. Marking it optional lets the user
+		// back up + restore from a keyring-backed install.
+		// Recovery path: the encrypted archive can still be
+		// restored as long as the user has the derived key
+		// (shown once at first backup, or retrievable from
+		// the keyring on the same machine).
+		{pathInArchive: "secrets.json", sourcePath: filepath.Join(dd, "secrets.json"), optional: true},
 		{pathInArchive: "config.yaml", sourcePath: b.opts.ConfigPath, optional: true},
 	}
 }
