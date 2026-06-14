@@ -29,6 +29,26 @@ func TestDetector_FailureTrip(t *testing.T) {
 	}
 }
 
+func TestDetector_FailureCounterResetsOnSuccess(t *testing.T) {
+	tripped := false
+	d := NewDetector(func(tr Trip) {
+		if tr.Type == TripFailures {
+			tripped = true
+		}
+	})
+	// 4 failures, then a success, then 4 more failures.
+	for i := 0; i < 4; i++ {
+		d.process(actionRecord{kind: "click", coordX: 0, coordY: 0, success: false})
+	}
+	d.process(actionRecord{kind: "click", coordX: 0, coordY: 0, success: true})
+	for i := 0; i < 4; i++ {
+		d.process(actionRecord{kind: "click", coordX: 0, coordY: 0, success: false})
+	}
+	if tripped {
+		t.Error("failure counter should reset on success; 4 failures after a success is not 5 consecutive")
+	}
+}
+
 func TestDetector_Reset(t *testing.T) {
 	d := NewDetector(nil)
 	d.process(actionRecord{kind: "click", coordX: 1, coordY: 1, success: true})

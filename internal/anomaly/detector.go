@@ -107,6 +107,8 @@ func (d *Detector) process(a actionRecord) {
 	d.state.count++
 	if !a.success {
 		d.state.failures++
+	} else {
+		d.state.failures = 0
 	}
 
 	// Duration check.
