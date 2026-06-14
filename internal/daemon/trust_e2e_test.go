@@ -133,10 +133,21 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 		_ = httpSrv.Close()
 		_ = subs.Close()
 		// On Windows, SQLite file handles may not be fully
-		// released immediately after Close(). A small sleep
-		// gives the OS time to release them before t.TempDir()
-		// cleanup tries to remove the directory.
-		time.Sleep(100 * time.Millisecond)
+		// released even after Close(). Explicitly remove the
+		// database files so t.TempDir() cleanup doesn't fail
+		// with "file is being used by another process".
+		dataDir := subs.GeneralDataDir()
+		if dataDir != "" {
+			os.Remove(filepath.Join(dataDir, "synaptic.db"))       //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "synaptic.db-wal"))   //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "synaptic.db-shm"))   //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "memory.db"))         //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "memory.db-wal"))     //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "memory.db-shm"))     //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "skills.db"))         //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "skills.db-wal"))     //nolint:errcheck
+			os.Remove(filepath.Join(dataDir, "skills.db-shm"))     //nolint:errcheck
+		}
 	}
 	return addr, subs, cleanup
 }
