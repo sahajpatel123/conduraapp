@@ -131,8 +131,8 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			// Remove WAL/SHM sidecar files if they still exist.
 			// On Windows these can hold file locks even after Close.
 			dbPath := subs.Storage.Path()
-			os.Remove(dbPath + "-wal")
-			os.Remove(dbPath + "-shm")
+			os.Remove(dbPath + "-wal")  //nolint:errcheck
+			os.Remove(dbPath + "-shm")  //nolint:errcheck
 		}
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
