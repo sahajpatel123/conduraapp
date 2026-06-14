@@ -69,6 +69,11 @@ func NewScheduler(cfg SchedulerConfig, bm *Manager, log *slog.Logger) *Scheduler
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
+	// Apply the documented default: empty BackupDir means
+	// <data-dir>/backups.
+	if cfg.BackupDir == "" && bm != nil && bm.opts.DataDir != "" {
+		cfg.BackupDir = filepath.Join(bm.opts.DataDir, "backups")
+	}
 	return &Scheduler{cfg: cfg, bm: bm, log: log, stop: make(chan struct{})}
 }
 
@@ -130,6 +135,12 @@ func (s *Scheduler) Stop() {
 // scheduler is best-effort and a backup failure must not bring
 // down the daemon.
 func (s *Scheduler) tryBackup(ctx context.Context) {
+	if err := os.MkdirAll(s.cfg.BackupDir, 0o700); err != nil {
+		if s.log != nil {
+			s.log.Warn("auto-backup failed", "err", err, "dir", s.cfg.BackupDir)
+		}
+		return
+	}
 	now := s.cfg.Now()
 	out := filepath.Join(s.cfg.BackupDir, "synaptic-backup-"+now.Format("2006-01-02T15-04-05Z")+".zip")
 	opts := Options{
