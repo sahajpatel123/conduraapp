@@ -160,8 +160,12 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	<-ctx.Done()
 	log.Info("synapticd stopped")
 
-	// Best-effort teardown.
-	_ = subs.Storage.Close()
+	// Best-effort teardown. Close side stores first, main DB last.
+	// Force WAL checkpoint so Windows file locks are released cleanly.
+	if subs.Storage != nil {
+		_, _ = subs.Storage.SQL().ExecContext(context.Background(), "PRAGMA wal_checkpoint(TRUNCATE)")
+	}
 	_ = subs.Close()
+	_ = subs.Storage.Close()
 	return subs, nil
 }
