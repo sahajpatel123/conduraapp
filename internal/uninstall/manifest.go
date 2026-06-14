@@ -303,13 +303,26 @@ func isUnderHome(path, home string) bool {
 // removeEntry removes a single manifest entry. Returns the file
 // count and bytes removed. For directories, recursive; for
 // files, single file. Missing optional entries return (0,0,nil).
+// Symlinks are always treated as single leaves: we unlink them
+// without following, so a symlink pointing outside the data dir
+// cannot cause a path-traversal deletion.
 func removeEntry(entry ManifestEntry, dryRun bool) (int, int64, error) {
-	info, err := os.Stat(entry.Path)
+	info, err := os.Lstat(entry.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, 0, nil
 		}
 		return 0, 0, err
+	}
+	// Treat any symlink (file or directory-looking) as a single leaf.
+	if info.Mode()&os.ModeSymlink != 0 {
+		if dryRun {
+			return 1, 0, nil
+		}
+		if err := os.Remove(entry.Path); err != nil {
+			return 0, 0, err
+		}
+		return 1, 0, nil
 	}
 	if dryRun {
 		if info.IsDir() {
@@ -342,7 +355,19 @@ func removeDir(dir string) (int, int64, error) {
 	}
 	for _, e := range entries {
 		p := filepath.Join(dir, e.Name())
-		if e.IsDir() {
+		info, err := e.Info()
+		if err != nil {
+			return n, b, err
+		}
+		// Treat symlinks as leaves — do not recurse through them.
+		if info.Mode()&os.ModeSymlink != 0 {
+			if err := os.Remove(p); err != nil {
+				return n, b, err
+			}
+			n++
+			continue
+		}
+		if info.IsDir() {
 			cn, cb, err := removeDir(p)
 			if err != nil {
 				return n, b, err
@@ -350,10 +375,6 @@ func removeDir(dir string) (int, int64, error) {
 			n += cn
 			b += cb
 		} else {
-			info, err := e.Info()
-			if err != nil {
-				return n, b, err
-			}
 			if err := os.Remove(p); err != nil {
 				return n, b, err
 			}
@@ -376,7 +397,16 @@ func countDir(dir string) (int, int64, error) {
 	}
 	for _, e := range entries {
 		p := filepath.Join(dir, e.Name())
-		if e.IsDir() {
+		info, err := e.Info()
+		if err != nil {
+			return 0, 0, err
+		}
+		// Do not follow symlinks during dry-run counting.
+		if info.Mode()&os.ModeSymlink != 0 {
+			n++
+			continue
+		}
+		if info.IsDir() {
 			cn, cb, err := countDir(p)
 			if err != nil {
 				return 0, 0, err
@@ -384,10 +414,6 @@ func countDir(dir string) (int, int64, error) {
 			n += cn
 			b += cb
 		} else {
-			info, err := e.Info()
-			if err != nil {
-				return 0, 0, err
-			}
 			n++
 			b += info.Size()
 		}
