@@ -242,11 +242,6 @@ func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir, dataDir stri
 	}
 	defer func() { _ = hdr.Close() }()
 
-	sealed, err := io.ReadAll(hdr)
-	if err != nil {
-		return fmt.Errorf("backup: read %s: %w", mf.Path, err)
-	}
-
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return fmt.Errorf("backup: aes.NewCipher: %w", err)
@@ -255,6 +250,21 @@ func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir, dataDir stri
 	if err != nil {
 		return fmt.Errorf("backup: cipher.NewGCM: %w", err)
 	}
+	// Bound the sealed read to the manifest size plus AES-GCM overhead
+	// so a malicious archive cannot cause an unbounded allocation.
+	const maxBackupFileBytes = 1 << 30 // 1 GiB absolute ceiling
+	maxSealed := mf.Size + int64(gcm.NonceSize()) + int64(gcm.Overhead())
+	if maxSealed > maxBackupFileBytes {
+		return fmt.Errorf("backup: %s exceeds max backup file size", mf.Path)
+	}
+	sealed, err := io.ReadAll(io.LimitReader(hdr, maxSealed))
+	if err != nil {
+		return fmt.Errorf("backup: read %s: %w", mf.Path, err)
+	}
+	if int64(len(sealed)) != maxSealed {
+		return fmt.Errorf("backup: %s sealed size mismatch (want %d, got %d)", mf.Path, maxSealed, len(sealed))
+	}
+
 	if len(sealed) < gcm.NonceSize() {
 		return fmt.Errorf("backup: %s ciphertext too short", mf.Path)
 	}
@@ -263,6 +273,11 @@ func decryptAndStage(zr *zip.ReadCloser, mf ManifestFile, stageDir, dataDir stri
 	plain, err := gcm.Open(nil, nonce, body, []byte(mf.Path))
 	if err != nil {
 		return fmt.Errorf("backup: decrypt %s: %w", mf.Path, err)
+	}
+
+	// Verify decrypted size matches the manifest.
+	if int64(len(plain)) != mf.Size {
+		return fmt.Errorf("backup: %s size mismatch (want %d, got %d)", mf.Path, mf.Size, len(plain))
 	}
 
 	// Verify SHA-256 against the manifest.

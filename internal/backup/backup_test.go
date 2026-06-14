@@ -1,8 +1,10 @@
 package backup
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -314,6 +316,87 @@ func TestRestore_RejectsUnknownKey(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected ErrUnknownKey or decrypt failure")
+	}
+}
+
+// TestRestore_RejectsOversizedEntry proves that a malicious manifest
+// claiming a huge file size does not cause an unbounded allocation.
+func TestRestore_RejectsOversizedEntry(t *testing.T) {
+	_, outPath, bm, mk := newTestManager(t)
+	if _, err := bm.Create(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mutate the manifest to claim synaptic.db is 2 GiB.
+	m, err := LoadManifest(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range m.Files {
+		if m.Files[i].Path == "synaptic.db" {
+			m.Files[i].Size = 2 << 30
+			break
+		}
+	}
+
+	// Rewrite the archive with the mutated manifest. We can do this
+	// by reading the original zip, replacing manifest.json, and writing
+	// a new zip.
+	zr, err := zip.OpenReader(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = zr.Close() }()
+
+	newOut := filepath.Join(t.TempDir(), "oversized.zip")
+	f, err := os.Create(newOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	// Write mutated manifest.
+	if err := writeManifestJSON(zw, *m); err != nil {
+		t.Fatal(err)
+	}
+	// Copy original entries unchanged.
+	for _, e := range zr.File {
+		if e.Name == "manifest.json" {
+			continue
+		}
+		rc, err := e.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(rc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = rc.Close()
+		w, err := zw.CreateHeader(&e.FileHeader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+
+	restoreDir := t.TempDir()
+	if err := os.MkdirAll(restoreDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err = Restore(context.Background(), RestoreOptions{
+		ArchivePath:          newOut,
+		DataDir:              restoreDir,
+		MasterKey:            mk,
+		CurrentSchemaVersion: 3,
+	})
+	if err == nil {
+		t.Fatal("expected error for oversized manifest entry")
 	}
 }
 
