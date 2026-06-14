@@ -48,7 +48,6 @@ type DB struct {
 	mu        sync.Mutex // guards nonce generation & schema_version writes
 	path      string
 	closing   chan struct{}
-	closeOnce sync.Once
 	openedAt  time.Time
 }
 
@@ -134,13 +133,17 @@ func Open(ctx context.Context, cfg Config) (*DB, error) {
 	return db, nil
 }
 
-// Close releases the database. Safe to call multiple times.
+// Close releases the database. Safe to call multiple times
+// and after Reload.
 func (d *DB) Close() error {
-	var err error
-	d.closeOnce.Do(func() {
-		close(d.closing)
-		err = d.sql.Close()
-	})
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.sql == nil {
+		return nil
+	}
+	close(d.closing)
+	err := d.sql.Close()
+	d.sql = nil
 	return err
 }
 
@@ -160,9 +163,6 @@ func (d *DB) Reload(ctx context.Context) error {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	// Close the existing handle. We don't use d.Close()
-	// because that runs closeOnce; subsequent Closes should
-	// still be no-ops. Close the *sql.DB directly.
 	if d.sql != nil {
 		_ = d.sql.Close()
 	}
@@ -177,6 +177,9 @@ func (d *DB) Reload(ctx context.Context) error {
 		return fmt.Errorf("storage: ping after reload: %w", err)
 	}
 	d.sql = sdb
+	// Recreate the closing channel so Close can be called again
+	// after Reload (e.g. during backup restore + cleanup).
+	d.closing = make(chan struct{})
 	return nil
 }
 

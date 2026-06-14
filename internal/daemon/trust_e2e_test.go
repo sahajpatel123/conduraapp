@@ -31,7 +31,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -133,14 +132,6 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	cleanup := func() {
 		_ = httpSrv.Close()
 		_ = subs.Close()
-		// On Windows, SQLite file handles may not be fully
-		// released even after Close(). Force GC to run any
-		// pending finalizers that might hold file descriptors.
-		runtime.GC()
-		// Explicitly remove the data directory contents so
-		// t.TempDir() cleanup doesn't fail with "file is being
-		// used by another process" on Windows.
-		_ = os.RemoveAll(dir)
 	}
 	return addr, subs, cleanup
 }
