@@ -1417,3 +1417,73 @@ The 24h scrubbable Action Replay is real, structured, and tamper-detectable. The
 3. Next iteration: audit the uncommitted Phase 11 scaffolding (i18n, replay, audit HMAC chain) once the user is ready, or continue with Phase 10 remaining low issues.
 
 ---
+
+## [2026-06-14 06:30 UTC] AI Model: minimax-m3
+**Session ID:** phase11-complete
+**Branch:** main
+**Task:** Complete Phase 11 (Trust & Recovery): wire all sub-phases (11A-11G) into the daemon, add Phase 11 Subsystems, build the trust E2E test, and verify CI is green.
+
+### Files created
+- `internal/onboarding/onboarding.go` — 8-step wizard state machine (Welcome → EULA → PowerSource → Permissions → BackendDetect → Hotkey → VoiceTest → Complete) with persistent `onboarding_state` table.
+- `internal/onboarding/onboarding_test.go` — 11 tests covering state persistence, advance/back/complete/reset, and the "before step 0" normalization.
+- `internal/skills/autocreate.go` — community-trust-only auto-create pipeline with `MinSamples=3` threshold, LRU-bounded pending map, sentinel errors (`ErrNoSkillCreated`, `ErrEmptyQuery`, `ErrStoreMissing`), per-trigger roll-back on store failure.
+- `internal/skills/autocreate_test.go` — 12 tests covering threshold semantics, LRU eviction, store-failure rollback, dedupe/cap, and humanize/normalize.
+- `internal/permissions/permissions_test.go` — 5 tests for `Probe`, `Check`, `RequestGuide`, `Platform`, `NewManager`.
+- `internal/daemon/methods_phase11.go` — `replay.timeline`, `replay.frame`, `replay.verify_integrity` RPCs.
+- `internal/daemon/methods_phase11_backup.go` — `backup.list`, `backup.preview`, `backup.create`, `backup.derive_key`, `backup.restore` (gated), `backup.rollback` (gated).
+- `internal/daemon/methods_phase11_misc.go` — `uninstall.preview`, `uninstall.execute` (gated, requires 32-hex `confirm_token`); `permissions.status`, `permissions.request_guide`; `onboarding.state`, `onboarding.advance`, `onboarding.back`, `onboarding.set_step`, `onboarding.complete`, `onboarding.reset`.
+- `internal/daemon/methods_phase11_helpers.go` — `zeroTime`, `base64Encode`, `readDirNames`, `fileSize`, `buildAuditEvent`, `trustCallRPC` (test-only).
+- `internal/daemon/trust_e2e_test.go` — 9 E2E tests over a real `ipc.Server` + `http.Server`, hitting every Phase 11 RPC the GUI will call.
+
+### Files modified
+- `internal/daemon/subsystems.go`:
+  - Add Phase 11 fields: `Replay *replay.Replay`, `Backup *backup.Manager`, `Uninstaller *uninstall.Manager`, `Onboarding *onboarding.StateMachine`, `Permissions *permissions.Manager`, `AuditLog *audit.Log`.
+  - Add private `db *storage.DB` and `cfg *config.Config` for `MasterKey()` / `GeneralDataDir()` / `GatekeeperAllow` / `currentSchemaVersion` helpers.
+  - Add Phase 11 builders: `buildReplay`, `buildBackupMgr`, `buildUninstaller`, `buildOnboarding`, `buildPermissions`.
+  - Wire them into the `initSubsystems` literal.
+- `internal/daemon/methods.go`:
+  - Register `registerPhase11Methods`, `registerBackupMethods`, `registerUninstallMethods`, `registerPermissionMethods`, `registerOnboardingMethods` in `registerMethods`.
+- `internal/uninstall/manifest.go`:
+  - Add `Manager` sentinel struct (replacing the previously lost one). The package-level `Uninstall` function is the real implementation; the sentinel just makes the subsystem present in the struct.
+- `internal/permissions/permissions.go`:
+  - Add `Manager` sentinel struct, `NewManager()` constructor, and `Platform()` accessor.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- **Welcome is "before step 0"** for the onboarding state machine. `Advance` from an empty DB goes to EULA (step 1) on the first call, not Welcome. The Welcome screen is the implicit entry the user sees before they click "Next".
+- **Replay builder is best-effort**: if the screenshot store fails to construct (e.g. disk full), `Replay` is still returned with `Screenshots: nil` and a warning is logged. The timeline API works without screenshots.
+- **Backup key derivation is HKDF-SHA256** with fixed info string `"synaptic-backup-encryption-key-v1"`, using the storage.DB master key as input. The `derive_key` RPC returns the base64 form to the GUI on first backup so the user can save it.
+- **Schema-compat policy for restore: refuse newer→older binary** (`CurrentSchemaVersion` must be `>=` archive `SchemaVersion`).
+- **`GatekeeperAllow` is a v0.1.0 trusted-caller shortcut**: the GUI surfaces the consent dialog before the call, the IPC channel is authenticated, and the full `Engine.Evaluate` integration is tracked in the Phase 11 retro.
+- **Skills auto-create NEVER auto-officials** — `BuildSkill` always sets `Trust: TrustCommunity`. Promotion to `TrustOfficial` requires a human pass.
+- **Skills auto-create ID is content-hash + timestamp** so `Reset` + re-clustering produces new rows, not duplicate-key violations.
+- **Test-only helper `trustCallRPC`** mirrors the existing `callRPC` in `stream_integration_test.go` (returns `json.RawMessage` so tests can assert on arrays vs. objects without type-asserting).
+
+### Bugs / issues encountered
+- The pre-existing `cmd/synaptic` tests pass alone but hang under `-p > 1` because the keyring backend serializes all `synapticd` subprocesses on macOS. With `-p 1` the entire suite (46 packages, 1000+ tests) passes in ~7 minutes. This is a pre-existing flake, not caused by Phase 11.
+- `replay.NewScreenshotStore` takes a `[]byte` master key, not a `*audit.Log`. The earlier `buildReplay` signature was wrong; fixed to pass `db.MasterKey()` directly.
+- `uninstall.Result` has `FilesRemoved`, not `Manifest`. Earlier write had wrong field name; fixed.
+- `backup.RestoreOptions` has `CurrentSchemaVersion`, not `CurrentSchema`. Earlier write had wrong field name; fixed.
+- `auditEvent` already exists in `methods_more.go` with signature `(ctx, subs, action, msg)`. Added `buildAuditEvent` (returns an `audit.Event`) to avoid the conflict.
+- `permissions.Manager`, `permissions.NewManager`, `permissions.Platform` did not exist. Added them; package now has a thin sentinel and the RPC surface works.
+- Initial onboarding `State()` normalizes empty `CurrentStep` to `StepWelcome` on the read side; `Advance`/`Back` go through the same `loadLocked` path so the persistent state stays clean.
+
+### Verification
+- `go build ./...` clean.
+- `go test -count=1 -timeout=600s -p 1 ./...` — **all 46 packages pass**, 1000+ tests.
+- `go test -race -count=1 -timeout=120s ./internal/{onboarding,skills,backup,uninstall,replay,audit,daemon}/` — **all pass with -race**.
+- `golangci-lint run --timeout=5m ./...` — **0 issues**.
+- Manually booted `synapticd` and confirmed Phase 11 subsystems initialize: `replay subsystem ready`, `backup subsystem ready`, `onboarding subsystem ready`, `permissions subsystem ready platform=darwin`. The `replay/` subdir is created on first launch.
+
+### Open questions for next session
+- Should `Backup.NewRollback(subs.Storage.SQL())` be a long-lived subsystem field rather than re-constructed per RPC? Right now it's cheap (just a `*sql.DB` wrapper) but a `subs.Rollback` field would make tests easier.
+- The `GatekeeperAllow` helper returns `true` unconditionally for v0.1.0; should it consult `subs.Safety.Engine` and construct a `blastradius.Action` from the Phase 11 call site? That's a Phase 11A/12 integration task.
+- The trust E2E test calls the IPC server over HTTP via `srv.HandleRaw`. Should we add a `Server.ServeHTTP` method to `ipc` so the test code is shorter? (A follow-up refactor.)
+
+### Next steps
+1. Commit Phase 11 wiring + E2E test (this commit).
+2. Push to `origin/main`.
+3. Wait for CI.
+4. Next iteration: Phase 11 retro (per STYLE.md) and Phase 12C Skills Hub work.
+
+---
