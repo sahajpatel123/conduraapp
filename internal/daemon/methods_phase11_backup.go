@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -126,6 +127,18 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil {
 			return nil, fmt.Errorf("backup: restore: %w", err)
 		}
+		// The atomic swap inside Restore moved the restored
+		// files into the data dir, but the daemon's open
+		// SQLite handle is still bound to the old (unlinked)
+		// inode. Reload the storage handle so subsequent
+		// queries see the restored data immediately, without
+		// requiring the user to restart the daemon.
+		if subs.Storage != nil {
+			if rerr := subs.Storage.Reload(ctx); rerr != nil {
+				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appSynapticd, auditResultError, rerr.Error()))
+				return nil, fmt.Errorf("backup: restore succeeded on disk but storage reload failed: %w (daemon restart required to see restored data)", rerr)
+			}
+		}
 		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appSynapticd, auditResultAllow, "path="+p.Path))
 		return auditOK(), nil
 	})
@@ -151,7 +164,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 // find it. Tests can override by setting SYNAPTIC_BACKUP_DIR.
 func backupDir(subs *Subsystems) string {
 	if dir := subs.GeneralDataDir(); dir != "" {
-		return dir + "/backups"
+		return filepath.Join(dir, "backups")
 	}
 	return ""
 }
@@ -178,7 +191,7 @@ func listBackupArchives(dir string) ([]backupEntry, error) {
 		if !strings.HasSuffix(name, ".zip") {
 			continue
 		}
-		full := dir + "/" + name
+		full := filepath.Join(dir, name)
 		size, _ := fileSize(full)
 		out = append(out, backupEntry{Name: name, Path: full, Size: size})
 	}

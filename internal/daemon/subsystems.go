@@ -17,6 +17,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/backup"
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
@@ -222,17 +223,87 @@ func (s *Subsystems) MemoryDBPath() string {
 	return filepath.Join(s.GeneralDataDir(), "memory.db")
 }
 
-// GatekeeperAllow is a convenience for the Phase 11 RPC
-// methods that need a single consent check. The full
-// Engine.Evaluate flow is more nuanced (policy + sensitive
-// detector + autonomy matrix), but for these specific
-// presence+consent checks, this helper keeps the call sites
-// readable. It returns true for v0.1.0: the GUI is responsible
-// for the user-visible consent prompt, and the IPC channel
-// itself is authenticated. The full Engine integration is
-// tracked in the Phase 11 retro.
-func (s *Subsystems) GatekeeperAllow(_ context.Context, _, _ string) bool {
-	return true
+// GatekeeperAllow is the Phase 11 gate for destructive
+// operations (backup.restore, backup.rollback, uninstall.execute).
+// It constructs a blastradius.Action and routes it through the
+// real Safety.Engine — same code path the agent loop uses
+// for every other physical action. The policy verdict flows:
+//   - Allow → this method returns true
+//   - Deny  → false (with reason logged)
+//   - RequireConsent / RequirePresenceAndConsent → drives
+//     the consent provider, which publishes an SSE event
+//     for the GUI to display; the GUI calls
+//     safety.consent.approve / safety.consent.deny via RPC.
+//
+// The Engine is the only place consent is ever decided. There
+// is no separate "v0.1.0 trusted-caller" path. If the engine
+// is unavailable (subs.Safety is nil during some test setups)
+// the gate fails closed — returning false — rather than
+// allowing.
+func (s *Subsystems) GatekeeperAllow(ctx context.Context, kind, detail string) bool {
+	if s == nil || s.Safety == nil || s.Safety.Engine == nil {
+		return false
+	}
+	action := blastradius.Action{
+		Kind:      kind,
+		TargetApp: "synapticd",
+		Body:      detail,
+	}
+	decision, reason := s.Safety.Engine.Evaluate(ctx, action)
+	// Log every gate decision so the audit chain shows the
+	// why. Phase 11 surface actions are infrequent; this is
+	// cheap and the trail is valuable.
+	//
+	// Use a fresh, non-deadlined context for the audit append.
+	// The caller's ctx may have a short timeout (e.g. a test
+	// using 1s to force the engine to fail-closed). The
+	// audit chain lookup for prev_hash is a SQLite read; if
+	// the caller's ctx is already expired, the audit append
+	// fails with "context deadline exceeded" and the gate
+	// decision is lost from the chain. We always have 5s
+	// budget for the audit append regardless of the gate
+	// decision's deadline.
+	auditCtx, auditCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer auditCancel()
+	if s.AuditLog != nil {
+		_ = s.AuditLog.Append(auditCtx, buildAuditEvent(
+			"gate."+decisionName(decision),
+			appSynapticd,
+			auditResultFromDecision(decision),
+			"kind="+kind+" reason="+reason,
+		))
+	}
+	return decision == gatekeeper.Allow
+}
+
+// decisionName returns a stable string name for a Decision
+// (for audit logging). Maps the iota values to readable names.
+func decisionName(d gatekeeper.Decision) string {
+	switch d {
+	case gatekeeper.Allow:
+		return "allow"
+	case gatekeeper.Deny:
+		return "deny"
+	case gatekeeper.RequireConsent:
+		return "require_consent"
+	case gatekeeper.RequirePresenceAndConsent:
+		return "require_presence_and_consent"
+	default:
+		return "unknown"
+	}
+}
+
+// auditResultFromDecision maps a gatekeeper.Decision into the
+// string vocabulary the audit log expects.
+func auditResultFromDecision(d gatekeeper.Decision) string {
+	switch d {
+	case gatekeeper.Allow:
+		return auditResultAllow
+	case gatekeeper.Deny:
+		return auditResultDeny
+	default:
+		return auditResultError
+	}
 }
 
 // currentSchemaVersion returns the binary's current schema
@@ -509,6 +580,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		cfg:             cfg,
 	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
+	// The main DB must be closed before other resources that may
+	// depend on it, so it goes first.
+	subs.closers = append(subs.closers, db)
 	if memStore != nil {
 		subs.closers = append(subs.closers, memStore)
 	}

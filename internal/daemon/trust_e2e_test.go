@@ -36,9 +36,29 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 	"github.com/sahajpatel123/synapticapp/internal/version"
 )
+
+// installPermissivePolicy replaces the engine's policy with a
+// catch-all allow rule. Used by tests that need gated RPCs
+// (backup.restore, uninstall.execute) to succeed without a GUI
+// connected to provide consent.
+func installPermissivePolicy(subs *Subsystems) {
+	if subs.Safety == nil || subs.Safety.Engine == nil {
+		return
+	}
+	p, err := gatekeeper.LoadPolicy([]byte(`version: "1"
+rules:
+  - match: {}
+    decide: allow
+`))
+	if err != nil {
+		return
+	}
+	subs.Safety.Engine.ReloadPolicy(p)
+}
 
 // startTrustDaemon brings up a real daemon on a temp data dir
 // with the IPC listening on a free TCP port. Returns the

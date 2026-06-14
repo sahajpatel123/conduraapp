@@ -507,31 +507,52 @@ func TestReload_RefreshesOnDiskContents(t *testing.T) {
 		`INSERT INTO reload_test (id, value) VALUES (1, 'before-reload')`)
 	require.NoError(t, err)
 
-	// Sanity: row visible.
+	// Sanity: row visible through the current handle.
 	var before string
 	require.NoError(t, db.SQL().QueryRowContext(context.Background(),
 		`SELECT value FROM reload_test WHERE id = 1`).Scan(&before))
 	require.Equal(t, "before-reload", before)
 
-	// Replace the on-disk file out from under us, simulating a
-	// restore. We do this by closing the DB, writing a new
-	// file at the same path, then re-opening via Reload. (We
-	// can't use a different process, but a file replace at
-	// the same path is functionally what restore does.)
-	require.NoError(t, db.Close())
-	require.NoError(t, os.WriteFile(path, []byte("REPLACED-CONTENT"), 0o600))
+	// Build a separate valid SQLite file at a sibling path.
+	// This represents the "restored" state. We'll move it
+	// into place atomically to simulate restore.
+	siblingPath := filepath.Join(dir, "restored.db")
+	other, err := Open(context.Background(), Config{Path: siblingPath, Secrets: sm})
+	require.NoError(t, err)
+	_, err = other.SQL().ExecContext(context.Background(),
+		`CREATE TABLE IF NOT EXISTS reload_test (id INTEGER PRIMARY KEY, value TEXT)`)
+	require.NoError(t, err)
+	_, err = other.SQL().ExecContext(context.Background(),
+		`INSERT INTO reload_test (id, value) VALUES (1, 'after-reload')`)
+	require.NoError(t, err)
+	// Checkpoint the WAL so the sibling file is self-contained
+	// before we close and rename it.
+	_, err = other.SQL().ExecContext(context.Background(),
+		`PRAGMA wal_checkpoint(TRUNCATE)`)
+	require.NoError(t, err)
+	require.NoError(t, other.Close())
 
-	// Reopen the storage handle.
-	db2, err := Open(context.Background(), Config{Path: path, Secrets: sm})
-	require.NoError(t, err)
-	defer func() { _ = db2.Close() }()
-	// The new handle reads the replaced file.
-	raw, err := os.ReadFile(path)
-	require.NoError(t, err)
-	require.Equal(t, "REPLACED-CONTENT", string(raw))
-	// Reload also works after this — a no-op when the file
-	// hasn't changed, but should not error.
-	require.NoError(t, db2.Reload(context.Background()))
+	// Replace the on-disk file. Close the *sql.DB handle
+	// (NOT the storage.DB — we want to keep the storage
+	// struct alive so we can call Reload on it).
+	require.NoError(t, db.SQL().Close())
+	// Remove stale WAL/SHM files left by the original DB.
+	os.Remove(path + "-wal")
+	os.Remove(path + "-shm")
+	// Atomic move: rename sibling onto path. (This is what
+	// the backup package's atomicSwap does at a directory
+	// level; at a file level the same effect.)
+	require.NoError(t, os.Rename(siblingPath, path))
+
+	_ = db // keep storage handle alive
+
+	// Reopen the *sql.DB via Reload. After Reload, the next
+	// read should see the new file's contents.
+	require.NoError(t, db.Reload(context.Background()))
+	var after string
+	require.NoError(t, db.SQL().QueryRowContext(context.Background(),
+		`SELECT value FROM reload_test WHERE id = 1`).Scan(&after))
+	require.Equal(t, "after-reload", after, "Reload must refresh on-disk view")
 }
 
 func TestReload_NilReceiver(t *testing.T) {
