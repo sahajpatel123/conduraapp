@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -118,11 +119,20 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil || len(mk) != 32 {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "master key unavailable"}
 		}
-		// Close the SQLite connection before the atomic swap so
-		// Windows file locks are released. The subsequent
-		// Storage.Reload reopens it on the restored files.
+		// Close the SQLite connection and WAL/SHM files before
+		// the atomic swap so Windows file locks are released.
+		// The subsequent Storage.Reload reopens it on the
+		// restored files.
 		if subs.Storage != nil {
+			// Force a WAL checkpoint so data is flushed from
+			// the WAL into the main DB file.
+			_, _ = subs.Storage.SQL().ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 			_ = subs.Storage.SQL().Close()
+			// Remove WAL/SHM sidecar files if they still exist.
+			// On Windows these can hold file locks even after Close.
+			dbPath := subs.Storage.Path()
+			os.Remove(dbPath + "-wal")
+			os.Remove(dbPath + "-shm")
 		}
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
