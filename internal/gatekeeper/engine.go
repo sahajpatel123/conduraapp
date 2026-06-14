@@ -62,6 +62,10 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 		e.AnomalyHook(a)
 	}
 
+	// Pure policy verdict first. Autonomy can only bypass consent,
+	// not explicit policy deny rules.
+	v := e.policy.Load().Evaluate(a)
+
 	// Autonomy pre-check (9E): if autonomous level, bypass consent
 	// for allowed classes. DESTRUCTIVE always requires consent.
 	if e.AutonomyHook != nil {
@@ -73,16 +77,12 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 		// Note: lvl=0=Block, 1=Warn, 2=Ask, 3=Autonomous
 		if lvl >= 3 { // Autonomous
 			class := blastradius.Classify(a)
-			if class != blastradius.DESTRUCTIVE {
-				return Allow, "autonomous: auto-allowed (non-destructive)"
+			if class != blastradius.DESTRUCTIVE &&
+				(v.Decision == RequireConsent || v.Decision == RequirePresenceAndConsent) {
+				return Allow, "autonomous: auto-allowed (non-destructive consent-required)"
 			}
 		}
 	}
-
-	// Pure policy verdict.
-	v := e.policy.Load().Evaluate(a)
-
-	// Anomaly hook (9B, stubbed) — records action metadata.
 
 	// Direct decisions.
 	if v.Decision == Allow {
