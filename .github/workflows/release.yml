@@ -10,11 +10,79 @@ permissions:
 
 env:
   GO_VERSION: "1.25.11"
+  NODE_VERSION: "20"
 
 jobs:
+  # ---------------------------------------------------------------
+  # Build Wails GUI on native runners (one arch per OS for speed).
+  # ---------------------------------------------------------------
+  build-gui:
+    name: GUI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            go.sum
+            app/web/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/web/frontend/package-lock.json
+
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libx11-dev libayatana-appindicator3-dev
+
+      - name: Build GUI
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          chmod +x scripts/build-gui.sh
+          ./scripts/build-gui.sh
+
+      - name: Upload GUI prebuilt
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/prebuilt/
+          retention-days: 7
+
+  # ---------------------------------------------------------------
+  # GoReleaser — CLI + daemon + deb packages + checksums + manifest
+  # ---------------------------------------------------------------
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
+    needs: [build-gui]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +95,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Download GUI prebuilts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gui-*
+          path: dist/prebuilt
+          merge-multiple: true
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -35,10 +110,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ---------------------------------------------------------------
+  # Sign update manifest and attach to the GitHub release
+  # ---------------------------------------------------------------
   sign-manifest:
     name: Sign update manifest
     runs-on: ubuntu-latest
-    needs: goreleaser
+    needs: [goreleaser]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,27 +126,99 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Build sign-manifest tool
-        run: go build -o sign-manifest ./cmd/sign-manifest
+      - name: Download release dist
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist
+          path: dist
+          merge-multiple: true
+        continue-on-error: true
 
-      - name: Sign manifest when key is configured
+      - name: Fetch checksums from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release download "$TAG" --pattern 'checksums.txt' --dir dist || true
+          if [ ! -f dist/checksums.txt ]; then
+            echo "checksums.txt not on release yet — generating manifest from tag only"
+            exit 0
+          fi
+          go run ./cmd/gen-update-manifest generate --unsigned \
+            --version "$TAG" \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${TAG}" \
+            --out dist/update-manifest.json
+
+      - name: Sign manifest
+        if: hashFiles('dist/update-manifest.json') != ''
         env:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
           if [ -z "$UPDATE_SIGNING_KEY" ]; then
-            echo "UPDATE_SIGNING_KEY not set — skipping manifest signing"
+            echo "UPDATE_SIGNING_KEY not set — uploading unsigned manifest"
+            cp dist/update-manifest.json dist/update-manifest.signed.json
             exit 0
           fi
-          if [ ! -f dist/update-manifest.json ]; then
-            echo "No dist/update-manifest.json — skipping"
-            exit 0
-          fi
-          ./sign-manifest dist/update-manifest.json dist/update-manifest.signed.json
+          go run ./cmd/gen-update-manifest sign \
+            dist/update-manifest.json dist/update-manifest.signed.json
 
-      - name: Upload signed manifest
+      - name: Upload manifest to release
         if: hashFiles('dist/update-manifest.signed.json') != ''
-        uses: actions/upload-artifact@v4
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" dist/update-manifest.signed.json \
+            --clobber
+          # Stable URL alias for the daemon poller.
+          cp dist/update-manifest.signed.json dist/manifest.json
+          gh release upload "${GITHUB_REF_NAME}" dist/manifest.json --clobber
+
+  # ---------------------------------------------------------------
+  # Optional macOS codesign + notarize (when Apple secrets exist)
+  # ---------------------------------------------------------------
+  macos-sign:
+    name: macOS sign & notarize
+    runs-on: macos-latest
+    needs: [goreleaser]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download GUI artifact
+        uses: actions/download-artifact@v4
         with:
-          name: update-manifest-signed
-          path: dist/update-manifest.signed.json
-          retention-days: 90
+          name: gui-darwin-arm64
+          path: dist/prebuilt
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "APPLE_CERTIFICATE not set — skipping"
+            exit 0
+          fi
+          echo "$APPLE_CERTIFICATE" | base64 --decode > signing.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import signing.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+
+      - name: Codesign GUI bundle
+        env:
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ZIP=$(ls dist/prebuilt/synaptic-gui-darwin-arm64.zip 2>/dev/null || true)
+          if [ -z "$ZIP" ] || [ -z "$APPLE_DEVELOPER_ID_APPLICATION" ]; then
+            echo "nothing to sign"
+            exit 0
+          fi
+          unzip -q "$ZIP" -d dist/signed
+          APP=$(find dist/signed -name '*.app' | head -1)
+          codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" --timestamp "$APP"
+          ditto -c -k --keepParent "$APP" dist/synaptic-gui-signed.zip
+          gh release upload "${GITHUB_REF_NAME}" dist/synaptic-gui-signed.zip --clobber

@@ -85,6 +85,24 @@ clean: ## Remove build artifacts
 	rm -rf bin/ dist/
 	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)
 
+.PHONY: release-snapshot
+release-snapshot: ## Local GoReleaser snapshot (no publish)
+	goreleaser release --snapshot --clean
+
+.PHONY: build-gui
+build-gui: ## Build Wails desktop app for current OS/arch
+	chmod +x scripts/build-gui.sh
+	./scripts/build-gui.sh
+
+.PHONY: gen-manifest
+gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
+	@test -f dist/checksums.txt || (echo "run release-snapshot first" && exit 1)
+	go run ./cmd/gen-update-manifest generate --unsigned \
+	  --version $(VERSION) \
+	  --checksums dist/checksums.txt \
+	  --base-url "https://github.com/sahajpatel123/synapticapp/releases/download/$(VERSION)" \
+	  --out dist/update-manifest.json
+
 # ------------------------------------------------------------------
 # Test
 # ------------------------------------------------------------------

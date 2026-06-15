@@ -490,3 +490,52 @@ The user has paid for that lesson with their time. I will
 not make them pay for it again.
 
 Now go read `CLAUDE.md` and `LOGBOOK.md`, and get to work.
+
+---
+
+## 20. Phase 13 — Release & Distribution Discipline
+
+Phase 13 is not "we have an updater package." Phase 13 is **a user
+on a clean machine can install, trust, and receive signed updates**
+without me hand-waving.
+
+### 20.1 Three Lenses Before I Call Phase 13 Done
+
+I audit from three viewpoints that do not trust my own diff:
+
+1. **Attacker lens** — Can an unsigned or wrong-arch manifest trick
+   the updater? Ed25519 verification and per-platform SHA256 are
+   mandatory; I add a regression test for bad signatures and missing
+   platform keys.
+2. **Release engineer lens** — Does `git tag vX.Y.Z` produce checksums,
+   archives, deb packages, GUI prebuilts, and a manifest without manual
+   copy-paste? I dry-run with `make release-snapshot` before claiming
+   the pipeline works.
+3. **End-user lens** — Can someone who never cloned this repo install
+   from an artifact and get a working app? That is
+   `docs/on-device-verification.md`, not CI green alone.
+
+### 20.2 What "Complete" Means Here
+
+- **Updater**: multi-platform manifest, apply + restart path (including
+  Windows pending swap on daemon start).
+- **CI**: `release.yml` builds GUI on native runners, GoReleaser packages
+  daemon/CLI/deb, manifest is generated and signed when secrets exist.
+- **Evidence**: updater unit tests + `update_e2e_test.go` through real
+  IPC; LOGBOOK entry with tag dry-run notes.
+
+### 20.3 What I Do Not Confuse With Done
+
+- Embedding a public key without `UPDATE_SIGNING_KEY` in CI.
+- GoReleaser config that never ran on a real tag.
+- macOS notarization steps that skip because secrets are empty — I
+  document the skip loudly and leave the runbook checkbox open.
+- Calling the GUI "released" when only `synapticd` tarballs exist.
+
+### 20.4 The Release Commit Rhythm
+
+One logical commit per layer: manifest tooling → updater behavior →
+GoReleaser/CI → E2E → docs/STYLE. Push. Watch CI. Only then write
+the retrospective audit from the three lenses above — **not** from
+memory of what I just typed.
+

@@ -10,7 +10,7 @@ Synaptic is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent
 
 ## Project Status (2026-06-15)
 
-**Phases 1–12 implemented; Phase 13 (release/distribution) in progress.** The
+**Phases 1–12 implemented; Phase 13 (release/distribution) complete on `main`.** The
 Synaptic daemon (`synapticd`), Wails GUI, CLI (`synaptic`), Trust & Recovery
 (Phase 11), and Reach & Ecosystem scaffolding (Phase 12) are in the tree with
 unit, integration, and Tier-3 E2E coverage. See [LOGBOOK.md](LOGBOOK.md) for
@@ -23,8 +23,8 @@ the authoritative session log.
 | Wails GUI shell  | ✅ done |
 | Trust & Recovery (Phase 11) | ✅ backend + GUI wiring |
 | Reach & Ecosystem (Phase 12) | ✅ TUI, i18n, hub, sync RPCs |
-| Release / auto-update (Phase 13) | 🔄 updater + signing primitives |
-| `v0.1.0` release | ⏳ ~Q4 2026 |
+| Release / auto-update (Phase 13) | ✅ updater, manifest pipeline, GoReleaser + GUI CI |
+| `v0.1.0` release | ⏳ tag `v0.1.0` + on-device verification |
 
 ### Try it locally
 ```bash

@@ -43,15 +43,19 @@ var PublicKey = ed25519.PublicKey{
 // The server signs the manifest bytes (minus the sig field)
 // with an offline Ed25519 key. The daemon verifies before
 // downloading.
+//
+// Use Platforms for multi-arch releases; legacy single-target
+// manifests set DownloadURL and SHA256 at the top level.
 type SignedManifest struct {
-	Version     string `json:"version"`
-	Channel     string `json:"channel"`
-	DownloadURL string `json:"download_url"`
-	SHA256      string `json:"sha256"`
-	Ed25519Sig  string `json:"ed25519_sig"` // hex-encoded signature
-	Mandatory   bool   `json:"mandatory"`
-	MinVersion  string `json:"min_version,omitempty"` // anti-downgrade floor
-	Notes       string `json:"notes,omitempty"`
+	Version     string                      `json:"version"`
+	Channel     string                      `json:"channel"`
+	DownloadURL string                      `json:"download_url,omitempty"`
+	SHA256      string                      `json:"sha256,omitempty"`
+	Platforms   map[string]PlatformArtifact `json:"platforms,omitempty"`
+	Ed25519Sig  string                      `json:"ed25519_sig"` // hex-encoded signature
+	Mandatory   bool                        `json:"mandatory"`
+	MinVersion  string                      `json:"min_version,omitempty"` // anti-downgrade floor
+	Notes       string                      `json:"notes,omitempty"`
 }
 
 // Result is the result of an update check.
@@ -99,6 +103,12 @@ const pollInterval = 6 * time.Hour
 
 // SetEnabled toggles auto-update.
 func (u *Updater) SetEnabled(v bool) { u.enabled = v }
+
+// SetManifestURL overrides the manifest URL (tests).
+func (u *Updater) SetManifestURL(url string) { u.manifest = url }
+
+// SetPublicKey overrides the embedded Ed25519 public key (tests).
+func (u *Updater) SetPublicKey(pub ed25519.PublicKey) { u.pubKey = pub }
 
 // Enabled returns the current setting.
 func (u *Updater) Enabled() bool { return u.enabled }
@@ -171,12 +181,17 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 		return Result{UpdateAvailable: false, CurrentVersion: cur}, nil
 	}
 
+	dlURL, sha, err := sm.ResolveArtifact()
+	if err != nil {
+		return skipResult(cur, err.Error()), nil
+	}
+
 	res := Result{
 		UpdateAvailable: true,
 		CurrentVersion:  cur,
 		LatestVersion:   sm.Version,
-		DownloadURL:     sm.DownloadURL,
-		SHA256:          sm.SHA256,
+		DownloadURL:     dlURL,
+		SHA256:          sha,
 		Mandatory:       sm.Mandatory,
 	}
 
@@ -286,26 +301,11 @@ func (u *Updater) verifyManifest(sm SignedManifest) error {
 	if err != nil {
 		return fmt.Errorf("invalid signature hex: %w", err)
 	}
-	// Re-serialize the manifest WITHOUT the signature field
-	// to get the bytes that were signed.
-	payload := struct {
-		Version     string `json:"version"`
-		Channel     string `json:"channel"`
-		DownloadURL string `json:"download_url"`
-		SHA256      string `json:"sha256"`
-		Mandatory   bool   `json:"mandatory"`
-		MinVersion  string `json:"min_version,omitempty"`
-		Notes       string `json:"notes,omitempty"`
-	}{
-		Version:     sm.Version,
-		Channel:     sm.Channel,
-		DownloadURL: sm.DownloadURL,
-		SHA256:      sm.SHA256,
-		Mandatory:   sm.Mandatory,
-		MinVersion:  sm.MinVersion,
-		Notes:       sm.Notes,
+	p, err := sm.Payload()
+	if err != nil {
+		return err
 	}
-	msg, err := json.Marshal(payload)
+	msg, err := MarshalPayload(p)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}

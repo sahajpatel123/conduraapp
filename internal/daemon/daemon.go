@@ -28,6 +28,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/crash"
 	"github.com/sahajpatel123/synapticapp/internal/lockfile"
+	"github.com/sahajpatel123/synapticapp/internal/updater"
 	"github.com/sahajpatel123/synapticapp/internal/version"
 )
 
@@ -76,6 +77,18 @@ type ListenSpec struct {
 	Disable   bool
 }
 
+// maybeApplyPendingUpdate completes a staged Windows binary swap on restart.
+func maybeApplyPendingUpdate() {
+	applied, err := updater.CompletePendingUpdate()
+	if err != nil {
+		slog.Warn("daemon: pending update", "err", err)
+		return
+	}
+	if applied {
+		slog.Info("daemon: applied pending update on restart")
+	}
+}
+
 // Run starts the daemon and blocks until ctx is canceled or a fatal
 // error occurs. On return, all subsystems are torn down (storage
 // closed, listeners stopped).
@@ -94,10 +107,10 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	if err := mkdirDataDir(opts.Config.General.DataDir); err != nil {
 		return nil, err
 	}
+	maybeApplyPendingUpdate()
 
-	// Acquire the single-instance lock. We do this BEFORE spinning
-	// up the logger / DB / IPC so a second invocation fails fast
-	// with a clean error message.
+	// Acquire the single-instance lock before logger/DB/IPC so a
+	// second invocation fails fast with a clean error message.
 	lock, err := lockfile.TryAcquire(filepath.Join(opts.Config.General.DataDir, DefaultLockFile))
 	if err != nil {
 		if errors.Is(err, lockfile.ErrLocked) {

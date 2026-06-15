@@ -53,7 +53,25 @@ gh release edit v0.1.0 --draft=false
 
 ## Publish the update manifest
 
-Push the signed manifest to the update server:
+GoReleaser writes an unsigned `dist/update-manifest.json` (multi-platform).
+Sign and upload with:
+
+```bash
+export UPDATE_SIGNING_KEY=<hex-ed25519-seed>
+go run ./cmd/gen-update-manifest sign dist/update-manifest.json dist/update-manifest.signed.json
+```
+
+Or generate from checksums manually:
+
+```bash
+go run ./cmd/gen-update-manifest generate \
+  --version v0.1.0 \
+  --checksums dist/checksums.txt \
+  --base-url "https://github.com/sahajpatel123/synapticapp/releases/download/v0.1.0" \
+  --out dist/update-manifest.signed.json
+```
+
+Push the signed manifest to the update server (stable URL for the daemon poller):
 ```json
 {
   "version": "0.1.0",
