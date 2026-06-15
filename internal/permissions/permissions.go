@@ -84,10 +84,18 @@ func probeAll() []Permission {
 }
 
 // probeOne returns the Status for a single Kind on the current
-// platform. Platform files override the function for kinds
-// they can probe natively.
+// platform. Platform files override probeOneImpl at init time.
 func probeOne(k Kind) Permission {
-	// Default: unknown. Platform files override.
+	if probeOneImpl != nil {
+		return probeOneImpl(k)
+	}
+	return defaultProbeOne(k)
+}
+
+// probeOneImpl is set by platform-specific files (darwin, etc.).
+var probeOneImpl func(Kind) Permission
+
+func defaultProbeOne(k Kind) Permission {
 	return Permission{Kind: k, Status: StatusUnknown, Note: "platform " + runtime.GOOS + " has no native probe for " + string(k)}
 }
 

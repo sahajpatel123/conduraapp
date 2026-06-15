@@ -133,6 +133,7 @@ type Result struct {
 	CreatedAt      string          `json:"created_at"`
 	FilesRemoved   int             `json:"files_removed"`
 	BytesRemoved   int64           `json:"bytes_removed"`
+	BackupPath     string          `json:"backup_path,omitempty"`
 	MissingEntries []ManifestEntry `json:"missing_entries,omitempty"`
 	Skipped        []string        `json:"skipped,omitempty"`
 }

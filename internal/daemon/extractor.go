@@ -2,11 +2,10 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/adaptive"
@@ -15,19 +14,15 @@ import (
 )
 
 // PostSessionExtractor runs async memory extraction and skill
-// auto-creation after a session completes. Both operations are
-// fire-and-forget, best-effort, and config-gated.
+// auto-creation after a session completes.
 type PostSessionExtractor struct {
 	memory     *memory.StoreManager
-	skills     skills.Store
+	autoCreate *skills.AutoCreate
 	log        *slog.Logger
 	enabled    bool
 	skillStore io.Closer
 	observer   *adaptive.Observer
 	engine     *adaptive.Engine
-
-	skillPatterns   map[string]int
-	skillPatternsMu sync.Mutex
 }
 
 // SetObserver wires the adaptive engine's observer.
@@ -42,12 +37,20 @@ func (e *PostSessionExtractor) SetEngine(eng *adaptive.Engine) {
 
 // NewPostSessionExtractor creates an async post-session processor.
 func NewPostSessionExtractor(mem *memory.StoreManager, skillStore skills.Store, log *slog.Logger, enabled bool) *PostSessionExtractor {
+	var ac *skills.AutoCreate
+	var closer io.Closer
+	if skillStore != nil {
+		ac = skills.NewAutoCreate(skillStore)
+		if c, ok := skillStore.(io.Closer); ok {
+			closer = c
+		}
+	}
 	return &PostSessionExtractor{
 		memory:     mem,
-		skills:     skillStore,
+		autoCreate: ac,
 		log:        log,
 		enabled:    enabled,
-		skillStore: skillStore.(io.Closer),
+		skillStore: closer,
 	}
 }
 
@@ -59,21 +62,16 @@ func (e *PostSessionExtractor) Close() error {
 	return nil
 }
 
-// AfterSession is called after a session completes. It fires
-// async goroutines for memory extraction and skill creation.
-// Never blocks the session return.
+// AfterSession is called after a session completes.
 func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, assistantReply string, conversationID int64) {
 	if !e.enabled {
 		return
 	}
 
-	// Copy values for the goroutines since the caller may reuse.
 	query := userMessage
 	reply := assistantReply
 
-	// Fire observer for adaptive engine (user-initiated evidence).
 	if e.observer != nil {
-		//nolint:gosec // intentional: async observer must survive request ctx
 		go e.observer.Record(context.Background(), adaptive.Observation{
 			SessionID:     newID("sess"),
 			UserQuery:     query,
@@ -82,9 +80,7 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 		})
 	}
 
-	// Trigger adaptive engine analysis (async, best-effort).
 	if e.engine != nil {
-		//nolint:gosec // intentional: async engine must survive request ctx
 		go e.engine.Run(context.Background())
 	}
 
@@ -92,8 +88,8 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 		go e.storeEpisode(ctx, query, reply, conversationID)
 	}
 
-	if e.skills != nil {
-		go e.maybeCreateSkill(ctx, query, reply)
+	if e.autoCreate != nil {
+		go e.runAutoCreate(ctx, query, reply, conversationID)
 	}
 }
 
@@ -104,22 +100,18 @@ func (e *PostSessionExtractor) storeEpisode(ctx context.Context, query, reply st
 		Type:    memory.Episodic,
 		Content: query,
 		Metadata: map[string]interface{}{
-			"session_id":      epID,
-			keyConversationID: conversationID,
-			"reply":           reply,
+			"session_id":        epID,
+			keyConversationID:   conversationID,
+			"reply":             reply,
 		},
 	})
 	if err != nil {
 		e.log.Warn("postsession: store episode failed", "err", err)
 	}
-
-	// Also extract semantic facts from the reply.
 	e.extractFacts(ctx, query, reply)
 }
 
 func (e *PostSessionExtractor) extractFacts(ctx context.Context, query, reply string) {
-	// Simple heuristic extraction: look for preference/keyword patterns.
-	// Full LLM-based extraction requires a provider (not wired yet).
 	fact := extractPreference(query, reply)
 	if fact != "" {
 		err := e.memory.Remember(ctx, &memory.Memory{
@@ -136,9 +128,7 @@ func (e *PostSessionExtractor) extractFacts(ctx context.Context, query, reply st
 	}
 }
 
-// extractPreference uses simple heuristics to detect user preferences.
 func extractPreference(query, reply string) string {
-	// Detect "I prefer/like/want/use" patterns.
 	combined := query + " " + reply
 	for _, marker := range []string{"I prefer ", "I like ", "I use ", "I want ", "my favorite "} {
 		if idx := idxOf(combined, marker); idx >= 0 {
@@ -155,68 +145,18 @@ func extractPreference(query, reply string) string {
 	return ""
 }
 
-func (e *PostSessionExtractor) maybeCreateSkill(ctx context.Context, query, reply string) {
-	// Skill auto-creation: when N similar session patterns appear,
-	// create a skill from the cluster. The adaptive engine's
-	// Observer already tracks sessions — we use a simple in-memory
-	// pattern counter as a lightweight trigger.
-	if e.skills == nil {
-		return
+func (e *PostSessionExtractor) runAutoCreate(ctx context.Context, query, reply string, conversationID int64) {
+	sessionID := fmt.Sprintf("conv-%d", conversationID)
+	steps := []string{reply}
+	err := e.autoCreate.Observe(ctx, sessionID, query, steps)
+	switch {
+	case err == nil:
+		e.log.Info("postsession: skill auto-created", "session", sessionID)
+	case errors.Is(err, skills.ErrNoSkillCreated), errors.Is(err, skills.ErrEmptyQuery):
+		// below threshold — not an error
+	default:
+		e.log.Warn("postsession: autocreate failed", "err", err)
 	}
-
-	pattern := normalizePattern(query)
-	if pattern == "" || len(pattern) < 10 {
-		return
-	}
-
-	e.skillPatternsMu.Lock()
-	if e.skillPatterns == nil {
-		e.skillPatterns = make(map[string]int)
-	}
-	e.skillPatterns[pattern]++
-	count := e.skillPatterns[pattern]
-	e.skillPatternsMu.Unlock()
-
-	const minSamples = 3
-	if count < minSamples {
-		return
-	}
-
-	// Create the skill.
-	sk := &skills.Skill{
-		ID:             newID("skill"),
-		Name:           pattern,
-		Description:    "Auto-created skill for: " + query,
-		TriggerPattern: pattern,
-		Steps:          []string{reply},
-		Version:        "0.1.0",
-		Trust:          skills.TrustExperimental,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		LastUsed:       time.Now(),
-	}
-	if err := e.skills.Create(ctx, sk); err != nil {
-		e.log.Warn("postsession: skill create failed", "err", err, "pattern", pattern)
-		return
-	}
-	// Reset counter so the same pattern doesn't keep creating skills.
-	e.skillPatternsMu.Lock()
-	delete(e.skillPatterns, pattern)
-	e.skillPatternsMu.Unlock()
-	e.log.Info("postsession: skill auto-created", "pattern", pattern, "samples", count)
-}
-
-func normalizePattern(query string) string {
-	// Extract the core intent: lowercase, strip punctuation, limit length.
-	q := strings.ToLower(strings.TrimSpace(query))
-	// Truncate to first 80 chars as the pattern key.
-	const maxPatternLen = 80
-	if len(q) > maxPatternLen {
-		q = q[:80]
-	}
-	// Normalize whitespace.
-	q = strings.Join(strings.Fields(q), " ")
-	return q
 }
 
 func idxOf(s, substr string) int {

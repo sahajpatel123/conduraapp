@@ -2,20 +2,6 @@
 // path. "Rollback" here means: undo the Synaptic-owned state to
 // a checkpoint, AND be honest about what cannot be undone
 // (irreversible OS actions).
-//
-// What this package can roll back:
-//   - Conversation rows since a checkpoint (delete rows).
-//   - Memory rows since a checkpoint (delete rows).
-//   - Skill activations since a checkpoint (decrement counters).
-//
-// What this package cannot roll back (irreversible OS actions):
-//   - Sent emails, deleted files, made purchases, sent messages.
-//     For those, the audit log + Action Replay (11A) is the record.
-//     The UI must not promise otherwise.
-//
-// Per MISSION §18.4 (honesty principle): "Recovery = backup/restore
-// of Synaptic's own state + a replay record to understand what
-// happened — not magic reversal of irreversible OS actions."
 package backup
 
 import (
@@ -33,82 +19,96 @@ type Checkpoint struct {
 	Reason    string
 }
 
-// Rollback is a thin wrapper around the storage layer. It needs
-// the SQL handle to the main DB; the methods are intentionally
-// narrow so a caller can't accidentally rewind the audit log
-// (which is HMAC-chained and append-only).
+// Rollback reverts Synaptic-owned rows inserted after a checkpoint.
+// It never touches the HMAC-chained audit log.
 type Rollback struct {
-	db *sql.DB
+	mainDB   *sql.DB
+	memoryDB *sql.DB
+	skillsDB *sql.DB
 }
 
-// NewRollback returns a Rollback helper.
+// NewRollback returns a Rollback helper for the main database only.
 func NewRollback(db *sql.DB) *Rollback {
-	return &Rollback{db: db}
+	return &Rollback{mainDB: db}
 }
 
-// CreateCheckpoint inserts a named checkpoint row. The checkpoint
-// records the current time; subsequent RevertToCheckpoint deletes
-// rows inserted after that time.
-//
-// We do NOT record a "hash of the state at this point" — that
-// would require snapshotting every table, which is out of scope
-// for the honest-rollback path. The timestamp is the contract.
-//
-// In v0.1.0 checkpoints are in-memory only (the DB table is
-// planned but not yet added to keep the schema migration count
-// low for Phase 11). A checkpoint lives until the daemon
-// restarts; on restart, "revert last session" is a no-op.
-func (r *Rollback) CreateCheckpoint(ctx context.Context, reason string) (*Checkpoint, error) {
+// NewRollbackMulti returns a Rollback that can revert conversations
+// (main DB), memory episodes/facts (memory DB), and skill rows
+// (skills DB). Nil DB pointers are skipped.
+func NewRollbackMulti(mainDB, memoryDB, skillsDB *sql.DB) *Rollback {
+	return &Rollback{mainDB: mainDB, memoryDB: memoryDB, skillsDB: skillsDB}
+}
+
+// CreateCheckpoint records a rollback target at the current time.
+func (r *Rollback) CreateCheckpoint(_ context.Context, reason string) (*Checkpoint, error) {
 	now := time.Now().UTC()
 	return &Checkpoint{ID: 1, CreatedAt: now, Reason: reason}, nil
 }
 
-// RevertToCheckpoint deletes Synaptic-owned rows that were
-// inserted after the given checkpoint's CreatedAt. This is a
-// best-effort "undo my session" for the agent's own state. It
-// does NOT undo OS actions.
-//
-// Returns the count of rows deleted (across conversations +
-// memory + skills tables).
+// RevertToCheckpoint deletes Synaptic-owned rows inserted after
+// the checkpoint. Returns the total rows deleted.
 func (r *Rollback) RevertToCheckpoint(ctx context.Context, cp Checkpoint) (int, error) {
-	if r.db == nil {
-		return 0, fmt.Errorf("backup: nil db")
-	}
 	cutoff := cp.CreatedAt.UTC().Format(time.RFC3339Nano)
 	total := 0
 
-	// Conversations: delete messages and conversations newer than
-	// the checkpoint.
-	// Schema check: we expect conversation_messages.created_at to
-	// be a TEXT column storing RFC3339Nano timestamps. If the
-	// schema differs, this query will fail — caller should check
-	// schema_version first.
-	if hasColumn(ctx, r.db, "conversation_messages", "created_at") {
-		// We do NOT have a "created_at" column on conversation_messages
-		// in the current schema (we have id, conversation_id, role,
-		// content, tool_call_id). The conversation table itself has
-		// no timestamp. Revert here is best-effort: delete the
-		// whole conversation if its last message was after the
-		// checkpoint. Defer a proper schema migration to a follow-up.
-		// For now, return 0 — this is documented as "honest scope".
-		_ = cutoff
+	if r.mainDB != nil && hasColumn(ctx, r.mainDB, "conversation_messages", "created_at") {
+		res, err := r.mainDB.ExecContext(ctx,
+			`DELETE FROM conversation_messages WHERE created_at > ?`, cutoff)
+		if err != nil {
+			return total, fmt.Errorf("backup: rollback messages: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			total += int(n)
+		}
+		if hasColumn(ctx, r.mainDB, "conversations", "created_at") {
+			res, err = r.mainDB.ExecContext(ctx,
+				`DELETE FROM conversations WHERE created_at > ?`, cutoff)
+			if err != nil {
+				return total, fmt.Errorf("backup: rollback conversations: %w", err)
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				total += int(n)
+			}
+		}
 	}
 
-	// Memory: delete episodes/facts/skills since the checkpoint.
-	// Memory has timestamp columns; we'll delete later when
-	// memory gains a proper time index. For v0.1.0 we return 0.
-	_ = cutoff
+	if r.memoryDB != nil {
+		for _, q := range []struct {
+			table string
+			col   string
+		}{
+			{"episodes", "timestamp"},
+			{"facts", "created_at"},
+		} {
+			if !hasColumn(ctx, r.memoryDB, q.table, q.col) {
+				continue
+			}
+			res, err := r.memoryDB.ExecContext(ctx,
+				fmt.Sprintf(`DELETE FROM %s WHERE %s > ?`, q.table, q.col), cutoff)
+			if err != nil {
+				return total, fmt.Errorf("backup: rollback memory %s: %w", q.table, err)
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				total += int(n)
+			}
+		}
+	}
 
-	// Skills: the SQLite store has no created_at on rows. No-op
-	// for now.
+	if r.skillsDB != nil && hasColumn(ctx, r.skillsDB, "skills", "created_at") {
+		res, err := r.skillsDB.ExecContext(ctx,
+			`DELETE FROM skills WHERE created_at > ? AND source = 'auto'`, cutoff)
+		if err != nil {
+			return total, fmt.Errorf("backup: rollback skills: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			total += int(n)
+		}
+	}
 
 	return total, nil
 }
 
 // hasColumn reports whether the given table has the given column.
-// Used to make RevertToCheckpoint robust to schema changes — if
-// the expected column doesn't exist, we skip the delete (no
-// crash, no data loss, just no rollback for that table).
 func hasColumn(ctx context.Context, db *sql.DB, table, column string) bool {
 	rows, err := db.QueryContext(ctx,
 		`SELECT 1 FROM pragma_table_info(?) WHERE name = ? LIMIT 1`,
@@ -120,32 +120,23 @@ func hasColumn(ctx context.Context, db *sql.DB, table, column string) bool {
 	return rows.Next()
 }
 
-// RevertLastSession is a convenience wrapper for "undo everything
-// since this session started". It creates an implicit checkpoint
-// at the start of the current minute and reverts to it. Use only
-// for "I just did something I regret" — not for "I want to undo
-// something from yesterday" (use a real checkpoint for that).
+// RevertLastSession reverts rows inserted in the last hour as a
+// practical "undo my recent session" action.
 func (r *Rollback) RevertLastSession(ctx context.Context) (int, error) {
-	cp, err := r.CreateCheckpoint(ctx, "revert last session")
-	if err != nil {
-		return 0, err
+	cp := Checkpoint{
+		ID:        1,
+		CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+		Reason:    "revert last session",
 	}
-	// A real implementation would create the checkpoint at
-	// session-start (e.g., when the SSE stream began). For v0.1.0
-	// we just return the immediate count, which is 0.
-	_ = ctx
-	_, err = r.RevertToCheckpoint(ctx, *cp)
-	return 0, err
+	return r.RevertToCheckpoint(ctx, cp)
 }
 
 // HonestScope returns a human-readable statement of what Rollback
-// can and cannot do. The UI surfaces this string in the rollback
-// confirmation dialog so the user knows exactly what they're
-// agreeing to.
+// can and cannot do.
 func (r *Rollback) HonestScope() string {
 	return "Rollback will delete Synaptic-owned rows inserted after the " +
 		"checkpoint: conversation history, memory episodes, and " +
-		"skill activations. It will NOT undo OS-level actions like " +
+		"auto-created skills. It will NOT undo OS-level actions like " +
 		"sent emails, deleted files, made purchases, or sent messages. " +
 		"For those, see Action Replay."
 }

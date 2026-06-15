@@ -11,6 +11,7 @@ import (
 
 func TestScheduler_DefaultBackupDir(t *testing.T) {
 	tmp := t.TempDir()
+	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(tmp, "backups"))
 	mk := make([]byte, 32)
 	bm, err := New(Options{DataDir: tmp, MasterKey: mk})
 	if err != nil {

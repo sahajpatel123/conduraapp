@@ -66,6 +66,7 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
+	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg)
@@ -193,6 +194,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
+	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg)
@@ -284,6 +286,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 // has no .zip.tmp leftovers.
 func TestTrustE2E_BackupErrorLeavesNoOrphans(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 	// Note: no synaptic.db written here, so Create must fail.
 	mk := make([]byte, 32)
 	for i := range mk {
@@ -320,6 +323,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
+	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg)

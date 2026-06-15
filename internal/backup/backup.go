@@ -244,7 +244,7 @@ func (b *Manager) openOutput() (outPath string, createdTmp bool, err error) {
 	if b.opts.Out != "" {
 		return b.opts.Out, false, nil
 	}
-	backupDir := filepath.Join(b.opts.DataDir, "backups")
+	backupDir := ResolveBackupDir(b.opts.DataDir)
 	if err := os.MkdirAll(backupDir, 0o700); err != nil {
 		return "", false, fmt.Errorf("backup: mkdir backup dir: %w", err)
 	}

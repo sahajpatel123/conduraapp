@@ -37,12 +37,21 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 	srv.Register("uninstall.execute", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			ConfirmToken string `json:"confirm_token"`
+			SkipBackup   bool   `json:"skip_backup"`
 		}
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		if !subs.GatekeeperAllow(ctx, "uninstall.execute", "Uninstall Synaptic from this machine") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
+		}
+		var backupPath string
+		if !p.SkipBackup && subs.Backup != nil {
+			path, berr := subs.Backup.Create(ctx)
+			if berr != nil {
+				return nil, fmt.Errorf("uninstall: pre-backup failed: %w", berr)
+			}
+			backupPath = path
 		}
 		dataDir := subs.GeneralDataDir()
 		result, err := uninstall.Uninstall(uninstall.Options{
@@ -51,6 +60,9 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 		})
 		if err != nil {
 			return nil, fmt.Errorf("uninstall: execute: %w", err)
+		}
+		if backupPath != "" {
+			result.BackupPath = backupPath
 		}
 		_ = subs.Audit.Append(ctx, buildAuditEvent("uninstall.execute", appSynapticd, auditResultAllow, "files_removed="+fmt.Sprint(result.FilesRemoved)))
 		return result, nil

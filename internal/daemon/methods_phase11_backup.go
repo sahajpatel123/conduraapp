@@ -91,10 +91,20 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	})
 
 	// backup.create — create a new encrypted backup.
-	srv.Register("backup.create", func(ctx context.Context, _ json.RawMessage) (any, error) {
+	srv.Register("backup.create", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Destination string `json:"destination"`
+		}
+		_ = json.Unmarshal(params, &p)
 		path, err := subs.Backup.Create(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("backup: create: %w", err)
+		}
+		if p.Destination != "" {
+			if err := copyFile(path, p.Destination); err != nil {
+				return nil, fmt.Errorf("backup: copy to destination: %w", err)
+			}
+			path = p.Destination
 		}
 		return map[string]any{"path": path}, nil
 	})
@@ -170,7 +180,11 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if !subs.GatekeeperAllow(ctx, "backup.rollback", "Revert last session") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
 		}
-		rb := backup.NewRollback(subs.Storage.SQL())
+		rb := backup.NewRollbackMulti(
+			subs.Storage.SQL(),
+			openRollbackDB(subs.MemoryDBPath()),
+			openRollbackDB(subs.SkillDBPath()),
+		)
 		n, err := rb.RevertLastSession(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("backup: rollback: %w", err)
@@ -180,14 +194,13 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	})
 }
 
-// backupDir is the on-disk location the backup Manager writes
-// archives to. We put it next to the data dir so the user can
-// find it. Tests can override by setting SYNAPTIC_BACKUP_DIR.
+// backupDir is the on-disk location backup archives are written to.
+// Uses backup.ResolveBackupDir (Documents/synaptic-backups by default).
 func backupDir(subs *Subsystems) string {
-	if dir := subs.GeneralDataDir(); dir != "" {
-		return filepath.Join(dir, "backups")
+	if subs == nil {
+		return ""
 	}
-	return ""
+	return backup.ResolveBackupDir(subs.GeneralDataDir())
 }
 
 // listBackupArchives returns a sorted list of .zip files in

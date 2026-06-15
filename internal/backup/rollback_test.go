@@ -37,9 +37,12 @@ func TestRollback_CreateCheckpoint(t *testing.T) {
 
 func TestRollback_RevertToCheckpoint_WithoutDB(t *testing.T) {
 	r := NewRollback(nil)
-	_, err := r.RevertToCheckpoint(context.Background(), Checkpoint{})
-	if err == nil {
-		t.Error("expected error when db is nil")
+	n, err := r.RevertToCheckpoint(context.Background(), Checkpoint{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("got %d, want 0 with nil databases", n)
 	}
 }
 

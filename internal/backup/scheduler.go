@@ -72,7 +72,7 @@ func NewScheduler(cfg SchedulerConfig, bm *Manager, log *slog.Logger) *Scheduler
 	// Apply the documented default: empty BackupDir means
 	// <data-dir>/backups.
 	if cfg.BackupDir == "" && bm != nil && bm.opts.DataDir != "" {
-		cfg.BackupDir = filepath.Join(bm.opts.DataDir, "backups")
+		cfg.BackupDir = ResolveBackupDir(bm.opts.DataDir)
 	}
 	return &Scheduler{cfg: cfg, bm: bm, log: log, stop: make(chan struct{})}
 }

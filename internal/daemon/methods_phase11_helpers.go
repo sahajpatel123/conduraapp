@@ -1,12 +1,16 @@
 package daemon
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/audit"
+	_ "modernc.org/sqlite"
 )
 
 // zeroTime returns a zero time.Time. The replay.Timeline
@@ -70,3 +74,39 @@ func buildAuditEvent(action, app, result, message string) audit.Event {
 
 // jsonRaw returns params unchanged.
 func jsonRaw(params json.RawMessage) json.RawMessage { return params } //nolint:unused
+
+// openRollbackDB opens a SQLite database for rollback if the file exists.
+func openRollbackDB(path string) *sql.DB {
+	if path == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil
+	}
+	return db
+}
+
+// copyFile copies src to dst, creating parent directories as needed.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src) //nolint:gosec // trusted backup path from daemon
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	out, err := os.Create(dst) //nolint:gosec // user-chosen export destination
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
+}
