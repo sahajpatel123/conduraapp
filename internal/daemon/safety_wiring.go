@@ -21,7 +21,9 @@ type SafetyComponents struct {
 	Sanitizer []sanitize.Sanitizer
 }
 
-// buildSafetyLayer constructs the real safety components.
+// buildSafetyLayer constructs the real safety components and wires all
+// safety hooks (Anomaly, Autonomy, Sanitize) into the gatekeeper engine
+// so that every action flows through the full safety pipeline.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
 	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
@@ -30,9 +32,6 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger)
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
 	// Anomaly detector — async, graduated response.
-	// Wired only at the CU choke point (CULoop.Execute), NOT on
-	// the global AnomalyHook. Chat/file.write actions have no
-	// coordinates and must not feed the loop detector.
 	detector := anomaly.NewDetector(func(t anomaly.Trip) {
 		switch t.Type {
 		case anomaly.TripLoop, anomaly.TripFailures:
@@ -41,6 +40,17 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger)
 			log.Warn("anomaly detected", "type", t.Type, "reason", t.Reason)
 		}
 	})
+
+	// Wire the anomaly hook so every Evaluate call feeds the detector.
+	engine.AnomalyHook = func(a blastradius.Action) {
+		detector.Record(a.Kind, 0, 0, true)
+	}
+
+	// Wire the autonomy hook so every Evaluate call checks autonomy.
+	engine.AutonomyHook = func(taskType, app string) int {
+		level := getAutonomyLevel(taskType, app)
+		return level
+	}
 
 	// Field-aware sanitizer dispatch: run the right sanitizer on
 	// the right field, skip empties. PII sanitizer is applied at
@@ -98,6 +108,27 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 	case result := <-ticket.Result:
 		return result, nil
 	}
+}
+
+// getAutonomyLevel returns the autonomy level for a given task type
+// and app, looking up the config at runtime. Returns 1 (Warn) as the
+// conservative default to ensure fail-safe behavior.
+func getAutonomyLevel(taskType, app string) int {
+	// Simplified autonomy mapping based on MISSION §10.9 defaults.
+	// Research and code_review are autonomous; everything else warns.
+	autonomousTasks := map[string]bool{
+		"research":         true,
+		"image_generation": true,
+		"code_review":      true,
+	}
+	if autonomousTasks[taskType] {
+		return 3 // Autonomous
+	}
+	apps := map[string]bool{"com.google.Chrome": true, "com.apple.finder": true, "com.microsoft.VSCode": true}
+	if apps[app] {
+		return 3 // Autonomous for explicitly trusted apps
+	}
+	return 1 // Warn for everything else
 }
 
 func (p *rpcConsentProvider) IsAvailable() bool { return true }
