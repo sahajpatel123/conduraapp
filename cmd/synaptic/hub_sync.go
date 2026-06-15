@@ -146,8 +146,9 @@ func cmdHubInstall(gf *globalFlags, args []string) error {
 // of truth, so a user can re-publish after editing the archive).
 //
 // Usage: synaptic hub publish PATH
-//   PATH is a skill archive file (.zip). The skill's metadata is
-//   read from the archive itself; the file is uploaded verbatim.
+//
+//	PATH is a skill archive file (.zip). The skill's metadata is
+//	read from the archive itself; the file is uploaded verbatim.
 func cmdHubPublish(gf *globalFlags, args []string) error {
 	if len(args) < 1 {
 		fmt.Println("usage: synaptic hub publish PATH")
@@ -205,6 +206,48 @@ func cmdHubServe(gf *globalFlags, args []string) error {
 		*addr, *root, ternary(*token != "", "token-protected", "open"), srv.Count())
 	fmt.Println("press Ctrl+C to stop")
 	return srv.ListenAndServe(*addr)
+}
+
+// cmdSkills dispatches the `skills` subcommand (Phase 12 local
+// skills). Each subcommand is a thin wrapper around an RPC.
+func cmdSkills(gf *globalFlags, args []string) error {
+	if len(args) == 0 {
+		fmt.Println(`usage: synaptic skills <list|get|delete>
+
+  list               list installed skills
+  get ID             fetch one skill by ID
+  delete ID          remove a skill by ID`)
+		return nil
+	}
+	switch args[0] {
+	case "list":
+		return cmdSyncCall(gf, "skills.list", map[string]any{"limit": 100})
+	case "get":
+		return cmdSyncCall(gf, "skills.get", map[string]any{"id": args[1]})
+	case "delete":
+		return cmdSyncCall(gf, "skills.delete", map[string]any{"id": args[1]})
+	default:
+		return fmt.Errorf("unknown skills subcommand %q", args[0])
+	}
+}
+
+// cmdI18n dispatches the `i18n` subcommand (Phase 12 locales).
+func cmdI18n(gf *globalFlags, args []string) error {
+	if len(args) == 0 {
+		fmt.Println(`usage: synaptic i18n <locales|locale>
+
+  locales            list available locales
+  locale CODE        print all translations for a locale`)
+		return nil
+	}
+	switch args[0] {
+	case "locales":
+		return cmdSyncCall(gf, "i18n.locales", nil)
+	case "locale":
+		return cmdSyncCall(gf, "i18n.locale", map[string]any{"locale": args[1]})
+	default:
+		return fmt.Errorf("unknown i18n subcommand %q", args[0])
+	}
 }
 
 // cmdSync dispatches the `sync` subcommand.

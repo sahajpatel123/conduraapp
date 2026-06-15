@@ -94,6 +94,10 @@ func run(args []string) error {
 		return cmdHub(gf, subargs)
 	case "sync":
 		return cmdSync(gf, subargs)
+	case "skills":
+		return cmdSkills(gf, subargs)
+	case "i18n":
+		return cmdI18n(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -118,6 +122,8 @@ Commands:
   apikeys        Manage stored API keys (list/set/delete).
   hub           Manage Skills Hub (search/get/install/publish/serve).
   sync          Manage P2P encrypted sync (peers/pair/revoke/status).
+  skills        Manage locally installed skills (list/get/delete).
+  i18n          Manage locale catalogs (locales/locale).
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
