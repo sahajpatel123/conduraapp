@@ -59,6 +59,11 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.1-dev \
             libx11-dev libayatana-appindicator3-dev
 
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: bash
+        run: choco install nsis -y
+
       - name: Build GUI
         shell: bash
         env:

@@ -1784,3 +1784,47 @@ integration tests.
 - Tier 3 runtime verification against real built binary still needed
   to complete Phase 12 per STYLE.md mandate.
 - Phase 12 completion audit and final retro per STYLE.md.
+
+---
+
+## 2026-06-15 — Phase 13 closed (release & distribution)
+
+### What was missing on `main`
+- **Build break:** `BackupConfig.RollbackWindow` referenced by
+  `backup.rollback` RPC but not defined in config — `go build ./...`
+  failed on HEAD.
+- **Windows restore E2E:** After `ReloadAuxiliaryDatabases()`, new
+  `memory.db` / `skills.db` handles were not registered in
+  `subs.closers`, so `subs.Close()` left files locked and
+  `t.TempDir()` cleanup failed on Windows CI.
+- **Phase 13 gaps:** No DMG/NSIS GUI installers, no `release-verify`
+  workflow on `main`, no automated manifest sign roundtrip in CI.
+
+### Fixes shipped
+1. **`internal/config/config.go`** — `RollbackWindow time.Duration`
+   on `BackupConfig`.
+2. **`internal/daemon/subsystems.go`** — `replaceMemoryCloser` /
+   `replaceSkillCloser` so post-restore SQLite stores are released on
+   shutdown (STYLE.md §21 stale-handle pattern).
+3. **`scripts/package-gui-installers.sh`** + **`synaptic-gui.nsi`**
+   — DMG (macOS `hdiutil`) and NSIS setup exe (Windows).
+4. **`.github/workflows/release-verify.yml`** — GoReleaser snapshot +
+   ephemeral-key manifest sign/verify + updater/daemon E2E on every
+   `main` push.
+5. **`.goreleaser.yml`** — attach `*.dmg` and `*-setup.exe` to
+   GitHub releases.
+6. **`STYLE.md` §20.5** — mindset: complete is a verdict (compile,
+   CI, evidence, install surface), not a mood.
+
+### Three-lens audit (Phase 13)
+| Lens | Verdict |
+|------|---------|
+| Attacker | Ed25519 verify + bad-sig E2E; per-platform SHA256 in manifest |
+| Release engineer | `release-verify` + `release.yml` tag pipeline; `make release-snapshot` |
+| End-user | DMG/NSIS + deb/tarballs; `docs/on-device-verification.md` still required before `v0.1.0` |
+
+### Still open (honest)
+- Tag `v0.1.0` dry-run on GitHub (needs real tag push).
+- Production `UPDATE_SIGNING_KEY` in repo secrets.
+- On-device install verification on clean macOS/Windows/Linux machines.
+- macOS notarization when Apple secrets are configured.

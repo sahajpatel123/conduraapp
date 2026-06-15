@@ -2,10 +2,12 @@
 
 ## Pre-release checklist
 
-- [ ] Phase 11 backup/restore passes tests (no data loss)
+- [ ] Phase 11 backup/restore passes tests (no data loss; Windows file handles closed after restore)
 - [ ] Phase 12 on-device verification passes on real macOS/Windows/Linux machines
-- [ ] All 48+ packages pass `go test -race ./...`
+- [ ] All packages pass `go test -race ./...`
 - [ ] `golangci-lint run ./...` is clean
+- [ ] `release-verify` workflow green on `main` (GoReleaser snapshot + manifest sign roundtrip)
+- [ ] `make release-snapshot` succeeds locally before tagging
 - [ ] Release signing key has been generated (see `docs/release-keys.md`)
 - [ ] Public key is embedded in `internal/updater/updater.go` (`PublicKey`)
 - [ ] CI secrets are set:

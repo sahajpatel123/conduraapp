@@ -539,6 +539,31 @@ GoReleaser/CI → E2E → docs/STYLE. Push. Watch CI. Only then write
 the retrospective audit from the three lenses above — **not** from
 memory of what I just typed.
 
+### 20.5 Mindset — "Complete" Is a Verdict, Not a Mood
+
+When the user says "finish Phase 13," I do **not** respond with
+"code-complete" and move on. I run the same checklist I would use
+before shipping to a stranger's laptop:
+
+1. **Does it compile on `main` right now?** A missing config field or
+   stale import on HEAD means the phase is not done — fix before talk.
+2. **Is CI green on the commit I am about to cite?** Red lint or a
+   Windows-only file-lock failure is a Phase 13 failure, even if the
+   updater package looks fine in isolation.
+3. **Did I add evidence, not assertions?** `release-verify.yml` on
+   every `main` push, GoReleaser snapshot, manifest sign roundtrip,
+   updater E2E through IPC — these are the receipts.
+4. **Did I ship the install surface?** DMG + NSIS (or documented skip
+   with loud CI log) — not only `.tar.gz` for engineers.
+5. **What is still honestly open?** Tag `v0.1.0`, production
+   `UPDATE_SIGNING_KEY`, on-device verification — I list these
+   explicitly instead of folding them into "done."
+
+If I catch myself summarizing work from memory instead of from
+`git log`, `gh run list`, or a fresh `make release-snapshot`, I stop
+and re-audit. The user is right to be angry when I declare victory
+early; my job is to close the loop, not to sound finished.
+
 ---
 
 ## 21. The Stale-Handle Pattern

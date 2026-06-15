@@ -1,0 +1,95 @@
+name: Release Verify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.25.11"
+
+jobs:
+  # ---------------------------------------------------------------
+  # GoReleaser snapshot — proves packaging config on every main push.
+  # ---------------------------------------------------------------
+  goreleaser-snapshot:
+    name: GoReleaser snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install GoReleaser
+        run: |
+          curl -sfL https://github.com/goreleaser/goreleaser/releases/download/v2.12.2/goreleaser_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin goreleaser
+          goreleaser --version
+
+      - name: Snapshot release
+        run: goreleaser release --snapshot --clean
+
+      - name: Verify snapshot artifacts
+        run: |
+          test -f dist/checksums.txt
+          test -f dist/update-manifest.json
+          ls -la dist/
+          echo "synapticd archives:"
+          ls dist/synapticd-* 2>/dev/null | head -5
+          echo "synaptic-cli archives:"
+          ls dist/synaptic-cli-* 2>/dev/null | head -5
+
+  # ---------------------------------------------------------------
+  # Manifest sign + verify roundtrip (ephemeral key — no secrets).
+  # ---------------------------------------------------------------
+  manifest-signing:
+    name: Manifest sign roundtrip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Generate ephemeral Ed25519 seed
+        run: echo "UPDATE_SIGNING_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Build sample checksums
+        run: |
+          mkdir -p dist
+          printf '%s synapticd-0.0.0-linux-amd64.tar.gz\n' \
+            "$(printf 'a%.0s' {1..64})" > dist/checksums.txt
+
+      - name: Generate signed manifest
+        run: |
+          go run ./cmd/gen-update-manifest generate \
+            --version v0.0.0-test \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-test" \
+            --out dist/update-manifest.json
+
+      - name: Re-sign via sign subcommand
+        run: |
+          go run ./cmd/gen-update-manifest sign \
+            dist/update-manifest.json dist/update-manifest.signed.json
+          test -s dist/update-manifest.signed.json
+
+      - name: Updater package tests
+        run: go test -count=1 -timeout=60s ./internal/updater/...
+
+      - name: Update IPC E2E tests
+        run: go test -count=1 -timeout=120s ./internal/daemon -run 'TestE2E_Update'

@@ -23,7 +23,7 @@ the authoritative session log.
 | Wails GUI shell  | ✅ done |
 | Trust & Recovery (Phase 11) | ✅ backend + GUI wiring |
 | Reach & Ecosystem (Phase 12) | ✅ TUI, i18n, hub, sync RPCs |
-| Release / auto-update (Phase 13) | ✅ updater, manifest pipeline, GoReleaser + GUI CI |
+| Release / auto-update (Phase 13) | ✅ updater, manifest pipeline, GoReleaser, DMG/NSIS GUI, `release-verify` CI |
 | `v0.1.0` release | ⏳ tag `v0.1.0` + on-device verification |
 
 ### Try it locally

@@ -75,3 +75,7 @@ esac
 
 echo "GUI artifact: $DEST"
 ls -la "$DEST"
+
+# Platform installers (DMG / NSIS) for end-user distribution.
+chmod +x "${ROOT}/scripts/package-gui-installers.sh"
+"${ROOT}/scripts/package-gui-installers.sh"

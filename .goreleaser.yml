@@ -207,6 +207,8 @@ release:
   extra_files:
     - glob: dist/update-manifest.json
     - glob: dist/update-manifest.signed.json
+    - glob: dist/prebuilt/*.dmg
+    - glob: dist/prebuilt/*-setup.exe
 
 # Platform code signing is run in release.yml when secrets are configured.
 # See docs/release-runbook.md.
