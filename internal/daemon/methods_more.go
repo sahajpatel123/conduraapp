@@ -50,6 +50,13 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		return auditOK(), nil
 	})
 
+	srv.Register("telemetry.status", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return map[string]any{
+			"enabled":  cfg.Telemetry.Enabled,
+			"endpoint": cfg.Telemetry.Endpoint,
+		}, nil
+	})
+
 	srv.Register("telemetry.setEnabled", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Enabled bool `json:"enabled"`

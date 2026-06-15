@@ -163,7 +163,7 @@ func scanSkill(row *sql.Row) (*Skill, error) {
 }
 
 func scanSkills(rows *sql.Rows) ([]*Skill, error) {
-	var out []*Skill
+	out := make([]*Skill, 0)
 	for rows.Next() {
 		var sk Skill
 		var stepsJSON, depsJSON, trust string

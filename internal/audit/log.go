@@ -247,7 +247,7 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		return nil, fmt.Errorf("query audit log: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	var out []Event
+	out := make([]Event, 0)
 	for rows.Next() {
 		var e Event
 		var ts string
