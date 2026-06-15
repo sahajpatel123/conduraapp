@@ -4,6 +4,7 @@
   import { updateStore } from '../stores/update.svelte'
   import { halt } from '../stores/halt.svelte'
   import { spend } from '../stores/spend.svelte'
+  import { trust } from '../stores/trust.svelte'
   import LocaleSelector from '../components/LocaleSelector.svelte'
 
   let hotkeyInput = $state('')
@@ -12,6 +13,8 @@
   let newLabel = $state('default')
   let newSecret = $state('')
   let settingAPIKey = $state(false)
+  let creatingBackup = $state(false)
+  let permissionGuide = $state<{ kind: string; title: string; steps: string[] } | null>(null)
 
   $effect(() => {
     if (settings.config) {
@@ -58,6 +61,33 @@
 
   async function performResume(): Promise<void> {
     await halt.resume()
+  }
+
+  async function createBackup(): Promise<void> {
+    creatingBackup = true
+    try {
+      const path = await trust.createBackup()
+      alert(`Backup created:\n${path}`)
+    } catch (err) {
+      alert(`Backup failed: ${err}`)
+    } finally {
+      creatingBackup = false
+    }
+  }
+
+  async function showPermissionGuide(kind: string): Promise<void> {
+    try {
+      const g = await trust.loadGuide(kind)
+      permissionGuide = { kind: g.kind, title: g.title, steps: g.steps }
+    } catch (err) {
+      alert(`Could not load guide: ${err}`)
+    }
+  }
+
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`
   }
 </script>
 
@@ -119,6 +149,63 @@
     </label>
     {#if updateStore.lastCheck}
       <p class="muted">Last checked: {new Date(updateStore.lastCheck).toLocaleString()}</p>
+    {/if}
+  </section>
+
+  <section class="card">
+    <h3>Backups</h3>
+    <p class="muted">Encrypted archives are stored in <code>~/Documents/synaptic-backups</code> (or <code>SYNAPTIC_BACKUP_DIR</code>).</p>
+    <div class="row">
+      <button class="btn btn-primary" onclick={createBackup} disabled={creatingBackup}>
+        {creatingBackup ? 'Creating…' : 'Create backup now'}
+      </button>
+      <button class="btn btn-ghost" onclick={() => trust.refreshBackups()}>Refresh list</button>
+    </div>
+    {#if trust.loadingBackups}
+      <p class="muted">Loading backups…</p>
+    {:else if trust.backups.length === 0}
+      <p class="muted">No backups yet.</p>
+    {:else}
+      <div class="backup-list">
+        {#each trust.backups as b (b.path)}
+          <div class="backup-row">
+            <span class="backup-name">{b.name}</span>
+            <span class="backup-size">{formatBytes(b.size)}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </section>
+
+  <section class="card">
+    <h3>OS permissions</h3>
+    <p class="muted">Synaptic needs OS permissions for accessibility, screen recording, and microphone. Grant them in System Settings if status is not granted.</p>
+    <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>Refresh status</button>
+    {#if trust.loadingPermissions}
+      <p class="muted">Checking permissions…</p>
+    {:else}
+      <div class="perm-list">
+        {#each trust.permissions as p (p.kind)}
+          <div class="perm-row">
+            <span class="perm-kind">{p.kind}</span>
+            <span class="perm-status" class:granted={p.status === 'granted'} class:denied={p.status === 'denied'}>{p.status}</span>
+            {#if p.status !== 'granted'}
+              <button class="btn btn-ghost" onclick={() => showPermissionGuide(p.kind)}>How to grant</button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+    {#if permissionGuide}
+      <div class="guide-box">
+        <h4>{permissionGuide.title}</h4>
+        <ol>
+          {#each permissionGuide.steps as step}
+            <li>{step}</li>
+          {/each}
+        </ol>
+        <button class="btn btn-ghost" onclick={() => { permissionGuide = null }}>Close</button>
+      </div>
     {/if}
   </section>
 
@@ -335,5 +422,39 @@
     color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: var(--size-xs);
+  }
+  .backup-list, .perm-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .backup-row, .perm-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: rgba(0,0,0,0.2);
+    border-radius: var(--radius-md);
+    font-size: var(--size-sm);
+  }
+  .backup-name, .perm-kind {
+    flex: 1;
+    font-family: var(--font-mono);
+  }
+  .backup-size {
+    color: var(--color-text-muted);
+  }
+  .perm-status.granted { color: var(--color-success); }
+  .perm-status.denied { color: #f87171; }
+  .guide-box {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+  }
+  .guide-box ol {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-5);
   }
 </style>

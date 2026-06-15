@@ -87,5 +87,11 @@ export function setLocale(loc: Locale) {
 	}
 }
 
+/** Merge daemon-provided translations into the in-memory catalog. */
+export function mergeDaemonCatalog(loc: Locale, translations: Record<string, string>) {
+	if (!translations || Object.keys(translations).length === 0) return;
+	localeCatalogs[loc] = { ...localeCatalogs[loc], ...translations };
+}
+
 export { SUPPORTED_LOCALES, DEFAULT_LOCALE };
 export type { Locale };

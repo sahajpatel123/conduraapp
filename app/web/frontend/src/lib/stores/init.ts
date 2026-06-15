@@ -10,7 +10,9 @@ import { halt } from './halt.svelte'
 import { apiKeys } from './apikeys.svelte'
 import { updateStore } from './update.svelte'
 import { overlay } from './overlay.svelte'
-import { wailsBindings } from '../ipc/client'
+import { trust } from './trust.svelte'
+import { wailsBindings, ipc } from '../ipc/client'
+import { mergeDaemonCatalog } from '../i18n'
 
 export async function initStores(): Promise<void> {
   // Step 1: ask the Wails-side App for the in-process daemon status.
@@ -74,7 +76,10 @@ export async function initStores(): Promise<void> {
       settings.refresh(),
       conversation.refreshList(),
       apiKeys.refresh(),
-      audit.refresh()
+      audit.refresh(),
+      trust.refreshBackups(),
+      trust.refreshPermissions(),
+      ipc.i18nLocale('en').then((r) => mergeDaemonCatalog('en', r.translations))
     ])
   } catch {
     // ignore

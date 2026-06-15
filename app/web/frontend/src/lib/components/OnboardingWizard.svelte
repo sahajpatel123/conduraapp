@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { onboarding } from '../stores/onboarding.svelte'
   import { apiKeys } from '../stores/apikeys.svelte'
   import { settings } from '../stores/settings.svelte'
@@ -9,6 +10,22 @@
   let testResult = $state('')
   let voiceTesting = $state(false)
   let voiceResult = $state('')
+
+  onMount(() => {
+    void ipc.onboardingState().then((s) => {
+      if (s.completed_at) {
+        onboarding.state.step = 'done'
+      }
+    }).catch(() => {})
+  })
+
+  async function advanceDaemon(): Promise<void> {
+    try {
+      await ipc.onboardingAdvance()
+    } catch {
+      // daemon onboarding is best-effort alongside local wizard
+    }
+  }
 
   async function testConnection(): Promise<void> {
     if (!onboarding.state.apiKey) {
@@ -61,8 +78,22 @@
       })
     }
     updateStore.setEnabled(true) // auto-update still on by default
+    try {
+      await ipc.onboardingComplete()
+    } catch {
+      // best-effort
+    }
     await ipc.firstRunComplete()
+    onboarding.state.step = 'done'
+  }
+
+  function goNext(): void {
     onboarding.nextStep()
+    void advanceDaemon()
+  }
+
+  function goBack(): void {
+    onboarding.prevStep()
   }
 </script>
 
@@ -84,7 +115,7 @@
       <p class="lede">A free, on-device AI agent. Your keys, your data, your machine.</p>
       <p class="muted">This quick setup will take about 30 seconds.</p>
       <div class="actions center">
-        <button class="btn btn-primary" onclick={() => onboarding.nextStep()}>Get started →</button>
+        <button class="btn btn-primary" onclick={() => goNext()}>Get started →</button>
       </div>
     </div>
   {:else if onboarding.state.step === 'provider'}
@@ -103,8 +134,8 @@
         {/each}
       </div>
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
-        <button class="btn btn-primary" onclick={() => onboarding.nextStep()}>Next →</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
+        <button class="btn btn-primary" onclick={() => goNext()}>Next →</button>
       </div>
     </div>
   {:else if onboarding.state.step === 'apikey'}
@@ -119,10 +150,10 @@
         autocomplete="off"
       />
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
         <button
           class="btn btn-primary"
-          onclick={() => onboarding.nextStep()}
+          onclick={() => goNext()}
           disabled={!onboarding.state.apiKey}
         >
           Next →
@@ -140,8 +171,8 @@
         <p class="test-result" class:success={testResult.startsWith('✓')} class:error={testResult.startsWith('✗')}>{testResult}</p>
       {/if}
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
-        <button class="btn btn-primary" onclick={() => onboarding.nextStep()}>Next →</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
+        <button class="btn btn-primary" onclick={() => goNext()}>Next →</button>
       </div>
     </div>
   {:else if onboarding.state.step === 'voice'}
@@ -155,8 +186,8 @@
         <p class="test-result" class:success={voiceResult.startsWith('✓')} class:error={voiceResult.startsWith('✗')}>{voiceResult}</p>
       {/if}
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
-        <button class="btn btn-primary" onclick={() => onboarding.nextStep()}>Next →</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
+        <button class="btn btn-primary" onclick={() => goNext()}>Next →</button>
       </div>
     </div>
   {:else if onboarding.state.step === 'hotkey'}
@@ -170,8 +201,8 @@
         class="input"
       />
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
-        <button class="btn btn-primary" onclick={() => onboarding.nextStep()}>Next →</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
+        <button class="btn btn-primary" onclick={() => goNext()}>Next →</button>
       </div>
     </div>
   {:else if onboarding.state.step === 'privacy'}
@@ -193,7 +224,7 @@
         <span>Send anonymous usage stats (off by default)</span>
       </label>
       <div class="actions">
-        <button class="btn btn-ghost" onclick={() => onboarding.prevStep()}>← Back</button>
+        <button class="btn btn-ghost" onclick={() => goBack()}>← Back</button>
         <button class="btn btn-primary" onclick={finish}>Finish setup</button>
       </div>
     </div>

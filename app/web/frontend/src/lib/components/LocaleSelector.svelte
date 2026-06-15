@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { locale, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '../i18n';
+	import { locale, SUPPORTED_LOCALES, type Locale, mergeDaemonCatalog } from '../i18n';
+	import { ipc } from '../ipc/client';
 
 	const localeNames: Record<Locale, string> = {
 		en: 'English',
@@ -9,6 +10,13 @@
 		ja: '日本語',
 		zh: '中文'
 	};
+
+	$effect(() => {
+		const loc = $locale;
+		void ipc.i18nLocale(loc).then((r) => {
+			mergeDaemonCatalog(r.locale as Locale, r.translations);
+		}).catch(() => {});
+	});
 </script>
 
 <select

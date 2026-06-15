@@ -248,6 +248,37 @@ class IPCClient {
     return this.call('firstRun.status', {})
   }
 
+  // Phase 11 — backup & permissions
+  backupList(): Promise<import('./types').BackupEntry[]> {
+    return this.call('backup.list', {})
+  }
+  backupCreate(destination?: string): Promise<import('./types').BackupCreateResult> {
+    return this.call('backup.create', destination ? { destination } : {})
+  }
+  permissionsStatus(): Promise<import('./types').PermissionStatus[]> {
+    return this.call('permissions.status', {})
+  }
+  permissionsGuide(kind: string): Promise<import('./types').PermissionGuide> {
+    return this.call('permissions.request_guide', { kind })
+  }
+  onboardingState(): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.state', {})
+  }
+  onboardingAdvance(): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.advance', {})
+  }
+  onboardingComplete(): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.complete', {})
+  }
+
+  // Phase 12 — i18n
+  i18nLocales(): Promise<string[]> {
+    return this.call('i18n.locales', {})
+  }
+  i18nLocale(locale: string): Promise<import('./types').I18nLocaleResult> {
+    return this.call('i18n.locale', { locale })
+  }
+
   // ---- SSE transport ----
 
   private async openSSE(): Promise<void> {

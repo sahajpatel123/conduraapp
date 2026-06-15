@@ -329,3 +329,51 @@ export interface HaltState {
   since?: string
   reason?: string
 }
+
+// ----- Phase 11: Trust & Recovery -----
+
+export interface BackupEntry {
+  name: string
+  path: string
+  size: number
+}
+
+export interface BackupCreateResult {
+  path: string
+}
+
+export interface PermissionStatus {
+  kind: string
+  status: 'granted' | 'denied' | 'unknown'
+  note?: string
+}
+
+export interface PermissionGuide {
+  kind: string
+  platform: string
+  title: string
+  steps: string[]
+  deep_link?: string
+  help_url?: string
+}
+
+export interface OnboardingStepProgress {
+  status: string
+  data?: string
+  updated_at: string
+}
+
+export interface OnboardingDaemonState {
+  current_step: string
+  steps: Record<string, OnboardingStepProgress>
+  started_at: string
+  completed_at?: string
+}
+
+// ----- Phase 12: i18n -----
+
+export interface I18nLocaleResult {
+  locale: string
+  translations: Record<string, string>
+}
+
