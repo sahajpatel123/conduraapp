@@ -11,6 +11,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Common YAML field names used across multiple config sections.
+// Defined as constants so the goconst linter doesn't flag the
+// repeated literals.
+const (
+	fieldEnabled = "enabled"
+)
+
 // -----------------------------------------------------------------------------
 // Default config
 // -----------------------------------------------------------------------------
@@ -972,7 +979,7 @@ func setTelemetry(c *TelemetryConfig, parts []string, value string) error {
 		return errBadPath("telemetry", parts)
 	}
 	switch parts[0] {
-	case "enabled":
+	case fieldEnabled:
 		b, err := strconv.ParseBool(value)
 		if err != nil {
 			return err
@@ -1093,7 +1100,7 @@ func setVoiceBoolField(c *VoiceConfig, field, value string) error {
 		return err
 	}
 	switch field {
-	case "enabled":
+	case fieldEnabled:
 		c.Enabled = b
 	case "push_to_talk":
 		c.PushToTalk = b
@@ -1152,7 +1159,7 @@ func setHub(c *HubConfig, parts []string, value string) error {
 		return errBadPath("hub", parts)
 	}
 	switch parts[0] {
-	case "enabled":
+	case fieldEnabled:
 		b, err := strconv.ParseBool(value)
 		if err != nil {
 			return err
@@ -1180,7 +1187,7 @@ func setSync(c *SyncConfig, parts []string, value string) error {
 		return errBadPath("sync", parts)
 	}
 	switch parts[0] {
-	case "enabled":
+	case fieldEnabled:
 		b, err := strconv.ParseBool(value)
 		if err != nil {
 			return err

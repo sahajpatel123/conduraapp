@@ -83,47 +83,56 @@ func MustNewCatalog() *Catalog {
 // The default verb is %v (accepts any type: int, string, float, etc.).
 // Localization-specific formatting (currency, decimal separators) is handled
 // on the frontend where the i18next ecosystem has mature formatters.
-func convertPlaceholders(template string, argCount int) string {
-	// Walk the string looking for {N} and rewrite.
+func convertPlaceholders(template string, _ int) string {
 	var b strings.Builder
 	b.Grow(len(template) + 8)
 	i := 0
 	for i < len(template) {
 		c := template[i]
-		if c == '{' && i+1 < len(template) && template[i+1] >= '0' && template[i+1] <= '9' {
-			// parse number
-			j := i + 1
-			for j < len(template) && template[j] >= '0' && template[j] <= '9' {
-				j++
-			}
-			if j < len(template) && template[j] == '}' {
-				// Valid {N} placeholder. Go fmt is 1-indexed, so {0} -> %[1]v.
+		switch {
+		case c == '{' && i+1 < len(template) && template[i+1] >= '0' && template[i+1] <= '9':
+			// Try to parse a {N} placeholder.
+			if j, ok := scanPlaceholderEnd(template, i+1); ok {
+				// Valid {N} placeholder. Go fmt is 1-indexed: {0} -> %[1]v.
 				n := template[i+1 : j]
-				b.WriteString("%[")
-				// Convert 0-indexed to 1-indexed: "0" -> "1", "12" -> "13"
 				idx, _ := strconv.Atoi(n)
+				b.WriteString("%[")
 				b.WriteString(strconv.Itoa(idx + 1))
 				b.WriteString("]v")
 				i = j + 1
 				continue
 			}
-		}
-		// Handle escaped braces: {{ -> '{', }} -> '}'
-		if c == '{' && i+1 < len(template) && template[i+1] == '{' {
+			// Not a valid placeholder; fall through and emit the char.
+			b.WriteByte(c)
+			i++
+		case c == '{' && i+1 < len(template) && template[i+1] == '{':
+			// Escaped brace.
 			b.WriteByte('{')
 			i += 2
-			continue
-		}
-		if c == '}' && i+1 < len(template) && template[i+1] == '}' {
+		case c == '}' && i+1 < len(template) && template[i+1] == '}':
+			// Escaped brace.
 			b.WriteByte('}')
 			i += 2
-			continue
+		default:
+			b.WriteByte(c)
+			i++
 		}
-		b.WriteByte(c)
-		i++
 	}
-	_ = argCount
 	return b.String()
+}
+
+// scanPlaceholderEnd walks digits starting at start and returns the
+// position of the matching '}' if a valid {N} placeholder follows.
+// Returns (pos, false) if no placeholder is present.
+func scanPlaceholderEnd(template string, start int) (int, bool) {
+	j := start
+	for j < len(template) && template[j] >= '0' && template[j] <= '9' {
+		j++
+	}
+	if j < len(template) && template[j] == '}' {
+		return j, true
+	}
+	return 0, false
 }
 
 // T returns the translation for key in locale, with fallback to English.

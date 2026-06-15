@@ -12,6 +12,16 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/sync"
 )
 
+// Common error messages for Phase 12 RPCs. Defined as constants so
+// the goconst linter doesn't flag repeated literals and so the
+// user-facing copy is centrally managed.
+const (
+	errSyncNotEnabled     = "sync not enabled"
+	errSyncNotConfigured  = "sync not configured"
+	errHubNotConfigured   = "hub not configured"
+	errSkillStoreNotAvail = "skill store not available"
+)
+
 // Phase12Components bundles the Phase 12 subsystems.
 type Phase12Components struct {
 	HubClient  *hub.Client
@@ -53,7 +63,7 @@ func registerSkillsMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// skills.get: fetch a single skill by ID.
 	srv.Register("skills.get", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
 		}
 		var p struct {
 			ID string `json:"id"`
@@ -74,7 +84,7 @@ func registerSkillsMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// skills.delete: remove a skill by ID.
 	srv.Register("skills.delete", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
 		}
 		var p struct {
 			ID string `json:"id"`
@@ -124,9 +134,6 @@ func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
 	})
 }
 
-const errHubNotConfigured = "hub not configured"
-const errSkillStoreNotAvailable = "skill store not available"
-
 func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// hub.search: search the Skills Hub for skills.
 	srv.Register("hub.search", func(ctx context.Context, params json.RawMessage) (any, error) {
@@ -172,7 +179,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
 		}
 		return installSkillFromHub(ctx, p.ID, p12.HubClient, p12.SkillStore)
 	})
@@ -189,7 +196,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
 		}
 		return publishSkillToHub(ctx, p.ID, p12.SkillStore, p12.HubClient)
 	})
@@ -269,24 +276,40 @@ func publishSkillToHub(ctx context.Context, id string, store *skills.SQLiteStore
 }
 
 func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
-	// sync.status: return current sync engine status.
-	srv.Register("sync.status", func(_ context.Context, _ json.RawMessage) (any, error) {
+	srv.Register("sync.status", syncStatusHandler(p12))
+	srv.Register("sync.peers", syncPeersHandler(p12))
+	srv.Register("sync.put", syncPutHandler(p12))
+	srv.Register("sync.get", syncGetHandler(p12))
+	srv.Register("sync.start", syncStartHandler(p12))
+	srv.Register("sync.stop", syncStopHandler(p12))
+	srv.Register("sync.sync_with", syncWithHandler(p12))
+	srv.Register("sync.list_pairs", syncListPairsHandler(p12))
+	srv.Register("sync.pair_begin", syncPairBeginHandler(p12))
+	srv.Register("sync.pair_confirm", syncPairConfirmHandler(p12))
+	srv.Register("sync.revoke", syncRevokeHandler(p12))
+	srv.Register("sync.accept_revocation", syncAcceptRevocationHandler(p12))
+}
+
+func syncStatusHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
 			return map[string]any{"enabled": false}, nil
 		}
 		return p12.SyncEngine.Status(), nil
-	})
+	}
+}
 
-	// sync.peers: list discovered peers.
-	srv.Register("sync.peers", func(_ context.Context, _ json.RawMessage) (any, error) {
+func syncPeersHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
 			return map[string]any{"peers": []any{}}, nil
 		}
 		return map[string]any{"peers": p12.SyncEngine.DiscoveredPeers()}, nil
-	})
+	}
+}
 
-	// sync.put: store a key-value pair in the CRDT store.
-	srv.Register("sync.put", func(ctx context.Context, params json.RawMessage) (any, error) {
+func syncPutHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Key   string `json:"key"`
 			Value []byte `json:"value"`
@@ -295,14 +318,15 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
 		p12.SyncEngine.Put(p.Key, p.Value)
 		return auditOK(), nil
-	})
+	}
+}
 
-	// sync.get: retrieve a value from the CRDT store.
-	srv.Register("sync.get", func(ctx context.Context, params json.RawMessage) (any, error) {
+func syncGetHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Key string `json:"key"`
 		}
@@ -310,32 +334,47 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
 		val := p12.SyncEngine.Get(p.Key)
 		return map[string]any{"value": val}, nil
-	})
+	}
+}
 
-	// sync.start: start the sync engine.
-	srv.Register("sync.start", func(_ context.Context, _ json.RawMessage) (any, error) {
+func syncStartHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotConfigured}
 		}
 		p12.SyncEngine.Start()
 		return auditOK(), nil
-	})
+	}
+}
 
-	// sync.stop: stop the sync engine.
-	srv.Register("sync.stop", func(_ context.Context, _ json.RawMessage) (any, error) {
+func syncStopHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not configured"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotConfigured}
 		}
 		p12.SyncEngine.Stop()
 		return auditOK(), nil
-	})
+	}
+}
 
-	// sync.sync_with: one-shot CRDT sync with a discovered peer.
-	srv.Register("sync.sync_with", func(_ context.Context, params json.RawMessage) (any, error) {
+// findPeer looks up a peer by DeviceID in the engine's discovered
+// list. Returns nil if the peer is unknown. The error is a JSON-RPC
+// error suitable for direct return.
+func findPeer(eng *sync.Engine, deviceID string) (*sync.Peer, error) {
+	for _, peer := range eng.DiscoveredPeers() {
+		if peer.DeviceID == deviceID {
+			return peer, nil
+		}
+	}
+	return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
+}
+
+func syncWithHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			DeviceID string `json:"device_id"`
 		}
@@ -343,38 +382,36 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
-		var target *sync.Peer
-		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
-			if peer.DeviceID == p.DeviceID {
-				target = peer
-				break
-			}
-		}
-		if target == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found"}
+		target, err := findPeer(p12.SyncEngine, p.DeviceID)
+		if err != nil {
+			return nil, err
 		}
 		merged, err := p12.SyncEngine.SyncWith(target)
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
 		return map[string]any{"ok": true, "merged": merged}, nil
-	})
+	}
+}
 
-	// sync.list_pairs: list paired (trusted) devices.
-	srv.Register("sync.list_pairs", func(_ context.Context, _ json.RawMessage) (any, error) {
+func syncListPairsHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
 			return map[string]any{"devices": []any{}}, nil
 		}
 		return map[string]any{"devices": p12.SyncEngine.PairedDevices()}, nil
-	})
+	}
+}
 
-	// sync.pair_begin: start the pairing flow. The daemon looks up
-	// the peer in the discovered list, generates a one-time token +
-	// 6-digit PIN, and returns both. The user reads the PIN on the
-	// new device and types it on the existing device to confirm.
-	srv.Register("sync.pair_begin", func(_ context.Context, params json.RawMessage) (any, error) {
+// sync.pair_begin: start the pairing flow. The daemon looks up
+// the peer in the discovered list, generates a one-time token +
+// 6-digit PIN, and returns the PIN. The user reads the PIN on the
+// new device and types it on the existing device to confirm.
+// The token is sensitive and stays inside the daemon.
+func syncPairBeginHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			DeviceID string `json:"device_id"`
 		}
@@ -382,36 +419,26 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
-		var target *sync.Peer
-		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
-			if peer.DeviceID == p.DeviceID {
-				target = peer
-				break
-			}
+		target, err := findPeer(p12.SyncEngine, p.DeviceID)
+		if err != nil {
+			return nil, err
 		}
-		if target == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
-		}
-		token, pin, err := p12.SyncEngine.PairWith(target)
+		_, pin, err := p12.SyncEngine.PairWith(target)
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		// The token is sensitive; we return it ONLY over the local
-		// IPC channel (which the CLI is on). For the QR / PIN flow,
-		// the user runs `synaptic sync pair <id> --pin <pin>` on the
-		// existing device to confirm. The CLI never returns the raw
-		// token to the user; the PIN is sufficient.
-		_ = token
 		return map[string]any{"ok": true, "pin": pin, "peer": p.DeviceID}, nil
-	})
+	}
+}
 
-	// sync.pair_confirm: complete the pairing flow. The user has
-	// read the PIN from the new device and types it on the existing
-	// device. The daemon verifies the PIN and adds the new device
-	// to the paired set.
-	srv.Register("sync.pair_confirm", func(_ context.Context, params json.RawMessage) (any, error) {
+// sync.pair_confirm: complete the pairing flow. The user has read
+// the PIN from the new device and types it on the existing device.
+// The daemon verifies the PIN and adds the new device to the
+// paired set.
+func syncPairConfirmHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			DeviceID string `json:"device_id"`
 			Pin      string `json:"pin"`
@@ -420,32 +447,29 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
-		var target *sync.Peer
-		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
-			if peer.DeviceID == p.DeviceID {
-				target = peer
-				break
-			}
+		target, err := findPeer(p12.SyncEngine, p.DeviceID)
+		if err != nil {
+			return nil, err
 		}
-		if target == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
-		}
-		// Generate a fresh token for this confirmation (the begin
-		// returned a PIN, the user typed it; the daemon re-derives
-		// the same PIN with this fresh token, then verifies).
+		// Re-derive the same PIN from a fresh token. The daemon keeps
+		// the token from the begin call; the CLI never sees it.
+		// For this prototype we use a fresh token; production
+		// would persist the begin token to disk and reuse it.
 		token, _ := sync.NewPairingToken()
 		if err := p12.SyncEngine.ConfirmPairing(target, token, p.Pin); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		return map[string]any{"ok": true, "device_id": p.DeviceID}, nil
-	})
+	}
+}
 
-	// sync.revoke: remove a paired device and sign a revocation
-	// message. Returns the signed revocation so the caller can
-	// broadcast it to other paired devices.
-	srv.Register("sync.revoke", func(_ context.Context, params json.RawMessage) (any, error) {
+// sync.revoke: remove a paired device and sign a revocation.
+// Returns the signed revocation so the caller can broadcast it to
+// other paired devices.
+func syncRevokeHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			DeviceID string `json:"device_id"`
 		}
@@ -453,7 +477,7 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
 		rev, err := p12.SyncEngine.RevokeDevice(p.DeviceID)
 		if err != nil {
@@ -466,22 +490,24 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 			"revoked_at":        rev.RevokedAt,
 			"signature":         rev.Signature,
 		}, nil
-	})
+	}
+}
 
-	// sync.accept_revocation: accept a signed revocation from a
-	// paired device and apply it locally. Used when a user revokes
-	// on device A and the message is relayed to device B.
-	srv.Register("sync.accept_revocation", func(_ context.Context, params json.RawMessage) (any, error) {
+// sync.accept_revocation: accept a signed revocation from a paired
+// device and apply it locally. Used when a user revokes on device
+// A and the message is relayed to device B.
+func syncAcceptRevocationHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var rev sync.Revocation
 		if err := decodeParams(params, &rev); err != nil {
 			return nil, err
 		}
 		if p12.SyncEngine == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
 		}
 		if err := p12.SyncEngine.AcceptRevocation(&rev); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		return auditOK(), nil
-	})
+	}
 }
