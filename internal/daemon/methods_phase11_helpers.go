@@ -76,8 +76,9 @@ func buildAuditEvent(action, app, result, message string) audit.Event {
 // jsonRaw returns params unchanged.
 func jsonRaw(params json.RawMessage) json.RawMessage { return params } //nolint:unused
 
-// openRollbackDB opens a SQLite database for rollback if the file exists.
-func openRollbackDB(path string) *sql.DB {
+// OpenRollbackDB opens a SQLite database for rollback if the file exists.
+// The caller (or Rollback.TrackOpened) is responsible for closing it.
+func OpenRollbackDB(path string) *sql.DB {
 	if path == "" {
 		return nil
 	}

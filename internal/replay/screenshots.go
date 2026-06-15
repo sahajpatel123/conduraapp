@@ -252,6 +252,18 @@ func (s *ScreenshotStore) Close() error {
 	return nil
 }
 
+// Reload replaces the underlying database connection. Use this after
+// a backup restore (storage.Reload) so screenshot writes go to the
+// new DB handle.
+func (s *ScreenshotStore) Reload(db *sql.DB) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.db = db
+}
+
 // newScreenshotID returns a base32-like ID encoded as a short
 // string: 8 bytes of random data, hex-encoded. Total length 16.
 // The audit log's metadata table uses this as the primary key.

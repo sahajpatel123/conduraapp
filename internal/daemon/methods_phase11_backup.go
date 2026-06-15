@@ -203,11 +203,15 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if !subs.GatekeeperAllow(ctx, "backup.rollback", "Revert last session") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
 		}
+		memDB := OpenRollbackDB(subs.MemoryDBPath())
+		skillDB := OpenRollbackDB(subs.SkillDBPath())
 		rb := backup.NewRollbackMulti(
 			subs.Storage.SQL(),
-			openRollbackDB(subs.MemoryDBPath()),
-			openRollbackDB(subs.SkillDBPath()),
+			memDB,
+			skillDB,
 		)
+		rb.TrackOpened(memDB, skillDB)
+		defer func() { _ = rb.Close() }()
 		n, err := rb.RevertLastSession(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("backup: rollback: %w", err)

@@ -245,11 +245,15 @@ func TestTrustE2E_RollbackCheckpointPersists(t *testing.T) {
 	_, subs, cleanup := startTrustDaemon(t)
 	defer cleanup()
 
+	memDB1 := OpenRollbackDB(subs.MemoryDBPath())
+	skillDB1 := OpenRollbackDB(subs.SkillDBPath())
 	rb := backup.NewRollbackMulti(
 		subs.Storage.SQL(),
-		openRollbackDB(subs.MemoryDBPath()),
-		openRollbackDB(subs.SkillDBPath()),
+		memDB1,
+		skillDB1,
 	)
+	rb.TrackOpened(memDB1, skillDB1)
+	defer func() { _ = rb.Close() }()
 
 	// Create a checkpoint.
 	cp, err := rb.CreateCheckpoint(context.Background(), "test-persist")
@@ -261,11 +265,15 @@ func TestTrustE2E_RollbackCheckpointPersists(t *testing.T) {
 	}
 
 	// Create a NEW Rollback instance (simulates daemon restart).
+	memDB2 := OpenRollbackDB(subs.MemoryDBPath())
+	skillDB2 := OpenRollbackDB(subs.SkillDBPath())
 	rb2 := backup.NewRollbackMulti(
 		subs.Storage.SQL(),
-		openRollbackDB(subs.MemoryDBPath()),
-		openRollbackDB(subs.SkillDBPath()),
+		memDB2,
+		skillDB2,
 	)
+	rb2.TrackOpened(memDB2, skillDB2)
+	defer func() { _ = rb2.Close() }()
 
 	// The latest checkpoint should still be there.
 	latest, err := rb2.LatestCheckpoint(context.Background())

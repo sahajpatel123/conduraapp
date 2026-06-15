@@ -103,6 +103,18 @@ func New(db *sql.DB, secret []byte) *Log {
 	return &Log{db: db, secret: secret}
 }
 
+// Reload replaces the underlying database connection. Use this after
+// a backup restore (storage.Reload) so the audit log writes to the
+// new DB handle instead of the closed old one.
+func (l *Log) Reload(db *sql.DB) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.db = db
+}
+
 // NewWithHexSecret is a convenience for callers that store the secret
 // as a hex string (e.g. in config). An empty or invalid hex secret
 // returns an error.

@@ -26,6 +26,10 @@ type Rollback struct {
 	memoryDB *sql.DB
 	skillsDB *sql.DB
 	window   time.Duration
+	// opened tracks DBs we opened (via OpenRollbackDB) so Close
+	// can release them. DBs passed directly (like mainDB from the
+	// caller) are NOT tracked — the caller owns their lifecycle.
+	opened []*sql.DB
 }
 
 // NewRollback returns a Rollback helper for the main database only.
@@ -38,6 +42,33 @@ func NewRollback(db *sql.DB) *Rollback {
 // (skills DB). Nil DB pointers are skipped.
 func NewRollbackMulti(mainDB, memoryDB, skillsDB *sql.DB) *Rollback {
 	return &Rollback{mainDB: mainDB, memoryDB: memoryDB, skillsDB: skillsDB, window: 1 * time.Hour}
+}
+
+// TrackOpened records DBs opened via OpenRollbackDB so Close can
+// release them. DBs passed to NewRollback/NewRollbackMulti are owned
+// by the caller and NOT tracked.
+func (r *Rollback) TrackOpened(dbs ...*sql.DB) {
+	for _, db := range dbs {
+		if db != nil {
+			r.opened = append(r.opened, db)
+		}
+	}
+}
+
+// Close releases any DB connections opened via OpenRollbackDB.
+// It does NOT close DBs passed to the constructor (caller-owned).
+func (r *Rollback) Close() error {
+	var errs []error
+	for _, db := range r.opened {
+		if err := db.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	r.opened = nil
+	if len(errs) > 0 {
+		return fmt.Errorf("backup: close rollback dbs: %v", errs)
+	}
+	return nil
 }
 
 // SetWindow overrides the default 1-hour rollback window for
