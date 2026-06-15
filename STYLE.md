@@ -493,6 +493,212 @@ Now go read `CLAUDE.md` and `LOGBOOK.md`, and get to work.
 
 ---
 
+## 20. Lessons from Phase 12 (Reach & Ecosystem)
+
+Phase 12 was the most-deferred phase of the project. When I
+finally implemented it, I shipped code that compiled, linted,
+and passed unit tests — but a fresh adversarial audit found
+**eleven critical bugs** where the happy paths didn't work.
+This section is the post-mortem so the next agent doesn't
+repeat these patterns.
+
+### 20.1 The "RPC plumbing is wired" trap
+
+I claimed Phase 12 was done because the JSON-RPC methods
+existed, the daemon registered them, the CLI had subcommands,
+and unit tests passed. None of that proved the END-TO-END
+flow worked. Concrete failures:
+
+- `synaptic sync pair` registered a token, but the confirm
+  step generated a FRESH token, so the user-typed PIN could
+  never match. Pairing was a dead end.
+- `synaptic hub install` called `Scan` on raw ZIP bytes; the
+  scan was JSON-only; the install always failed with
+  "non-JSON archive".
+- `synaptic hub serve` printed a friendly message and exited.
+  The `hub.Server` was never started.
+- The TUI Hub tab had no "enter" handler. The user could
+  type a query but never see results.
+
+**Rule:** before claiming a feature is done, drive the
+end-to-end flow with a real binary + real CLI + real RPC.
+Unit tests that exercise the data structures are NOT
+sufficient. The bug is always in the integration glue.
+
+### 20.2 The "security primitive in isolation" trap
+
+I added `PairedSet`, `Revocation`, `WithPublishKey`,
+`validSkillID`, and an encrypted transport. Each one was
+correct in isolation. But the integration points dropped
+the security guarantee:
+
+- Paired-set was bypassed when `LoadPairedSet` errored
+  (a missing file re-opened the auto-accept hole).
+- The publish key was never wired into the daemon, so
+  `Publish` was always sent unsigned.
+- The local hub server used `meta.ID` directly in
+  `filepath.Join`, allowing path-traversal in crafted IDs.
+
+**Rule:** every security primitive must be audited for
+the failure mode where its dependencies are missing or
+broken. "Fail closed" is the only safe default. A `nil`
+check is not a security boundary; an explicit fail-closed
+default is.
+
+### 20.3 The "I documented it but didn't implement it" trap
+
+Several functions in Phase 12 had docstrings that described
+behaviors the code did not have:
+
+- `applyTemplate`: doc said "returns unformatted template
+  on Sprintf error" — code did no such thing.
+- `convertPlaceholders`: doc mentioned a 4-byte PIN mod
+  but code used bytes from a different offset.
+- `signHello`: doc said "signs a hello" but it was
+  actually signing the identity claim (TOFU self-sign).
+- `cmdHubServe`: doc claimed to call `hub.NewServer +
+  ListenAndServe` but the body was a `fmt.Println`.
+
+**Rule:** when you write a function that does X, the doc
+must say X. When the function does X+Y, the doc says
+"X+Y". When the function is a stub, the doc says "STUB:
+not yet implemented". Mismatched docs are worse than no
+docs because they invite trust.
+
+### 20.4 The "test that uses a local-only function" trap
+
+I had unit tests for `generateX25519Ephemeral`,
+`sessionKeyFrom`, `AES-GCM round trip`. These all passed.
+But the test for "the wire is encrypted" was a smoke test
+that didn't actually capture the wire bytes — it just
+checked that the connection completed. The bug (plaintext
+CRDT exchange in v0) would have been caught by a real
+proxy capture.
+
+**Rule:** when a security property is "the wire is X",
+the test must capture the wire and verify X. A
+round-trip-success test only proves the code paths
+connect, not that they encrypt.
+
+### 20.5 The "handler dispatcher" refactor pattern
+
+A common Phase 12 pattern emerged: a `registerXxxMethods`
+function that does `srv.Register("foo.bar", func(...) {...})`
+N times, and each handler has the same boilerplate
+(nil-check, decode params, error wrapping). The function
+hits the cognitive-complexity lint ceiling (~30) at about
+12 handlers.
+
+**Rule:** for groups of N+ similar handlers, refactor to:
+1. A dispatcher `registerXxxMethods` that just calls
+   `srv.Register("foo.bar", fooBarHandler(p12))`.
+2. Per-handler factory functions returning
+   `ipc.HandlerFunc` that close over `p12`.
+3. Shared helpers (`hubClient(p12)`, `findPeer(eng, id)`,
+   `decodeParams`) for the boilerplate.
+
+This pattern keeps each function under the lint ceiling
+and makes individual handlers unit-testable.
+
+### 20.6 The "TODOs in pendingPairings" pattern
+
+When the pairing flow needed to remember a token between
+the begin and confirm RPC calls, I had two design options:
+
+- (a) Persist the token to disk (`<dataDir>/pending_pairings.json`).
+- (b) Keep the token in memory, keyed by `device_id`, with a TTL.
+
+I chose (b) because:
+- Pairing is short-lived (the user types the PIN within
+  seconds, not minutes).
+- A pending_pairings.json on disk would persist tokens
+  across restarts — an attacker who reads the file gets
+  the ability to confirm a pairing.
+- In-memory tokens are automatically GC'd by the TTL
+  sweep on every lookup.
+
+**Rule:** ephemeral state belongs in memory. State that
+must survive a restart (paired devices, identity) belongs
+on disk. State that lives "in between" two RPC calls is
+ephemeral by definition.
+
+### 20.7 The "every connected workflow has its own bypass" trap
+
+Three independent code paths could each independently
+disable the encryption:
+
+- `Engine.SyncWith` checked `e.paired != nil` and skipped
+  the paired check.
+- `PairedGate.Merge` checked `g.paired != nil` and skipped
+  the gate.
+- `subsystems.go` set `paired = nil` on any `LoadPairedSet`
+  error.
+
+**Rule:** every security check must be defended at multiple
+layers, with each layer having the SAME default. If one
+layer is `nil` and another is `nil-checked`, the attacker
+just needs to find the layer that does the nil check. The
+fix: introduce `NewEmptyPairedSet()` (in-memory, never
+nil) and have every layer operate on the same type.
+
+### 20.8 The "default config doesn't populate the new field" trap
+
+I added `Hub` and `Sync` config structs with zero-valued
+defaults. The YAML file had the right values, but
+`config.Default()` returned zero-valued structs, so
+`--print-default-config` omitted the Phase 12 sections,
+and any code path that read `cfg.Hub.Enabled` (without
+overriding from YAML) saw `false` even when the user had
+set `hub.enabled: true` in their config.
+
+**Rule:** every new config field must be populated in
+`Default()`. The YAML file is for user overrides; the
+struct literal in `Default()` is for the in-process
+canonical default. A test that prints the default config
+should include every section the user can configure.
+
+### 20.9 The "TOFU trust model" doc
+
+The TUI/CLI/GUI showed the peer's `device_id` (a hex
+public key) without explaining what it is. The pairing
+flow expected the user to confirm a 6-digit PIN they read
+from the overlay of the OTHER device, but a first-time
+user has no idea that's the right thing to do.
+
+**Rule:** every user-facing security operation needs an
+onboarding path. The pairing flow should show:
+1. "Pair with another device?"
+2. The discovered peer's name and a short fingerprint
+   (first 8 hex chars of the public key, for visual
+   verification).
+3. "On the other device, read the 6-digit PIN and type it
+   here."
+
+Anything less is a security feature nobody can use.
+
+### 20.10 What "Phase 12 complete" looks like
+
+The honest checklist for declaring a phase done:
+
+- [ ] Every spec deliverable is implemented (not stubbed)
+- [ ] Every RPC method has a working end-to-end test that
+      drives the real binary
+- [ ] Every CLI subcommand works (no `fmt.Println` placeholders)
+- [ ] Every GUI/TUI view renders and accepts input
+- [ ] Every default config populates the new fields
+- [ ] Every security primitive fails closed on missing
+      dependencies
+- [ ] Every user-facing string is translated for all 6
+      languages
+- [ ] Every new code path is linted, race-tested, and
+      has a regression test
+- [ ] Every commit message describes a "what" + "why"
+      that the next agent can read cold
+
+If any of these is missing, the phase is not done.
+
+---
+
 ## 20. Phase 13 — Release & Distribution Discipline
 
 Phase 13 is not "we have an updater package." Phase 13 is **a user
