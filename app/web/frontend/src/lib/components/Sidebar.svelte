@@ -51,6 +51,15 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 3v5c0 4-3 6.5-7 8-4-1.5-7-4-7-8V5l7-3z"/></svg>
       </a>
       <a
+        href="#/replay"
+        class="rail-icon"
+        class:active={currentHash === '#/replay'}
+        title="Replay"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
+      </a>
+      <a
         href="#/settings"
         class="rail-icon"
         class:active={currentHash === '#/settings'}

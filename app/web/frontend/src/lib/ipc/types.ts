@@ -377,3 +377,33 @@ export interface I18nLocaleResult {
   translations: Record<string, string>
 }
 
+// ----- Phase 11: Replay -----
+
+export interface ReplayFrame {
+  id: number
+  action: string
+  app: string
+  actor: string
+  result: string
+  level: string
+  message: string
+  timestamp: string
+  outcome: string
+  outcome_reason?: string
+  before_screenshot?: string
+  after_screenshot?: string
+  before_screenshot_mime?: string
+  after_screenshot_mime?: string
+}
+
+export interface ReplayIntegrityReport {
+  valid: boolean
+  rows_checked: number
+  first_break_id?: number
+  first_break_reason?: string
+}
+
+export interface ReplayExportResult {
+  path: string
+}
+

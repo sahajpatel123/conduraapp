@@ -4,6 +4,7 @@
   import Chat from './lib/routes/Chat.svelte'
   import Settings from './lib/routes/Settings.svelte'
   import Audit from './lib/routes/Audit.svelte'
+  import Replay from './lib/routes/Replay.svelte'
   import About from './lib/routes/About.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
@@ -21,6 +22,7 @@
   let route = $derived(
     currentHash === '#/settings' ? 'settings' :
     currentHash === '#/audit' ? 'audit' :
+    currentHash === '#/replay' ? 'replay' :
     currentHash === '#/about' ? 'about' : 'chat'
   )
 
@@ -89,6 +91,8 @@
             <Settings />
           {:else if route === 'audit'}
             <Audit />
+          {:else if route === 'replay'}
+            <Replay />
           {:else if route === 'about'}
             <About />
           {:else}

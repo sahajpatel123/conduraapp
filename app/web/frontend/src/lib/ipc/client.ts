@@ -279,6 +279,16 @@ class IPCClient {
     return this.call('i18n.locale', { locale })
   }
 
+  replayTimeline(): Promise<import('./types').ReplayFrame[]> {
+    return this.call('replay.timeline', {})
+  }
+  replayVerifyIntegrity(): Promise<import('./types').ReplayIntegrityReport> {
+    return this.call('replay.verify_integrity', {})
+  }
+  replayExport(destination?: string): Promise<import('./types').ReplayExportResult> {
+    return this.call('replay.export', destination ? { destination } : {})
+  }
+
   // ---- SSE transport ----
 
   private async openSSE(): Promise<void> {

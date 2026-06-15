@@ -11,6 +11,7 @@ import { apiKeys } from './apikeys.svelte'
 import { updateStore } from './update.svelte'
 import { overlay } from './overlay.svelte'
 import { trust } from './trust.svelte'
+import { replay } from './replay.svelte'
 import { wailsBindings, ipc } from '../ipc/client'
 import { mergeDaemonCatalog } from '../i18n'
 
@@ -79,6 +80,7 @@ export async function initStores(): Promise<void> {
       audit.refresh(),
       trust.refreshBackups(),
       trust.refreshPermissions(),
+      replay.refresh(),
       ipc.i18nLocale('en').then((r) => mergeDaemonCatalog('en', r.translations))
     ])
   } catch {
