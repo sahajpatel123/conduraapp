@@ -280,6 +280,20 @@ CREATE INDEX IF NOT EXISTS idx_replay_captured_at ON replay_screenshots(captured
 CREATE INDEX IF NOT EXISTS idx_replay_audit_event ON replay_screenshots(audit_event_id);
 `,
 	},
+	{
+		Version: 4,
+		Name:    "rollback checkpoints persisted to disk",
+		SQL: `
+-- Rollback checkpoints: persisted so they survive daemon restarts.
+-- Previously CreateCheckpoint returned an in-memory struct only.
+CREATE TABLE IF NOT EXISTS rollback_checkpoints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_rb_cp_created ON rollback_checkpoints(created_at);
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

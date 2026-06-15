@@ -64,6 +64,13 @@ func New(opts Options) (*Replay, error) {
 	}, nil
 }
 
+// Screenshots returns the underlying ScreenshotStore, or nil if
+// the store was not configured. Used by the CUResolver to capture
+// before/after screenshots for the replay timeline.
+func (r *Replay) Screenshots() *ScreenshotStore {
+	return r.shots
+}
+
 // Frame is one reconstructed action in the timeline. It pairs an
 // audit Event with the screenshots it referenced and a derived
 // outcome (success, denied, or unknown).

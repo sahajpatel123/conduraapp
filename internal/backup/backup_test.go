@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -286,23 +287,38 @@ func stringContainsImpl(haystack []byte, needle string) bool {
 }
 
 func TestRestore_RejectsNewerSchema(t *testing.T) {
-	// Build a backup with schema_version = 5.
-	_, outPath, bm, mk := newTestManager(t)
-	if _, err := bm.Create(context.Background()); err != nil {
+	// Create a backup at schema v4 (higher than v3).
+	dataDir, cfgPath, mk := setupDataDir(t)
+	outPath := filepath.Join(dataDir, "test-backup.zip")
+	bmIface, err := New(Options{
+		DataDir:       dataDir,
+		ConfigPath:    cfgPath,
+		MasterKey:     mk,
+		SchemaVersion: 4,
+		Out:           outPath,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	// Read the archive, rewrite the manifest with v5.
-	// Simpler: corrupt the manifest's schema_version by re-encoding
-	// the archive in memory. For test simplicity, we just call
-	// Restore with CurrentSchemaVersion=2 and verify the
-	// manifest is the one we wrote (v3) → should pass.
-	// To test the rejection, we need a v5 backup. Skip the
-	// rewrite hack: instead, decode the manifest, mutate the
-	// struct, re-encode the archive. This is a lot of plumbing
-	// for one test; defer to manual smoke.
-	_ = outPath
-	_ = mk
-	t.Skip("schema-incompatibility path is covered by Restore's source; the round-trip test covers the happy path")
+	if _, err := bmIface.Create(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// Try to restore with CurrentSchemaVersion=3 (as if an older
+	// binary were running). The restore should be rejected because
+	// the backup's schema (v4) is newer than the binary's (v3).
+	restoreDir := t.TempDir()
+	err = Restore(context.Background(), RestoreOptions{
+		ArchivePath:          outPath,
+		DataDir:              restoreDir,
+		MasterKey:            mk,
+		CurrentSchemaVersion: 3,
+	})
+	if err == nil {
+		t.Fatal("expected ErrSchemaIncompatible for v4 backup → v3 binary")
+	}
+	if !errors.Is(err, ErrSchemaIncompatible) {
+		t.Fatalf("expected ErrSchemaIncompatible, got: %v", err)
+	}
 }
 
 func TestRestore_RejectsUnknownKey(t *testing.T) {

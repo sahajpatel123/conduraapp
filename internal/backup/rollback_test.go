@@ -24,14 +24,34 @@ func TestRollback_HonestScope(t *testing.T) {
 }
 
 func TestRollback_CreateCheckpoint(t *testing.T) {
-	// v0.1.0 uses in-memory checkpoints; nil DB is OK.
-	r := NewRollback(nil)
+	// CreateCheckpoint now persists to the rollback_checkpoints table.
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{Path: dir + "/test.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	r := NewRollback(db.SQL())
 	cp, err := r.CreateCheckpoint(context.Background(), "test")
 	if err != nil || cp == nil {
-		t.Errorf("CreateCheckpoint: err=%v, cp=%v", err, cp)
+		t.Fatalf("CreateCheckpoint: err=%v, cp=%v", err, cp)
 	}
 	if cp.Reason != "test" {
 		t.Errorf("reason = %q, want %q", cp.Reason, "test")
+	}
+	if cp.ID <= 0 {
+		t.Errorf("ID = %d, want > 0 (persisted)", cp.ID)
+	}
+	// Verify it persists: LatestCheckpoint should return it.
+	latest, err := r.LatestCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("LatestCheckpoint: %v", err)
+	}
+	if latest == nil {
+		t.Fatal("LatestCheckpoint returned nil after CreateCheckpoint")
+	}
+	if latest.ID != cp.ID {
+		t.Errorf("LatestCheckpoint ID = %d, want %d", latest.ID, cp.ID)
 	}
 }
 

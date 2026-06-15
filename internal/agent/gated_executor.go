@@ -21,6 +21,9 @@ type GatedExecutor struct {
 	inner Executor
 	gate  gatekeeper.Gatekeeper
 	audit *audit.Log
+	// lastResult captures the most recent StepResult so
+	// recordDecision can read its screenshot refs.
+	lastResult *StepResult
 }
 
 // NewGatedExecutor wraps inner with the gatekeeper. auditLog may be
@@ -41,9 +44,8 @@ func (g *GatedExecutor) Execute(ctx context.Context, action *Action) (*StepResul
 	decision, reason := g.gate.Evaluate(ctx, ba)
 	class := blastradius.Classify(ba)
 
-	g.recordDecision(ctx, action, class, decision, reason)
-
 	if decision != gatekeeper.Allow {
+		g.recordDecision(ctx, action, class, decision, reason, "", "")
 		err := fmt.Errorf("gatekeeper denied %s action: %s", class, reason)
 		return &StepResult{
 			Success: false,
@@ -51,13 +53,21 @@ func (g *GatedExecutor) Execute(ctx context.Context, action *Action) (*StepResul
 		}, err
 	}
 
-	return g.inner.Execute(ctx, action)
+	sr, err := g.inner.Execute(ctx, action)
+	g.lastResult = sr
+	var ssBefore, ssAfter string
+	if sr != nil {
+		ssBefore = sr.SSBeforeRef
+		ssAfter = sr.SSAfterRef
+	}
+	g.recordDecision(ctx, action, class, decision, reason, ssBefore, ssAfter)
+	return sr, err
 }
 
 // recordDecision writes the gatekeeper decision to the audit log when
 // one is configured. Audit failures must never block execution, so we
 // swallow any error from the audit logger.
-func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, class blastradius.Class, decision gatekeeper.Decision, reason string) {
+func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, class blastradius.Class, decision gatekeeper.Decision, reason, ssBeforeRef, ssAfterRef string) {
 	if g.audit == nil {
 		return
 	}
@@ -68,11 +78,13 @@ func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, clas
 		result = "deny"
 	}
 	_ = g.audit.Append(ctx, audit.Event{
-		Actor:   "gatekeeper",
-		Action:  action.Type,
-		App:     action.Target,
-		Level:   level,
-		Result:  result,
-		Message: fmt.Sprintf("%s [%s]: %s", class, decision, reason),
+		Actor:       "gatekeeper",
+		Action:      action.Type,
+		App:         action.Target,
+		Level:       level,
+		Result:      result,
+		Message:     fmt.Sprintf("%s [%s]: %s", class, decision, reason),
+		SSBeforeRef: ssBeforeRef,
+		SSAfterRef:  ssAfterRef,
 	})
 }

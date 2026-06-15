@@ -201,6 +201,54 @@ func (s *Subsystems) CloseDatabases() {
 	}
 }
 
+// ReloadAuxiliaryDatabases recreates the memory and skills stores
+// from disk after a backup restore. The main DB is already reloaded
+// by Storage.Reload(); this method handles the two auxiliary stores
+// that initSubsystems created as local variables. Returns the
+// combined error from both reloads (best-effort: both are attempted
+// even if the first fails).
+func (s *Subsystems) ReloadAuxiliaryDatabases() error {
+	var errs []error
+
+	// Reload memory store.
+	memPath := s.MemoryDBPath()
+	if memPath != "" {
+		// Close the old memory store if still open. It's tracked
+		// in closers, so we need to close it and remove from the
+		// list to avoid double-close on shutdown.
+		if s.Memory != nil {
+			_ = s.Memory.Close()
+		}
+		memStore, err := memory.NewSQLiteStore(memPath)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reload memory: %w", err))
+			s.Memory = nil
+		} else {
+			s.Memory = memory.NewManager(memStore)
+		}
+	}
+
+	// Reload skills store.
+	skillPath := s.SkillDBPath()
+	if skillPath != "" && s.Phase12 != nil {
+		if s.Phase12.SkillStore != nil {
+			_ = s.Phase12.SkillStore.Close()
+		}
+		skillStore, err := skills.NewSQLiteStore(skillPath)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reload skills: %w", err))
+			s.Phase12.SkillStore = nil
+		} else {
+			s.Phase12.SkillStore = skillStore
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("subsystems: auxiliary db reload: %v", errs)
+	}
+	return nil
+}
+
 // MasterKey returns the storage.DB master key. Used by the
 // backup subsystem to derive the per-archive key. Returns
 // nil, nil if storage isn't wired (e.g., a test that doesn't
@@ -599,6 +647,13 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		db:              db,
 		cfg:             cfg,
 	}
+	// Wire screenshot store into CU resolver so before/after
+	// screenshots are captured for the replay timeline.
+	if cuComps != nil && cuComps.resolver != nil && subs.Replay != nil {
+		if shots := subs.Replay.Screenshots(); shots != nil {
+			cuComps.resolver.SetScreenshotStore(shots)
+		}
+	}
 	// Register closers for cleanup on shutdown (Windows file-lock).
 	// The main DB must be closed before other resources that may
 	// depend on it, so it goes first.
@@ -638,8 +693,15 @@ func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
 		if baseURL == "" {
 			baseURL = "https://hub.synaptic.app"
 		}
-		p12.HubClient = hub.NewClient(baseURL)
-		log.Info("hub client ready", "base_url", baseURL)
+		var hubOpts []hub.ClientOption
+		if cfg.Hub.Token != "" {
+			hubOpts = append(hubOpts, hub.WithToken(cfg.Hub.Token))
+		}
+		p12.HubClient = hub.NewClient(baseURL, hubOpts...)
+		log.Info("hub client ready",
+			"base_url", baseURL,
+			"authenticated", cfg.Hub.Token != "",
+		)
 	}
 
 	// Skill store (shared with extractor).
@@ -667,7 +729,14 @@ func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
 				port = 7667
 			}
 			discovery := sync.NewDiscovery(identity, port)
-			engine := sync.NewEngine(identity, store, discovery, log)
+			// Load the paired set (devices this user has explicitly
+			// trusted). Without this, the engine rejects every sync.
+			paired, pairErr := sync.LoadPairedSet(cfg.General.DataDir)
+			if pairErr != nil {
+				log.Warn("sync paired-set load failed (continuing empty)", "err", pairErr)
+				paired = nil
+			}
+			engine := sync.NewEngine(identity, store, discovery, paired, log)
 			p12.SyncEngine = engine
 			log.Info("sync engine ready",
 				"device_id", identity.DeviceID,

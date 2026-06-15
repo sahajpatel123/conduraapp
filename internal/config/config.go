@@ -21,7 +21,7 @@ import (
 )
 
 // ConfigSchemaVersion is the current schema version. Bump on breaking changes.
-const ConfigSchemaVersion = 3
+const ConfigSchemaVersion = 4
 
 // Default config file location per OS.
 const (
@@ -415,6 +415,10 @@ type HubConfig struct {
 	BaseURL string `yaml:"base_url"`
 	// AutoUpdate enables automatic skill updates. Default: false.
 	AutoUpdate bool `yaml:"auto_update"`
+	// Token is an optional bearer token for authenticated requests.
+	// When empty, anonymous requests are made (the server may reject
+	// them depending on the deployment's policy).
+	Token string `yaml:"token"`
 }
 
 // SyncConfig controls P2P synchronization.

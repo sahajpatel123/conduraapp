@@ -2,12 +2,14 @@ package daemon
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/backup"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
@@ -149,11 +151,19 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		os.Remove(filepath.Join(dataDir, "memory.db-shm")) //nolint:errcheck
 		os.Remove(filepath.Join(dataDir, "skills.db-wal")) //nolint:errcheck
 		os.Remove(filepath.Join(dataDir, "skills.db-shm")) //nolint:errcheck
+		// Create a pre-restore safety snapshot so the user can
+		// recover from a bad restore. The snapshot is written
+		// into the backup directory (same one backup.create uses).
+		preRestorePath := filepath.Join(
+			backup.ResolveBackupDir(subs.GeneralDataDir()),
+			fmt.Sprintf("pre-restore-%s.zip", time.Now().UTC().Format("20060102-150405Z")),
+		)
 		err = backup.Restore(ctx, backup.RestoreOptions{
 			ArchivePath:          p.Path,
 			DataDir:              subs.GeneralDataDir(),
 			MasterKey:            mk,
 			CurrentSchemaVersion: currentSchemaVersion(subs),
+			PreRestoreBackupPath: preRestorePath,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("backup: restore: %w", err)
@@ -169,6 +179,19 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appSynapticd, auditResultError, rerr.Error()))
 				return nil, fmt.Errorf("backup: restore succeeded on disk but storage reload failed: %w (daemon restart required to see restored data)", rerr)
 			}
+		}
+		// Reload memory + skills databases so subsequent RPC
+		// calls (memory.recall, skills.list) see the restored
+		// data, not the stale handles from before the swap.
+		if rerr := subs.ReloadAuxiliaryDatabases(); rerr != nil {
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.aux_reload_failed", appSynapticd, auditResultError, rerr.Error()))
+			return nil, fmt.Errorf("backup: restore succeeded but auxiliary db reload failed: %w", rerr)
+		}
+		// Run integrity checks on all three restored databases.
+		// If any database is corrupt, report it (best-effort;
+		// we don't abort since the main data is already swapped in).
+		if ierr := runPostRestoreIntegrityChecks(ctx, subs); ierr != nil {
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.integrity_warning", appSynapticd, auditResultError, ierr.Error()))
 		}
 		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appSynapticd, auditResultAllow, "path="+p.Path))
 		return auditOK(), nil
@@ -192,6 +215,64 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.rollback", appSynapticd, auditResultAllow, fmt.Sprintf("reverted %d rows", n)))
 		return map[string]any{"reverted_rows": n, "honest_scope": rb.HonestScope()}, nil
 	})
+}
+
+// runPostRestoreIntegrityChecks runs PRAGMA integrity_check on
+// all three databases after a restore. Returns a combined error
+// if any database fails the check. This is best-effort: we report
+// but don't abort, since the data is already on disk.
+func runPostRestoreIntegrityChecks(ctx context.Context, subs *Subsystems) error {
+	var errs []error
+	if subs.Storage != nil {
+		if err := checkSQLiteIntegrity(ctx, subs.Storage.SQL(), "synaptic.db"); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if subs.Memory != nil {
+		memPath := subs.MemoryDBPath()
+		if memPath != "" {
+			db, err := openIntegrityDB(memPath)
+			if err == nil {
+				defer func() { _ = db.Close() }()
+				if err := checkSQLiteIntegrity(ctx, db, "memory.db"); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+	if subs.Phase12 != nil && subs.Phase12.SkillStore != nil {
+		skillPath := subs.SkillDBPath()
+		if skillPath != "" {
+			db, err := openIntegrityDB(skillPath)
+			if err == nil {
+				defer func() { _ = db.Close() }()
+				if err := checkSQLiteIntegrity(ctx, db, "skills.db"); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("integrity check: %v", errs)
+	}
+	return nil
+}
+
+// checkSQLiteIntegrity runs PRAGMA integrity_check on a single db.
+func checkSQLiteIntegrity(ctx context.Context, db *sql.DB, name string) error {
+	var result string
+	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&result); err != nil {
+		return fmt.Errorf("%s: integrity_check query failed: %w", name, err)
+	}
+	if result != "ok" {
+		return fmt.Errorf("%s: integrity_check returned %q", name, result)
+	}
+	return nil
+}
+
+// openIntegrityDB opens a read-only SQLite connection for integrity checking.
+func openIntegrityDB(path string) (*sql.DB, error) {
+	return sql.Open("sqlite3", "file:"+path+"?mode=ro")
 }
 
 // backupDir is the on-disk location backup archives are written to.

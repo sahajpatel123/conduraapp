@@ -170,6 +170,14 @@ func createPreRestoreSnapshot(ctx context.Context, opts RestoreOptions) error {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	// Ensure the parent directory of the snapshot exists. The
+	// Manager.Create path when opts.Out is set does not create
+	// directories (it expects the caller to have prepared the dir).
+	if dir := filepath.Dir(opts.PreRestoreBackupPath); dir != "" {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("backup: mkdir snapshot dir %s: %w", dir, err)
+		}
+	}
 	_, err := (&Manager{opts: Options{
 		DataDir:       opts.DataDir,
 		MasterKey:     opts.MasterKey,
@@ -177,7 +185,10 @@ func createPreRestoreSnapshot(ctx context.Context, opts RestoreOptions) error {
 		Now:           now,
 		Out:           opts.PreRestoreBackupPath,
 	}}).Create(ctx)
-	return err
+	if err != nil {
+		return fmt.Errorf("backup: create snapshot at %s: %w", opts.PreRestoreBackupPath, err)
+	}
+	return nil
 }
 
 // openAndStage opens the archive and decrypts every manifest

@@ -8,6 +8,7 @@ import (
 
 	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/synapticapp/internal/replay"
 )
 
 // defaultActionTimeout is the fallback timeout for resolved actions.
@@ -49,6 +50,7 @@ const (
 type CUResolver struct {
 	cu       *computeruse.ComputerUse
 	gate     *computeruse.GatedExecutor
+	shots    *replay.ScreenshotStore
 	onCUStep func(kind string, x, y float64, success bool)
 }
 
@@ -56,6 +58,12 @@ type CUResolver struct {
 // and computer-use type systems.
 func NewCUResolver(cu *computeruse.ComputerUse, gate *computeruse.GatedExecutor) *CUResolver {
 	return &CUResolver{cu: cu, gate: gate}
+}
+
+// SetScreenshotStore wires the replay screenshot store so
+// before/after screenshots are captured for every CU action.
+func (r *CUResolver) SetScreenshotStore(shots *replay.ScreenshotStore) {
+	r.shots = shots
 }
 
 // SetAnomalyHook wires the anomaly detector to fire on every CU step.
@@ -72,7 +80,9 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 		return &agent.StepResult{Success: false, Error: err}, err
 	}
 
+	ssBeforeRef := r.captureScreenshot(ctx, "before")
 	result, err := r.gate.Execute(ctx, cuAction)
+	ssAfterRef := r.captureScreenshot(ctx, "after")
 
 	// Anomaly recording: real coordinates from CU action.
 	if r.onCUStep != nil && result != nil {
@@ -85,18 +95,40 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 
 	if err != nil {
 		return &agent.StepResult{
-			Success:  result != nil && result.Success,
-			Error:    err,
-			Output:   errorText(result),
-			Duration: durationSeconds(result),
+			Success:     result != nil && result.Success,
+			Error:       err,
+			Output:      errorText(result),
+			Duration:    durationSeconds(result),
+			SSBeforeRef: ssBeforeRef,
+			SSAfterRef:  ssAfterRef,
 		}, err
 	}
 
 	return &agent.StepResult{
-		Success:  result.Success,
-		Output:   describeResult(result),
-		Duration: durationSeconds(result),
+		Success:     result.Success,
+		Output:      describeResult(result),
+		Duration:    durationSeconds(result),
+		SSBeforeRef: ssBeforeRef,
+		SSAfterRef:  ssAfterRef,
 	}, nil
+}
+
+// captureScreenshot takes a screenshot via the CU backend and stores
+// it in the replay screenshot store. Returns the ref ID, or "" on
+// any failure (best-effort; screenshots must never block execution).
+func (r *CUResolver) captureScreenshot(ctx context.Context, position string) string {
+	if r.shots == nil || r.cu == nil {
+		return ""
+	}
+	ss, serr := r.cu.CaptureScreen(ctx)
+	if serr != nil || ss == nil || len(ss.Image) == 0 {
+		return ""
+	}
+	ref, perr := r.shots.Put(ctx, position, ss.Width, ss.Height, ss.Image)
+	if perr != nil {
+		return ""
+	}
+	return ref
 }
 
 // resolve converts an agent.Action (planner intent) into a

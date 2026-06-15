@@ -25,24 +25,69 @@ type Rollback struct {
 	mainDB   *sql.DB
 	memoryDB *sql.DB
 	skillsDB *sql.DB
+	window   time.Duration
 }
 
 // NewRollback returns a Rollback helper for the main database only.
 func NewRollback(db *sql.DB) *Rollback {
-	return &Rollback{mainDB: db}
+	return &Rollback{mainDB: db, window: 1 * time.Hour}
 }
 
 // NewRollbackMulti returns a Rollback that can revert conversations
 // (main DB), memory episodes/facts (memory DB), and skill rows
 // (skills DB). Nil DB pointers are skipped.
 func NewRollbackMulti(mainDB, memoryDB, skillsDB *sql.DB) *Rollback {
-	return &Rollback{mainDB: mainDB, memoryDB: memoryDB, skillsDB: skillsDB}
+	return &Rollback{mainDB: mainDB, memoryDB: memoryDB, skillsDB: skillsDB, window: 1 * time.Hour}
+}
+
+// SetWindow overrides the default 1-hour rollback window for
+// RevertLastSession.
+func (r *Rollback) SetWindow(d time.Duration) {
+	if d > 0 {
+		r.window = d
+	}
 }
 
 // CreateCheckpoint records a rollback target at the current time.
-func (r *Rollback) CreateCheckpoint(_ context.Context, reason string) (*Checkpoint, error) {
-	now := time.Now().UTC()
-	return &Checkpoint{ID: 1, CreatedAt: now, Reason: reason}, nil
+// The checkpoint is persisted to the rollback_checkpoints table
+// so it survives daemon restarts.
+func (r *Rollback) CreateCheckpoint(ctx context.Context, reason string) (*Checkpoint, error) {
+	if r.mainDB == nil {
+		return nil, fmt.Errorf("backup: no main DB for checkpoint")
+	}
+	res, err := r.mainDB.ExecContext(ctx,
+		`INSERT INTO rollback_checkpoints (created_at, reason) VALUES (?, ?)`,
+		time.Now().UTC().Format(time.RFC3339Nano), reason)
+	if err != nil {
+		return nil, fmt.Errorf("backup: create checkpoint: %w", err)
+	}
+	id, _ := res.LastInsertId()
+	return &Checkpoint{
+		ID:        id,
+		CreatedAt: time.Now().UTC(),
+		Reason:    reason,
+	}, nil
+}
+
+// LatestCheckpoint returns the most recent persisted checkpoint.
+// Returns (nil, nil) if no checkpoint exists.
+func (r *Rollback) LatestCheckpoint(ctx context.Context) (*Checkpoint, error) {
+	if r.mainDB == nil {
+		return nil, nil //nolint:nilnil // nil DB means no checkpoints possible
+	}
+	var cp Checkpoint
+	var ts string
+	err := r.mainDB.QueryRowContext(ctx,
+		`SELECT id, created_at, reason FROM rollback_checkpoints ORDER BY id DESC LIMIT 1`,
+	).Scan(&cp.ID, &ts, &cp.Reason)
+	if err == sql.ErrNoRows {
+		return nil, nil //nolint:nilnil // no checkpoint found is not an error
+	}
+	if err != nil {
+		return nil, fmt.Errorf("backup: latest checkpoint: %w", err)
+	}
+	cp.CreatedAt, _ = time.Parse(time.RFC3339Nano, ts)
+	return &cp, nil
 }
 
 // RevertToCheckpoint deletes Synaptic-owned rows inserted after the checkpoint.
@@ -121,12 +166,12 @@ func hasColumn(ctx context.Context, db *sql.DB, table, column string) bool {
 	return rows.Next()
 }
 
-// RevertLastSession reverts rows inserted in the last hour as a
-// practical "undo my recent session" action.
+// RevertLastSession reverts rows inserted within the configured
+// rollback window (default 1h, configurable via SetWindow).
 func (r *Rollback) RevertLastSession(ctx context.Context) (int, error) {
 	cp := Checkpoint{
 		ID:        1,
-		CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+		CreatedAt: time.Now().UTC().Add(-r.window),
 		Reason:    "revert last session",
 	}
 	return r.RevertToCheckpoint(ctx, cp)

@@ -118,6 +118,12 @@ type StepResult struct {
 
 	// Duration is how long the step took.
 	Duration float64
+
+	// SSBeforeRef is the screenshot-before reference ID (from
+	// replay.ScreenshotStore.Put). Empty if no screenshot was captured.
+	SSBeforeRef string
+	// SSAfterRef is the screenshot-after reference ID.
+	SSAfterRef string
 }
 
 // Observation represents new information about the environment.
