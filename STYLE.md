@@ -539,3 +539,26 @@ GoReleaser/CI → E2E → docs/STYLE. Push. Watch CI. Only then write
 the retrospective audit from the three lenses above — **not** from
 memory of what I just typed.
 
+---
+
+## 21. The Stale-Handle Pattern
+
+Every subsystem constructed from a `*sql.DB` handle becomes stale
+after `storage.Reload()` (which closes and reopens the underlying
+connection). This is a systemic risk in the restore flow.
+
+**The rule:** Any subsystem that holds a `*sql.DB` (or a struct
+wrapping one) MUST expose a `Reload(db *sql.DB)` method. After
+`storage.Reload()`, the daemon MUST call `Reload` on every such
+subsystem before issuing any RPCs.
+
+Known subsystems requiring reload:
+- `audit.Log` → `Reload(db)`
+- `replay.ScreenshotStore` → `Reload(db)`
+- `memory.Manager` → close + recreate from path
+- `skills.SQLiteStore` → close + recreate from path
+- `conversation.Store` → (held in closures; must be rebuilt)
+
+If you add a new subsystem that wraps a `*sql.DB`, add a `Reload`
+method and wire it into `ReloadAuxiliaryDatabases`. No exceptions.
+
