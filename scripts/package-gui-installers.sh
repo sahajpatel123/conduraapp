@@ -41,10 +41,22 @@ package_nsis() {
     echo "makensis not found — skipping NSIS installer (install NSIS on Windows CI)" >&2
     return 0
   fi
+  # NSIS File() is picky about paths on Windows CI — stage a short local copy.
+  local staging="${OUT_DIR}/nsis-staging"
+  mkdir -p "$staging"
+  local payload="${staging}/synaptic.exe"
+  cp "$exe" "$payload"
+  local out_arg="$setup_out"
+  local exe_arg="$payload"
+  if command -v cygpath >/dev/null 2>&1; then
+    out_arg="$(cygpath -w "$setup_out")"
+    exe_arg="$(cygpath -w "$payload")"
+  fi
   "$makensis_bin" -NOCD \
-    -DOUTFILE="$setup_out" \
-    -DEXE="$exe" \
+    -DOUTFILE="$out_arg" \
+    -DEXE="$exe_arg" \
     "${ROOT}/scripts/synaptic-gui.nsi"
+  rm -rf "$staging"
   echo "NSIS: $setup_out"
 }
 
