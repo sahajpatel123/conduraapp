@@ -43,6 +43,13 @@ func (e *Engine) Start() {
 	}
 	e.running = true
 	go e.announceLoop()
+	if e.discovery != nil {
+		go func() {
+			if err := e.discovery.Listen(); err != nil {
+				e.logger.Debug("discovery listen stopped", "err", err)
+			}
+		}()
+	}
 	e.logger.Info("sync engine started",
 		"device_id", e.identity.DeviceID,
 		"name", e.identity.Name,
@@ -99,6 +106,14 @@ func (e *Engine) Get(key string) []byte {
 // Delete removes a key from the local CRDT store.
 func (e *Engine) Delete(key string) {
 	e.store.Delete(e.identity.DeviceID, key)
+}
+
+// DiscoveredPeers returns the current peer list from discovery.
+func (e *Engine) DiscoveredPeers() []*Peer {
+	if e.discovery == nil {
+		return nil
+	}
+	return e.discovery.Peers()
 }
 
 func (e *Engine) announceLoop() {

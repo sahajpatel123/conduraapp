@@ -157,18 +157,23 @@ func installSkillFromHub(ctx context.Context, id string, client *hub.Client, sto
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 	}
 
-	// Install into local store.
-	sk := &skills.Skill{
-		ID:          meta.ID,
-		Name:        meta.Name,
-		Description: meta.Description,
-		Version:     meta.Version,
-		Trust:       skills.TrustCommunity,
-		Source:      "hub",
-		HubID:       meta.ID,
-		Checksum:    checksum,
-		Author:      meta.Author,
-		License:     meta.License,
+	// Install into local store from archive bytes.
+	parsed, err := skills.ParseArchive(data)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+	sk := parsed
+	if sk.Trust == "" {
+		sk.Trust = skills.TrustCommunity
+	}
+	sk.Source = "hub"
+	sk.HubID = meta.ID
+	sk.Checksum = checksum
+	if sk.Author == "" {
+		sk.Author = meta.Author
+	}
+	if sk.License == "" {
+		sk.License = meta.License
 	}
 	if err := store.Create(ctx, sk); err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "install: " + err.Error()}
@@ -190,7 +195,14 @@ func publishSkillToHub(ctx context.Context, id string, store *skills.SQLiteStore
 		License:     sk.License,
 		Trust:       string(sk.Trust),
 	}
-	return nil, client.Publish(nil, meta)
+	archive, err := skills.MarshalArchive(sk)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+	if err := client.Publish(archive, meta); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+	return map[string]any{"ok": true, "id": sk.ID}, nil
 }
 
 func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
@@ -205,10 +217,9 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// sync.peers: list discovered peers.
 	srv.Register("sync.peers", func(_ context.Context, _ json.RawMessage) (any, error) {
 		if p12.SyncEngine == nil {
-			return []any{}, nil
+			return map[string]any{"peers": []any{}}, nil
 		}
-		// Peers are accessible via discovery, not directly on engine.
-		return map[string]any{"peers": []any{}}, nil
+		return map[string]any{"peers": p12.SyncEngine.DiscoveredPeers()}, nil
 	})
 
 	// sync.put: store a key-value pair in the CRDT store.
