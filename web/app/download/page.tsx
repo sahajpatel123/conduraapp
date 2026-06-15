@@ -22,6 +22,8 @@ const DOWNLOADS = {
   },
 } as const;
 
+const RELEASE_TAG = "https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0";
+
 export default function DownloadPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 text-neutral-100">

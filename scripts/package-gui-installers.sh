@@ -35,15 +35,35 @@ package_dmg() {
 package_nsis() {
   local exe="$1"
   local setup_out="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}-setup.exe"
-  if ! command -v makensis >/dev/null 2>&1; then
+  local makensis_bin
+  makensis_bin="$(find_makensis || true)"
+  if [ -z "$makensis_bin" ]; then
     echo "makensis not found — skipping NSIS installer (install NSIS on Windows CI)" >&2
     return 0
   fi
-  makensis -NOCD \
+  "$makensis_bin" -NOCD \
     -DOUTFILE="$setup_out" \
     -DEXE="$exe" \
     "${ROOT}/scripts/synaptic-gui.nsi"
   echo "NSIS: $setup_out"
+}
+
+find_makensis() {
+  if command -v makensis >/dev/null 2>&1; then
+    command -v makensis
+    return 0
+  fi
+  local p
+  for p in \
+    "/c/Program Files (x86)/NSIS/makensis.exe" \
+    "/c/Program Files/NSIS/makensis.exe" \
+    "/c/Program Files (x86)/NSIS/Bin/makensis.exe"; do
+    if [ -f "$p" ]; then
+      echo "$p"
+      return 0
+    fi
+  done
+  return 1
 }
 
 case "$GOOS" in

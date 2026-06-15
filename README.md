@@ -10,11 +10,7 @@ Synaptic is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent
 
 ## Project Status (2026-06-15)
 
-**Phases 1–13 implemented on `main`.** Phase 13 (release/distribution) includes
-signed auto-update, GoReleaser packaging, DMG/NSIS GUI installers,
-`release-verify` CI, and the `v0.1.0` release pipeline. On-device
-verification (see `docs/on-device-verification.md`) is the final gate
-before calling the public launch done.
+**Phase 13 (release/distribution) is complete.** [v0.1.0](https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0) is published with signed auto-update (`manifest.json`), GoReleaser packages, and GUI installers (DMG / portable exe / Linux binary). `release-verify` CI runs on every `main` push. On-device verification (`docs/on-device-verification.md`) is the separate public-launch gate.
 
 | Layer            | Status |
 |------------------|--------|
@@ -23,8 +19,8 @@ before calling the public launch done.
 | Wails GUI shell  | ✅ done |
 | Trust & Recovery (Phase 11) | ✅ backend + GUI wiring |
 | Reach & Ecosystem (Phase 12) | ✅ TUI, i18n, hub, sync RPCs |
-| Release / auto-update (Phase 13) | ✅ signed updates, GoReleaser, DMG/NSIS, `release-verify`, `v0.1.0` tag |
-| Public launch sign-off | ⏳ on-device verification checklist |
+| Release / auto-update (Phase 13) | ✅ **complete** — [v0.1.0](https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0) live |
+| Public launch sign-off | ⏳ on-device verification checklist (manual) |
 
 ### Try it locally
 ```bash
@@ -37,10 +33,13 @@ make build
 
 ---
 
-## Quickstart (planned v0.1.0)
+## Quickstart (v0.1.0)
 
-1. **Download** the installer for your OS from [synaptic.app/download](https://synaptic.app/download).
-2. **Install** — drag to Applications (mac), run installer (win), or `chmod +x` the AppImage (linux).
+1. **Download** from [GitHub Releases v0.1.0](https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0) or [synaptic.app/download](https://synaptic.app/download):
+   - **macOS:** `synaptic-gui-darwin-arm64.dmg`
+   - **Windows:** `synaptic-gui-windows-amd64.exe` (or `-setup.exe` when present)
+   - **Linux:** `synaptic-gui-linux-amd64` or `synapticd_*_linux_amd64.deb`
+2. **Install** — drag to Applications (mac), run installer/portable exe (win), or `chmod +x` the binary (linux).
 3. **Launch** Synaptic and complete the first-run onboarding:
    - Accept the EULA
    - Connect a subscription (ChatGPT Plus, Claude Pro, Gemini AI Pro, SuperGrok) **or** paste an API key **or** use a local model (Ollama)

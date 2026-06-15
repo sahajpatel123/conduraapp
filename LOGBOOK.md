@@ -1837,3 +1837,24 @@ integration tests.
 - Wired `web/app/download/page.tsx` to GitHub Releases latest assets.
 - `release-verify` job `embedded-key-check` proves CI secret matches embedded pubkey.
 - Tagged `v0.1.0` to exercise full `release.yml` pipeline.
+
+### 2026-06-15 (final) — v0.1.0 published; Phase 13 complete
+
+**Release:** https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0
+
+| Evidence | Result |
+|----------|--------|
+| GoReleaser | ✅ daemon/CLI/TUI + deb + checksums |
+| Signed manifest | ✅ `manifest.json` (Ed25519, `UPDATE_SIGNING_KEY` in CI) |
+| GUI macOS | ✅ `synaptic-gui-darwin-arm64.dmg` + `.zip` |
+| GUI Windows | ✅ `synaptic-gui-windows-amd64.exe` (NSIS `-setup.exe` patched via `release-gui-patch`) |
+| GUI Linux | ✅ `synaptic-gui-linux-amd64` |
+| `make verify-release TAG=v0.1.0` | ✅ checksums + manifest signature |
+| CI + Release Verify on `main` | ✅ green |
+| Release workflow run | [27557797315](https://github.com/sahajpatel123/synapticapp/actions/runs/27557797315) success |
+
+**Phase 13 status: COMPLETE** (implementation + published artifacts).
+
+Remaining **public launch** gate (not Phase 13 code): on-device checklist in
+`docs/on-device-verification.md` and optional macOS notarization when Apple
+secrets exist.
