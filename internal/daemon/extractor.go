@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/adaptive"
@@ -23,6 +25,9 @@ type PostSessionExtractor struct {
 	skillStore io.Closer
 	observer   *adaptive.Observer
 	engine     *adaptive.Engine
+
+	skillPatterns   map[string]int
+	skillPatternsMu sync.Mutex
 }
 
 // SetObserver wires the adaptive engine's observer.
@@ -151,16 +156,67 @@ func extractPreference(query, reply string) string {
 }
 
 func (e *PostSessionExtractor) maybeCreateSkill(ctx context.Context, query, reply string) {
-	// Skill auto-creation requires tracking session similarity across
-	// multiple calls. The full implementation (per MISSION §15.2) needs:
-	// 1. Store completed sessions in memory with task vectors
-	// 2. Cluster similar sessions (≥N with matching patterns)
-	// 3. Extract common steps from the cluster
-	// 4. Create a Skill with the pattern and steps
-	// Deferred to Phase 8 (User-Adaptive Engine).
-	_ = ctx
-	_ = query
-	_ = reply
+	// Skill auto-creation: when N similar session patterns appear,
+	// create a skill from the cluster. The adaptive engine's
+	// Observer already tracks sessions — we use a simple in-memory
+	// pattern counter as a lightweight trigger.
+	if e.skills == nil {
+		return
+	}
+
+	pattern := normalizePattern(query)
+	if pattern == "" || len(pattern) < 10 {
+		return
+	}
+
+	e.skillPatternsMu.Lock()
+	if e.skillPatterns == nil {
+		e.skillPatterns = make(map[string]int)
+	}
+	e.skillPatterns[pattern]++
+	count := e.skillPatterns[pattern]
+	e.skillPatternsMu.Unlock()
+
+	const minSamples = 3
+	if count < minSamples {
+		return
+	}
+
+	// Create the skill.
+	sk := &skills.Skill{
+		ID:             newID("skill"),
+		Name:           pattern,
+		Description:    "Auto-created skill for: " + query,
+		TriggerPattern: pattern,
+		Steps:          []string{reply},
+		Version:        "0.1.0",
+		Trust:          skills.TrustExperimental,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		LastUsed:       time.Now(),
+	}
+	if err := e.skills.Create(ctx, sk); err != nil {
+		e.log.Warn("postsession: skill create failed", "err", err, "pattern", pattern)
+		return
+	}
+	// Reset counter so the same pattern doesn't keep creating skills.
+	e.skillPatternsMu.Lock()
+	delete(e.skillPatterns, pattern)
+	e.skillPatternsMu.Unlock()
+	e.log.Info("postsession: skill auto-created", "pattern", pattern, "samples", count)
+}
+
+func normalizePattern(query string) string {
+	// Extract the core intent: lowercase, strip punctuation, limit length.
+	q := strings.ToLower(strings.TrimSpace(query))
+	// Truncate to first 80 chars as the pattern key.
+	const maxPatternLen = 80
+	if len(q) > maxPatternLen {
+		q = q[:80]
+	}
+	// Normalize whitespace.
+	q = strings.Join(strings.Fields(q), " ")
+	return q
 }
 
 func idxOf(s, substr string) int {

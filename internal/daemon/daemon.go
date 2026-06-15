@@ -133,6 +133,10 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		return nil, err
 	}
 
+	// Mark this machine as installed on first successful start.
+	// Subsequent installer runs can detect this via lockfile.IsInstalled().
+	_ = lockfile.MarkInstalled()
+
 	ipcSrv := newIPCServer()
 	registerMethods(ipcSrv, log, opts.Config, subs, ver)
 	subs.Health.Add(healthCheckIPC())
