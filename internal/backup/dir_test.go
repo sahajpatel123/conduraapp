@@ -3,6 +3,7 @@ package backup
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ func TestResolveBackupDir_DefaultDocuments(t *testing.T) {
 	t.Setenv("SYNAPTIC_BACKUP_DIR", "")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	dir := ResolveBackupDir("/var/synaptic")
 	want := filepath.Join(home, "Documents", "synaptic-backups")
@@ -28,9 +30,12 @@ func TestResolveBackupDir_EnvOverride(t *testing.T) {
 }
 
 func TestResolveBackupDir_FallbackDataDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows resolves a system profile even when HOME is empty")
+	}
 	t.Setenv("SYNAPTIC_BACKUP_DIR", "")
-	// No HOME — force fallback
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
 	dir := ResolveBackupDir("/var/synaptic")
 	want := filepath.Join("/var/synaptic", "backups")
 	if dir != want {

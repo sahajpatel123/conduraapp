@@ -14,8 +14,22 @@ func ResolveBackupDir(dataDir string) string {
 	if dir := os.Getenv("SYNAPTIC_BACKUP_DIR"); dir != "" {
 		return dir
 	}
-	if home, err := os.UserHomeDir(); err == nil {
+	if home := userHomeDir(); home != "" {
 		return filepath.Join(home, "Documents", "synaptic-backups")
 	}
 	return filepath.Join(dataDir, "backups")
+}
+
+func userHomeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	if h := os.Getenv("USERPROFILE"); h != "" {
+		return h
+	}
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return h
 }
