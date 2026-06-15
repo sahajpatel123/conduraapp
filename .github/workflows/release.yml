@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.25.11"
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sign-manifest:
+    name: Sign update manifest
+    runs-on: ubuntu-latest
+    needs: goreleaser
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build sign-manifest tool
+        run: go build -o sign-manifest ./cmd/sign-manifest
+
+      - name: Sign manifest when key is configured
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "UPDATE_SIGNING_KEY not set — skipping manifest signing"
+            exit 0
+          fi
+          if [ ! -f dist/update-manifest.json ]; then
+            echo "No dist/update-manifest.json — skipping"
+            exit 0
+          fi
+          ./sign-manifest dist/update-manifest.json dist/update-manifest.signed.json
+
+      - name: Upload signed manifest
+        if: hashFiles('dist/update-manifest.signed.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifest-signed
+          path: dist/update-manifest.signed.json
+          retention-days: 90
