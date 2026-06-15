@@ -9,5 +9,6 @@
   "author": {
     "name": "Synaptic",
     "email": "dev@synaptic.app"
-  }
+  },
+  "build:tags": "webkit2_41"
 }

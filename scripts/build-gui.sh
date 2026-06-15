@@ -35,7 +35,12 @@ echo "Building frontend..."
 (cd frontend && npm ci && npm run build)
 
 echo "Building Wails app for ${GOOS}/${GOARCH}..."
-wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
+WAILS_TAGS=()
+if [ "$GOOS" = "linux" ]; then
+  # Ubuntu 24.04+ ships webkit2gtk-4.1 only (see wails.io docs).
+  WAILS_TAGS=(-tags webkit2_41)
+fi
+wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}" "${WAILS_TAGS[@]}"
 
 # Wails outputfilename is "web" — normalize to synaptic for releases.
 case "$GOOS" in

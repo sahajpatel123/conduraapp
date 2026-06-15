@@ -87,7 +87,7 @@ jobs:
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
-    needs: [build-gui]
+    # CLI/daemon/deb packages must not wait on optional GUI matrix builds.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
