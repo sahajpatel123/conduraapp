@@ -212,6 +212,9 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		)
 		rb.TrackOpened(memDB, skillDB)
 		defer func() { _ = rb.Close() }()
+		if subs.cfg != nil && subs.cfg.Storage.Backup.RollbackWindow > 0 {
+			rb.SetWindow(subs.cfg.Storage.Backup.RollbackWindow)
+		}
 		n, err := rb.RevertLastSession(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("backup: rollback: %w", err)

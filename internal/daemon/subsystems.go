@@ -167,6 +167,35 @@ type Subsystems struct {
 	closers []io.Closer
 }
 
+// replaceMemoryCloser swaps the memory SQLite store in closers.
+func (s *Subsystems) replaceMemoryCloser(newCloser io.Closer) {
+	s.replaceCloserByType(func(c io.Closer) bool {
+		_, ok := c.(*memory.SQLiteStore)
+		return ok
+	}, newCloser)
+}
+
+// replaceSkillCloser swaps the skills SQLite store in closers.
+func (s *Subsystems) replaceSkillCloser(newCloser io.Closer) {
+	s.replaceCloserByType(func(c io.Closer) bool {
+		_, ok := c.(*skills.SQLiteStore)
+		return ok
+	}, newCloser)
+}
+
+func (s *Subsystems) replaceCloserByType(match func(io.Closer) bool, newCloser io.Closer) {
+	if newCloser == nil {
+		return
+	}
+	for i, c := range s.closers {
+		if match(c) {
+			s.closers[i] = newCloser
+			return
+		}
+	}
+	s.closers = append(s.closers, newCloser)
+}
+
 // Close releases all resources held by subsystems.
 func (s *Subsystems) Close() error {
 	var errs []error
@@ -229,12 +258,13 @@ func (s *Subsystems) ReloadAuxiliaryDatabases() error {
 	if memPath != "" {
 		if s.Memory != nil {
 			_ = s.Memory.Close()
+			s.Memory = nil
 		}
 		memStore, err := memory.NewSQLiteStore(memPath)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("reload memory: %w", err))
-			s.Memory = nil
 		} else {
+			s.replaceMemoryCloser(memStore)
 			s.Memory = memory.NewManager(memStore)
 		}
 	}
@@ -250,6 +280,7 @@ func (s *Subsystems) ReloadAuxiliaryDatabases() error {
 			errs = append(errs, fmt.Errorf("reload skills: %w", err))
 			s.Phase12.SkillStore = nil
 		} else {
+			s.replaceSkillCloser(skillStore)
 			s.Phase12.SkillStore = skillStore
 		}
 	}

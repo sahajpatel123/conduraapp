@@ -18,6 +18,7 @@ package config
 import (
 	"errors"
 	"runtime"
+	"time"
 )
 
 // ConfigSchemaVersion is the current schema version. Bump on breaking changes.
@@ -139,6 +140,8 @@ type BackupConfig struct {
 	Dir string `yaml:"dir"`
 	// RetentionDays: backups older than this are auto-pruned. 0 = forever.
 	RetentionDays int `yaml:"retention_days"`
+	// RollbackWindow is how far back RevertLastSession looks. 0 = 1h default.
+	RollbackWindow time.Duration `yaml:"rollback_window"`
 }
 
 // EncryptionConfig controls column-level encryption.
