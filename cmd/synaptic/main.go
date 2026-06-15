@@ -76,7 +76,10 @@ func run(args []string) error {
 		return nil
 	}
 	sub, subargs := rest[0], rest[1:]
+	return runSubcommand(gf, sub, subargs)
+}
 
+func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 	switch sub {
 	case "ping":
 		return cmdPing(gf)

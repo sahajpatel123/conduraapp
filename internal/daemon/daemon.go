@@ -167,19 +167,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		log.Info("ipc listening", "addr", subs.IPCAddr, "sse_enabled", true)
 	}
 
-	// Start the auto-backup scheduler if it was constructed.
-	// Best-effort: failure to start the scheduler does not
-	// prevent the daemon from running. The user can still
-	// call backup.create manually via RPC.
-	if subs.BackupScheduler != nil {
-		go subs.BackupScheduler.Run(ctx)
-		log.Info("auto-backup scheduler started")
-	}
-
-	if subs.Updater != nil {
-		go subs.Updater.RunPoller(ctx)
-		log.Info("auto-update poller started")
-	}
+	startBackgroundServices(ctx, subs, log)
 
 	// Release the lock when ctx is canceled.
 	go func() {
@@ -190,28 +178,31 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	<-ctx.Done()
 	log.Info("synapticd stopped")
+	shutdownDaemon(subs)
+	return subs, nil
+}
 
-	// Stop the auto-backup scheduler. The Scheduler.Run
-	// goroutine watches ctx and exits on cancel, but calling
-	// Stop explicitly is idempotent and lets us log the
-	// transition cleanly.
+func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Logger) {
+	if subs.BackupScheduler != nil {
+		go subs.BackupScheduler.Run(ctx)
+		log.Info("auto-backup scheduler started")
+	}
+	if subs.Updater != nil {
+		go subs.Updater.RunPoller(ctx)
+		log.Info("auto-update poller started")
+	}
+}
+
+func shutdownDaemon(subs *Subsystems) {
 	if subs.BackupScheduler != nil {
 		subs.BackupScheduler.Stop()
 	}
-
-	// Stop the P2P sync engine if it was auto-started. The engine
-	// closes its TCP listener and unblocks any in-flight handleInbound
-	// goroutines. A no-op if sync was never enabled.
 	if subs.Phase12 != nil && subs.Phase12.SyncEngine != nil {
 		subs.Phase12.SyncEngine.Stop()
 	}
-
-	// Best-effort teardown. Close side stores first, main DB last.
-	// Force WAL checkpoint so Windows file locks are released cleanly.
 	if subs.Storage != nil {
 		_, _ = subs.Storage.SQL().ExecContext(context.Background(), "PRAGMA wal_checkpoint(TRUNCATE)")
 	}
 	_ = subs.Close()
 	_ = subs.Storage.Close()
-	return subs, nil
 }
