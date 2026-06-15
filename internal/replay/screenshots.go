@@ -72,13 +72,32 @@ func NewScreenshotStore(db *sql.DB, dataDir string, masterKey []byte) (*Screensh
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("replay: mkdir: %w", err)
 	}
-	return &ScreenshotStore{
+	s := &ScreenshotStore{
 		db:   db,
 		root: root,
 		gcm:  gcm,
 		ttl:  24 * time.Hour,
 		stop: make(chan struct{}),
-	}, nil
+	}
+	s.startBackgroundPruner()
+	return s, nil
+}
+
+// startBackgroundPruner runs TTL cleanup on a ticker so expired
+// screenshots are removed even when no new Put occurs.
+func (s *ScreenshotStore) startBackgroundPruner() {
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.stop:
+				return
+			case <-ticker.C:
+				_ = s.Prune(context.Background(), time.Time{})
+			}
+		}
+	}()
 }
 
 // SetTTL overrides the default 24h TTL. Mostly for tests.

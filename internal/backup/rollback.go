@@ -45,8 +45,9 @@ func (r *Rollback) CreateCheckpoint(_ context.Context, reason string) (*Checkpoi
 	return &Checkpoint{ID: 1, CreatedAt: now, Reason: reason}, nil
 }
 
-// RevertToCheckpoint deletes Synaptic-owned rows inserted after
-// the checkpoint. Returns the total rows deleted.
+// RevertToCheckpoint deletes Synaptic-owned rows inserted after the checkpoint.
+//
+//nolint:gocognit,gocyclo // multi-table rollback is intentionally sequential
 func (r *Rollback) RevertToCheckpoint(ctx context.Context, cp Checkpoint) (int, error) {
 	cutoff := cp.CreatedAt.UTC().Format(time.RFC3339Nano)
 	total := 0

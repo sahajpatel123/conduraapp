@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/audit"
+
 	_ "modernc.org/sqlite"
 )
 

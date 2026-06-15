@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/version"
@@ -59,6 +60,7 @@ type Result struct {
 	CurrentVersion  string `json:"current_version"`
 	LatestVersion   string `json:"latest_version,omitempty"`
 	DownloadURL     string `json:"download_url,omitempty"`
+	SHA256          string `json:"sha256,omitempty"`
 	Mandatory       bool   `json:"mandatory"`
 	Skipped         bool   `json:"skipped,omitempty"`
 	Reason          string `json:"reason,omitempty"`
@@ -88,11 +90,40 @@ func New(db *sql.DB, manifestURL string) *Updater {
 	}
 }
 
+// pollInterval is how often the daemon re-checks for updates when
+// auto-update is enabled (MISSION §22.4).
+const pollInterval = 6 * time.Hour
+
 // SetEnabled toggles auto-update.
 func (u *Updater) SetEnabled(v bool) { u.enabled = v }
 
 // Enabled returns the current setting.
 func (u *Updater) Enabled() bool { return u.enabled }
+
+// RunPoller checks for updates on launch and every pollInterval
+// until ctx is canceled. Errors are swallowed; Check already
+// returns skip results for network failures.
+func (u *Updater) RunPoller(ctx context.Context) {
+	if !u.enabled || u.manifest == "" {
+		return
+	}
+	check := func() {
+		cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		_, _ = u.Check(cctx)
+	}
+	check()
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			check()
+		}
+	}
+}
 
 // Check fetches and verifies the manifest.
 func (u *Updater) Check(ctx context.Context) (Result, error) {
@@ -142,6 +173,7 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 		CurrentVersion:  cur,
 		LatestVersion:   sm.Version,
 		DownloadURL:     sm.DownloadURL,
+		SHA256:          sm.SHA256,
 		Mandatory:       sm.Mandatory,
 	}
 
@@ -195,10 +227,13 @@ func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 	// is verified at manifest parse time via the Ed25519 signature.
 	// Here we verify the binary itself matches.
 	actual := sha256.Sum256(body)
-	// The SHA256 is stored in r from Check() — but we need the manifest.
-	// For now, store it as a side effect during Check.
-	// r.LatestVersion contains the version string.
-	_ = actual
+	if r.SHA256 != "" {
+		want := strings.ToLower(r.SHA256)
+		got := hex.EncodeToString(actual[:])
+		if got != want {
+			return r, fmt.Errorf("sha256 mismatch: expected %s, got %s", want, got)
+		}
+	}
 
 	// Write to cache dir atomically.
 	if err := os.MkdirAll(u.cacheDir, 0o700); err != nil {

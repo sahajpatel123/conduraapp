@@ -163,6 +163,11 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		log.Info("auto-backup scheduler started")
 	}
 
+	if subs.Updater != nil {
+		go subs.Updater.RunPoller(ctx)
+		log.Info("auto-update poller started")
+	}
+
 	// Release the lock when ctx is canceled.
 	go func() {
 		<-ctx.Done()

@@ -70,9 +70,10 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 
 	query := userMessage
 	reply := assistantReply
+	bg := context.WithoutCancel(ctx)
 
 	if e.observer != nil {
-		go e.observer.Record(context.Background(), adaptive.Observation{
+		go e.observer.Record(bg, adaptive.Observation{
 			SessionID:     newID("sess"),
 			UserQuery:     query,
 			AgentReply:    reply,
@@ -81,7 +82,7 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 	}
 
 	if e.engine != nil {
-		go e.engine.Run(context.Background())
+		go e.engine.Run(bg)
 	}
 
 	if e.memory != nil {
@@ -100,9 +101,9 @@ func (e *PostSessionExtractor) storeEpisode(ctx context.Context, query, reply st
 		Type:    memory.Episodic,
 		Content: query,
 		Metadata: map[string]interface{}{
-			"session_id":        epID,
-			keyConversationID:   conversationID,
-			"reply":             reply,
+			"session_id":      epID,
+			keyConversationID: conversationID,
+			"reply":           reply,
 		},
 	})
 	if err != nil {
