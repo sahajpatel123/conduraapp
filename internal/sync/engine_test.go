@@ -41,7 +41,7 @@ func TestEngine_DiscoveredPeersEmpty(t *testing.T) {
 func TestEngine_StartStop(t *testing.T) {
 	id, _ := GenerateIdentity("lifecycle")
 	store := NewStore()
-	disc := NewDiscovery(id, 0)
+	disc := NewDiscovery(id, 47667)
 	eng := NewEngine(id, store, disc, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	eng.Start()
 	st := eng.Status()

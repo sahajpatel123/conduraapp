@@ -10,6 +10,8 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/replay"
 )
 
+const errReplayNotAvailable = "replay subsystem not available"
+
 // registerPhase11Methods wires the action-replay RPC methods
 // (Phase 11, sub-phase 11A): replay.timeline, replay.frame,
 // replay.verify_integrity. These are read-only over the
@@ -22,7 +24,7 @@ import (
 func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 	srv.Register("replay.timeline", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if subs.Replay == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "replay subsystem not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
 		}
 		frames, err := subs.Replay.Timeline(ctx, zeroTime())
 		if err != nil {
@@ -39,7 +41,7 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		if subs.Replay == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "replay subsystem not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
 		}
 		frame, err := subs.Replay.FrameByID(ctx, p.ID)
 		if err != nil {
@@ -53,13 +55,28 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 
 	srv.Register("replay.verify_integrity", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if subs.Replay == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "replay subsystem not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
 		}
 		report, err := subs.Replay.VerifyIntegrity(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return report, nil
+	})
+
+	srv.Register("replay.export", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Destination string `json:"destination"`
+		}
+		_ = json.Unmarshal(params, &p)
+		if subs.Replay == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
+		}
+		path, err := subs.Replay.ExportMP4FromTimeline(ctx, zeroTime(), p.Destination)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return map[string]any{"path": path}, nil
 	})
 }
 

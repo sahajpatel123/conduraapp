@@ -20,7 +20,7 @@ type Phase12Components struct {
 	Catalog    *i18n.Catalog
 }
 
-// registerPhase12Methods wires hub.*, sync.*, and i18n.* RPC methods.
+// registerPhase12Methods wires hub.*, sync.*, i18n.*, and skills.* RPC methods.
 func registerPhase12Methods(srv *ipc.Server, p12 *Phase12Components) {
 	if p12 == nil {
 		return
@@ -28,6 +28,68 @@ func registerPhase12Methods(srv *ipc.Server, p12 *Phase12Components) {
 	registerHubMethods(srv, p12)
 	registerSyncMethods(srv, p12)
 	registerI18nMethods(srv, p12)
+	registerSkillsMethods(srv, p12)
+}
+
+// registerSkillsMethods adds skills.list and skills.get RPC methods.
+func registerSkillsMethods(srv *ipc.Server, p12 *Phase12Components) {
+	// skills.list: list locally installed skills.
+	srv.Register("skills.list", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if p12.SkillStore == nil {
+			return []*skills.Skill{}, nil
+		}
+		var p struct {
+			Limit int `json:"limit"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p.Limit <= 0 {
+			p.Limit = 100
+		}
+		return p12.SkillStore.List(ctx, p.Limit)
+	})
+
+	// skills.get: fetch a single skill by ID.
+	srv.Register("skills.get", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if p12.SkillStore == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+		}
+		var p struct {
+			ID string `json:"id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p.ID == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id required"}
+		}
+		sk, err := p12.SkillStore.Get(ctx, p.ID)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found"}
+		}
+		return sk, nil
+	})
+
+	// skills.delete: remove a skill by ID.
+	srv.Register("skills.delete", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if p12.SkillStore == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
+		}
+		var p struct {
+			ID string `json:"id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p.ID == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id required"}
+		}
+		if err := p12.SkillStore.Delete(ctx, p.ID); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found"}
+		}
+		return auditOK(), nil
+	})
 }
 
 // registerI18nMethods adds i18n.locale and i18n.locales RPC methods.
@@ -63,6 +125,7 @@ func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
 }
 
 const errHubNotConfigured = "hub not configured"
+const errSkillStoreNotAvailable = "skill store not available"
 
 func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// hub.search: search the Skills Hub for skills.
@@ -109,7 +172,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "skill store not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
 		}
 		return installSkillFromHub(ctx, p.ID, p12.HubClient, p12.SkillStore)
 	})
@@ -126,7 +189,7 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
 		}
 		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "skill store not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvailable}
 		}
 		return publishSkillToHub(ctx, p.ID, p12.SkillStore, p12.HubClient)
 	})
@@ -269,5 +332,33 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 		}
 		p12.SyncEngine.Stop()
 		return auditOK(), nil
+	})
+
+	// sync.sync_with: one-shot CRDT sync with a discovered peer.
+	srv.Register("sync.sync_with", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			DeviceID string `json:"device_id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+		}
+		var target *sync.Peer
+		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
+			if peer.DeviceID == p.DeviceID {
+				target = peer
+				break
+			}
+		}
+		if target == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found"}
+		}
+		merged, err := p12.SyncEngine.SyncWith(target)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return map[string]any{"ok": true, "merged": merged}, nil
 	})
 }
