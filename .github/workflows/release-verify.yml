@@ -42,12 +42,21 @@ jobs:
       - name: Verify snapshot artifacts
         run: |
           test -f dist/checksums.txt
-          test -f dist/update-manifest.json
           ls -la dist/
           echo "synapticd archives:"
           ls dist/synapticd-* 2>/dev/null | head -5
           echo "synaptic-cli archives:"
           ls dist/synaptic-cli-* 2>/dev/null | head -5
+
+      - name: Generate unsigned manifest from snapshot checksums
+        run: |
+          VERSION="v0.0.0-snapshot"
+          go run ./cmd/gen-update-manifest generate --unsigned \
+            --version "$VERSION" \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${VERSION}" \
+            --out dist/update-manifest.json
+          test -f dist/update-manifest.json
 
   # ---------------------------------------------------------------
   # Manifest sign + verify roundtrip (ephemeral key — no secrets).
