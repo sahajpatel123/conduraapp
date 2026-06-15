@@ -188,6 +188,10 @@ func Default() *Config {
 			DiscoveryPort: 7667,
 			AutoAnnounce:  true,
 		},
+		Update: UpdateConfig{
+			Enabled:     true,
+			ManifestURL: "", // resolved to updater.DefaultManifestURL at runtime
+		},
 		Voice: VoiceConfig{
 			Enabled:               false,
 			PushToTalk:            true,

@@ -10,11 +10,11 @@ Synaptic is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent
 
 ## Project Status (2026-06-15)
 
-**Phases 1–12 implemented; Phase 13 (release/distribution) complete on `main`.** The
-Synaptic daemon (`synapticd`), Wails GUI, CLI (`synaptic`), Trust & Recovery
-(Phase 11), and Reach & Ecosystem scaffolding (Phase 12) are in the tree with
-unit, integration, and Tier-3 E2E coverage. See [LOGBOOK.md](LOGBOOK.md) for
-the authoritative session log.
+**Phases 1–13 implemented on `main`.** Phase 13 (release/distribution) includes
+signed auto-update, GoReleaser packaging, DMG/NSIS GUI installers,
+`release-verify` CI, and the `v0.1.0` release pipeline. On-device
+verification (see `docs/on-device-verification.md`) is the final gate
+before calling the public launch done.
 
 | Layer            | Status |
 |------------------|--------|
@@ -23,8 +23,8 @@ the authoritative session log.
 | Wails GUI shell  | ✅ done |
 | Trust & Recovery (Phase 11) | ✅ backend + GUI wiring |
 | Reach & Ecosystem (Phase 12) | ✅ TUI, i18n, hub, sync RPCs |
-| Release / auto-update (Phase 13) | ✅ updater, manifest pipeline, GoReleaser, DMG/NSIS GUI, `release-verify` CI |
-| `v0.1.0` release | ⏳ tag `v0.1.0` + on-device verification |
+| Release / auto-update (Phase 13) | ✅ signed updates, GoReleaser, DMG/NSIS, `release-verify`, `v0.1.0` tag |
+| Public launch sign-off | ⏳ on-device verification checklist |
 
 ### Try it locally
 ```bash

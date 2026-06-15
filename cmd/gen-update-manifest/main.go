@@ -35,6 +35,14 @@ func main() {
 		if err := signFile(os.Args[2], os.Args[3]); err != nil {
 			fatal(err)
 		}
+	case "verify":
+		if len(os.Args) != 3 {
+			usage()
+			os.Exit(2)
+		}
+		if err := verifyFile(os.Args[2]); err != nil {
+			fatal(err)
+		}
 	case "generate":
 		if err := generateCmd(os.Args[2:]); err != nil {
 			fatal(err)
@@ -49,6 +57,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `gen-update-manifest — build and sign auto-update manifests
 
   sign <unsigned.json> <signed.json>
+  verify <signed.json>
   generate --version vX.Y.Z --checksums dist/checksums.txt --base-url URL --out dist/update-manifest.json
 
 Requires UPDATE_SIGNING_KEY (hex Ed25519 seed or private key) for sign/generate.
@@ -139,6 +148,29 @@ func signFile(inPath, outPath string) error {
 	}
 	out = append(out, '\n')
 	return os.WriteFile(outPath, out, 0o600) //nolint:gosec // CLI tool
+}
+
+func verifyFile(path string) error {
+	raw, err := os.ReadFile(path) //nolint:gosec // CLI tool
+	if err != nil {
+		return err
+	}
+	var sm updater.SignedManifest
+	if err := json.Unmarshal(raw, &sm); err != nil {
+		return err
+	}
+	if sm.Ed25519Sig == "" {
+		return fmt.Errorf("manifest has no ed25519_sig")
+	}
+	p, err := sm.Payload()
+	if err != nil {
+		return err
+	}
+	if err := updater.VerifyPayload(p, updater.PublicKey, sm.Ed25519Sig); err != nil {
+		return fmt.Errorf("signature invalid: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "manifest %s verified (version %s, channel %s)\n", path, sm.Version, sm.Channel)
+	return nil
 }
 
 func loadPrivateKey(raw string) (ed25519.PrivateKey, error) {

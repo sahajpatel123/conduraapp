@@ -1,8 +1,23 @@
 # On-Device Verification Checklist (v0.1.0)
 
-This is the acceptance gate. Run on a real, clean machine per target OS before
-tagging v0.1.0. Automated tests cannot verify native AX, CGEvent, OS Gatekeeper,
-or notarization — these must be verified manually.
+This is the acceptance gate for **public** v0.1.0. Automated CI covers
+packaging, checksums, and Ed25519 manifest signing; this checklist covers
+OS-native behavior that only a real machine can prove.
+
+## Automated (CI — no manual step)
+
+- [x] `go build ./...` and `golangci-lint` clean on `main`
+- [x] `release-verify` — GoReleaser snapshot + manifest sign roundtrip
+- [x] `embedded-key-check` — `UPDATE_SIGNING_KEY` matches embedded `PublicKey` (when secret set)
+- [x] Updater unit tests + `update_e2e_test.go` through IPC
+- [x] `scripts/verify-release-artifacts.sh v0.1.0` after tag (checksums + manifest sig)
+
+Run locally after a tag:
+
+```bash
+make verify-release TAG=v0.1.0
+go run ./cmd/gen-update-manifest verify dist/verify-v0.1.0/manifest.json
+```
 
 ## macOS (primary target)
 
@@ -31,10 +46,9 @@ or notarization — these must be verified manually.
 
 ## Linux
 
-- [ ] Install `.deb`/`.rpm`/`.AppImage`
+- [ ] Install `.deb`
 - [ ] Same checks
-- [ ] GPG signature verifies: `gpg --verify synaptic-0.1.0-linux-amd64.deb.sig`
-- [ ] SHA256SUMS: `sha256sum -c SHA256SUMS`
+- [ ] SHA256: `sha256sum -c checksums.txt`
 
 ## Release Evidence
 
@@ -42,4 +56,4 @@ or notarization — these must be verified manually.
 - [ ] Screenshots of auto-update notification
 - [ ] Screenshots of backup/restore flow
 - [ ] Log output from a full end-to-end session
-- [ ] Notarization staple verification: `stapler validate /Applications/Synaptic.app`
+- [ ] Notarization staple verification: `stapler validate /Applications/Synaptic.app` (when Apple secrets configured)

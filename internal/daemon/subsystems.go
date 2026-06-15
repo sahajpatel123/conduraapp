@@ -483,7 +483,8 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 	_ = haltFlag.Refresh(context.Background())
 	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)
 	tel.SetEnabled(cfg.Telemetry.Enabled)
-	upd := updater.New(db.SQL(), "https://synaptic.app/updates/manifest.json")
+	upd := updater.New(db.SQL(), resolveUpdateManifestURL(cfg))
+	upd.SetEnabled(cfg.Update.Enabled)
 	winMgr := window.New(db.SQL())
 
 	// Phase 3: SSE broker + LLM stream manager. The broker fans
@@ -1192,4 +1193,11 @@ func buildBackupScheduler(bm *backup.Manager, log *slog.Logger) *backup.Schedule
 		"backup_dir", s.Cfg().BackupDir,
 	)
 	return s
+}
+
+func resolveUpdateManifestURL(cfg *config.Config) string {
+	if cfg != nil && cfg.Update.ManifestURL != "" {
+		return cfg.Update.ManifestURL
+	}
+	return updater.DefaultManifestURL
 }

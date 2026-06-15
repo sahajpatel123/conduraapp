@@ -102,3 +102,36 @@ jobs:
 
       - name: Update IPC E2E tests
         run: go test -count=1 -timeout=120s ./internal/daemon -run 'TestE2E_Update'
+
+  # ---------------------------------------------------------------
+  # When UPDATE_SIGNING_KEY is configured, prove it matches PublicKey.
+  # ---------------------------------------------------------------
+  embedded-key-check:
+    name: Embedded key matches CI secret
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Sign and verify with production key
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "UPDATE_SIGNING_KEY not set — skip (set before v0.1.0 tag)"
+            exit 0
+          fi
+          mkdir -p dist
+          printf '%s synapticd-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
+          go run ./cmd/gen-update-manifest generate \
+            --version v0.0.0-keycheck \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-keycheck" \
+            --out dist/manifest.json
+          go run ./cmd/gen-update-manifest verify dist/manifest.json

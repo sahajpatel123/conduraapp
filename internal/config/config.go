@@ -79,6 +79,9 @@ type Config struct {
 
 	// P2P Sync configuration.
 	Sync SyncConfig `yaml:"sync"`
+
+	// Auto-update (Phase 13).
+	Update UpdateConfig `yaml:"update"`
 }
 
 // -----------------------------------------------------------------------------
@@ -409,6 +412,14 @@ func PlatformIsWindows() bool { return runtime.GOOS == "windows" }
 
 // PlatformIsLinux returns true if the daemon is running on Linux.
 func PlatformIsLinux() bool { return runtime.GOOS == "linux" }
+
+// UpdateConfig controls secure auto-update (Phase 13).
+type UpdateConfig struct {
+	// Enabled toggles update polling and apply. Default: true.
+	Enabled bool `yaml:"enabled"`
+	// ManifestURL is the signed JSON manifest. Empty uses updater.DefaultManifestURL.
+	ManifestURL string `yaml:"manifest_url"`
+}
 
 // HubConfig controls the Skills Hub connection.
 type HubConfig struct {

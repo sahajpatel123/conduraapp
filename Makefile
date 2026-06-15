@@ -104,6 +104,11 @@ build-gui: ## Build Wails desktop app for current OS/arch
 	chmod +x scripts/build-gui.sh
 	./scripts/build-gui.sh
 
+.PHONY: verify-release
+verify-release: ## Verify a GitHub release tag (TAG=v0.1.0)
+	chmod +x scripts/verify-release-artifacts.sh
+	./scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
+
 .PHONY: gen-manifest
 gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
 	@test -f dist/checksums.txt || (echo "run release-snapshot first" && exit 1)

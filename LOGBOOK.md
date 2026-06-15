@@ -1824,7 +1824,16 @@ integration tests.
 | End-user | DMG/NSIS + deb/tarballs; `docs/on-device-verification.md` still required before `v0.1.0` |
 
 ### Still open (honest)
-- Tag `v0.1.0` dry-run on GitHub (needs real tag push).
-- Production `UPDATE_SIGNING_KEY` in repo secrets.
-- On-device install verification on clean macOS/Windows/Linux machines.
+- On-device install verification on clean macOS/Windows/Linux machines (`docs/on-device-verification.md`).
 - macOS notarization when Apple secrets are configured.
+
+### 2026-06-15 (continued) — v0.1.0 release gates closed in CI
+
+- Rotated `PublicKey` in `internal/updater/updater.go` and set
+  `UPDATE_SIGNING_KEY` in GitHub Actions secrets.
+- Added `UpdateConfig` (`update.enabled`, `update.manifest_url`) defaulting
+  to `updater.DefaultManifestURL` (GitHub Releases `manifest.json`).
+- `gen-update-manifest verify` + `scripts/verify-release-artifacts.sh`.
+- Wired `web/app/download/page.tsx` to GitHub Releases latest assets.
+- `release-verify` job `embedded-key-check` proves CI secret matches embedded pubkey.
+- Tagged `v0.1.0` to exercise full `release.yml` pipeline.
