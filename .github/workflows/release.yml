@@ -141,7 +141,8 @@ jobs:
             echo "no GUI artifacts to upload"
             exit 0
           fi
-          gh release upload "${GITHUB_REF_NAME}" dist/prebuilt/* --clobber
+          gh release upload "${GITHUB_REF_NAME}" dist/prebuilt/* \
+            --clobber -R "${{ github.repository }}"
 
   # ---------------------------------------------------------------
   # Sign update manifest and attach to the GitHub release
