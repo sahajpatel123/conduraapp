@@ -8,24 +8,22 @@ Synaptic is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent
 
 ---
 
-## Project Status (2026-06-07)
+## Project Status (2026-06-15)
 
-**Phase 1 (Repo Skeleton + Core Daemon): complete.** The Synaptic
-daemon (`synapticd`) and CLI client (`synaptic`) are implemented in Go,
-fully unit-tested (>80% coverage on every internal package), and
-integration-tested end-to-end. See [LOGBOOK.md](LOGBOOK.md) Session 2
-for the full commit log.
+**Phases 1–12 implemented; Phase 13 (release/distribution) in progress.** The
+Synaptic daemon (`synapticd`), Wails GUI, CLI (`synaptic`), Trust & Recovery
+(Phase 11), and Reach & Ecosystem scaffolding (Phase 12) are in the tree with
+unit, integration, and Tier-3 E2E coverage. See [LOGBOOK.md](LOGBOOK.md) for
+the authoritative session log.
 
 | Layer            | Status |
 |------------------|--------|
 | Foundation docs  | ✅ done |
-| Internal packages (10) | ✅ tested |
-| `synapticd` daemon | ✅ runs, JSON-RPC up |
-| `synaptic` CLI   | ✅ ping/version/status/config/llm/apikeys |
-| Wails GUI shell  | ⏳ Phase 2 |
-| Computer-use engine | ⏳ Phase 3 |
-| Skills Hub       | ⏳ Phase 6 |
-| P2P sync         | ⏳ Phase 7 |
+| Core daemon + IPC | ✅ done |
+| Wails GUI shell  | ✅ done |
+| Trust & Recovery (Phase 11) | ✅ backend + GUI wiring |
+| Reach & Ecosystem (Phase 12) | ✅ TUI, i18n, hub, sync RPCs |
+| Release / auto-update (Phase 13) | 🔄 updater + signing primitives |
 | `v0.1.0` release | ⏳ ~Q4 2026 |
 
 ### Try it locally
