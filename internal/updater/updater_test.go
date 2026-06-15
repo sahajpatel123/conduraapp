@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -234,9 +235,27 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 		t.Fatal("expected update available")
 	}
 
-	_, err = u.Apply(context.Background(), result)
+	applied, err := u.Apply(context.Background(), result)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
+	}
+	if !applied.Applied {
+		t.Fatal("expected applied=true")
+	}
+
+	if runtime.GOOS == "windows" {
+		if !applied.RestartRequired {
+			t.Fatal("expected restart_required on windows")
+		}
+		dst := filepath.Join(u.cacheDir, "synaptic-update-"+sm.Version)
+		got, err := os.ReadFile(dst)
+		if err != nil {
+			t.Fatalf("staged binary: %v", err)
+		}
+		if !bytes.Equal(got, binContent) {
+			t.Errorf("staged binary content mismatch")
+		}
+		return
 	}
 
 	got, err := os.ReadFile(target)
