@@ -116,13 +116,16 @@ func (d *Detector) process(a actionRecord) {
 		d.trip(Trip{Type: TripDuration, Reason: "task duration exceeds 30 minutes"})
 	}
 
-	// Loop check: track last 5 coordinates.
-	d.state.coordWindow = append(d.state.coordWindow, [2]float64{a.coordX, a.coordY})
-	if len(d.state.coordWindow) > 5 {
-		d.state.coordWindow = d.state.coordWindow[1:]
-	}
-	if d.checkLoop() {
-		d.trip(Trip{Type: TripLoop, Reason: "same coordinates repeated 3+ times"})
+	// Loop check: track last 5 coordinates (spatial actions only).
+	// Zero coords mean no pointer position (chat, shell, etc.) — skip loop detection.
+	if a.coordX != 0 || a.coordY != 0 {
+		d.state.coordWindow = append(d.state.coordWindow, [2]float64{a.coordX, a.coordY})
+		if len(d.state.coordWindow) > 5 {
+			d.state.coordWindow = d.state.coordWindow[1:]
+		}
+		if d.checkLoop() {
+			d.trip(Trip{Type: TripLoop, Reason: "same coordinates repeated 3+ times"})
+		}
 	}
 
 	// Failure check.

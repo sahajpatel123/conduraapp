@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
@@ -87,6 +88,8 @@ func TestE2E_Safety_ChatDoesNotHalt(t *testing.T) {
 			t.Fatalf("chat %d must pass, got %v", i, d)
 		}
 	}
+	// Anomaly detector processes async; wait so halt state is observable.
+	time.Sleep(100 * time.Millisecond)
 	if hf.IsHalted() {
 		t.Fatal("3 chats must NOT halt the daemon")
 	}
