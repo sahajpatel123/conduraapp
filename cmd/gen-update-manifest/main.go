@@ -19,6 +19,8 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 )
 
+const manifestDirPerm = 0o750
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -103,7 +105,7 @@ func generateCmd(args []string) error {
 		return err
 	}
 	data = append(data, '\n')
-	if err := os.MkdirAll(dirOf(*out), 0o750); err != nil {
+	if err := os.MkdirAll(dirOf(*out), manifestDirPerm); err != nil {
 		return err
 	}
 	return os.WriteFile(*out, data, 0o600) //nolint:gosec // CLI tool

@@ -18,6 +18,7 @@
 package presence
 
 import (
+	"context"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -124,7 +125,7 @@ func (d *Detector) checkActiveOnDarwin() bool {
 	// Use ioreg to check for screen state changes and recent events.
 	// This is a heuristic - real implementation would use CGEventSourceSecondsSinceLastEventType.
 	// For now, assume active unless screen is locked.
-	out, err := exec.Command("ioreg", "-c", "IOHIDSystem").Output()
+	out, err := exec.CommandContext(context.Background(), "ioreg", "-c", "IOHIDSystem").Output()
 	if err != nil {
 		return true // Assume present on error
 	}
@@ -134,7 +135,7 @@ func (d *Detector) checkActiveOnDarwin() bool {
 
 func (d *Detector) checkLockedDarwin() bool {
 	// Check if screensaver is running (indicates lock).
-	out, err := exec.Command("pgrep", "-x", "ScreenSaverEngine").Output()
+	out, err := exec.CommandContext(context.Background(), "pgrep", "-x", "ScreenSaverEngine").Output()
 	if err != nil {
 		return false
 	}
@@ -143,7 +144,7 @@ func (d *Detector) checkLockedDarwin() bool {
 
 func (d *Detector) checkActiveOnWindows() bool {
 	// Use PowerShell to check last input time.
-	cmd := exec.Command("powershell", "-Command",
+	cmd := exec.CommandContext(context.Background(), "powershell", "-Command",
 		"(Get-NetAdapter | Where-Object {$_.Status -eq 'Up'}).Count -gt 0")
 	out, err := cmd.Output()
 	if err != nil {
@@ -154,7 +155,7 @@ func (d *Detector) checkActiveOnWindows() bool {
 
 func (d *Detector) checkLockedWindows() bool {
 	// Check for workstation locked via log check.
-	cmd := exec.Command("powershell", "-Command",
+	cmd := exec.CommandContext(context.Background(), "powershell", "-Command",
 		"try { (Get-Process logonui -ErrorAction Stop) | Out-Null; return $true } catch { return $false }")
 	out, err := cmd.Output()
 	if err != nil {
