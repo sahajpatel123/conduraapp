@@ -422,6 +422,10 @@ type HubConfig struct {
 	// When empty, anonymous requests are made (the server may reject
 	// them depending on the deployment's policy).
 	Token string `yaml:"token"`
+	// PublishKeyPath is the path to a file containing the Ed25519
+	// private key used to sign Publish requests (hex-encoded). When
+	// empty, Publish is sent unsigned and the server may reject it.
+	PublishKeyPath string `yaml:"publish_key_path"`
 }
 
 // SyncConfig controls P2P synchronization.

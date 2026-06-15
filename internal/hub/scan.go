@@ -30,6 +30,10 @@ func Verify(data []byte, expected string) error {
 // path traversal, network calls to unexpected hosts). This is a
 // first-pass filter; the full safety layer (Gatekeeper) handles
 // runtime enforcement.
+//
+// Deprecated: prefer ScanSkill which operates on the parsed
+// archive, not the raw bytes. Scan() on raw bytes was a bug
+// (it would always flag ZIP archives as non-JSON).
 func Scan(data []byte) ScanResult {
 	result := ScanResult{Safe: true}
 
@@ -46,6 +50,33 @@ func Scan(data []byte) ScanResult {
 		result.Issues = append(result.Issues, "non-JSON skill archive; manual review required")
 		return result
 	}
+	return scanSteps(skill.Steps, skill.Trust, skill.License)
+}
+
+// SkillScanner is the minimal interface a skill type must
+// satisfy to be scannable. We define it here to avoid a circular
+// import (hub importing skills). Callers (e.g., installSkillFromHub)
+// pass a skills.Skill wrapped in a small adapter.
+type SkillScanner interface {
+	ScanSteps() []string
+	ScanTrust() string
+	ScanLicense() string
+}
+
+// ScanSkill runs the safety scan on a PARSED skill. Use this for
+// skills that came out of skills.ParseArchive (or any other
+// structured source). The raw-byte Scan() function is for
+// backwards compatibility with non-zip skill formats and should
+// not be used for hub downloads.
+func ScanSkill(sk SkillScanner) ScanResult {
+	if sk == nil {
+		return ScanResult{Safe: false, Issues: []string{"nil skill"}}
+	}
+	return scanSteps(sk.ScanSteps(), sk.ScanTrust(), sk.ScanLicense())
+}
+
+func scanSteps(steps []string, trust, license string) ScanResult {
+	result := ScanResult{Safe: true}
 
 	// Check for dangerous step patterns.
 	dangerous := []string{
@@ -53,7 +84,7 @@ func Scan(data []byte) ScanResult {
 		"sudo", "chmod 777", "chmod +x /", "dd if=",
 		"/etc/passwd", "/etc/shadow", ".ssh/authorized_keys",
 	}
-	for _, step := range skill.Steps {
+	for _, step := range steps {
 		lower := strings.ToLower(step)
 		for _, pattern := range dangerous {
 			if strings.Contains(lower, pattern) {
@@ -65,12 +96,12 @@ func Scan(data []byte) ScanResult {
 	}
 
 	// Flag experimental trust as needing user confirmation.
-	if skill.Trust == "experimental" {
+	if trust == "experimental" {
 		result.Issues = append(result.Issues, "experimental trust level; requires user confirmation")
 	}
 
 	// Flag missing license.
-	if skill.License == "" {
+	if license == "" {
 		result.Issues = append(result.Issues, "no license specified")
 	}
 

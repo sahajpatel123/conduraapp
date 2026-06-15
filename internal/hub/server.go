@@ -73,6 +73,12 @@ func (s *Server) reindex() error {
 			continue
 		}
 		id := e.Name()
+		// Reject any directory whose name doesn't match the safe
+		// character set. This prevents pre-existing path-traversal
+		// skill dirs (e.g. "../etc") from being loaded.
+		if !validSkillID(id) {
+			continue
+		}
 		dir := filepath.Join(skillsDir, id)
 		metaPath := filepath.Join(dir, "meta.json")
 		archivePath := filepath.Join(dir, "archive.zip")
@@ -149,9 +155,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	count := len(s.index)
 	s.mu.RUnlock()
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status":     "ok",
+		"status":      "ok",
 		"skill_count": count,
-		"version":    "synaptic-hub-local/0.1.0",
+		"version":     "synaptic-hub-local/0.1.0",
 	})
 }
 
@@ -227,9 +233,16 @@ func (s *Server) handleSkillByID(w http.ResponseWriter, r *http.Request) {
 // LocalAdd adds a skill to the local server's index. Useful for
 // bundling skills with a private Hub or seeding a fresh server
 // with company-internal skills.
+//
+// Security: the skill ID is validated against [a-zA-Z0-9._-]+ to
+// prevent path-traversal (e.g. "../etc/passwd"). IDs that don't
+// match the safe character set are rejected.
 func (s *Server) LocalAdd(meta SkillMeta, archive []byte) error {
 	if meta.ID == "" {
 		return fmt.Errorf("hub server: skill ID required")
+	}
+	if !validSkillID(meta.ID) {
+		return fmt.Errorf("hub server: invalid skill ID %q (must match [a-zA-Z0-9._-]+)", meta.ID)
 	}
 	dir := filepath.Join(s.root, "skills", meta.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -258,6 +271,39 @@ func (s *Server) LocalAdd(meta SkillMeta, archive []byte) error {
 	s.archive[meta.ID] = filepath.Join(dir, "archive.zip")
 	s.mu.Unlock()
 	return nil
+}
+
+// validSkillID checks that an ID only contains characters safe
+// for use as a filesystem directory name. Beyond the character
+// set, we also reject:
+//   - "." and ".." (path traversal)
+//   - leading dots (hidden directories)
+//   - paths that contain only dots
+func validSkillID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	if id == "." || id == ".." {
+		return false
+	}
+	allDots := true
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z':
+			allDots = false
+		case r >= 'A' && r <= 'Z':
+			allDots = false
+		case r >= '0' && r <= '9':
+			allDots = false
+		case r == '.' || r == '_' || r == '-':
+		default:
+			return false
+		}
+	}
+	if allDots {
+		return false
+	}
+	return true
 }
 
 // Count returns the number of skills currently indexed.

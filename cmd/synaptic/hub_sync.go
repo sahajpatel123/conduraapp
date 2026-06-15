@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"text/tabwriter"
-	"time"
+
+	"github.com/sahajpatel123/synapticapp/internal/hub"
 )
 
 // cmdHub dispatches the `hub` subcommand.
@@ -137,12 +140,20 @@ func cmdHubInstall(gf *globalFlags, args []string) error {
 	return nil
 }
 
+// cmdHubPublish uploads a local skill archive to the hub. The
+// archive is read from PATH and its contents are sent (the daemon
+// does NOT read from a local store by ID — the file is the source
+// of truth, so a user can re-publish after editing the archive).
+//
+// Usage: synaptic hub publish PATH
+//   PATH is a skill archive file (.zip). The skill's metadata is
+//   read from the archive itself; the file is uploaded verbatim.
 func cmdHubPublish(gf *globalFlags, args []string) error {
-	if len(args) < 2 {
-		fmt.Println("usage: synaptic hub publish ID PATH")
+	if len(args) < 1 {
+		fmt.Println("usage: synaptic hub publish PATH")
 		return nil
 	}
-	id, path := args[0], args[1]
+	path := args[0]
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 	c, err := connect(gf)
@@ -150,16 +161,28 @@ func cmdHubPublish(gf *globalFlags, args []string) error {
 		return err
 	}
 	defer func() { _ = c.Close() }()
+	archive, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	// Extract the skill ID from the filename (strip .zip).
+	id := strings.TrimSuffix(filepath.Base(path), ".zip")
 	var out map[string]any
-	if err := c.Call(ctx, "hub.publish", map[string]any{"id": id, "path": path}, &out); err != nil {
+	if err := c.Call(ctx, "hub.publish", map[string]any{
+		"id":      id,
+		"archive": archive,
+	}, &out); err != nil {
 		return err
 	}
-	fmt.Printf("published skill %q\n", id)
+	fmt.Printf("published skill %q (%d bytes)\n", id, len(archive))
 	return nil
 }
 
 // cmdHubServe starts a local Skills Hub server rooted at --root.
 // Useful for offline use, internal company hubs, and CI testing.
+// The server speaks the same /api/v1/* surface as the network
+// hub, so the same client code can target it by setting
+// hub.base_url to http://localhost:7777.
 func cmdHubServe(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("hub serve", flag.ContinueOnError)
 	addr := fs.String("addr", "127.0.0.1:7777", "address to listen on")
@@ -174,15 +197,14 @@ func cmdHubServe(gf *globalFlags, args []string) error {
 		}
 		return err
 	}
-	fmt.Printf("starting local Skills Hub at %s (root=%s, auth=%s)\n",
-		*addr, *root, ternary(*token != "", "token-protected", "open"))
-	// This is a lightweight in-process hub; full implementation
-	// would call hub.NewServer + hub.ListenAndServe. For now we
-	// emit a friendly message and exit. The hub package's
-	// internal/server.go is the canonical entry point.
-	fmt.Println("(local hub server: see internal/hub/server.go)")
-	_ = time.Second
-	return nil
+	srv, err := hub.NewServer(*root, *token)
+	if err != nil {
+		return fmt.Errorf("hub server init: %w", err)
+	}
+	fmt.Printf("local Skills Hub listening on %s (root=%s, auth=%s, count=%d)\n",
+		*addr, *root, ternary(*token != "", "token-protected", "open"), srv.Count())
+	fmt.Println("press Ctrl+C to stop")
+	return srv.ListenAndServe(*addr)
 }
 
 // cmdSync dispatches the `sync` subcommand.

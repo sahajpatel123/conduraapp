@@ -199,6 +199,13 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		subs.BackupScheduler.Stop()
 	}
 
+	// Stop the P2P sync engine if it was auto-started. The engine
+	// closes its TCP listener and unblocks any in-flight handleInbound
+	// goroutines. A no-op if sync was never enabled.
+	if subs.Phase12 != nil && subs.Phase12.SyncEngine != nil {
+		subs.Phase12.SyncEngine.Stop()
+	}
+
 	// Best-effort teardown. Close side stores first, main DB last.
 	// Force WAL checkpoint so Windows file locks are released cleanly.
 	if subs.Storage != nil {

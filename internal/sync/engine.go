@@ -15,17 +15,29 @@ import (
 // Ed25519 identities). Only **paired** devices are accepted — no
 // auto-pair on LAN, no plaintext fallback.
 type Engine struct {
-	identity       *DeviceIdentity
-	store          *Store
-	discovery      *Discovery
-	paired         *PairedSet
-	logger         *slog.Logger
-	discoveryPort  int
-	mu             sync.Mutex
-	running        bool
-	stopCh         chan struct{}
-	syncListener   net.Listener
+	identity      *DeviceIdentity
+	store         *Store
+	discovery     *Discovery
+	paired        *PairedSet
+	logger        *slog.Logger
+	discoveryPort int
+	mu            sync.Mutex
+	running       bool
+	stopCh        chan struct{}
+	syncListener  net.Listener
+	// pendingPairings maps peer device_id -> (token, createdAt).
+	// The token is set by PairWith and consumed by ConfirmPairing.
+	// Entries expire after pendingPairingTTL so stale tokens don't
+	// accumulate.
+	pendingPairings map[string]pendingPairing
 }
+
+type pendingPairing struct {
+	token     PairingToken
+	createdAt time.Time
+}
+
+const pendingPairingTTL = 5 * time.Minute
 
 // NewEngine creates a sync engine. If paired is nil, the engine
 // accepts ANY authenticated device (insecure default; only used in
@@ -36,13 +48,14 @@ func NewEngine(identity *DeviceIdentity, store *Store, discovery *Discovery, pai
 		port = discovery.port
 	}
 	return &Engine{
-		identity:      identity,
-		store:         store,
-		discovery:     discovery,
-		paired:        paired,
-		logger:        logger,
-		discoveryPort: port,
-		stopCh:        make(chan struct{}),
+		identity:        identity,
+		store:           store,
+		discovery:       discovery,
+		paired:          paired,
+		logger:          logger,
+		discoveryPort:   port,
+		stopCh:          make(chan struct{}),
+		pendingPairings: make(map[string]pendingPairing),
 	}
 }
 
@@ -159,6 +172,11 @@ func (e *Engine) SyncWith(peer *Peer) (int, error) {
 // This is the FIRST half of the pairing flow. The second half is
 // the user confirming the 6-digit PIN on the existing device, at
 // which point the new device is added to the paired set.
+//
+// PairWith stores the token in a pending map keyed by the peer's
+// device_id. ConfirmPairing reuses this token so the PIN verification
+// is symmetric — the user types the same PIN that PairWith
+// computed.
 func (e *Engine) PairWith(peer *Peer) (PairingToken, string, error) {
 	if peer == nil {
 		return "", "", fmt.Errorf("sync: peer is nil")
@@ -168,6 +186,12 @@ func (e *Engine) PairWith(peer *Peer) (PairingToken, string, error) {
 		return "", "", err
 	}
 	pin := GeneratePairingPIN(token, peer.DeviceID, e.identity.DeviceID)
+	e.mu.Lock()
+	e.pendingPairings[peer.DeviceID] = pendingPairing{
+		token:     token,
+		createdAt: time.Now(),
+	}
+	e.mu.Unlock()
 	e.logger.Info("pairing initiated",
 		"new_peer", peer.DeviceID,
 		"pin", pin,
@@ -177,20 +201,39 @@ func (e *Engine) PairWith(peer *Peer) (PairingToken, string, error) {
 
 // ConfirmPairing is the SECOND half of the pairing flow: the user
 // reads the 6-digit PIN from the new device and types it into the
-// existing device's overlay. If the PIN matches, the new device is
-// added to the paired set.
-func (e *Engine) ConfirmPairing(peer *Peer, token PairingToken, userPIN string) error {
+// existing device's overlay. If the PIN matches the one minted
+// by PairWith, the new device is added to the paired set.
+//
+// The token used to compute the expected PIN is the one stored by
+// PairWith (keyed by peer.DeviceID). This ensures the begin/confirm
+// halves see the same PIN, so user-typed input always matches.
+func (e *Engine) ConfirmPairing(peer *Peer, userPIN string) error {
 	if peer == nil {
 		return fmt.Errorf("sync: peer is nil")
 	}
 	if e.paired == nil {
 		return fmt.Errorf("sync: no paired set loaded")
 	}
-	if !VerifyPairingPIN(token, peer.DeviceID, e.identity.DeviceID, userPIN) {
+	e.mu.Lock()
+	pp, ok := e.pendingPairings[peer.DeviceID]
+	if !ok {
+		e.mu.Unlock()
+		return fmt.Errorf("sync: no pending pairing for device %s — run 'synaptic sync pair %s' first", peer.DeviceID, peer.DeviceID)
+	}
+	if time.Since(pp.createdAt) > pendingPairingTTL {
+		delete(e.pendingPairings, peer.DeviceID)
+		e.mu.Unlock()
+		return fmt.Errorf("sync: pairing for device %s expired — re-run 'synaptic sync pair %s'", peer.DeviceID, peer.DeviceID)
+	}
+	expected := GeneratePairingPIN(pp.token, peer.DeviceID, e.identity.DeviceID)
+	if expected != userPIN {
+		e.mu.Unlock()
 		return fmt.Errorf("sync: PIN mismatch")
 	}
-	_, err := e.paired.Add(peer.DeviceID, peer.Name, peer.PublicKey, token, e.identity.DeviceID)
-	if err != nil {
+	// Consume the token (one-shot) and add to the paired set.
+	delete(e.pendingPairings, peer.DeviceID)
+	e.mu.Unlock()
+	if _, err := e.paired.Add(peer.DeviceID, peer.Name, peer.PublicKey, pp.token, e.identity.DeviceID); err != nil {
 		return err
 	}
 	e.logger.Info("device paired", "device_id", peer.DeviceID)

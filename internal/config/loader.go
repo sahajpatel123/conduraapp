@@ -175,6 +175,19 @@ func Default() *Config {
 			Enabled:      false,
 			CrashReports: false,
 		},
+		Hub: HubConfig{
+			Enabled:        true,
+			BaseURL:        "https://hub.synaptic.app",
+			AutoUpdate:     false,
+			Token:          "",
+			PublishKeyPath: "",
+		},
+		Sync: SyncConfig{
+			Enabled:       false, // opt-in: requires pairing
+			DeviceName:    "",
+			DiscoveryPort: 7667,
+			AutoAnnounce:  true,
+		},
 		Voice: VoiceConfig{
 			Enabled:               false,
 			PushToTalk:            true,
@@ -1175,6 +1188,8 @@ func setHub(c *HubConfig, parts []string, value string) error {
 		c.AutoUpdate = b
 	case "token":
 		c.Token = value
+	case "publish_key_path":
+		c.PublishKeyPath = value
 	default:
 		return errUnknownField("hub", parts[0])
 	}

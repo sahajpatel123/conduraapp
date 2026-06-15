@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -76,18 +77,18 @@ type Model struct {
 	healthVP   viewport.Model
 
 	// Hub tab: search results + selected skill
-	hubQuery     string
-	hubResults   []map[string]any
-	hubCursor    int
-	hubViewport  viewport.Model
-	hubErr       error
+	hubQuery    string
+	hubResults  []map[string]any
+	hubCursor   int
+	hubViewport viewport.Model
+	hubErr      error
 
 	// Sync tab: status + peers + paired devices
-	syncStatus    map[string]any
-	syncPeers     []map[string]any
-	syncPairs     []map[string]any
-	syncViewport  viewport.Model
-	syncErr       error
+	syncStatus   map[string]any
+	syncPeers    []map[string]any
+	syncPairs    []map[string]any
+	syncViewport viewport.Model
+	syncErr      error
 
 	// Skills tab: locally installed skills
 	skills       []map[string]any
@@ -707,8 +708,8 @@ func (m Model) updateHealth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateHub handles key events on the Hub tab. Pressing Enter
-// fetches search results; up/down moves the cursor; pressing 'i'
-// on a selected skill installs it.
+// fires a search using the current chat-input value; up/down
+// moves the cursor; pressing 'i' on a selected skill installs it.
 func (m Model) updateHub(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up":
@@ -719,9 +720,17 @@ func (m Model) updateHub(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.hubCursor < len(m.hubResults)-1 {
 			m.hubCursor++
 		}
-	case "/":
-		// Begin a search query.
-		m.chatInput.Focus()
+	case "enter":
+		// The chat input is shared across tabs. When the user is
+		// on the Hub tab, the text in the input is treated as a
+		// search query. Pressing Enter triggers the search.
+		query := strings.TrimSpace(m.chatInput.Value())
+		if query == "" {
+			return m, nil
+		}
+		m.hubQuery = query
+		m.chatInput.SetValue("")
+		return m, m.fetchHubCmd()
 	case "i":
 		if m.hubCursor >= 0 && m.hubCursor < len(m.hubResults) {
 			id, _ := m.hubResults[m.hubCursor]["id"].(string)

@@ -135,8 +135,23 @@ func registerI18nMethods(srv *ipc.Server, p12 *Phase12Components) {
 }
 
 func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
-	// hub.search: search the Skills Hub for skills.
-	srv.Register("hub.search", func(ctx context.Context, params json.RawMessage) (any, error) {
+	srv.Register("hub.search", hubSearchHandler(p12))
+	srv.Register("hub.get", hubGetHandler(p12))
+	srv.Register("hub.install", hubInstallHandler(p12))
+	srv.Register("hub.publish", hubPublishHandler(p12))
+}
+
+// hubClient returns the configured hub client or an IPC error
+// indicating it's not configured.
+func hubClient(p12 *Phase12Components) (*hub.Client, error) {
+	if p12.HubClient == nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
+	}
+	return p12.HubClient, nil
+}
+
+func hubSearchHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Query string `json:"query"`
 			Limit int    `json:"limit"`
@@ -147,63 +162,90 @@ func registerHubMethods(srv *ipc.Server, p12 *Phase12Components) {
 		if p.Limit <= 0 {
 			p.Limit = 20
 		}
-		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
+		client, err := hubClient(p12)
+		if err != nil {
+			return nil, err
 		}
-		return p12.HubClient.Search(p.Query, p.Limit)
-	})
+		return client.Search(p.Query, p.Limit)
+	}
+}
 
-	// hub.get: fetch skill metadata from the hub.
-	srv.Register("hub.get", func(ctx context.Context, params json.RawMessage) (any, error) {
+func hubGetHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			ID string `json:"id"`
 		}
 		if err := decodeParams(params, &p); err != nil {
 			return nil, err
 		}
-		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
+		client, err := hubClient(p12)
+		if err != nil {
+			return nil, err
 		}
-		return p12.HubClient.Get(p.ID)
-	})
+		return client.Get(p.ID)
+	}
+}
 
-	// hub.install: download, scan, and install a skill from the hub.
-	srv.Register("hub.install", func(ctx context.Context, params json.RawMessage) (any, error) {
+func hubInstallHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			ID string `json:"id"`
 		}
 		if err := decodeParams(params, &p); err != nil {
 			return nil, err
 		}
-		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
+		client, err := hubClient(p12)
+		if err != nil {
+			return nil, err
 		}
 		if p12.SkillStore == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
 		}
-		return installSkillFromHub(ctx, p.ID, p12.HubClient, p12.SkillStore)
-	})
+		return installSkillFromHub(ctx, p.ID, client, p12.SkillStore)
+	}
+}
 
-	// hub.publish: upload a local skill to the hub.
-	srv.Register("hub.publish", func(ctx context.Context, params json.RawMessage) (any, error) {
+// hub.publish: upload a local skill to the hub. The archive
+// bytes are passed in by the caller (the CLI reads the file
+// and sends the bytes; the daemon does NOT reach back to disk).
+// This way a user can re-publish after editing the archive
+// without first importing it into the local store.
+func hubPublishHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
-			ID string `json:"id"`
+			ID      string `json:"id"`
+			Archive []byte `json:"archive"`
+			Path    string `json:"path,omitempty"` // legacy: older CLIs sent a path
 		}
 		if err := decodeParams(params, &p); err != nil {
 			return nil, err
 		}
-		if p12.HubClient == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errHubNotConfigured}
+		client, err := hubClient(p12)
+		if err != nil {
+			return nil, err
 		}
-		if p12.SkillStore == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
+		// If archive was not provided, fall back to reading the
+		// archive bytes from the local store (legacy behavior).
+		if len(p.Archive) == 0 && p.Path != "" && p12.SkillStore != nil {
+			sk, gerr := p12.SkillStore.Get(ctx, p.ID)
+			if gerr != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found in local store: " + p.ID}
+			}
+			p.Archive, gerr = skills.MarshalArchive(sk)
+			if gerr != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "marshal archive: " + gerr.Error()}
+			}
 		}
-		return publishSkillToHub(ctx, p.ID, p12.SkillStore, p12.HubClient)
-	})
+		if len(p.Archive) == 0 {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "no archive provided (call with --archive <bytes> or --path <local-id>)"}
+		}
+		return publishSkillToHub(ctx, p.ID, p.Archive, client)
+	}
 }
 
 func installSkillFromHub(ctx context.Context, id string, client *hub.Client, store *skills.SQLiteStore) (any, error) {
-	// Download from hub.
+	// Download from hub. Client.Download caps the response size
+	// to prevent zip-bomb DoS.
 	data, checksum, err := client.Download(id)
 	if err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -214,24 +256,31 @@ func installSkillFromHub(ctx context.Context, id string, client *hub.Client, sto
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "checksum verification failed: " + err.Error()}
 	}
 
-	// Safety scan.
-	scan := hub.Scan(data)
+	// Parse the archive BEFORE scanning. hub.Scan operates on the
+	// structured skill content (steps, trust, license) — running it
+	// on the raw zip bytes produces false positives and rejects
+	// every legitimate skill.
+	parsed, err := skills.ParseArchive(data)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "parse archive: " + err.Error()}
+	}
+
+	// Safety scan the PARSED skill (not the zip bytes). hub.ScanSkill
+	// inspects each step's command for dangerous patterns and
+	// verifies trust/license metadata.
+	scan := hub.ScanSkill(skillAdapter{sk: parsed})
 	if !scan.Safe {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError,
 			Message: fmt.Sprintf("skill failed safety scan: %v", scan.Issues)}
 	}
 
-	// Fetch metadata.
+	// Fetch metadata (used to fill in fields the archive may not
+	// carry, like author and license).
 	meta, err := client.Get(id)
 	if err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 	}
 
-	// Install into local store from archive bytes.
-	parsed, err := skills.ParseArchive(data)
-	if err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
-	}
 	sk := parsed
 	if sk.Trust == "" {
 		sk.Trust = skills.TrustCommunity
@@ -251,28 +300,44 @@ func installSkillFromHub(ctx context.Context, id string, client *hub.Client, sto
 	return map[string]any{"ok": true, "id": sk.ID}, nil
 }
 
-func publishSkillToHub(ctx context.Context, id string, store *skills.SQLiteStore, client *hub.Client) (any, error) {
-	sk, err := store.Get(ctx, id)
-	if err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill not found"}
-	}
-	meta := hub.SkillMeta{
-		ID:          sk.ID,
-		Name:        sk.Name,
-		Description: sk.Description,
-		Version:     sk.Version,
-		Author:      sk.Author,
-		License:     sk.License,
-		Trust:       string(sk.Trust),
-	}
-	archive, err := skills.MarshalArchive(sk)
-	if err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+// skillAdapter wraps a *skills.Skill to satisfy hub.SkillScanner
+// without forcing the hub package to import skills (which would
+// be a cycle).
+type skillAdapter struct {
+	sk *skills.Skill
+}
+
+func (a skillAdapter) ScanSteps() []string { return a.sk.Steps }
+func (a skillAdapter) ScanTrust() string   { return string(a.sk.Trust) }
+func (a skillAdapter) ScanLicense() string { return a.sk.License }
+
+// publishSkillToHub uploads archive bytes to the hub. Metadata
+// is parsed from the archive so the file IS the source of truth
+// (no risk of "publish says it shipped but server got stale bytes").
+func publishSkillToHub(_ context.Context, id string, archive []byte, client *hub.Client) (any, error) {
+	// Parse the archive to extract metadata for the hub. If parsing
+	// fails, fall back to bare metadata (just the ID).
+	parsed, perr := skills.ParseArchive(archive)
+	meta := hub.SkillMeta{ID: id}
+	if perr == nil {
+		meta = hub.SkillMeta{
+			ID:          parsed.ID,
+			Name:        parsed.Name,
+			Description: parsed.Description,
+			Version:     parsed.Version,
+			Author:      parsed.Author,
+			License:     parsed.License,
+			Trust:       string(parsed.Trust),
+		}
+	} else {
+		// Archive is unparseable; publish with just the ID so the
+		// server can at least record something.
+		meta.Name = id
 	}
 	if err := client.Publish(archive, meta); err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 	}
-	return map[string]any{"ok": true, "id": sk.ID}, nil
+	return map[string]any{"ok": true, "id": id, "bytes": len(archive)}, nil
 }
 
 func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
@@ -435,8 +500,8 @@ func syncPairBeginHandler(p12 *Phase12Components) ipc.HandlerFunc {
 
 // sync.pair_confirm: complete the pairing flow. The user has read
 // the PIN from the new device and types it on the existing device.
-// The daemon verifies the PIN and adds the new device to the
-// paired set.
+// The daemon verifies the PIN against the token stored by
+// pair_begin and, on match, adds the new device to the paired set.
 func syncPairConfirmHandler(p12 *Phase12Components) ipc.HandlerFunc {
 	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
@@ -453,12 +518,10 @@ func syncPairConfirmHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err != nil {
 			return nil, err
 		}
-		// Re-derive the same PIN from a fresh token. The daemon keeps
-		// the token from the begin call; the CLI never sees it.
-		// For this prototype we use a fresh token; production
-		// would persist the begin token to disk and reuse it.
-		token, _ := sync.NewPairingToken()
-		if err := p12.SyncEngine.ConfirmPairing(target, token, p.Pin); err != nil {
+		// The token is stored in the engine from the begin call;
+		// the CLI never sees it. This keeps the token off the wire
+		// and off the user's screen.
+		if err := p12.SyncEngine.ConfirmPairing(target, p.Pin); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		return map[string]any{"ok": true, "device_id": p.DeviceID}, nil

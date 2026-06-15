@@ -2,15 +2,15 @@
 //
 // Two modes:
 //
-//   1. **Network client** — `Client` fetches metadata, downloads
-//      skill archives, and publishes skills to the central Hub.
-//      Authentication is a bearer token. Publish is client-side
-//      Ed25519 signed so a server compromise can't forge skills.
+//  1. **Network client** — `Client` fetches metadata, downloads
+//     skill archives, and publishes skills to the central Hub.
+//     Authentication is a bearer token. Publish is client-side
+//     Ed25519 signed so a server compromise can't forge skills.
 //
-//   2. **Local server** — `Server` is a small in-process hub that
-//      serves skills from a local directory tree. This is the
-//      "offline" mode for users who don't want to depend on a
-//      remote hub. Skills are still safety-scanned on install.
+//  2. **Local server** — `Server` is a small in-process hub that
+//     serves skills from a local directory tree. This is the
+//     "offline" mode for users who don't want to depend on a
+//     remote hub. Skills are still safety-scanned on install.
 //
 // The Hub is opt-in. The default is `enabled: false` in config
 // (see internal/config/config.go). Setting `enabled: true` and
@@ -185,9 +185,18 @@ func (c *Client) Get(id string) (*SkillMeta, error) {
 	return &meta, nil
 }
 
+// maxArchiveSize is the largest skill archive Download will
+// accept. Synaptic skills are typically 1-50 KB; a 32 MB cap
+// is a generous safety margin that prevents a malicious or
+// buggy hub from filling the daemon's memory with a 4 GB zip
+// bomb. 32 MB also matches the encrypted-frame size cap used
+// by the P2P sync engine.
+const maxArchiveSize = 32 * 1024 * 1024
+
 // Download fetches the skill archive and returns its bytes and SHA-256
 // checksum. The caller should pass the result through scan.Verify
-// before installing.
+// before installing. The download is capped at maxArchiveSize
+// (32 MB) to defend against zip-bomb DoS.
 func (c *Client) Download(id string) ([]byte, string, error) {
 	resp, err := c.doGet("/api/v1/skills/"+url.PathEscape(id)+"/download", nil)
 	if err != nil {
@@ -197,9 +206,21 @@ func (c *Client) Download(id string) ([]byte, string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("hub download: status %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(resp.Body)
+	// Pre-check Content-Length when the server reports it. This
+	// gives a clean error before we allocate a large buffer.
+	if resp.ContentLength > maxArchiveSize {
+		return nil, "", fmt.Errorf("hub download: too large (%d bytes, cap %d)", resp.ContentLength, maxArchiveSize)
+	}
+	// Use a LimitReader so a server that lies about Content-Length
+	// still can't OOM us. Read exactly one byte past the cap to
+	// detect the overflow.
+	limited := io.LimitReader(resp.Body, maxArchiveSize+1)
+	data, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, "", fmt.Errorf("hub download read: %w", err)
+	}
+	if len(data) > maxArchiveSize {
+		return nil, "", fmt.Errorf("hub download: too large (exceeded %d bytes)", maxArchiveSize)
 	}
 	sum := sha256.Sum256(data)
 	return data, fmt.Sprintf("%x", sum), nil
@@ -207,8 +228,9 @@ func (c *Client) Download(id string) ([]byte, string, error) {
 
 // Publish uploads a skill archive to the hub. When a publish key
 // is configured (via WithPublishKey), the request is signed:
-//   payload = hex(sha256(archive)) || meta.id || meta.version
-//   signature = ed25519.sign(publishKey, payload)
+//
+//	payload = hex(sha256(archive)) || meta.id || meta.version
+//	signature = ed25519.sign(publishKey, payload)
 //
 // The server is expected to verify the signature against the
 // author's known public key. This prevents a hub-compromise

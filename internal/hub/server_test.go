@@ -195,3 +195,53 @@ func TestServer_SearchEscape(t *testing.T) {
 		t.Errorf("raw query: %s", resp.Request.URL.RawQuery)
 	}
 }
+
+// TestServer_LocalAdd_PathTraversalRejected ensures skill IDs that
+// could escape the skills/ directory are rejected.
+func TestServer_LocalAdd_PathTraversalRejected(t *testing.T) {
+	root := t.TempDir()
+	srv, err := NewServer(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := []string{
+		"../etc/passwd",
+		"..",
+		"../foo",
+		"foo/bar",
+		"foo\\bar",
+		"foo$bar",
+		"",
+		strings.Repeat("a", 200), // too long
+	}
+	for _, id := range bad {
+		err := srv.LocalAdd(SkillMeta{ID: id, Name: id}, []byte("x"))
+		if err == nil {
+			t.Errorf("LocalAdd accepted bad ID %q", id)
+		}
+	}
+}
+
+// TestServer_LocalAdd_ValidIDsAccepted ensures common skill ID
+// formats (kebab-case, dot-namespaced, versioned) are accepted.
+func TestServer_LocalAdd_ValidIDsAccepted(t *testing.T) {
+	root := t.TempDir()
+	srv, err := NewServer(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := []string{
+		"weather-lookup",
+		"weather.lookup.v1",
+		"my_skill",
+		"Skill1",
+	}
+	for _, id := range good {
+		if err := srv.LocalAdd(SkillMeta{ID: id, Name: id}, []byte("x")); err != nil {
+			t.Errorf("LocalAdd rejected good ID %q: %v", id, err)
+		}
+	}
+	if srv.Count() != len(good) {
+		t.Errorf("Count: got %d, want %d", srv.Count(), len(good))
+	}
+}

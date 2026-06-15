@@ -81,8 +81,12 @@ type PairedSet struct {
 }
 
 // LoadPairedSet reads the paired set from disk, or returns an
-// empty set if the file doesn't exist.
+// empty set if the file doesn't exist. The parent directory is
+// created with mode 0o700 so subsequent writes don't fail.
 func LoadPairedSet(dataDir string) (*PairedSet, error) {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return nil, fmt.Errorf("sync: mkdir paired-set dir: %w", err)
+	}
 	path := filepath.Join(dataDir, "paired.json")
 	ps := &PairedSet{
 		devices: make(map[string]*PairedDevice),
@@ -99,6 +103,17 @@ func LoadPairedSet(dataDir string) (*PairedSet, error) {
 		return nil, fmt.Errorf("sync: parse paired set: %w", err)
 	}
 	return ps, nil
+}
+
+// NewEmptyPairedSet returns an in-memory PairedSet that does not
+// touch the filesystem. Used as a fail-closed default when the
+// on-disk paired set is missing or corrupt — the engine still
+// starts, but no peers are trusted until the user pairs them.
+func NewEmptyPairedSet() *PairedSet {
+	return &PairedSet{
+		devices: make(map[string]*PairedDevice),
+		path:    "", // empty path = no persistence
+	}
 }
 
 // save writes the paired set to disk atomically (write-temp + rename).

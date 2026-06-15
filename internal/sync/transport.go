@@ -38,7 +38,7 @@ const (
 //
 //  1. <e1>   Initiator → Responder: hello_e (Ed25519 pub + X25519 ephemeral)
 //  2. <e1>   Responder → Initiator: hello_e (Ed25519 pub + X25519 ephemeral)
-//  3.        Both sides derive session_key = HKDF(X25519(localPriv, remoteEphemPub), edPubs)
+//  3. Both sides derive session_key = HKDF(X25519(localPriv, remoteEphemPub), edPubs)
 //  4. <s>    Initiator → Responder: hello (Ed25519-signed identity, encrypted)
 //  5. <s>    Responder → Initiator: hello (Ed25519-signed identity, encrypted)
 //  6. <s>    Initiator → Responder: entries (CRDT, encrypted)
@@ -50,13 +50,13 @@ const (
 // secrecy within a single session; long-term Ed25519 keys are bound
 // into the HKDF info so the channel is identity-locked).
 type syncMsg struct {
-	Type      string    `json:"type"`
-	DeviceID  string    `json:"device_id,omitempty"`
-	Name      string    `json:"name,omitempty"`
-	PublicKey string    `json:"public_key,omitempty"`
-	XPub      string    `json:"xpub,omitempty"`
-	Signature string    `json:"signature,omitempty"`
-	Entries   []*Entry  `json:"entries,omitempty"`
+	Type      string   `json:"type"`
+	DeviceID  string   `json:"device_id,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	PublicKey string   `json:"public_key,omitempty"`
+	XPub      string   `json:"xpub,omitempty"`
+	Signature string   `json:"signature,omitempty"`
+	Entries   []*Entry `json:"entries,omitempty"`
 	// For pair_request / pair_response (out-of-band pairing flow)
 	PairingToken    string `json:"pairing_token,omitempty"`
 	PairingAccepted bool   `json:"pairing_accepted,omitempty"`
@@ -246,15 +246,15 @@ func hkdfNew(secret []byte, info []byte) io.Reader {
 }
 
 type hkdfReader struct {
-	secret []byte
-	info   []byte
-	salt   []byte
-	prk    []byte
-	prev   []byte
+	secret  []byte
+	info    []byte
+	salt    []byte
+	prk     []byte
+	prev    []byte
 	counter byte
-	pos    int
-	buf    []byte
-	done   bool
+	pos     int
+	buf     []byte
+	done    bool
 }
 
 func (h *hkdfReader) Read(out []byte) (int, error) {

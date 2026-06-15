@@ -2,13 +2,16 @@ package daemon
 
 import (
 	"context"
+	"crypto/ed25519"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/adaptive"
@@ -713,81 +716,141 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 }
 
 // buildPhase12 constructs the Phase 12 components (Hub + Sync + i18n).
+// Each subsystem is built by a dedicated helper; this function
+// orchestrates them in order and logs the result.
 func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
 	p12 := &Phase12Components{}
+	p12.Catalog = buildI18nCatalog(log, cfg)
+	p12.SkillStore = buildSkillStore(log, cfg)
+	p12.HubClient = buildHubClient(log, cfg)
+	p12.SyncEngine = buildSyncEngine(log, cfg)
+	return p12
+}
 
-	// i18n catalog (always loaded; used for translated log messages and RPC responses).
+// buildI18nCatalog loads the embedded locale JSONs. Always returns
+// a usable catalog; falls back to MustNewCatalog if load fails.
+func buildI18nCatalog(log *slog.Logger, cfg *config.Config) *i18n.Catalog {
 	catalog, err := i18n.NewCatalog()
 	if err != nil {
 		log.Warn("i18n catalog init failed; using English defaults", "err", err)
 		catalog = i18n.MustNewCatalog()
 	}
-	p12.Catalog = catalog
 	lang := cfg.General.Language
 	if lang == "" || lang == "auto" {
 		lang = "en"
 	}
 	log.Info("i18n catalog ready", "locale", lang, "available", len(catalog.Locales()))
+	return catalog
+}
 
-	// Skills Hub client.
-	if cfg.Hub.Enabled {
-		baseURL := cfg.Hub.BaseURL
-		if baseURL == "" {
-			baseURL = "https://hub.synaptic.app"
-		}
-		var hubOpts []hub.ClientOption
-		if cfg.Hub.Token != "" {
-			hubOpts = append(hubOpts, hub.WithToken(cfg.Hub.Token))
-		}
-		p12.HubClient = hub.NewClient(baseURL, hubOpts...)
-		log.Info("hub client ready",
-			"base_url", baseURL,
-			"authenticated", cfg.Hub.Token != "",
-		)
-	}
-
-	// Skill store (shared with extractor).
-	skillPath := filepath.Join(cfg.General.DataDir, "skills.db")
-	skillStore, err := skills.NewSQLiteStore(skillPath)
+// buildSkillStore opens the SQLite-backed skill store at
+// <dataDir>/skills.db. Returns nil on error (skill features
+// become no-ops; the daemon keeps running).
+func buildSkillStore(log *slog.Logger, cfg *config.Config) *skills.SQLiteStore {
+	path := filepath.Join(cfg.General.DataDir, "skills.db")
+	store, err := skills.NewSQLiteStore(path)
 	if err != nil {
-		log.Warn("skill store init failed for hub", "err", err)
-	} else {
-		p12.SkillStore = skillStore
+		log.Warn("skill store init failed; hub install/publish are no-ops", "err", err)
+		return nil
 	}
+	return store
+}
 
-	// P2P Sync engine.
-	if cfg.Sync.Enabled {
-		deviceName := cfg.Sync.DeviceName
-		if deviceName == "" {
-			deviceName = "synaptic-device"
-		}
-		identity, err := sync.LoadIdentity(cfg.General.DataDir, deviceName)
-		if err != nil {
-			log.Warn("sync identity init failed", "err", err)
-		} else {
-			store := sync.NewStore()
-			port := cfg.Sync.DiscoveryPort
-			if port == 0 {
-				port = 7667
-			}
-			discovery := sync.NewDiscovery(identity, port)
-			// Load the paired set (devices this user has explicitly
-			// trusted). Without this, the engine rejects every sync.
-			paired, pairErr := sync.LoadPairedSet(cfg.General.DataDir)
-			if pairErr != nil {
-				log.Warn("sync paired-set load failed (continuing empty)", "err", pairErr)
-				paired = nil
-			}
-			engine := sync.NewEngine(identity, store, discovery, paired, log)
-			p12.SyncEngine = engine
-			log.Info("sync engine ready",
-				"device_id", identity.DeviceID,
-				"fingerprint", identity.Fingerprint(),
-			)
+// buildHubClient constructs the Skills Hub client when enabled.
+// Honors bearer token auth and (optionally) Ed25519 publish
+// signing. Returns nil when cfg.Hub.Enabled is false.
+func buildHubClient(log *slog.Logger, cfg *config.Config) *hub.Client {
+	if !cfg.Hub.Enabled {
+		return nil
+	}
+	baseURL := cfg.Hub.BaseURL
+	if baseURL == "" {
+		baseURL = "https://hub.synaptic.app"
+	}
+	opts := []hub.ClientOption{}
+	if cfg.Hub.Token != "" {
+		opts = append(opts, hub.WithToken(cfg.Hub.Token))
+	}
+	if cfg.Hub.PublishKeyPath != "" {
+		priv, ok := loadPublishKey(log, cfg.Hub.PublishKeyPath)
+		if ok {
+			opts = append(opts, hub.WithPublishKey(priv))
 		}
 	}
+	log.Info("hub client ready",
+		"base_url", baseURL,
+		"authenticated", cfg.Hub.Token != "",
+		"publish_signing", cfg.Hub.PublishKeyPath != "",
+	)
+	return hub.NewClient(baseURL, opts...)
+}
 
-	return p12
+// loadPublishKey reads a hex-encoded Ed25519 private key from
+// path. Returns (key, false) on any error and logs a warning.
+// This function is intentionally lenient — the daemon should
+// keep running even if the key file is missing (the user can
+// set it later).
+//
+//	is hex-decoded and length-checked, so a malicious config
+//	cannot inject shell metacharacters or read non-key files.
+//
+//nolint:gosec // path is operator-provided via config; the value
+func loadPublishKey(log *slog.Logger, path string) (ed25519.PrivateKey, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Warn("hub publish key file unreadable; Publish will be unsigned",
+			"path", path, "err", err)
+		return nil, false
+	}
+	bytes, err := hex.DecodeString(strings.TrimSpace(string(data)))
+	if err != nil || len(bytes) != ed25519.PrivateKeySize {
+		log.Warn("hub publish key file has invalid format; Publish will be unsigned",
+			"path", path)
+		return nil, false
+	}
+	log.Info("hub publish key loaded", "path", path)
+	return ed25519.PrivateKey(bytes), true
+}
+
+// buildSyncEngine constructs and auto-starts the P2P sync engine
+// when cfg.Sync.Enabled is true. Returns nil when sync is disabled
+// or any of the prerequisites fail. The paired set is loaded
+// with FAIL-CLOSED semantics: any load error results in an
+// empty (in-memory) paired set so the gate rejects every sync
+// until the user pairs a device.
+func buildSyncEngine(log *slog.Logger, cfg *config.Config) *sync.Engine {
+	if !cfg.Sync.Enabled {
+		return nil
+	}
+	deviceName := cfg.Sync.DeviceName
+	if deviceName == "" {
+		deviceName = "synaptic-device"
+	}
+	identity, err := sync.LoadIdentity(cfg.General.DataDir, deviceName)
+	if err != nil {
+		log.Warn("sync identity init failed", "err", err)
+		return nil
+	}
+	port := cfg.Sync.DiscoveryPort
+	if port == 0 {
+		port = 7667
+	}
+	discovery := sync.NewDiscovery(identity, port)
+	paired, pairErr := sync.LoadPairedSet(cfg.General.DataDir)
+	if pairErr != nil {
+		log.Warn("sync paired-set load failed; engine starts EMPTY (no auto-accept)", "err", pairErr)
+		paired = sync.NewEmptyPairedSet()
+	}
+	engine := sync.NewEngine(identity, sync.NewStore(), discovery, paired, log)
+	// Auto-start so users see `running: true` immediately after
+	// the daemon reports "ready". They can stop it via
+	// `synaptic sync stop`.
+	engine.Start()
+	log.Info("sync engine ready (auto-started)",
+		"device_id", identity.DeviceID,
+		"fingerprint", identity.Fingerprint(),
+	)
+	return engine
 }
 
 // pickPrimaryProvider returns the first enabled LLM provider

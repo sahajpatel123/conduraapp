@@ -172,13 +172,14 @@ func (c *Catalog) MustT(locale, key string, args ...any) string {
 }
 
 // applyTemplate converts {n} placeholders to fmt verbs and runs Sprintf.
-// On any formatting error (missing arg, type mismatch), it returns the
-// unformatted template with the {n} placeholders left intact — which makes
-// bugs visible in logs but never panics inside a hot path.
+//
+// On a fmt.Sprintf error (e.g., a type mismatch), Sprintf in Go
+// returns a string with the verb placeholder printed literally
+// (e.g. "%!v(BADINDEX)"). We do NOT catch that — a BADINDEX
+// output is a real bug worth surfacing in logs.
 func applyTemplate(template string, args []any) string {
 	converted := convertPlaceholders(template, len(args))
-	out := fmt.Sprintf(converted, args...)
-	return out
+	return fmt.Sprintf(converted, args...)
 }
 
 // Locales returns the list of available locale codes.
