@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -219,6 +220,11 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 	u := New(nil, manifestSrv.URL)
 	u.pubKey = pub
 	u.cacheDir = t.TempDir()
+	target := filepath.Join(t.TempDir(), "synapticd")
+	if err := os.WriteFile(target, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u.execPath = target
 
 	result, err := u.Check(context.Background())
 	if err != nil {
@@ -233,13 +239,11 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	// Verify the binary was written to the cache dir.
-	dst := u.cacheDir + "/synaptic-update-" + sm.Version
-	data, err := os.ReadFile(dst)
+	got, err := os.ReadFile(target)
 	if err != nil {
-		t.Fatalf("binary not written: %v", err)
+		t.Fatalf("target binary: %v", err)
 	}
-	if !bytes.Equal(data, binContent) {
-		t.Errorf("binary content mismatch: got %d bytes, want %d", len(data), len(binContent))
+	if !bytes.Equal(got, binContent) {
+		t.Errorf("binary content mismatch after swap")
 	}
 }

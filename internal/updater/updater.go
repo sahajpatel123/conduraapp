@@ -64,6 +64,8 @@ type Result struct {
 	Mandatory       bool   `json:"mandatory"`
 	Skipped         bool   `json:"skipped,omitempty"`
 	Reason          string `json:"reason,omitempty"`
+	Applied         bool   `json:"applied,omitempty"`
+	RestartRequired bool   `json:"restart_required,omitempty"`
 }
 
 // Updater is the secure auto-update controller.
@@ -75,6 +77,7 @@ type Updater struct {
 	pubKey   ed25519.PublicKey
 	cacheDir string
 	stdin    io.Reader // for os.Stdin in tests
+	execPath string    // test override for target binary path
 }
 
 // New returns a secure Updater with the embedded public key.
@@ -187,7 +190,9 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 	return res, nil
 }
 
-// Apply downloads, verifies SHA256, and atomically swaps the binary.
+// Apply downloads, verifies SHA256, swaps the binary, and returns restart guidance.
+//
+//nolint:gocyclo // download + verify + swap paths are intentionally sequential
 func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 	if !r.UpdateAvailable {
 		return r, errors.New("no update available")
@@ -245,13 +250,34 @@ func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 		return r, fmt.Errorf("write binary: %w", err)
 	}
 
-	// Atomic rename.
+	// Atomic rename into cache.
 	if err := os.Rename(tmp, dst); err != nil {
 		_ = os.Remove(tmp)
 		return r, fmt.Errorf("rename: %w", err)
 	}
 
+	target, err := u.targetExecutable()
+	if err != nil {
+		return r, fmt.Errorf("resolve executable: %w", err)
+	}
+	if err := swapExecutable(dst, target); err != nil {
+		if errors.Is(err, ErrRestartRequired) {
+			r.Applied = true
+			r.RestartRequired = true
+			return r, nil
+		}
+		return r, err
+	}
+	r.Applied = true
+	r.RestartRequired = true
 	return r, nil
+}
+
+func (u *Updater) targetExecutable() (string, error) {
+	if u.execPath != "" {
+		return u.execPath, nil
+	}
+	return currentExecutable()
 }
 
 // verifyManifest checks the Ed25519 signature on the manifest.
