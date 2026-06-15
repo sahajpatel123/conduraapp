@@ -106,6 +106,12 @@ func (m Model) activeView() string {
 		return m.chatView()
 	case tabConversations:
 		return m.conversationsView()
+	case tabHub:
+		return m.hubView()
+	case tabSync:
+		return m.syncView()
+	case tabSkills:
+		return m.skillsView()
 	case tabAudit:
 		return m.auditView()
 	case tabSettings:
@@ -114,6 +120,118 @@ func (m Model) activeView() string {
 		return m.healthView()
 	}
 	return "unknown tab"
+}
+
+// hubView renders the Skills Hub tab. Shows search results and
+// keyboard hints.
+func (m Model) hubView() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render(" Skills Hub "))
+	b.WriteByte('\n')
+	if m.hubErr != nil {
+		b.WriteString(errorStyle.Render(fmt.Sprintf("error: %v", m.hubErr)))
+		b.WriteByte('\n')
+	} else if len(m.hubResults) == 0 {
+		b.WriteString(dimStyle.Render("Type a query in the chat box then press '/' on this tab to search."))
+		b.WriteByte('\n')
+		b.WriteString(dimStyle.Render("(Hub may be disabled in config — see `synaptic config`.)"))
+	} else {
+		for i, r := range m.hubResults {
+			cursor := "  "
+			if i == m.hubCursor {
+				cursor = "▸ "
+			}
+			name, _ := r["name"].(string)
+			ver, _ := r["version"].(string)
+			author, _ := r["author"].(string)
+			b.WriteString(fmt.Sprintf("%s%s v%s by %s\n", cursor, name, ver, author))
+		}
+	}
+	b.WriteByte('\n')
+	b.WriteString(dimStyle.Render("up/down: navigate · i: install selected · /: search"))
+	return b.String()
+}
+
+// syncView renders the P2P sync tab. Shows status, peers, and
+// paired devices.
+func (m Model) syncView() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render(" P2P Sync (encrypted) "))
+	b.WriteByte('\n')
+
+	if m.syncErr != nil {
+		b.WriteString(errorStyle.Render(fmt.Sprintf("error: %v", m.syncErr)))
+		b.WriteByte('\n')
+	}
+
+	if m.syncStatus != nil {
+		enabled, _ := m.syncStatus["enabled"].(bool)
+		if !enabled {
+			b.WriteString(dimStyle.Render("sync not enabled in config (set sync.enabled: true)"))
+			b.WriteByte('\n')
+		}
+		if id, ok := m.syncStatus["device_id"].(string); ok {
+			b.WriteString(fmt.Sprintf("device_id: %s\n", id))
+		}
+		if n, ok := m.syncStatus["entries"].(float64); ok {
+			b.WriteString(fmt.Sprintf("entries:   %d\n", int(n)))
+		}
+	}
+
+	b.WriteByte('\n')
+	b.WriteString(infoStyle.Render(" Discovered peers:"))
+	b.WriteByte('\n')
+	if len(m.syncPeers) == 0 {
+		b.WriteString(dimStyle.Render("  (no peers on LAN)"))
+		b.WriteByte('\n')
+	} else {
+		for _, p := range m.syncPeers {
+			id, _ := p["device_id"].(string)
+			name, _ := p["name"].(string)
+			b.WriteString(fmt.Sprintf("  %s (%s)\n", name, id))
+		}
+	}
+	b.WriteByte('\n')
+	b.WriteString(infoStyle.Render(" Paired devices:"))
+	b.WriteByte('\n')
+	if len(m.syncPairs) == 0 {
+		b.WriteString(dimStyle.Render("  (no paired devices — use `synaptic sync pair <id>`)"))
+		b.WriteByte('\n')
+	} else {
+		for _, p := range m.syncPairs {
+			id, _ := p["device_id"].(string)
+			name, _ := p["device_name"].(string)
+			b.WriteString(fmt.Sprintf("  %s (%s)\n", name, id))
+		}
+	}
+	b.WriteByte('\n')
+	b.WriteString(dimStyle.Render("p: pair first peer · r: revoke first paired device"))
+	return b.String()
+}
+
+// skillsView renders the locally installed skills tab.
+func (m Model) skillsView() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render(" Installed Skills "))
+	b.WriteByte('\n')
+	if len(m.skills) == 0 {
+		b.WriteString(dimStyle.Render("(no skills installed — use the Hub tab)"))
+		b.WriteByte('\n')
+	} else {
+		for i, s := range m.skills {
+			cursor := "  "
+			if i == m.skillsCursor {
+				cursor = "▸ "
+			}
+			name, _ := s["name"].(string)
+			ver, _ := s["version"].(string)
+			trust, _ := s["trust"].(string)
+			b.WriteString(fmt.Sprintf("%s%s %s [%s]\n", cursor, name, ver, trust))
+		}
+	}
+	b.WriteByte('\n')
+	b.WriteString(dimStyle.Render("up/down: navigate · d: delete selected"))
+	return b.String()
 }
 
 func (m Model) chatView() string {

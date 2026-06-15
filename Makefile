@@ -7,8 +7,9 @@
 # Variables
 # ------------------------------------------------------------------
 
-BINARY_NAME      := synapticd
-CLI_NAME         := synaptic
+BINARY_NAME := synapticd
+CLI_NAME := synaptic
+TUI_NAME := synaptic-tui
 VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
 COMMIT           := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 BUILD_DATE       := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -44,11 +45,12 @@ help: ## Show this help message
 # ------------------------------------------------------------------
 
 .PHONY: build
-build: ## Build synapticd and synaptic into ./bin
+build: ## Build synapticd, synaptic, and synaptic-tui into ./bin
 	@mkdir -p bin
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/synapticd
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./cmd/synaptic
-	@echo "Built: bin/$(BINARY_NAME) and bin/$(CLI_NAME)"
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME)    ./cmd/synaptic-tui
+	@echo "Built: bin/$(BINARY_NAME), bin/$(CLI_NAME), bin/$(TUI_NAME)"
 
 .PHONY: build-daemon
 build-daemon: ## Build only synapticd
@@ -59,6 +61,11 @@ build-daemon: ## Build only synapticd
 build-cli: ## Build only the CLI
 	@mkdir -p bin
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME) ./cmd/synaptic
+
+.PHONY: build-tui
+build-tui: ## Build only the TUI
+	@mkdir -p bin
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME) ./cmd/synaptic-tui
 
 .PHONY: build-all
 build-all: ## Cross-compile for all supported platforms
@@ -71,6 +78,8 @@ build-all: ## Cross-compile for all supported platforms
 	      -o dist/$(BINARY_NAME)-$$os-$$arch$$ext ./cmd/synapticd; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
 	      -o dist/$(CLI_NAME)-$$os-$$arch$$ext ./cmd/synaptic; \
+	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
+	      -o dist/$(TUI_NAME)-$$os-$$arch$$ext ./cmd/synaptic-tui; \
 	  done; \
 	done
 	@echo "All builds complete in dist/"
@@ -79,6 +88,7 @@ build-all: ## Cross-compile for all supported platforms
 install: build ## Build and install to GOPATH/bin
 	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synapticd
 	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synaptic
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synaptic-tui
 
 .PHONY: clean
 clean: ## Remove build artifacts

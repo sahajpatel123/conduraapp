@@ -526,10 +526,11 @@ func (c *Config) validateGeneral() []string {
 		errs = append(errs, "general.data_dir must not be empty")
 	}
 	switch c.General.Language {
-	case "en-US", "en-GB", "es-ES", "fr-FR", "de-DE", "hi-IN", "ja-JP", "zh-CN":
-		// ok
+	case "en-US", "en-GB", "es-ES", "fr-FR", "de-DE", "ja-JP", "zh-CN":
+		// ok — these map 1:1 to locale files in internal/i18n/locales/.
+		// If you add a new locale file, also add its base tag here.
 	default:
-		errs = append(errs, fmt.Sprintf("general.language %q is not a supported language (en-US, en-GB, es-ES, fr-FR, de-DE, hi-IN, ja-JP, zh-CN)", c.General.Language))
+		errs = append(errs, fmt.Sprintf("general.language %q is not a supported language (en-US, en-GB, es-ES, fr-FR, de-DE, ja-JP, zh-CN)", c.General.Language))
 	}
 	return errs
 }
@@ -733,6 +734,10 @@ func setReflect(root any, parts []string, value string) error {
 		return setWindow(&root.(*Config).Window, parts[1:], value)
 	case "voice":
 		return setVoice(&root.(*Config).Voice, parts[1:], value)
+	case "hub":
+		return setHub(&root.(*Config).Hub, parts[1:], value)
+	case "sync":
+		return setSync(&root.(*Config).Sync, parts[1:], value)
 	default:
 		return fmt.Errorf("unknown section %q", parts[0])
 	}
@@ -1137,6 +1142,66 @@ func setVoiceIntField(c *VoiceConfig, field, value string) error {
 		c.SpeakerRate = n
 	default:
 		return errUnknownField("voice", field)
+	}
+	return nil
+}
+
+// setHub sets a HubConfig field via env var or direct setter.
+func setHub(c *HubConfig, parts []string, value string) error {
+	if len(parts) != 1 {
+		return errBadPath("hub", parts)
+	}
+	switch parts[0] {
+	case "enabled":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		c.Enabled = b
+	case "base_url":
+		c.BaseURL = value
+	case "auto_update":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		c.AutoUpdate = b
+	case "token":
+		c.Token = value
+	default:
+		return errUnknownField("hub", parts[0])
+	}
+	return nil
+}
+
+// setSync sets a SyncConfig field via env var or direct setter.
+func setSync(c *SyncConfig, parts []string, value string) error {
+	if len(parts) != 1 {
+		return errBadPath("sync", parts)
+	}
+	switch parts[0] {
+	case "enabled":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		c.Enabled = b
+	case "device_name":
+		c.DeviceName = value
+	case "discovery_port":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.DiscoveryPort = n
+	case "auto_announce":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return err
+		}
+		c.AutoAnnounce = b
+	default:
+		return errUnknownField("sync", parts[0])
 	}
 	return nil
 }

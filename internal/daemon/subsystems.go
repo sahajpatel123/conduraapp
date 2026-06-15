@@ -203,19 +203,30 @@ func (s *Subsystems) CloseDatabases() {
 
 // ReloadAuxiliaryDatabases recreates the memory and skills stores
 // from disk after a backup restore. The main DB is already reloaded
-// by Storage.Reload(); this method handles the two auxiliary stores
-// that initSubsystems created as local variables. Returns the
-// combined error from both reloads (best-effort: both are attempted
-// even if the first fails).
+// by Storage.Reload(); this method handles the auxiliary stores
+// and subsystems that held pre-reload DB handles. Returns the
+// combined error from all reloads (best-effort: all are attempted
+// even if earlier ones fail).
 func (s *Subsystems) ReloadAuxiliaryDatabases() error {
 	var errs []error
+
+	// Reload audit log — critical for post-restore audit chain.
+	// subs.Audit was constructed with the old db.SQL(); without
+	// this reload, every Append call after restore silently fails.
+	if s.AuditLog != nil && s.Storage != nil {
+		s.AuditLog.Reload(s.Storage.SQL())
+	}
+
+	// Reload replay screenshot store — holds a stale db.SQL() handle.
+	if s.Replay != nil {
+		if shots := s.Replay.Screenshots(); shots != nil && s.Storage != nil {
+			shots.Reload(s.Storage.SQL())
+		}
+	}
 
 	// Reload memory store.
 	memPath := s.MemoryDBPath()
 	if memPath != "" {
-		// Close the old memory store if still open. It's tracked
-		// in closers, so we need to close it and remove from the
-		// list to avoid double-close on shutdown.
 		if s.Memory != nil {
 			_ = s.Memory.Close()
 		}

@@ -361,4 +361,127 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 		}
 		return map[string]any{"ok": true, "merged": merged}, nil
 	})
+
+	// sync.list_pairs: list paired (trusted) devices.
+	srv.Register("sync.list_pairs", func(_ context.Context, _ json.RawMessage) (any, error) {
+		if p12.SyncEngine == nil {
+			return map[string]any{"devices": []any{}}, nil
+		}
+		return map[string]any{"devices": p12.SyncEngine.PairedDevices()}, nil
+	})
+
+	// sync.pair_begin: start the pairing flow. The daemon looks up
+	// the peer in the discovered list, generates a one-time token +
+	// 6-digit PIN, and returns both. The user reads the PIN on the
+	// new device and types it on the existing device to confirm.
+	srv.Register("sync.pair_begin", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			DeviceID string `json:"device_id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+		}
+		var target *sync.Peer
+		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
+			if peer.DeviceID == p.DeviceID {
+				target = peer
+				break
+			}
+		}
+		if target == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
+		}
+		token, pin, err := p12.SyncEngine.PairWith(target)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		// The token is sensitive; we return it ONLY over the local
+		// IPC channel (which the CLI is on). For the QR / PIN flow,
+		// the user runs `synaptic sync pair <id> --pin <pin>` on the
+		// existing device to confirm. The CLI never returns the raw
+		// token to the user; the PIN is sufficient.
+		_ = token
+		return map[string]any{"ok": true, "pin": pin, "peer": p.DeviceID}, nil
+	})
+
+	// sync.pair_confirm: complete the pairing flow. The user has
+	// read the PIN from the new device and types it on the existing
+	// device. The daemon verifies the PIN and adds the new device
+	// to the paired set.
+	srv.Register("sync.pair_confirm", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			DeviceID string `json:"device_id"`
+			Pin      string `json:"pin"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+		}
+		var target *sync.Peer
+		for _, peer := range p12.SyncEngine.DiscoveredPeers() {
+			if peer.DeviceID == p.DeviceID {
+				target = peer
+				break
+			}
+		}
+		if target == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
+		}
+		// Generate a fresh token for this confirmation (the begin
+		// returned a PIN, the user typed it; the daemon re-derives
+		// the same PIN with this fresh token, then verifies).
+		token, _ := sync.NewPairingToken()
+		if err := p12.SyncEngine.ConfirmPairing(target, token, p.Pin); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		return map[string]any{"ok": true, "device_id": p.DeviceID}, nil
+	})
+
+	// sync.revoke: remove a paired device and sign a revocation
+	// message. Returns the signed revocation so the caller can
+	// broadcast it to other paired devices.
+	srv.Register("sync.revoke", func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			DeviceID string `json:"device_id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+		}
+		rev, err := p12.SyncEngine.RevokeDevice(p.DeviceID)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		return map[string]any{
+			"ok":                true,
+			"revoked_device_id": rev.TargetDeviceID,
+			"revoker_device_id": rev.RevokerDeviceID,
+			"revoked_at":        rev.RevokedAt,
+			"signature":         rev.Signature,
+		}, nil
+	})
+
+	// sync.accept_revocation: accept a signed revocation from a
+	// paired device and apply it locally. Used when a user revokes
+	// on device A and the message is relayed to device B.
+	srv.Register("sync.accept_revocation", func(_ context.Context, params json.RawMessage) (any, error) {
+		var rev sync.Revocation
+		if err := decodeParams(params, &rev); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "sync not enabled"}
+		}
+		if err := p12.SyncEngine.AcceptRevocation(&rev); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		return auditOK(), nil
+	})
 }

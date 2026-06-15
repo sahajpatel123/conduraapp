@@ -407,3 +407,83 @@ export interface ReplayExportResult {
   path: string
 }
 
+// ----- Phase 12: Skills Hub -----
+
+export interface HubSkillMeta {
+  id: string
+  name: string
+  description: string
+  version: string
+  author: string
+  license: string
+  tags: string[]
+  trust: string
+  checksum: string
+  downloads: number
+  published_at: string
+  updated_at: string
+}
+
+export interface HubSearchResult {
+  skills: HubSkillMeta[]
+  total: number
+  query: string
+}
+
+export interface HubInstallResult {
+  ok: boolean
+  id: string
+}
+
+// ----- Phase 12: Skills (local) -----
+
+export interface InstalledSkill {
+  id: string
+  name: string
+  description: string
+  version: string
+  author: string
+  license: string
+  trust: string
+  source?: string
+  hub_id?: string
+  checksum?: string
+}
+
+// ----- Phase 12: P2P Sync -----
+
+export interface SyncStatus {
+  device_id: string
+  name: string
+  peers: number
+  entries: number
+  running: boolean
+  sync_port?: number
+  paired_devices?: number
+  enabled?: boolean
+}
+
+export interface SyncPeer {
+  device_id: string
+  name: string
+  public_key: string
+  address: string
+  last_seen: string
+  fingerprint: string
+}
+
+export interface SyncPairedDevice {
+  device_id: string
+  device_name: string
+  public_key: string
+  paired_at: string
+}
+
+export interface SyncListPairsResult {
+  devices: SyncPairedDevice[]
+}
+
+export interface SyncPeersResult {
+  peers: SyncPeer[]
+}
+

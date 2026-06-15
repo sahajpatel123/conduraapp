@@ -141,7 +141,7 @@ func TestValidate_UnsupportedLanguage(t *testing.T) {
 }
 
 func TestValidate_AllSupportedLanguages(t *testing.T) {
-	for _, lang := range []string{"en-US", "en-GB", "es-ES", "fr-FR", "de-DE", "hi-IN", "ja-JP", "zh-CN"} {
+	for _, lang := range []string{"en-US", "en-GB", "es-ES", "fr-FR", "de-DE", "ja-JP", "zh-CN"} {
 		t.Run(lang, func(t *testing.T) {
 			cfg := Default()
 			cfg.General.DataDir = t.TempDir()
@@ -248,7 +248,7 @@ func TestLoader_Load_FromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 3
+version: 4
 general:
   data_dir: ` + tmpDir + `
   language: fr-FR
@@ -280,7 +280,7 @@ func TestLoader_Load_ResolvesEmptyPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 3
+version: 4
 general:
   data_dir: ` + tmpDir + `
 `
@@ -296,7 +296,7 @@ general:
 func TestLoader_Load_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 3\n  bad indent: oops"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\n  bad indent: oops"), 0o600))
 	loader := NewLoader(path)
 	_, err := loader.Load()
 	require.Error(t, err)
@@ -307,7 +307,7 @@ func TestLoader_Load_InvalidConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
 	yamlData := `
-version: 3
+version: 4
 general:
   data_dir: ""
 `
@@ -337,7 +337,7 @@ func TestLoader_Save_RoundTrip(t *testing.T) {
 func TestLoader_Load_EnvOverrides(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 3\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	// Convention: __ separates YAML hierarchy; _ is part of a field name.
 	t.Setenv("SYNAPTIC_LOGGING__LEVEL", "debug")
@@ -361,7 +361,7 @@ func TestLoader_Load_EnvOverrides(t *testing.T) {
 func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 3\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_TELEMETRY__ENABLED", "yes-please")
 	loader := NewLoader(path)
@@ -373,7 +373,7 @@ func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 func TestLoader_Load_EnvUnknownField(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 3\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_LOGGING__BOGUS", "value")
 	loader := NewLoader(path)
@@ -385,7 +385,7 @@ func TestLoader_Load_EnvUnknownField(t *testing.T) {
 func TestLoader_Load_EnvReadOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 3\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	t.Setenv("SYNAPTIC_STORAGE__ENCRYPTION__ENABLED", "false")
 	loader := NewLoader(path)

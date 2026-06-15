@@ -13,7 +13,7 @@ func TestEngine_PutGetStatus(t *testing.T) {
 	}
 	store := NewStore()
 	disc := NewDiscovery(id, 0)
-	eng := NewEngine(id, store, disc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := NewEngine(id, store, disc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	eng.Put("hello", []byte("world"))
 	if got := string(eng.Get("hello")); got != "world" {
@@ -32,7 +32,7 @@ func TestEngine_DiscoveredPeersEmpty(t *testing.T) {
 	id, _ := GenerateIdentity("peer-test")
 	store := NewStore()
 	disc := NewDiscovery(id, 0)
-	eng := NewEngine(id, store, disc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := NewEngine(id, store, disc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if peers := eng.DiscoveredPeers(); len(peers) != 0 {
 		t.Fatalf("expected 0 peers, got %d", len(peers))
 	}
@@ -42,7 +42,7 @@ func TestEngine_StartStop(t *testing.T) {
 	id, _ := GenerateIdentity("lifecycle")
 	store := NewStore()
 	disc := NewDiscovery(id, 47667)
-	eng := NewEngine(id, store, disc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eng := NewEngine(id, store, disc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	eng.Start()
 	st := eng.Status()
 	if !st.Running {

@@ -90,6 +90,10 @@ func run(args []string) error {
 		return cmdLLM(gf, subargs)
 	case "apikeys":
 		return cmdAPIKeys(gf, subargs)
+	case "hub":
+		return cmdHub(gf, subargs)
+	case "sync":
+		return cmdSync(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -112,6 +116,8 @@ Commands:
   llm chat       Send a one-shot chat to a provider.
   llm providers  List registered LLM providers.
   apikeys        Manage stored API keys (list/set/delete).
+  hub           Manage Skills Hub (search/get/install/publish/serve).
+  sync          Manage P2P encrypted sync (peers/pair/revoke/status).
 
 Global flags:
   --addr HOST:PORT    explicit daemon address

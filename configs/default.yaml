@@ -176,3 +176,25 @@ autonomy:
 telemetry:
   enabled: false
   crash_reports: false
+
+# Skills Hub (Phase 12). ENABLED by default — opt-out for the
+# public hub.synaptic.app service. All downloaded skills are
+# safety-scanned before install. For private / company hubs, set
+# base_url to your own server and use token for auth.
+# Set token via env SYNAPTIC_HUB__TOKEN=... (do not commit it).
+hub:
+  enabled: true
+  base_url: "https://hub.synaptic.app"
+  auto_update: false
+  # token: ""  # set via env SYNAPTIC_HUB__TOKEN for security
+
+# P2P encrypted sync (Phase 12). Disabled by default — opt-in.
+# When enabled, the daemon generates a device identity (Ed25519)
+# and participates in LAN CRDT sync. Devices must be explicitly
+# paired (QR / 6-digit PIN) before their CRDT entries are accepted.
+# Use `synaptic sync pair <device_id> --pin <pin>` to confirm.
+sync:
+  enabled: false
+  device_name: ""           # auto-derived from hostname if empty
+  discovery_port: 7667
+  auto_announce: true

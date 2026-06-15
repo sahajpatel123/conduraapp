@@ -6,6 +6,9 @@
   import Audit from './lib/routes/Audit.svelte'
   import Replay from './lib/routes/Replay.svelte'
   import About from './lib/routes/About.svelte'
+  import Hub from './lib/routes/Hub.svelte'
+  import Sync from './lib/routes/Sync.svelte'
+  import Skills from './lib/routes/Skills.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
@@ -23,7 +26,10 @@
     currentHash === '#/settings' ? 'settings' :
     currentHash === '#/audit' ? 'audit' :
     currentHash === '#/replay' ? 'replay' :
-    currentHash === '#/about' ? 'about' : 'chat'
+    currentHash === '#/about' ? 'about' :
+    currentHash === '#/hub' ? 'hub' :
+    currentHash === '#/sync' ? 'sync' :
+    currentHash === '#/skills' ? 'skills' : 'chat'
   )
 
   onMount(() => {
@@ -95,6 +101,12 @@
             <Replay />
           {:else if route === 'about'}
             <About />
+          {:else if route === 'hub'}
+            <Hub />
+          {:else if route === 'sync'}
+            <Sync />
+          {:else if route === 'skills'}
+            <Skills />
           {:else}
             <Chat />
           {/if}

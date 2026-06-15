@@ -279,6 +279,54 @@ class IPCClient {
     return this.call('i18n.locale', { locale })
   }
 
+  // Phase 12 — Skills Hub
+  hubSearch(query: string, limit = 20): Promise<import('./types').HubSearchResult> {
+    return this.call('hub.search', { query, limit })
+  }
+  hubGet(id: string): Promise<import('./types').HubSkillMeta> {
+    return this.call('hub.get', { id })
+  }
+  hubInstall(id: string): Promise<import('./types').HubInstallResult> {
+    return this.call('hub.install', { id })
+  }
+  hubPublish(id: string, path: string): Promise<{ ok: boolean; id: string }> {
+    return this.call('hub.publish', { id, path })
+  }
+
+  // Phase 12 — Skills (local)
+  skillsList(limit = 100): Promise<import('./types').InstalledSkill[]> {
+    return this.call('skills.list', { limit })
+  }
+  skillsGet(id: string): Promise<import('./types').InstalledSkill> {
+    return this.call('skills.get', { id })
+  }
+  skillsDelete(id: string): Promise<{ ok: boolean }> {
+    return this.call('skills.delete', { id })
+  }
+
+  // Phase 12 — P2P Sync
+  syncStatus(): Promise<import('./types').SyncStatus> {
+    return this.call('sync.status', {})
+  }
+  syncPeers(): Promise<import('./types').SyncPeersResult> {
+    return this.call('sync.peers', {})
+  }
+  syncListPairs(): Promise<import('./types').SyncListPairsResult> {
+    return this.call('sync.list_pairs', {})
+  }
+  syncPairBegin(deviceId: string): Promise<{ ok: boolean; pin: string; peer: string }> {
+    return this.call('sync.pair_begin', { device_id: deviceId })
+  }
+  syncPairConfirm(deviceId: string, pin: string): Promise<{ ok: boolean; device_id: string }> {
+    return this.call('sync.pair_confirm', { device_id: deviceId, pin })
+  }
+  syncRevoke(deviceId: string): Promise<{ ok: boolean; revoked_device_id: string; revoker_device_id: string; revoked_at: string; signature: string }> {
+    return this.call('sync.revoke', { device_id: deviceId })
+  }
+  syncWith(deviceId: string): Promise<{ ok: boolean; merged: number }> {
+    return this.call('sync.sync_with', { device_id: deviceId })
+  }
+
   replayTimeline(): Promise<import('./types').ReplayFrame[]> {
     return this.call('replay.timeline', {})
   }

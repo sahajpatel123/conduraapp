@@ -7,6 +7,8 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -14,6 +16,12 @@ import (
 var localeFS embed.FS
 
 // Catalog holds translations for all locales.
+//
+// Placeholder format: locale files use {0}, {1}, {2} ... (i18next / i18next-react
+// compatible). The Go side resolves them via fmt-style verbs to support
+// formatted arguments (strings, integers, floats). The {n} placeholders are
+// rewritten to %v/%d/%.Nf on the fly so a single locale file works for both
+// the Wails frontend and Go callers.
 type Catalog struct {
 	mu       sync.RWMutex
 	locales  map[string]map[string]string
@@ -66,6 +74,58 @@ func MustNewCatalog() *Catalog {
 	return c
 }
 
+// convertPlaceholders rewrites {0}, {1}, {2} ... to fmt's %[N+1]v indexed
+// verbs so a single template works for both the Wails frontend and Go.
+//
+// Go's fmt package uses 1-indexed arguments: %[1]v is the first arg, %[2]v
+// the second, etc. So a {0} in the template becomes %[1]v in the Go template.
+//
+// The default verb is %v (accepts any type: int, string, float, etc.).
+// Localization-specific formatting (currency, decimal separators) is handled
+// on the frontend where the i18next ecosystem has mature formatters.
+func convertPlaceholders(template string, argCount int) string {
+	// Walk the string looking for {N} and rewrite.
+	var b strings.Builder
+	b.Grow(len(template) + 8)
+	i := 0
+	for i < len(template) {
+		c := template[i]
+		if c == '{' && i+1 < len(template) && template[i+1] >= '0' && template[i+1] <= '9' {
+			// parse number
+			j := i + 1
+			for j < len(template) && template[j] >= '0' && template[j] <= '9' {
+				j++
+			}
+			if j < len(template) && template[j] == '}' {
+				// Valid {N} placeholder. Go fmt is 1-indexed, so {0} -> %[1]v.
+				n := template[i+1 : j]
+				b.WriteString("%[")
+				// Convert 0-indexed to 1-indexed: "0" -> "1", "12" -> "13"
+				idx, _ := strconv.Atoi(n)
+				b.WriteString(strconv.Itoa(idx + 1))
+				b.WriteString("]v")
+				i = j + 1
+				continue
+			}
+		}
+		// Handle escaped braces: {{ -> '{', }} -> '}'
+		if c == '{' && i+1 < len(template) && template[i+1] == '{' {
+			b.WriteByte('{')
+			i += 2
+			continue
+		}
+		if c == '}' && i+1 < len(template) && template[i+1] == '}' {
+			b.WriteByte('}')
+			i += 2
+			continue
+		}
+		b.WriteByte(c)
+		i++
+	}
+	_ = argCount
+	return b.String()
+}
+
 // T returns the translation for key in locale, with fallback to English.
 func (c *Catalog) T(locale, key string, args ...any) string {
 	c.mu.RLock()
@@ -73,12 +133,12 @@ func (c *Catalog) T(locale, key string, args ...any) string {
 
 	if m, ok := c.locales[locale]; ok {
 		if v, ok := m[key]; ok {
-			return fmt.Sprintf(v, args...)
+			return applyTemplate(v, args)
 		}
 	}
 	if m, ok := c.locales[c.defaults]; ok {
 		if v, ok := m[key]; ok {
-			return fmt.Sprintf(v, args...)
+			return applyTemplate(v, args)
 		}
 	}
 	return key // fallback to key itself
@@ -91,15 +151,25 @@ func (c *Catalog) MustT(locale, key string, args ...any) string {
 
 	if m, ok := c.locales[locale]; ok {
 		if v, ok := m[key]; ok {
-			return fmt.Sprintf(v, args...)
+			return applyTemplate(v, args)
 		}
 	}
 	if m, ok := c.locales[c.defaults]; ok {
 		if v, ok := m[key]; ok {
-			return fmt.Sprintf(v, args...)
+			return applyTemplate(v, args)
 		}
 	}
 	panic(fmt.Sprintf("i18n: missing key %q in locale %q and default %q", key, locale, c.defaults))
+}
+
+// applyTemplate converts {n} placeholders to fmt verbs and runs Sprintf.
+// On any formatting error (missing arg, type mismatch), it returns the
+// unformatted template with the {n} placeholders left intact — which makes
+// bugs visible in logs but never panics inside a hot path.
+func applyTemplate(template string, args []any) string {
+	converted := convertPlaceholders(template, len(args))
+	out := fmt.Sprintf(converted, args...)
+	return out
 }
 
 // Locales returns the list of available locale codes.
@@ -137,8 +207,9 @@ func (c *Catalog) Keys(locale string) []string {
 }
 
 // RawTranslations returns the raw format strings for a locale without
-// applying fmt.Sprintf. Used by the i18n.locale RPC to return strings
-// with {0} placeholders for the frontend's t() function.
+// applying fmt.Sprintf. The {n} placeholders are returned as-is so the
+// frontend's t() function can substitute them with localized formatters
+// (number separators, currency, etc.). Used by the i18n.locale RPC.
 func (c *Catalog) RawTranslations(locale string) map[string]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

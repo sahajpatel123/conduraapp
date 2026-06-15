@@ -49,6 +49,25 @@ builds:
       - arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
 
+  - id: synaptic-tui
+    main: ./cmd/synaptic-tui
+    binary: synaptic-tui
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
   # Desktop GUI — built on native runners before GoReleaser (see release.yml).
   # Missing prebuilts are skipped so CLI/daemon releases still succeed.
   - id: synaptic-gui

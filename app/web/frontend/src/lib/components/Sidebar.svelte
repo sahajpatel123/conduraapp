@@ -60,6 +60,33 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
       </a>
       <a
+        href="#/hub"
+        class="rail-icon"
+        class:active={currentHash === '#/hub'}
+        title="Skills Hub"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l7-4 7 4-7 4-7-4zM3 7v6l7 4M17 7v6l-7 4"/></svg>
+      </a>
+      <a
+        href="#/skills"
+        class="rail-icon"
+        class:active={currentHash === '#/skills'}
+        title="Skills"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l6 2 6-2-2 12-4 2-4-2L4 4z"/><path d="M10 6v12"/></svg>
+      </a>
+      <a
+        href="#/sync"
+        class="rail-icon"
+        class:active={currentHash === '#/sync'}
+        title="P2P Sync"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
+      </a>
+      <a
         href="#/settings"
         class="rail-icon"
         class:active={currentHash === '#/settings'}
