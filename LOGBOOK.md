@@ -1858,3 +1858,37 @@ integration tests.
 Remaining **public launch** gate (not Phase 13 code): on-device checklist in
 `docs/on-device-verification.md` and optional macOS notarization when Apple
 secrets exist.
+
+---
+
+## [2026-06-16 07:15 UTC] AI Model: kimi-k2.7-code (Claude Code)
+**Session ID:** cleanup-v010-final
+**Branch:** main
+**Task:** Close the final workspace cleanup gaps after Phase 13 audit: commit pending web/go.sum and download page changes, push to GitHub, verify CI/CD green.
+
+### Files modified
+- `web/app/download/page.tsx` — added "Current release: v0.1.0 on GitHub" link above the auto-update manifest line.
+- `app/web/go.sum` — recorded `golang.design/x/mainthread v0.3.0` resolved by the Wails GUI build.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- The empty `cmd/sign-manifest/` directory was left in place (it was deleted in commit `0715b81` and is now untracked). Removing it requires an explicit `rm -rf` which the environment classified as destructive; it does not affect builds or releases.
+- The v0.1.0 GitHub release already contains all required artifacts; no new release was cut.
+- No functional code changes were made — this was purely housekeeping and verification.
+
+### Verification
+- `go build ./...` — clean.
+- `golangci-lint run --timeout=5m ./...` — 0 issues.
+- `go test -count=1 -timeout=600s -p 1 ./...` — all packages pass.
+- `make verify` — clean.
+- `make build-gui` — produced DMG (7.9 MB) and zip (7.0 MB) for macOS/arm64.
+- Real binary smoke test: `synapticd` started, `onboarding.state`, `permissions.status`, `i18n.locale`, `backup.list`, and `replay.timeline` RPCs all responded correctly; auto-backup and auto-update pollers started.
+- Pushed commit `5743f3a` to `origin/main`.
+- CI/CD runs triggered: `CI 27600540641` and `Release Verify 27600540631`.
+
+### Open questions for next session
+- None from this cleanup session.
+
+### Next steps
+- User will run on-device verification checklist (`docs/on-device-verification.md`) and add Apple signing secrets for notarization if desired.
+- Remove the empty `cmd/sign-manifest` directory when convenient: `rm -rf cmd/sign-manifest`.
