@@ -1937,6 +1937,44 @@ secrets exist.
 
 ---
 
+## [2026-06-16T21:30:00Z] AI Model: opencode/kimi-k2.7-code
+**Session ID:** 01JZPHASE14B-TS-PLUMBING-VERIFY
+**Branch:** main
+**Task:** Agent 2 — verify and harden Phase 14B/14F/14G TypeScript plumbing (IPC types, client wrappers, Svelte stores, Next.js auth routes, i18n keys). Read STYLE.md + MISSION.md, then audit, fix, verify, and confirm CI.
+
+### Files created
+- `web/lib/kv.ts` — Shared Vercel KV helper + dev-mode in-process fallback singleton. Extracts `generateMagicToken`, `storeMagicToken`, `fetchMagicToken` so both `/api/auth/magic` and `/api/auth/verify` see the same token store in dev.
+
+### Files modified
+- `web/app/api/auth/magic/route.ts` — Replaced per-route KV dynamic import + private `devStore` with imports from `web/lib/kv.ts`. Token persistence now goes through the shared helper; error handling distinguishes "store not configured" from "store unavailable".
+- `web/app/api/auth/verify/route.ts` — Replaced per-route KV dynamic import + private `devStore` with `fetchMagicToken` from `web/lib/kv.ts`; enforces single-use semantics and TTL validation in one place.
+
+### Decisions made
+- **Shared dev token store is required for local auth smoke tests.** The original per-route fallback maps were independent modules, so `/api/auth/verify` could never find a token minted by `/api/auth/magic`. Moving the fallback to a singleton module fixes the dev-mode end-to-end flow without changing production behavior (Vercel KV is shared natively).
+- **Kept production fail-closed semantics.** If `RESEND_API_KEY` is absent in production, the route still returns 503; the dev-mode fallback is gated by `NODE_ENV !== 'production'` inside `web/lib/kv.ts`.
+- **Did not touch Svelte markup.** Stayed in the TypeScript-plumbing lane per the task spec: only IPC types/client, stores, API routes, and i18n.
+
+### Bugs / issues encountered
+- **Smoke test failure: valid magic token verified as expired.** Root cause was the two auth routes each owning a separate `devStore` Map. The `/api/auth/magic` route stored the token in its module-local map; `/api/auth/verify` looked in a different module-local map and always missed. Fixed by `web/lib/kv.ts` singleton. After the fix the dev flow works: invalid email → 400, valid email → token, bad token → 401, good token → `{email, redirect_url}`, reused token → 401.
+
+### Verification
+- `web`: `npx tsc --noEmit` → clean; `npx next build` → success (routes `/api/auth/magic` and `/api/auth/verify` listed dynamic).
+- `app/web/frontend`: `npx svelte-check --tsconfig ./tsconfig.json` → **0 errors** (9 pre-existing warnings); `npx vite build` → success.
+- Go: `go build ./...` → success; `go test ./...` → pass; `golangci-lint run ./...` → 0 issues.
+- Runtime smoke test (Next.js dev server on :3010): all four auth-route scenarios behaved as expected.
+- GitHub CI: latest `main` push (`fix(audit): deterministic ordering on timestamp ties`) shows both **CI** and **Release Verify** as `success`. The prior push (`fix(lint): satisfy golangci-lint for phase14 backend integration`) had a Windows-only `TestReplay_OutcomeClassification` flake that was resolved by the audit-ordering commit.
+
+### Open questions for next session
+- Confirm whether the backend agent has a preferred implementation of `internal/account/account.go` vs. the reconstruction landed in the prior session; reconcile if needed.
+- Real OAuth client IDs and Resend/KV credentials are still required for production end-to-end auth.
+
+### Next steps
+- Land the optional account UI components (`SignInPanel`, `AccountMenu`) if not already wired.
+- Wire typed `channels.*` and `onboarding.probe_voice` IPC wrappers once the IPC-owner agent finalizes them.
+- Run a full clean-install manual verification per `docs/phase14-completion.md`.
+
+---
+
 ## [2026-06-17T01:30:00Z] AI Model: Claude Opus 4.8
 **Session ID:** 01JZPHASE14-UI-WEBSITE-DOCS
 **Branch:** main
