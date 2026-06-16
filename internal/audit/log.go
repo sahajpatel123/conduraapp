@@ -252,7 +252,10 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		query += ` AND kind = ?`
 		args = append(args, q.Kind)
 	}
-	query += ` ORDER BY ts DESC LIMIT ? OFFSET ?` //nolint:gosec // limit/offset are validated to int; no injection surface
+	// Secondary sort by id keeps ordering deterministic when multiple
+	// events share an identical timestamp (observed as flaky frame
+	// ordering on fast clocks, e.g. Windows CI runners).
+	query += ` ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?` //nolint:gosec // limit/offset are validated to int; no injection surface
 	args = append(args, q.Limit, q.Offset)
 	rows, err := l.db.QueryContext(ctx, query, args...)
 	if err != nil {

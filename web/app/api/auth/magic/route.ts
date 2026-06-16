@@ -24,46 +24,18 @@
 // closed (5xx) rather than issuing a never-expiring token.
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { randomBytes } from 'node:crypto'
-
-// Vercel KV is a global at runtime in production. We use a
-// dynamic import so the dev environment doesn't require
-// @vercel/kv to be installed. If @vercel/kv isn't available
-// (dev mode without KV), we fall back to an in-process map
-// for local testing. The fallback is gated behind NODE_ENV
-// !== 'production' so production builds never run with it.
-//
-// We declare the type as `any` here because we don't want
-// this file to fail to typecheck when @vercel/kv is absent.
-// The runtime call is gated by try/catch.
-type KV = {
-  set: (key: string, value: string, opts?: { ex?: number }) => Promise<unknown>
-  get: (key: string) => Promise<{ value: string } | null>
-  del: (key: string) => Promise<unknown>
-}
-let kv: KV | null = null
-try {
-  // Dynamic import so dev environments without @vercel/kv
-  // still work.
-  const mod = (await import('@vercel/kv')) as { kv: KV }
-  kv = mod.kv
-} catch {
-  // @vercel/kv not installed. Will fall back below.
-}
-
-// In-process fallback for dev mode. Maps token → value
-// JSON. Expiry is checked at read time.
-const devStore = new Map<string, { value: string; expiresAt: number }>()
+import {
+  generateMagicToken,
+  storeMagicToken,
+  hasKV,
+  IS_DEV,
+} from '@/lib/kv'
 
 const TTL_SECONDS = 5 * 60
 
 // Email validation: not perfect, but enough to catch typos.
 // Server-side validation matches the client regex.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// In dev mode only: return the token in the response so the
-// user can paste it into the browser to complete the flow.
-const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // 1. Parse + validate the body.
@@ -106,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 2. Generate a 32-byte (256-bit) random token, hex
   // encoded. That's 64 characters; safe for URL use and
   // impossible to brute-force.
-  const token = randomBytes(32).toString('hex')
+  const token = generateMagicToken()
 
   // 3. Persist the token. We use Vercel KV in production
   // and the in-process map in dev.
@@ -115,26 +87,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     created_at: new Date().toISOString(),
     redirect_url,
   })
-  if (kv) {
-    try {
-      await kv.set(`magic:${token}`, value, { ex: TTL_SECONDS })
-    } catch (e) {
-      // KV failure: fail closed. We never issue a token
-      // we can't persist.
+  try {
+    await storeMagicToken(token, value, TTL_SECONDS)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    if (message === 'token store not configured') {
+      // Production with no KV is a configuration error.
       return NextResponse.json(
-        { error: 'token store unavailable' },
+        { error: 'token store not configured' },
         { status: 503 }
       )
     }
-  } else if (IS_DEV) {
-    devStore.set(`magic:${token}`, {
-      value,
-      expiresAt: Date.now() + TTL_SECONDS * 1000,
-    })
-  } else {
-    // Production with no KV is a configuration error.
+    // KV failure: fail closed. We never issue a token
+    // we can't persist.
     return NextResponse.json(
-      { error: 'token store not configured' },
+      { error: 'token store unavailable' },
       { status: 503 }
     )
   }
