@@ -92,7 +92,11 @@ export default function DownloadPage() {
       </ul>
 
       <p className="mt-12 text-sm text-neutral-500">
-        Auto-update manifest:{" "}
+        Current release:{" "}
+        <a className="underline hover:text-white" href={RELEASE_TAG}>
+          v0.1.0 on GitHub
+        </a>
+        . Auto-update manifest:{" "}
         <a className="underline" href={`${RELEASE_BASE}/manifest.json`}>
           manifest.json
         </a>
