@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -192,6 +193,13 @@ func Default() *Config {
 			Enabled:     true,
 			ManifestURL: "", // resolved to updater.DefaultManifestURL at runtime
 		},
+		Account: AccountConfig{
+			Enabled:    true,
+			SessionTTL: 720 * time.Hour, // 30 days
+		},
+		Reach: ReachConfig{
+			Enabled: true,
+		},
 		Voice: VoiceConfig{
 			Enabled:               false,
 			PushToTalk:            true,
@@ -210,6 +218,12 @@ func Default() *Config {
 			SpeakerEnabled:        false,
 			SpeakerVoice:          "Samantha",
 			SpeakerRate:           200,
+			Wake: WakeConfig{
+				Enabled:     false,
+				ModelPath:   "",
+				Sensitivity: 0.5,
+				Hotword:     "hey synaptic",
+			},
 		},
 	}
 	return cfg

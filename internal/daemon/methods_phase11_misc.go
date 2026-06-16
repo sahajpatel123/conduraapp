@@ -315,4 +315,9 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		return done, nil
 	})
+
+	// Phase 14H — voice readiness probe.
+	srv.Register("onboarding.probe_voice", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return onboarding.ProbeVoice(), nil
+	})
 }

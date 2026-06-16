@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/account"
 	"github.com/sahajpatel123/synapticapp/internal/adaptive"
 	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
@@ -38,6 +39,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/onboarding"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/permissions"
+	"github.com/sahajpatel123/synapticapp/internal/reach"
 	"github.com/sahajpatel123/synapticapp/internal/replay"
 	"github.com/sahajpatel123/synapticapp/internal/secrets"
 	"github.com/sahajpatel123/synapticapp/internal/session"
@@ -164,6 +166,12 @@ type Subsystems struct {
 	// Permissions probes the OS for microphone / accessibility
 	// / screen-recording consent. Always non-nil.
 	Permissions *permissions.Manager
+	// Account manages optional sign-in (Phase 14B). Nil when
+	// disabled in config or construction fails.
+	Account *account.Manager
+	// Reach manages messaging channels (Phase 14C). Nil when
+	// disabled in config or construction fails.
+	Reach *reach.Manager
 	// AuditLog is the HMAC-chained audit log, exposed here so
 	// the replay integrity verifier can read from the same
 	// chain the daemon writes to.
@@ -692,6 +700,8 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Uninstaller:     buildUninstaller(),
 		Onboarding:      buildOnboarding(db.SQL(), log),
 		Permissions:     buildPermissions(log),
+		Account:         buildAccount(cfg, db, sm, log),
+		Reach:           buildReach(db, log),
 		AuditLog:        auditLog,
 		db:              db,
 		cfg:             cfg,
@@ -1204,4 +1214,49 @@ func resolveUpdateManifestURL(cfg *config.Config) string {
 		return cfg.Update.ManifestURL
 	}
 	return updater.DefaultManifestURL
+}
+
+// buildAccount constructs the account manager (Phase 14B).
+// Returns nil when disabled or construction fails.
+func buildAccount(cfg *config.Config, db *storage.DB, sm secrets.Manager, log *slog.Logger) *account.Manager {
+	if cfg == nil || !cfg.Account.Enabled {
+		log.Info("account subsystem disabled")
+		return nil
+	}
+	store, err := account.NewStore(db.SQL())
+	if err != nil {
+		log.Warn("account: store creation failed, sign-in disabled", "err", err)
+		return nil
+	}
+	masterKey := db.MasterKey()
+	// Try keychain first, fall back to file.
+	var tm account.TokenManager
+	km := account.NewKeychainTokenManager(sm.Get, sm.Set, sm.Delete)
+	if err := sm.Set("account-test", "1"); err == nil {
+		_ = sm.Delete("account-test")
+		tm = km
+	} else {
+		tm = account.NewFallbackTokenManager(cfg.General.DataDir, masterKey)
+		log.Info("account: using file-backed token storage (keychain unavailable)")
+	}
+	mgr, err := account.NewManager(store, tm, masterKey, cfg.Account.SessionTTL)
+	if err != nil {
+		log.Warn("account: manager creation failed, sign-in disabled", "err", err)
+		return nil
+	}
+	log.Info("account subsystem ready")
+	return mgr
+}
+
+// buildReach constructs the channels manager (Phase 14C).
+// Returns nil when disabled or construction fails.
+func buildReach(db *storage.DB, log *slog.Logger) *reach.Manager {
+	store, err := reach.NewStore(db.SQL())
+	if err != nil {
+		log.Warn("reach: store creation failed, channels disabled", "err", err)
+		return nil
+	}
+	mgr := reach.NewManager(store)
+	log.Info("reach subsystem ready", "channels", "telegram")
+	return mgr
 }

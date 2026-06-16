@@ -82,6 +82,12 @@ type Config struct {
 
 	// Auto-update (Phase 13).
 	Update UpdateConfig `yaml:"update"`
+
+	// Account (Phase 14B) — optional sign-in for hub + sync.
+	Account AccountConfig `yaml:"account"`
+
+	// Reach (Phase 14C) — messaging channels.
+	Reach ReachConfig `yaml:"reach"`
 }
 
 // -----------------------------------------------------------------------------
@@ -346,6 +352,9 @@ type VoiceConfig struct {
 
 	// SpeakerRate is the TTS speaking rate (default: 200 words per minute).
 	SpeakerRate int `yaml:"speaker_rate"`
+
+	// Wake holds wake-word / hotword configuration (Phase 14E).
+	Wake WakeConfig `yaml:"wake"`
 }
 
 // Validate checks the voice config for internal consistency. The
@@ -449,4 +458,33 @@ type SyncConfig struct {
 	DiscoveryPort int `yaml:"discovery_port"`
 	// AutoAnnounce enables periodic LAN broadcast. Default: true.
 	AutoAnnounce bool `yaml:"auto_announce"`
+}
+
+// AccountConfig controls optional account sign-in (Phase 14B).
+type AccountConfig struct {
+	// Enabled toggles the sign-in UI and RPCs. Default: true.
+	Enabled bool `yaml:"enabled"`
+	// SessionTTL is how long a local session lasts before expiry.
+	// Default: 720h (30 days).
+	SessionTTL time.Duration `yaml:"session_ttl"`
+}
+
+// ReachConfig controls messaging channel integration (Phase 14C).
+type ReachConfig struct {
+	// Enabled toggles channel support. Default: true.
+	Enabled bool `yaml:"enabled"`
+}
+
+// WakeConfig controls wake-word / hotword detection (Phase 14E).
+type WakeConfig struct {
+	// Enabled toggles wake word detection. Default: false.
+	Enabled bool `yaml:"enabled"`
+	// ModelPath is the path to the ONNX wake word model file.
+	// If empty, the bundled default is used.
+	ModelPath string `yaml:"model_path"`
+	// Sensitivity controls detection threshold (0.0–1.0).
+	// Higher = more sensitive. Default: 0.5.
+	Sensitivity float64 `yaml:"sensitivity"`
+	// Hotword is the wake phrase (default: "hey synaptic").
+	Hotword string `yaml:"hotword"`
 }

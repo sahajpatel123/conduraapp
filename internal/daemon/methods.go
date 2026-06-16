@@ -74,6 +74,8 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerUninstallMethods(srv, subs)
 	registerPermissionMethods(srv, subs)
 	registerOnboardingMethods(srv, subs)
+	registerAccountMethods(srv, subs)
+	registerReachMethods(srv, subs)
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.
