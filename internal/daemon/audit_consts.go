@@ -38,3 +38,9 @@ const (
 const (
 	keyConversationID = "conversation_id"
 )
+
+// Shared message + provider strings (centralized for goconst).
+const (
+	msgDeniedBySafetyPolicy = "denied by safety policy"
+	providerGoogle          = "google"
+)

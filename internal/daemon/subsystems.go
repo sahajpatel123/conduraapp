@@ -637,7 +637,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		llmProv := &llmProviderAdapter{r: registry, name: primaryName, model: primaryModel}
 		var criticProv llm.Provider
 		criticModel := ""
-		for _, name := range []string{"google", "mistral", "openai"} {
+		for _, name := range []string{providerGoogle, "mistral", "openai"} {
 			if prov, ok := registry.Get(name); ok {
 				criticProv = prov
 				criticModel = prov.DefaultModel("chat")
@@ -876,7 +876,7 @@ func pickPrimaryProvider(cfg *config.Config) (string, string) {
 	// order (Go map iteration is randomized, so callers who
 	// care about priority should set the model field
 	// explicitly). For v0 we pick the first enabled provider.
-	for _, name := range []string{"anthropic", "openai", "google", "ollama", "xai", "mistral"} {
+	for _, name := range []string{"anthropic", "openai", providerGoogle, "ollama", "xai", "mistral"} {
 		pc, ok := cfg.LLM.Providers[name]
 		if !ok || !pc.Enabled {
 			continue
@@ -899,7 +899,7 @@ func defaultModelFor(provider string) string {
 		return "claude-3-5-sonnet-20241022"
 	case "openai":
 		return "gpt-4o-mini"
-	case "google":
+	case providerGoogle:
 		return "gemini-1.5-flash"
 	case "ollama":
 		return "llama3.2"

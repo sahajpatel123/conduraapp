@@ -26,7 +26,7 @@ func registerReachMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		if !subs.GatekeeperAllow(ctx, "reach.connect", "Connect "+p.Channel+" messaging channel") {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		return subs.Reach.Connect(ctx, p.Channel, p.Token)
 	})

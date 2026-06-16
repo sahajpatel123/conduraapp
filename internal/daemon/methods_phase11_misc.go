@@ -47,7 +47,7 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		if !subs.GatekeeperAllow(ctx, "uninstall.execute", "Uninstall Synaptic from this machine") {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		var backupPath string
 		if !p.SkipBackup && subs.Backup != nil {

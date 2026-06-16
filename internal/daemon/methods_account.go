@@ -57,7 +57,7 @@ func registerAccountMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		// Determine provider from stored state (done inside ExchangeCode).
 		// We use a reasonable default based on what's available.
-		providers := []string{"google", "github"}
+		providers := []string{providerGoogle, "github"}
 		var sess *account.Session
 		var lastErr error
 		for _, prov := range providers {

@@ -41,6 +41,8 @@ type WakeStatus struct {
 // Used when wake word is disabled or the ONNX model is unavailable.
 type NoopWakeDetector struct{}
 
+// Start returns an event channel that never emits; it closes when
+// the context is canceled.
 func (NoopWakeDetector) Start(ctx context.Context) (<-chan WakeEvent, error) {
 	ch := make(chan WakeEvent)
 	go func() {
@@ -49,5 +51,9 @@ func (NoopWakeDetector) Start(ctx context.Context) (<-chan WakeEvent, error) {
 	}()
 	return ch, nil
 }
-func (NoopWakeDetector) Stop() error        { return nil }
+
+// Stop is a no-op for the stub detector.
+func (NoopWakeDetector) Stop() error { return nil }
+
+// Status reports the wake detector as unavailable.
 func (NoopWakeDetector) Status() WakeStatus { return WakeStatus{Available: false} }

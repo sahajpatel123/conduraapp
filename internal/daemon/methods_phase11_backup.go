@@ -125,7 +125,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
 		}
 		if !subs.GatekeeperAllow(ctx, "backup.restore", "Restore backup from "+p.Path) {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		mk, err := subs.MasterKey()
 		if err != nil || len(mk) != 32 {
@@ -201,7 +201,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	// the rollback checkpoint. GATED through the Gatekeeper.
 	srv.Register("backup.rollback", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if !subs.GatekeeperAllow(ctx, "backup.rollback", "Revert last session") {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "denied by safety policy"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		memDB := OpenRollbackDB(subs.MemoryDBPath())
 		skillDB := OpenRollbackDB(subs.SkillDBPath())
