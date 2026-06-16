@@ -56,14 +56,18 @@ func TestProbePower_CLIProbesExist(t *testing.T) {
 	if len(pp.CLIs) == 0 {
 		t.Fatal("CLI probes should include at least 2 agents from delegation config")
 	}
-	names := map[string]bool{}
+	// Presence in the probe list is independent of whether the CLI
+	// is installed — CI runners have neither claude nor ollama, but
+	// both must still appear in the list (sourced from delegation
+	// defaults). Track presence, not the Found flag.
+	present := map[string]bool{}
 	for _, c := range pp.CLIs {
 		if c.Name == "" {
 			t.Fatal("CLI probe has empty name")
 		}
-		names[c.Name] = c.Found
+		present[c.Name] = true
 	}
-	if !names["claude"] && !names["ollama"] {
+	if !present["claude"] && !present["ollama"] {
 		t.Fatal("expected at least claude or ollama in CLI probes")
 	}
 }
