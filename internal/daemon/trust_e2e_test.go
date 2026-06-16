@@ -105,7 +105,7 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	subs, err := initSubsystems(log, cfg)
+	subs, err := initSubsystems(log, cfg, nil)
 	if err != nil {
 		t.Fatalf("initSubsystems: %v", err)
 	}

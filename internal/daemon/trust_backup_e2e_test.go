@@ -69,7 +69,7 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	subs, err := initSubsystems(log, cfg)
+	subs, err := initSubsystems(log, cfg, nil)
 	if err != nil {
 		t.Fatalf("initSubsystems: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	subs, err := initSubsystems(log, cfg)
+	subs, err := initSubsystems(log, cfg, nil)
 	if err != nil {
 		t.Fatalf("initSubsystems: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	subs, err := initSubsystems(log, cfg)
+	subs, err := initSubsystems(log, cfg, nil)
 	if err != nil {
 		t.Fatalf("initSubsystems: %v", err)
 	}

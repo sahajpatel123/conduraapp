@@ -1,19 +1,22 @@
-// Package onboarding implements the backend state machine for
-// the Onboarding Wizard (Phase 11, sub-phase 11E). The wizard
-// already has a Svelte frontend (OnboardingWizard.svelte) —
-// this package provides the Go-side state machine and
-// persistence so the wizard can be resumed across daemon
-// restarts.
+// Package onboarding implements the backend state machine for the
+// Onboarding Wizard. The wizard has a Svelte frontend
+// (OnboardingWizard.svelte) — this package provides the Go-side
+// state machine and persistence so the wizard can be resumed across
+// daemon restarts.
 //
-// State machine (per MISSION §20):
+// Converged state machine (Phase 14A, replacing the original 8-step
+// MISSION §20 flow):
 //
-//	Welcome → EULA → PowerSource → Permissions → BackendDetect
-//	→ Hotkey → VoiceTest → Complete
+//	EULA → Permissions → Hotkey → Complete
 //
 // Each step has a status: pending, in_progress, complete, or
 // skipped. The wizard advances via Advance; the user can
 // navigate back via Back. State is persisted in the
 // onboarding_state table.
+//
+// Migration: legacy 8-step states are transparently remapped to the
+// 4-step converged flow on load so existing users don't lose their
+// wizard position.
 package onboarding
 
 import (
@@ -30,28 +33,30 @@ import (
 type Step string
 
 const (
-	StepWelcome       Step = "welcome"
-	StepEULA          Step = "eula"
-	StepPowerSource   Step = "power_source"
-	StepPermissions   Step = "permissions"
-	StepBackendDetect Step = "backend_detect"
-	StepHotkey        Step = "hotkey"
-	StepVoiceTest     Step = "voice_test"
-	StepComplete      Step = "complete"
+	StepEULA        Step = "eula"
+	StepPermissions Step = "permissions"
+	StepHotkey      Step = "hotkey"
+	StepComplete    Step = "complete"
 )
 
-// AllSteps is the canonical ordered list. Use this in the
-// frontend to render the step indicator.
+// AllSteps is the canonical ordered list for the converged 4-step flow.
+// GUIs render the step indicator from this slice.
 var AllSteps = []Step{
-	StepWelcome,
 	StepEULA,
-	StepPowerSource,
 	StepPermissions,
-	StepBackendDetect,
 	StepHotkey,
-	StepVoiceTest,
 	StepComplete,
 }
+
+// Legacy step constants kept for DB migration. New code must not
+// reference these; they exist only so migrateState can remap old
+// persisted state.
+const (
+	legacyWelcome       Step = "welcome"
+	legacyPowerSource   Step = "power_source"
+	legacyBackendDetect Step = "backend_detect"
+	legacyVoiceTest     Step = "voice_test"
+)
 
 // Status is the per-step state.
 type Status string
@@ -113,36 +118,35 @@ INSERT OR IGNORE INTO onboarding_state (id, state_json) VALUES (1, '{}');
 }
 
 // State returns the current wizard state. If no state has been
-// recorded yet, returns a fresh state starting at StepWelcome.
+// recorded yet, returns a fresh state starting at StepEULA.
+// Legacy 8-step states are transparently migrated to the new
+// 4-step flow on load.
 func (sm *StateMachine) State(ctx context.Context) (*State, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	var raw string
-	err := sm.db.QueryRowContext(ctx,
-		`SELECT state_json FROM onboarding_state WHERE id = 1`,
-	).Scan(&raw)
+	s, err := sm.loadLocked(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("onboarding: query: %w", err)
+		return nil, err
 	}
-	var s State
-	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		return sm.freshState(), nil
+	// EULA version check: if the user previously accepted a
+	// different EULA version, force them back to the EULA step
+	// so they re-accept.
+	if s.Steps[StepEULA].Status == StatusComplete {
+		acceptedV := s.Steps[StepEULA].Data
+		currentV := CurrentEULAVersion
+		if acceptedV != "" && acceptedV != currentV {
+			s.CurrentStep = StepEULA
+			s.Steps[StepEULA] = StepProgress{
+				Status: StatusPending, UpdatedAt: time.Now().UTC(),
+			}
+		}
 	}
-	if s.Steps == nil {
-		s.Steps = make(map[Step]StepProgress)
-	}
-	// Normalize: an empty CurrentStep means the wizard is
-	// pre-launch (the very first time). The fresh state should
-	// point at StepWelcome so the GUI's "next" button works.
-	if s.CurrentStep == "" {
-		s.CurrentStep = StepWelcome
-	}
-	return &s, nil
+	return s, nil
 }
 
-// Advance moves the wizard forward to the next step. The
-// caller is responsible for setting the current step's status
-// to complete first via SetStepStatus.
+// Advance moves the wizard forward to the next step. The caller
+// is responsible for setting the current step's status to complete
+// first via SetStepStatus.
 func (sm *StateMachine) Advance(ctx context.Context) (*State, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -151,17 +155,13 @@ func (sm *StateMachine) Advance(ctx context.Context) (*State, error) {
 		return nil, err
 	}
 	idx := stepIndex(s.CurrentStep)
-	// Empty / unknown current means the wizard is pre-launch
-	// (the user has not clicked "Next" from the Welcome
-	// screen yet). The first Advance lands on EULA — the
-	// Welcome screen is implicitly "before step 0".
 	if idx < 0 {
-		s.CurrentStep = AllSteps[1] // eula
+		// Pre-launch — start at the first real step (EULA).
+		s.CurrentStep = AllSteps[0]
 		return s, sm.saveLocked(ctx, s)
 	}
 	if idx+1 >= len(AllSteps) {
-		// Already at the end.
-		return s, nil
+		return s, nil // already at end
 	}
 	s.CurrentStep = AllSteps[idx+1]
 	return s, sm.saveLocked(ctx, s)
@@ -176,10 +176,7 @@ func (sm *StateMachine) Back(ctx context.Context) (*State, error) {
 		return nil, err
 	}
 	idx := stepIndex(s.CurrentStep)
-	// Before step 0 — already at the implicit start.
 	if idx <= 0 {
-		// Normalize: present as Welcome on the read side.
-		s.CurrentStep = StepWelcome
 		return s, nil
 	}
 	s.CurrentStep = AllSteps[idx-1]
@@ -204,13 +201,41 @@ func (sm *StateMachine) SetStepStatus(ctx context.Context, step Step, status Sta
 	return s, sm.saveLocked(ctx, s)
 }
 
-// Skip marks a step as skipped (used for "I don't want to do
-// voice test now, finish onboarding").
+// Skip marks a step as skipped and advances PAST the skipped
+// step (not from the current step). This matters when the user
+// is on StepEULA and skips StepPermissions — they should land
+// on StepHotkey, not StepPermissions.
 func (sm *StateMachine) Skip(ctx context.Context, step Step) (*State, error) {
-	return sm.SetStepStatus(ctx, step, StatusSkipped, "")
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	s, err := sm.loadLocked(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.Steps == nil {
+		s.Steps = make(map[Step]StepProgress)
+	}
+	// Mark the step as skipped.
+	s.Steps[step] = StepProgress{
+		Status:    StatusSkipped,
+		UpdatedAt: time.Now().UTC(),
+	}
+	// Advance CurrentStep PAST the skipped step.
+	idx := stepIndex(step)
+	if idx < 0 {
+		// Unknown step — fall back to "advance from current".
+		return s, sm.saveLocked(ctx, s)
+	}
+	if idx+1 < len(AllSteps) {
+		s.CurrentStep = AllSteps[idx+1]
+	} else {
+		s.CurrentStep = AllSteps[len(AllSteps)-1]
+	}
+	return s, sm.saveLocked(ctx, s)
 }
 
-// Complete marks the entire wizard done.
+// Complete marks the entire wizard done. Unfinished steps are
+// auto-skipped.
 func (sm *StateMachine) Complete(ctx context.Context) (*State, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -229,7 +254,7 @@ func (sm *StateMachine) Complete(ctx context.Context) (*State, error) {
 	return s, sm.saveLocked(ctx, s)
 }
 
-// Reset wipes the state and returns a fresh wizard.
+// Reset wipes the state and returns a fresh wizard at StepEULA.
 func (sm *StateMachine) Reset(ctx context.Context) (*State, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -249,7 +274,8 @@ func (sm *StateMachine) IsComplete(ctx context.Context) (bool, error) {
 	return s.Steps[StepComplete].Status == StatusComplete, nil
 }
 
-// loadLocked reads the state from the DB. Caller must hold sm.mu.
+// loadLocked reads the state and applies legacy migration.
+// Caller must hold sm.mu.
 func (sm *StateMachine) loadLocked(ctx context.Context) (*State, error) {
 	var raw string
 	err := sm.db.QueryRowContext(ctx,
@@ -260,12 +286,12 @@ func (sm *StateMachine) loadLocked(ctx context.Context) (*State, error) {
 	}
 	var s State
 	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		// Corrupt — start fresh.
 		return sm.freshState(), nil
 	}
 	if s.Steps == nil {
 		s.Steps = make(map[Step]StepProgress)
 	}
+	migrateState(&s)
 	return &s, nil
 }
 
@@ -285,10 +311,12 @@ func (sm *StateMachine) saveLocked(ctx context.Context, s *State) error {
 	return nil
 }
 
-// freshState returns an empty state at StepWelcome.
+// freshState returns an empty state. CurrentStep is empty so
+// the first Advance lands on StepEULA (the wizard starts
+// before step 0, like the old Welcome step was).
 func (sm *StateMachine) freshState() *State {
 	return &State{
-		CurrentStep: StepWelcome,
+		CurrentStep: "",
 		Steps:       make(map[Step]StepProgress),
 		StartedAt:   time.Now().UTC(),
 	}
@@ -301,4 +329,83 @@ func stepIndex(s Step) int {
 		}
 	}
 	return -1
+}
+
+// migrateState remaps legacy 8-step positions to the converged
+// 4-step flow. Called on every load so existing users don't lose
+// wizard progress after the Phase 14A update.
+func migrateState(s *State) {
+	// Capture whether the state had an explicit legacy CurrentStep
+	// so we don't override it with the "next-incomplete" heuristic
+	// below. If the user was on Welcome, we want to land them on
+	// EULA, not on Permissions.
+	hadLegacyCurrent := false
+	cs := s.CurrentStep
+
+	// Map legacy step names to the nearest converged step.
+	switch cs {
+	case legacyWelcome:
+		// Welcome is "before step 0" — map to EULA so the
+		// user sees the first real step. The old Welcome
+		// was informational only.
+		s.CurrentStep = StepEULA
+		hadLegacyCurrent = true
+	case legacyPowerSource:
+		if s.Steps[StepEULA].Status == StatusComplete ||
+			s.Steps[legacyWelcome].Status == StatusComplete {
+			s.CurrentStep = StepPermissions
+		} else {
+			s.CurrentStep = StepEULA
+		}
+		hadLegacyCurrent = true
+	case legacyBackendDetect:
+		s.CurrentStep = StepHotkey
+		hadLegacyCurrent = true
+	case legacyVoiceTest:
+		s.CurrentStep = StepComplete
+		hadLegacyCurrent = true
+	}
+
+	// Migrate per-step progress: map legacy step statuses to
+	// their converged equivalents so the wizard knows what's
+	// been done.
+	legacyMap := map[Step]Step{
+		legacyWelcome:       StepEULA,
+		legacyPowerSource:   StepPermissions,
+		legacyBackendDetect: StepHotkey,
+		legacyVoiceTest:     StepComplete,
+	}
+	for legacy, modern := range legacyMap {
+		if lp, ok := s.Steps[legacy]; ok {
+			if _, exists := s.Steps[modern]; !exists {
+				s.Steps[modern] = lp
+			}
+			delete(s.Steps, legacy)
+		}
+	}
+
+	// Heuristic ONLY for legacy migrations: when the user's old
+	// 8-step state was at a step that no longer exists, advance
+	// to the next-incomplete converged step. For non-legacy
+	// (4-step) state, trust the saved CurrentStep — the user
+	// explicitly advanced there and we shouldn't bump them
+	// back to permissions.
+	if hadLegacyCurrent {
+		if s.Steps[StepEULA].Status == StatusComplete &&
+			s.Steps[StepHotkey].Status != StatusComplete &&
+			s.Steps[StepHotkey].Status != StatusSkipped &&
+			s.CurrentStep != StepEULA {
+			if s.Steps[StepPermissions].Status != StatusComplete &&
+				s.Steps[StepPermissions].Status != StatusSkipped {
+				s.CurrentStep = StepPermissions
+			} else {
+				s.CurrentStep = StepHotkey
+			}
+		}
+	}
+
+	// If Complete is done, normalize current step.
+	if s.Steps[StepComplete].Status == StatusComplete {
+		s.CurrentStep = StepComplete
+	}
 }

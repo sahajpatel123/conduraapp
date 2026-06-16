@@ -56,6 +56,11 @@ type Options struct {
 	// VersionInfo overrides the build metadata (mostly for tests).
 	// If zero, version.Get() is used.
 	VersionInfo version.Info
+	// Loader is the config loader used to persist config changes
+	// back to disk (e.g. onboarding.finish writes ollama.enabled
+	// and first_run=false). When nil, config persistence is
+	// disabled (test/debug mode).
+	Loader *config.Loader
 }
 
 // ListenSpec controls where the IPC transport binds.
@@ -140,7 +145,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		"storage_path", opts.Config.Storage.Path,
 	)
 
-	subs, err := initSubsystems(log, opts.Config)
+	subs, err := initSubsystems(log, opts.Config, opts.Loader)
 	if err != nil {
 		releaseLock()
 		return nil, err

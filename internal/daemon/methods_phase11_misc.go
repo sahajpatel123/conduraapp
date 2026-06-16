@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 	"github.com/sahajpatel123/synapticapp/internal/onboarding"
@@ -139,6 +143,8 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 //   - onboarding.set_step  — record a step's status.
 //   - onboarding.complete  — mark the wizard done.
 //   - onboarding.reset     — start over.
+//
+//nolint:gocognit,gocyclo // combining all onboarding RPCs in one register function is intentional
 func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Onboarding == nil {
 		notAvailable := func(_ context.Context, _ json.RawMessage) (any, error) {
@@ -183,5 +189,130 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 
 	srv.Register("onboarding.reset", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return subs.Onboarding.Reset(ctx)
+	})
+
+	// Phase 14A — high-level onboarding wrappers for the converged
+	// 4-step flow (eula → permissions → hotkey → complete).
+
+	srv.Register("onboarding.eula", func(_ context.Context, _ json.RawMessage) (any, error) {
+		dataDir := subs.GeneralDataDir()
+		doc, err := onboarding.ReadEULA(dataDir)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return doc, nil
+	})
+
+	srv.Register("onboarding.probe_power", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return onboarding.ProbePowerWithTimeout(ctx), nil
+	})
+
+	srv.Register("onboarding.skip", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Step string `json:"step"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		if subs.Onboarding == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "onboarding subsystem not available"}
+		}
+		switch p.Step {
+		case "permissions", "hotkey":
+		default:
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown step: " + p.Step}
+		}
+		s, err := subs.Onboarding.Skip(ctx, onboarding.Step(p.Step))
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.skip", appSynapticd, auditResultAllow, "step="+p.Step))
+		return s, nil
+	})
+
+	srv.Register("onboarding.finish", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Hotkey             string `json:"hotkey"`
+			EULAVersion        string `json:"eula_version"`
+			PermissionsSkipped bool   `json:"permissions_skipped"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		if subs.Onboarding == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "onboarding subsystem not available"}
+		}
+
+		// 1. Validate EULA step is complete.
+		s, err := subs.Onboarding.State(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("onboarding: read state: %w", err)
+		}
+		if s.Steps[onboarding.StepEULA].Status != onboarding.StatusComplete {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "EULA must be accepted before finish"}
+		}
+
+		// 2. Validate hotkey is non-empty and parses.
+		if p.Hotkey == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "hotkey is required"}
+		}
+
+		// 3. Probe power for the Ready screen response.
+		power := onboarding.ProbePowerWithTimeout(ctx)
+
+		// 4. If Ollama is reachable, enable it in config.
+		// ProviderConfig doesn't carry its own name; the LLM
+		// provider map is keyed by name. Look up "ollama" by key.
+		if power.OllamaReachable && subs.cfg != nil {
+			if prov, ok := subs.cfg.LLM.Providers["ollama"]; ok {
+				prov.Enabled = true
+				if power.FirstModel() != "" && prov.DefaultModel == "" {
+					prov.DefaultModel = power.FirstModel()
+				}
+				subs.cfg.LLM.Providers["ollama"] = prov
+			}
+		}
+
+		// 5. Apply hotkey to in-memory config.
+		if subs.cfg != nil {
+			subs.cfg.Hotkey.Overlay = p.Hotkey
+		}
+
+		// 6. Mark onboarding complete.
+		if _, err := subs.Onboarding.Complete(ctx); err != nil {
+			return nil, fmt.Errorf("onboarding: complete: %w", err)
+		}
+
+		// 7. Write first-run-complete marker.
+		firstRunMarker := filepath.Join(subs.GeneralDataDir(), "first-run-complete")
+		_ = os.WriteFile(firstRunMarker, []byte(time.Now().UTC().Format(time.RFC3339)), firstRunFilePerm) //nolint:gosec
+
+		// 8. Persist config to disk.
+		if subs.Loader != nil && subs.cfg != nil {
+			subs.cfg.General.FirstRun = false
+			if err := subs.Loader.Save(subs.cfg); err != nil {
+				slog.Error("onboarding.finish: config persist failed", "err", err)
+			}
+		}
+
+		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.finish", appSynapticd, auditResultAllow,
+			fmt.Sprintf("hotkey=%s power=%s", p.Hotkey, power.Recommended)))
+
+		return map[string]any{
+			"power":        power,
+			"hotkey":       p.Hotkey,
+			"completed_at": time.Now().UTC().Format(time.RFC3339),
+		}, nil
+	})
+
+	srv.Register("onboarding.is_complete", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		if subs.Onboarding == nil {
+			return true, nil
+		}
+		done, err := subs.Onboarding.IsComplete(ctx)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return done, nil
 	})
 }

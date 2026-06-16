@@ -38,7 +38,7 @@ var daemonReady = make(chan struct{})
 var appInstance *App
 
 func main() {
-	cfg, err := resolveConfig()
+	cfg, loader, err := resolveConfig()
 	if err != nil {
 		println("synaptic-gui: config:", err.Error())
 		os.Exit(1)
@@ -54,6 +54,7 @@ func main() {
 	go func() {
 		subs, err := daemon.Run(ctx, daemon.Options{
 			Config: cfg,
+			Loader: loader,
 			Listen: daemon.ListenSpec{
 				Addr:      "tcp://127.0.0.1:0",
 				AuthToken: cfg.APIServer.AuthToken,
@@ -109,17 +110,17 @@ func main() {
 // standalone daemon uses. The GUI does not parse CLI flags; flags
 // for daemon-only options (--listen, --no-ipc) are ignored because
 // the GUI controls its own listen address.
-func resolveConfig() (*config.Config, error) {
+func resolveConfig() (*config.Config, *config.Loader, error) {
 	loader := config.NewLoader("")
 	cfg, err := loader.Load()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if sp, err := cfg.ResolveStoragePath(); err == nil {
 		cfg.Storage.Path = sp
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return cfg, nil
+	return cfg, loader, nil
 }

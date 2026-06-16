@@ -73,6 +73,9 @@ type Subsystems struct {
 	// cfg is the loaded config, held so Phase 11 helpers can
 	// read schema version and data dir.
 	cfg *config.Config
+	// loader persists config changes back to disk (e.g. onboarding
+	// finish writes ollama.enabled and first_run=false).
+	Loader *config.Loader
 
 	Secrets       secrets.Manager
 	Storage       *storage.DB
@@ -433,7 +436,7 @@ func currentSchemaVersion(subs *Subsystems) int {
 // down.
 //
 //nolint:gocyclo,gocognit // wiring all subsystems in one place is intentional
-func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
+func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader) (*Subsystems, error) {
 	secretsPath := filepath.Join(cfg.General.DataDir, "secrets.json")
 	sm, err := secrets.New(secretsPath)
 	if err != nil {
@@ -692,6 +695,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config) (*Subsystems, error) {
 		AuditLog:        auditLog,
 		db:              db,
 		cfg:             cfg,
+		Loader:          loader,
 	}
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.

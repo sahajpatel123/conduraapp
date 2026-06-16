@@ -50,6 +50,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
 		os.Exit(1)
 	}
+	loader, err := buildLoader(flags)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Translate SIGINT/SIGTERM to ctx cancellation so daemon.Run
 	// can shut down gracefully. We call cancel() explicitly before
@@ -58,6 +63,7 @@ func main() {
 
 	opts := daemon.Options{
 		Config: cfg,
+		Loader: loader,
 		Listen: daemon.ListenSpec{
 			Addr:      flags.listen,
 			AuthToken: cfg.APIServer.AuthToken,
@@ -116,6 +122,19 @@ func parseFlags() (runFlags, error) {
 		listen:   *listen,
 		noIPC:    *noIPC,
 	}, nil
+}
+
+// buildLoader returns a config.Loader for the given flags.
+func buildLoader(flags runFlags) (*config.Loader, error) {
+	cfgPath := flags.cfgPath
+	if cfgPath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("locate home dir: %w", err)
+		}
+		cfgPath = filepath.Join(home, ".synaptic", "config.yaml")
+	}
+	return config.NewLoader(cfgPath), nil
 }
 
 // buildConfig resolves the config path, loads the YAML, applies any
