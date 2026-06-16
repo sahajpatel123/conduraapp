@@ -378,6 +378,81 @@ class IPCClient {
     return this.call('replay.export', destination ? { destination } : {})
   }
 
+  // ----- Phase 14B: Account (auth) -----
+  // The account.* RPCs talk to the daemon's user record. The
+  // magic-link OAuth flow on web talks to the Next.js
+  // /api/auth/magic route (see web/app/api/auth/magic/route.ts);
+  // the daemon is bypassed so the Vercel KV can store the
+  // one-time token. AccountStore routes to whichever is
+  // appropriate.
+  accountStatus(): Promise<import('./types').AccountStatus> {
+    return this.call('account.status', {})
+  }
+  accountOAuthURL(
+    p: import('./types').OAuthURLParams
+  ): Promise<import('./types').OAuthURLResult> {
+    return this.call('account.oauth_url', p)
+  }
+  accountOAuthCallback(
+    p: import('./types').OAuthCallbackParams
+  ): Promise<import('./types').AccountStatus> {
+    return this.call('account.oauth_callback', p)
+  }
+  accountMagicLink(
+    p: import('./types').MagicLinkParams
+  ): Promise<import('./types').MagicLinkResult> {
+    return this.call('account.magic_link', p)
+  }
+  accountLogout(): Promise<import('./types').LogoutResult> {
+    return this.call('account.logout', {})
+  }
+
+  // ----- Phase 14F: Sync pairing (typed results) -----
+  // The plan asks for typed PairBeginResult / PairConfirmResult
+  // wrappers. The pre-existing methods use loose object
+  // types; the new typed methods are the canonical API.
+  syncPairBeginTyped(
+    deviceId: string
+  ): Promise<import('./types').PairBeginResult> {
+    return this.call<import('./types').PairBeginResult>(
+      'sync.pair_begin',
+      { device_id: deviceId }
+    )
+  }
+  syncPairConfirmTyped(
+    deviceId: string,
+    pin: string
+  ): Promise<import('./types').PairConfirmResult> {
+    return this.call<import('./types').PairConfirmResult>(
+      'sync.pair_confirm',
+      { device_id: deviceId, pin }
+    )
+  }
+  // syncRevokeTyped is just an alias for the existing
+  // syncRevoke with a strict return type.
+  syncRevokeTyped(
+    deviceId: string
+  ): Promise<{
+    ok: boolean
+    revoked_device_id: string
+    revoker_device_id: string
+    revoked_at: string
+    signature: string
+  }> {
+    return this.call('sync.revoke', { device_id: deviceId })
+  }
+
+  // ----- Phase 14G: Hub publish (archive in body) -----
+  // The plan's HubPublishParams passes the archive as a
+  // number[] | Uint8Array. The IPC layer JSON-encodes
+  // binary as base64 automatically; the GUI just needs to
+  // pass the typed array.
+  hubPublishTyped(
+    p: import('./types').HubPublishParams
+  ): Promise<import('./types').HubPublishResult> {
+    return this.call('hub.publish', p)
+  }
+
   // ---- SSE transport ----
 
   private async openSSE(): Promise<void> {

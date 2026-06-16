@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { NAV_LINKS, PLATFORMS, SITE } from "@/lib/site";
+import { PLATFORMS, SITE } from "@/lib/site";
 
 const RELEASE_BASE =
   "https://github.com/sahajpatel123/synapticapp/releases/latest/download";
@@ -27,17 +26,6 @@ const RELEASE_TAG = "https://github.com/sahajpatel123/synapticapp/releases/tag/v
 export default function DownloadPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 text-neutral-100">
-      <nav className="mb-12 flex gap-6 text-sm text-neutral-400">
-        <Link href="/" className="hover:text-white">
-          Home
-        </Link>
-        {NAV_LINKS.map((l) => (
-          <Link key={l.href} href={l.href} className="hover:text-white">
-            {l.label}
-          </Link>
-        ))}
-      </nav>
-
       <h1 className="text-3xl font-semibold tracking-tight">Download Synaptic</h1>
       <p className="mt-4 text-neutral-400">
         {SITE.description} Installers are signed, checksummed, and published from{" "}

@@ -9,12 +9,15 @@ export const SITE = {
   description:
     "Synaptic is a free, local-first desktop AI agent that appears from the operating system, routes work through your own models, and stops at deterministic safety boundaries before acting.",
   url: "https://synaptic.app",
+  github: "https://github.com/sahajpatel123/synapticapp",
+  discord: "https://discord.gg/synaptic",
 } as const;
 
 export const NAV_LINKS = [
   { href: "/manifesto", label: "Manifesto" },
   { href: "/changelog", label: "Changelog" },
   { href: "/download", label: "Download" },
+  { href: "/legal", label: "Legal" },
 ] as const;
 
 /** The local/model delegates Synaptic can route through. */

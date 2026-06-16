@@ -1,8 +1,13 @@
 <script lang="ts">
   import { conversation } from '../stores/conversation.svelte'
+  import { account } from '../stores/account.svelte'
   import { onMount } from 'svelte'
+  import SignInPanel from './SignInPanel.svelte'
+  import AccountMenu from './AccountMenu.svelte'
 
   let currentHash: string = $state('')
+  let showSignIn = $state(false)
+  let showAccountMenu = $state(false)
 
   onMount(() => {
     currentHash = window.location.hash || '#/'
@@ -10,6 +15,7 @@
       currentHash = window.location.hash || '#/'
     }
     window.addEventListener('hashchange', onHashChange)
+    void account.checkStatus()
     return () => window.removeEventListener('hashchange', onHashChange)
   })
 
@@ -87,6 +93,15 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
       </a>
       <a
+        href="#/channels"
+        class="rail-icon"
+        class:active={currentHash === '#/channels'}
+        title="Channels"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
+      </a>
+      <a
         href="#/settings"
         class="rail-icon"
         class:active={currentHash === '#/settings'}
@@ -143,8 +158,31 @@
         </button>
       </div>
     {/if}
+
+    <!-- Account footer (Phase 14B) -->
+    <div class="account-footer">
+      {#if account.isSignedIn}
+        <button class="account-chip" onclick={() => (showAccountMenu = true)} title="Account">
+          {#if account.avatarURL}
+            <img class="chip-avatar" src={account.avatarURL} alt="" />
+          {:else}
+            <span class="chip-avatar fallback">{(account.displayName || '?').charAt(0).toUpperCase()}</span>
+          {/if}
+          <span class="chip-email">{account.email || account.displayName}</span>
+        </button>
+      {:else}
+        <button class="signin-link" onclick={() => (showSignIn = true)}>Sign in</button>
+      {/if}
+    </div>
   </div>
 </aside>
+
+{#if showSignIn}
+  <SignInPanel onClose={() => (showSignIn = false)} />
+{/if}
+{#if showAccountMenu}
+  <AccountMenu onClose={() => (showAccountMenu = false)} />
+{/if}
 
 <style>
   /* ── Layout Shell ─────────────────────────────── */
@@ -384,6 +422,65 @@
     width: 14px;
     height: 14px;
     flex-shrink: 0;
+  }
+
+  /* ── Account Footer (Phase 14B) ───────────────── */
+  .account-footer {
+    padding: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+  .signin-link {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--color-text-faint);
+    font-size: var(--size-sm);
+    padding: var(--space-2) var(--space-1);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+  }
+  .signin-link:hover {
+    color: var(--color-accent);
+  }
+  .account-chip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+  }
+  .account-chip:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border);
+  }
+  .chip-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+  }
+  .chip-avatar.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-gradient);
+    color: white;
+    font-weight: 600;
+    font-size: var(--size-xs);
+  }
+  .chip-email {
+    font-size: var(--size-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* ── Scrollbar ────────────────────────────────── */

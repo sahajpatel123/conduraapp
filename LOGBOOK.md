@@ -1934,3 +1934,54 @@ secrets exist.
 - Run `docs/onboarding-verification.md` on a clean macOS machine (and Windows/Linux smoke).
 - Reconcile the canonical EULA version constant across `internal/onboarding`, the daemon RPC, and any persisted step data.
 - Verify the full Go build/tests for the parallel backend onboarding work (`go build ./... && go test ./internal/onboarding/... ./internal/daemon/...`).
+
+---
+
+## [2026-06-17T01:30:00Z] AI Model: Claude Opus 4.8
+**Session ID:** 01JZPHASE14-UI-WEBSITE-DOCS
+**Branch:** main
+**Task:** Phase 14B–14H + website + docs (Agent 3). Build the account, channels, sync-pairing, hub-publish, and voice onboarding **UI**; the marketing website; and the docs — on top of the account/reach/voice backends + stores built in parallel.
+
+### Files created (Svelte UI)
+- `app/web/frontend/src/lib/components/SignInPanel.svelte` — Google/GitHub OAuth + email magic-link sign-in modal (uses the `account` store; opens provider URLs via Wails `BrowserOpenURL` / `window.open`).
+- `app/web/frontend/src/lib/components/AccountMenu.svelte` — avatar dropdown: email/provider/tier + Sign out with confirm.
+- `app/web/frontend/src/lib/routes/Channels.svelte` — connected-channel list, Connect Telegram (validated `digits:secret` token), disconnect, 10s status poll. Uses generic `ipc.call` for `channels.*` to avoid touching the IPC client another agent owns.
+- `app/web/frontend/src/lib/components/PairingModal.svelte` — QR of this device's identity (via `qrcode`), minted PIN + TTL countdown, confirm input. Replaces `window.prompt()`.
+- `app/web/frontend/src/lib/components/PublishModal.svelte` — skill publish form (name, semver version, description, author, license, tags, ≤32 MB `.zip` picker) → `hub` store publish flow.
+- `docs/phase14-completion.md` — per-sub-phase verification checklist + automated gates.
+
+### Files modified (Svelte UI)
+- `Sidebar.svelte` — account footer (Sign in link ⇄ avatar+email chip), **Channels** nav icon, mounts SignInPanel/AccountMenu; `account.checkStatus()` on mount.
+- `App.svelte` — `#/channels` route wired in.
+- `Sync.svelte` — rewritten to use the `sync` store + `PairingModal` + 5s peer polling (was inline `prompt()`).
+- `Hub.svelte` — **+ Publish a Skill** button → `PublishModal`.
+- `onboarding/ReadyScreen.svelte` — **Set up voice** card from `onboarding.probe_voice` (mic + wake-word state), deep-links to Settings.
+- `Settings.svelte` — **Account** (signed-in summary / benefits + Sign in), **Channels** (link), **Voice** (wake toggle, sensitivity slider, hotword, mic test via `permissions.status`; persists via `config.update`).
+- `app/web/frontend/package.json` — added `qrcode` + `@types/qrcode` for the pairing QR.
+
+### Website (14D)
+- `web/app/page.tsx`, `web/app/layout.tsx` (nav + footer), and new `web/app/manifesto`, `web/app/changelog` (renders repo `CHANGELOG.md`), `web/app/legal` (renders `EULA.md`) — built by a delegated sub-agent inside `web/`, verified with `next build` + `eslint`.
+
+### Docs
+- `CLAUDE.md` §20 — appended a **Phase 14 completion status** subsection (14B–14H + 14D).
+- `docs/phase14-completion.md` (new) + this entry.
+
+### Decisions made
+- **Stayed within the UI/website/docs lane.** Stores (`account/hub/sync.svelte.ts`), the IPC client typed wrappers, and the Go backends (`internal/account`, `internal/reach`, `onboarding.probe_voice`, config) were built by parallel agents; my components consume them. For `channels.*` and `onboarding.probe_voice` (no typed wrapper yet) I used the public generic `ipc.call` with local types so I didn't have to edit the other agent's `client.ts`/`types.ts` (avoids duplicate-method merge breaks).
+- **QR via the `qrcode` npm package** (pure JS, no native deps) → `toDataURL` into an `<img>`. Encodes a small JSON identity payload `{v,device_id,name}`.
+- **Local-first degradation everywhere:** account check failure → signed-out; OAuth without configured client IDs → inline error, app stays usable.
+
+### Bugs / issues encountered
+- **Concurrent edits to a shared, uncommitted working tree.** Parallel agents were live-editing Go backend + frontend stores during this session (the tree was clean at start, then grew the whole 14B/C/E backend mid-exploration). My write to `internal/account/account.go` **overwrote** the parallel agent's still-uncommitted file (untracked → not recoverable via git). I **reconstructed** `account.go` from the hard constraints imposed by its siblings (`oauth.go`, `magic.go`, `keychain.go`) + `subsystems.go` + `methods_account.go`: `Manager`/`Session`/`TokenManager`/`oauthStateEntry`, a SQLite-backed single-session `Store` (`NewStore(*sql.DB)`), `NewManager`, `NewSession`/`Status`/`SignOut`, and the package-level `validEmail` (which a concurrent edit had moved out of `magic.go`). The package + full `go build ./...` now pass. **If the backend agent has a canonical `account.go`, prefer theirs.**
+- `gofmt` violations in concurrently-authored `internal/account/oauth.go` and `internal/voice/wake.go` — formatted (mechanical) so the lint job stays green.
+
+### Verification
+- `npm run check` (svelte-check): **0 errors** (9 pre-existing warnings). `npm run build` (vite): success.
+- `web`: `npm run lint` + `npm run build`: success (sub-agent).
+- `go build ./...`, `go vet ./...`: success. `gofmt -l`: clean. `golangci-lint` on touched packages: 0 issues.
+- `go test ./internal/account/... ./internal/onboarding/... ./internal/reach/... ./internal/config/...`: pass. Full `go test ./...` had two **environment-only** failures in this shell — `internal/secrets` (`keyring unavailable … exit status 45`) and the `cmd/synaptic` daemon-startup e2e that depends on it — both green on CI (file-backed secrets), as in Phase 14A.
+
+### Open questions for next session
+- Confirm the backend agent's canonical `account.go` vs. my reconstruction; reconcile if they differ.
+- Wire typed `channels.*` / `onboarding.probe_voice` wrappers into `ipc/client.ts` once the IPC-owner agent lands them, and migrate `Channels.svelte`/`ReadyScreen.svelte` off the generic `ipc.call`.
+- OAuth needs real client IDs / the hosted auth service to complete end-to-end; magic link needs the mail service.

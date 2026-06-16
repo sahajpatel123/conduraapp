@@ -9,6 +9,7 @@
   import Hub from './lib/routes/Hub.svelte'
   import Sync from './lib/routes/Sync.svelte'
   import Skills from './lib/routes/Skills.svelte'
+  import Channels from './lib/routes/Channels.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
@@ -29,7 +30,8 @@
     currentHash === '#/about' ? 'about' :
     currentHash === '#/hub' ? 'hub' :
     currentHash === '#/sync' ? 'sync' :
-    currentHash === '#/skills' ? 'skills' : 'chat'
+    currentHash === '#/skills' ? 'skills' :
+    currentHash === '#/channels' ? 'channels' : 'chat'
   )
 
   onMount(() => {
@@ -129,6 +131,8 @@
             <Sync />
           {:else if route === 'skills'}
             <Skills />
+          {:else if route === 'channels'}
+            <Channels />
           {:else}
             <Chat />
           {/if}

@@ -6,8 +6,11 @@
   import { spend } from '../stores/spend.svelte'
   import { trust } from '../stores/trust.svelte'
   import { onboarding } from '../stores/onboarding.svelte'
+  import { account } from '../stores/account.svelte'
   import { ipc } from '../ipc/client'
+  import { onMount } from 'svelte'
   import LocaleSelector from '../components/LocaleSelector.svelte'
+  import SignInPanel from '../components/SignInPanel.svelte'
 
   let hotkeyInput = $state('')
   let telemetryInput = $state(false)
@@ -21,6 +24,72 @@
   let eulaTitle = $state('')
   let eulaVersion = $state('')
   let rerunning = $state(false)
+
+  // Account (14B)
+  let showSignIn = $state(false)
+
+  // Voice (14H) — read/written via generic config RPCs because the
+  // typed AppConfig doesn't model the voice subtree.
+  interface WakeCfg { enabled: boolean; sensitivity: number; hotword: string }
+  let wake = $state<WakeCfg>({ enabled: false, sensitivity: 0.5, hotword: 'hey synaptic' })
+  let micTestResult = $state('')
+
+  async function loadVoice(): Promise<void> {
+    try {
+      const cfg = await ipc.call<{ voice?: { wake?: Partial<WakeCfg> } }>('config.get', {})
+      const w = cfg.voice?.wake
+      if (w) {
+        wake = {
+          enabled: w.enabled ?? false,
+          sensitivity: w.sensitivity ?? 0.5,
+          hotword: w.hotword ?? 'hey synaptic',
+        }
+      }
+    } catch {
+      // keep defaults
+    }
+  }
+
+  async function saveVoice(): Promise<void> {
+    try {
+      await ipc.call('config.update', { voice: { wake: { ...wake } } })
+    } catch (err) {
+      alert(`Could not save voice settings: ${err}`)
+    }
+  }
+
+  async function micTest(): Promise<void> {
+    micTestResult = 'Checking…'
+    try {
+      const perms = await ipc.permissionsStatus()
+      const mic = perms.find((p) => p.kind === 'microphone')
+      if (!mic) micTestResult = 'Microphone status unavailable.'
+      else if (mic.status === 'granted') micTestResult = 'Microphone access granted ✓'
+      else if (mic.status === 'denied') micTestResult = 'Microphone access denied — grant it in OS permissions above.'
+      else micTestResult = 'Microphone access not yet granted.'
+    } catch (err) {
+      micTestResult = `Mic test failed: ${err}`
+    }
+  }
+
+  function goToChannels(): void {
+    window.location.hash = '#/channels'
+  }
+
+  onMount(() => {
+    void account.checkStatus()
+    void loadVoice()
+  })
+
+  function providerLabel(p: string): string {
+    switch (p) {
+      case 'google': return 'Google'
+      case 'github': return 'GitHub'
+      case 'apple': return 'Apple'
+      case 'magic': return 'Email magic link'
+      default: return p || 'Account'
+    }
+  }
 
   async function viewEula(): Promise<void> {
     try {
@@ -126,6 +195,82 @@
     <h2>Settings</h2>
     <p class="muted">Configuration is stored in <code>~/.synaptic/config.yaml</code>. Changes here write to that file via the daemon.</p>
   </header>
+
+  <section class="card">
+    <h3>Account</h3>
+    {#if account.isSignedIn}
+      <div class="account-row">
+        {#if account.avatarURL}
+          <img class="acc-avatar" src={account.avatarURL} alt="" />
+        {:else}
+          <span class="acc-avatar fallback">{(account.displayName || '?').charAt(0).toUpperCase()}</span>
+        {/if}
+        <div class="acc-info">
+          <span class="acc-name">{account.displayName || account.email}</span>
+          <span class="acc-meta">{account.email} · {providerLabel(account.provider)}{account.tier ? ` · ${account.tier}` : ''}</span>
+        </div>
+        <button class="btn btn-ghost" onclick={() => account.signOut()} disabled={account.loading}>
+          {account.loading ? 'Signing out…' : 'Sign out'}
+        </button>
+      </div>
+    {:else}
+      <p class="muted">Synaptic works fully without an account. Sign in to:</p>
+      <ul class="benefits">
+        <li>Sync settings and skills across your devices</li>
+        <li>Publish skills to the Hub under your identity</li>
+        <li>Back up your encrypted data to the cloud</li>
+      </ul>
+      <div class="row">
+        <button class="btn btn-primary" onclick={() => (showSignIn = true)}>Sign in</button>
+      </div>
+      {#if account.error}<p class="muted err">{account.error}</p>{/if}
+    {/if}
+  </section>
+
+  <section class="card">
+    <h3>Channels</h3>
+    <p class="muted">Connect Telegram and other messaging channels to talk to Synaptic from anywhere.</p>
+    <div class="row">
+      <button class="btn btn-ghost" onclick={goToChannels}>Manage channels</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Voice</h3>
+    <p class="muted">Talk to Synaptic hands-free with a wake word. Voice runs entirely on this machine.</p>
+    <label class="checkbox">
+      <input
+        type="checkbox"
+        checked={wake.enabled}
+        onchange={(e) => { wake.enabled = (e.target as HTMLInputElement).checked; void saveVoice(); }}
+      />
+      <span>Enable wake word</span>
+    </label>
+    <div class="row slider-row">
+      <label for="wake-sens" class="slider-label">Sensitivity</label>
+      <input
+        id="wake-sens"
+        type="range"
+        min="0" max="1" step="0.05"
+        bind:value={wake.sensitivity}
+        onchange={saveVoice}
+        disabled={!wake.enabled}
+      />
+      <span class="slider-val">{Math.round(wake.sensitivity * 100)}%</span>
+    </div>
+    <div class="row">
+      <input
+        type="text"
+        class="input"
+        bind:value={wake.hotword}
+        placeholder="hey synaptic"
+        disabled={!wake.enabled}
+      />
+      <button class="btn btn-ghost" onclick={saveVoice} disabled={!wake.enabled}>Save phrase</button>
+      <button class="btn btn-ghost" onclick={micTest}>Test mic</button>
+    </div>
+    {#if micTestResult}<p class="muted">{micTestResult}</p>{/if}
+  </section>
 
   <section class="card">
     <h3>Language</h3>
@@ -326,6 +471,10 @@
     </button>
   </section>
 </div>
+
+{#if showSignIn}
+  <SignInPanel onClose={() => (showSignIn = false)} />
+{/if}
 
 <style>
   .settings-page {
@@ -536,4 +685,41 @@
     margin: var(--space-3) 0;
     padding-left: var(--space-5);
   }
+  /* Account / Voice (Phase 14B/14H) */
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+  }
+  .acc-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+  }
+  .acc-avatar.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-gradient);
+    color: white;
+    font-weight: 600;
+  }
+  .acc-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .acc-name { font-weight: 600; }
+  .acc-meta { color: var(--color-text-muted); font-size: var(--size-xs); }
+  .benefits {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-5);
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    line-height: 1.7;
+  }
+  .err { color: var(--color-error, #f87171); }
+  .slider-row { align-items: center; }
+  .slider-label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
+  .slider-row input[type='range'] { flex: 1; accent-color: var(--color-accent); }
+  .slider-val { font-family: var(--font-mono); font-size: var(--size-sm); min-width: 44px; text-align: right; }
 </style>

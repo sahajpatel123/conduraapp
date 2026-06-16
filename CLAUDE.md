@@ -845,6 +845,43 @@ all discoverable in Settings after first value. Forcing them up front (and
 especially any login) costs users before they see the agent do anything.
 </details>
 
+### Phase 14 completion status (UI / website / docs)
+
+Phase 14 layers the **optional** account, messaging, sync, publishing, and
+voice surfaces on top of the local-first core. Everything below is additive —
+the agent still works signed-out, offline, with no channels and no account.
+
+- **14B — Account UI.** Sidebar footer shows a subtle **Sign in** link when
+  signed-out and an avatar + email chip when signed-in (`AccountMenu` dropdown
+  → email/provider/tier + Sign out with confirm). `SignInPanel` offers Google /
+  GitHub OAuth + an email **magic link**. Settings has an **Account** section
+  (signed-in summary, or benefits list + Sign in). All driven by the
+  `account` store over `account.{status,oauth_url,oauth_callback,magic_link,
+  logout}`. Local-first: a network/daemon error degrades to signed-out.
+- **14C — Channels UI.** New **Channels** route (sidebar nav + `#/channels`):
+  connected-channel list with live status dots, **Connect Telegram** (BotFather
+  token, validated `digits:secret`), disconnect, 10s status poll. Backed by the
+  `channels.{list,connect,disconnect,status}` RPCs (reach subsystem). Settings
+  links to it.
+- **14D — Website.** `web/` (Next.js) landing page ("AI on your computer,
+  free"), **Manifesto**, **Changelog** (rendered from `CHANGELOG.md`), and
+  **Legal** (EULA from `EULA.md`) pages, plus a shared nav bar + footer
+  (GitHub / Discord).
+- **14F — Sync pairing UI.** `Sync.svelte` replaces `window.prompt()` with a
+  proper **`PairingModal`**: a QR of this device's identity (via the `qrcode`
+  package), the minted PIN with a TTL countdown, and a confirm input. Peers
+  auto-refresh every 5s. Driven by the `sync` store.
+- **14G — Hub publish UI.** Hub gains a **Publish a Skill** button →
+  **`PublishModal`** (name, semver-validated version, description, author,
+  license, tags, `.zip` archive picker ≤32 MB) → `hub` store `publish` flow
+  with uploading/success/error states.
+- **14H — Voice in onboarding.** Ready screen adds a **Set up voice** card
+  showing mic + wake-word state from `onboarding.probe_voice`. Settings gains a
+  **Voice** section: wake-word toggle, sensitivity slider, hotword, and a mic
+  test (checks `permissions.status`). Wake config persists via `config.update`.
+
+See `docs/phase14-completion.md` for the per-sub-phase verification checklist.
+
 ---
 
 ## 21. Interfaces

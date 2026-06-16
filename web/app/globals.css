@@ -1,1 +1,115 @@
 @import "tailwindcss";
+
+.prose-md {
+  color: var(--color-neutral-300);
+  line-height: 1.75;
+  font-size: 1rem;
+}
+
+.prose-md h1 {
+  color: #fff;
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.prose-md h2 {
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-neutral-900);
+}
+
+.prose-md h3 {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose-md p {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.prose-md ul,
+.prose-md ol {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.prose-md ul {
+  list-style: disc;
+}
+
+.prose-md ol {
+  list-style: decimal;
+}
+
+.prose-md li {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.prose-md li::marker {
+  color: var(--color-neutral-600);
+}
+
+.prose-md a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-md a:hover {
+  color: var(--color-neutral-300);
+}
+
+.prose-md strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.prose-md code {
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-200);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.875em;
+}
+
+.prose-md pre {
+  background: var(--color-neutral-900);
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+}
+
+.prose-md pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose-md hr {
+  border: 0;
+  border-top: 1px solid var(--color-neutral-800);
+  margin: 2rem 0;
+}
+
+.prose-md blockquote {
+  border-left: 3px solid var(--color-neutral-700);
+  padding-left: 1rem;
+  color: var(--color-neutral-400);
+  margin: 0 0 1.25rem 0;
+}

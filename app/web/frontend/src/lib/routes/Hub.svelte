@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
+  import PublishModal from '../components/PublishModal.svelte'
 
+  let showPublish = $state(false)
   let query = $state('')
   let results = $state<Array<{ id: string; name: string; version: string; author: string; description: string; trust: string }>>([])
   let cursor = $state(0)
@@ -44,9 +46,12 @@
 </script>
 
 <div class="hub-page" onkeydown={onKey} role="region" aria-label="Skills Hub">
-  <header>
-    <h2>Skills Hub</h2>
-    <p class="muted">Search, install, and publish community skills.</p>
+  <header class="hub-header">
+    <div>
+      <h2>Skills Hub</h2>
+      <p class="muted">Search, install, and publish community skills.</p>
+    </div>
+    <button class="publish-btn" onclick={() => (showPublish = true)}>+ Publish a Skill</button>
   </header>
 
   <div class="search-bar">
@@ -101,8 +106,24 @@
   </footer>
 </div>
 
+{#if showPublish}
+  <PublishModal onClose={() => (showPublish = false)} />
+{/if}
+
 <style>
   .hub-page { padding: 16px; }
+  .hub-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .publish-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-md, 8px);
+    border: none;
+    background: var(--color-accent-gradient, #4a9eff);
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .publish-btn:hover { box-shadow: var(--shadow-glow, 0 0 12px rgba(74,158,255,0.4)); }
   .search-bar { display: flex; gap: 8px; margin: 12px 0; }
   .search-bar input { flex: 1; padding: 8px; font-size: 14px; }
   .search-bar button { padding: 8px 16px; }

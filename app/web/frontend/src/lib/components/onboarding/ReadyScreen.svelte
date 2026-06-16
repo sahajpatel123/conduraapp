@@ -11,8 +11,18 @@
   }
   let { onDone }: Props = $props()
 
+  // Mirrors onboarding.VoiceProbe on the Go side (Phase 14H).
+  interface VoiceProbe {
+    mic_available: boolean
+    voice_enabled: boolean
+    wake_word_enabled: boolean
+    wake_word: string
+    ready: boolean
+  }
+
   let probe = $state<PowerProbeResult | null>(null)
   let probing = $state(true)
+  let voice = $state<VoiceProbe | null>(null)
 
   onMount(() => {
     void ipc
@@ -25,6 +35,16 @@
       })
       .finally(() => {
         probing = false
+      })
+
+    // Voice readiness is informational; failure just hides the card detail.
+    void ipc
+      .call<VoiceProbe>('onboarding.probe_voice', {})
+      .then((v) => {
+        voice = v
+      })
+      .catch(() => {
+        voice = null
       })
   })
 
@@ -97,6 +117,17 @@
     <button class="opt-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
       <span class="opt-title">Connect messaging</span>
       <span class="opt-sub">Telegram and more → Settings</span>
+    </button>
+    <button class="opt-card voice" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
+      <span class="opt-title">Set up voice</span>
+      <span class="opt-sub">
+        {#if voice}
+          Mic {voice.mic_available ? 'ready' : 'unavailable'} · wake word
+          {voice.wake_word_enabled ? `on ("${voice.wake_word}")` : 'off'} → Settings
+        {:else}
+          Talk to Synaptic hands-free → Settings
+        {/if}
+      </span>
     </button>
   </div>
 

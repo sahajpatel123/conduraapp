@@ -575,3 +575,196 @@ export interface SyncPeersResult {
   peers: SyncPeer[]
 }
 
+// ----- Phase 14B: Account (auth) -----
+
+// Provider is the OAuth provider that backed the user's
+// sign-in. "magic" means a magic-link email sign-in (no
+// third-party OAuth provider involved).
+export type AccountProvider = 'google' | 'github' | 'apple' | 'magic'
+
+// AccountStatus is the current authenticated user's state.
+// Returned by account.status on app start; the AccountStore
+// caches this so the GUI can show "Sign in" vs the user
+// avatar without an extra round-trip.
+export interface AccountStatus {
+  signed_in: boolean
+  // email is the user's verified email. Always present when
+  // signed_in is true; empty otherwise.
+  email: string
+  // provider is how the user signed in. Always present when
+  // signed_in is true; empty otherwise.
+  provider: AccountProvider | ''
+  // avatar_url is the user's profile picture URL. May be
+  // empty if the provider didn't return one (e.g. magic link).
+  avatar_url: string
+  // display_name is a human-readable name. Falls back to
+  // the local-part of email when the provider didn't give
+  // us a real name.
+  display_name: string
+  // tier is the user's subscription tier: "free", "pro",
+  // "team", or "enterprise". Empty when signed out.
+  tier: 'free' | 'pro' | 'team' | 'enterprise' | ''
+  // created_at is the user's account-creation timestamp
+  // (RFC 3339). Empty when signed out.
+  created_at: string
+}
+
+// OAuthURLParams asks the daemon to start an OAuth flow
+// with the given provider. The daemon returns a redirect
+// URL the GUI should open in a browser.
+export interface OAuthURLParams {
+  // provider is which OAuth provider to start. The daemon
+  // looks up the client_id/secret from secrets.
+  provider: 'google' | 'github' | 'apple'
+  // redirect_uri is where the OAuth provider should
+  // redirect after the user consents. The GUI typically
+  // uses "synaptic://oauth-callback" on desktop and
+  // "https://synaptic.app/oauth-callback" on web.
+  redirect_uri: string
+  // scopes is the OAuth scopes to request. Empty = use
+  // the provider's default scopes.
+  scopes: string[]
+}
+
+// OAuthURLResult is the daemon's response to OAuthURLParams.
+export interface OAuthURLResult {
+  // url is the provider's authorization URL. Open in a
+  // browser. The URL includes state and PKCE challenge.
+  url: string
+  // state is the OAuth state token. The GUI should compare
+  // the state returned on callback against this value
+  // (CSRF defense).
+  state: string
+  // code_verifier is the PKCE verifier. The GUI should
+  // pass it back on callback so the daemon can complete
+  // the token exchange.
+  code_verifier: string
+}
+
+// OAuthCallbackParams completes an OAuth flow. The daemon
+// exchanges the auth code for tokens, fetches the user
+// profile, and creates/updates the local user record.
+export interface OAuthCallbackParams {
+  // provider matches the one used in OAuthURLParams.
+  provider: 'google' | 'github' | 'apple'
+  // code is the auth code from the OAuth provider's
+  // redirect.
+  code: string
+  // state is the state token from the redirect. The
+  // daemon validates it against the value stored when
+  // OAuthURL was called.
+  state: string
+  // code_verifier is the PKCE verifier from OAuthURL.
+  code_verifier: string
+  // redirect_uri must match the value used in OAuthURL.
+  redirect_uri: string
+}
+
+// MagicLinkParams starts a magic-link sign-in. The daemon
+// generates a one-time token and (in production) emails
+// it to the user. In dev mode, the token is returned in
+// the result so the user can paste it.
+export interface MagicLinkParams {
+  email: string
+  // locale is the user's preferred UI language. Used to
+  // localize the magic-link email. Defaults to "en".
+  locale: string
+  // redirect_url is where the user lands after clicking
+  // the magic link. The token is appended as ?token=X.
+  redirect_url: string
+}
+
+// MagicLinkResult is the daemon's response. In production
+// the email is sent silently; the dev-mode result also
+// includes the token for local testing.
+export interface MagicLinkResult {
+  // sent is true when the email was dispatched (or, in
+  // dev mode, when the token was generated).
+  sent: boolean
+  // dev_token is non-empty in dev mode. Production sets
+  // this to "" so the magic link only goes through email.
+  dev_token: string
+  // expires_in is the token's TTL in seconds. The GUI can
+  // show "link expires in 5 min" using this.
+  expires_in: number
+}
+
+// LogoutResult is the response to a sign-out call. The
+// daemon clears local tokens + the cached AccountStatus.
+export interface LogoutResult {
+  ok: boolean
+}
+
+// ----- Phase 14F: Sync pairing result types -----
+
+// SyncPair is the public-side alias of SyncPairedDevice.
+// Used by the SyncStore so the GUI doesn't have to know
+// the internal name (which mirrors the daemon's JSON).
+export interface SyncPair extends SyncPairedDevice {}
+
+// PairBeginResult is the daemon's response to
+// sync.pair_begin. The PIN is what the user reads on the
+// existing device and types on the new device.
+export interface PairBeginResult {
+  ok: boolean
+  pin: string
+  peer: string
+  // expires_in is the PIN's TTL in seconds. The daemon
+  // invalidates the token after this. Surfaced so the
+  // GUI can show "code expires in 5:00".
+  expires_in: number
+}
+
+export interface PairConfirmResult {
+  ok: boolean
+  device_id: string
+}
+
+// ----- Phase 14G: Hub publish types -----
+
+// HubPublishParams is the payload the GUI sends to
+// hub.publish. The archive bytes are passed in directly
+// (the daemon does NOT reach back to disk).
+export interface HubPublishParams {
+  // id is the skill's identifier. Convention:
+  // "<author>/<name>@<version>", e.g. "acme/weather@1.2.0".
+  id: string
+  // archive is the binary zip of the skill (already
+  // serialized via skills.MarshalArchive). Sent over the
+  // IPC channel; max size matches HubDownload's cap
+  // (32 MB).
+  archive: number[] | Uint8Array
+  // name is the human-readable skill name. Optional when
+  // id is a fully-qualified name.
+  name: string
+  // version is the semver string. Required.
+  version: string
+  // description is the long-form skill description. Optional.
+  description: string
+  // author is the human-readable author name. Optional
+  // when id is fully-qualified.
+  author: string
+  // license is the SPDX license identifier (e.g. "MIT",
+  // "Apache-2.0"). Optional but recommended.
+  license: string
+  // tags is a list of searchable tags.
+  tags: string[]
+}
+
+// HubPublishResult is the daemon's response. The GUI
+// surfaces ok=true as a success toast and shows the
+// returned URL on the Skill page.
+export interface HubPublishResult {
+  ok: boolean
+  // id is the canonical skill id (may differ from the
+  // request if the daemon normalized it).
+  id: string
+  // url is the public skill page on the hub. The GUI
+  // links to it from the "Published!" toast.
+  url: string
+  // version is the published version (echoed back).
+  version: string
+  // published_at is the RFC 3339 publish timestamp.
+  published_at: string
+}
+
