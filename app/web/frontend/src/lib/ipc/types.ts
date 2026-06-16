@@ -363,11 +363,99 @@ export interface OnboardingStepProgress {
   updated_at: string
 }
 
+// Step is the high-level onboarding flow. The plan calls for a
+// 4-step union: eula → permissions → hotkey → complete.
+// Welcome and the daemon-side power-source step are implicit
+// (Welcome is the pre-wizard state, power-source is part of
+// permissions).
+export type OnboardingStep = 'eula' | 'permissions' | 'hotkey' | 'complete'
+
 export interface OnboardingDaemonState {
   current_step: string
   steps: Record<string, OnboardingStepProgress>
   started_at: string
   completed_at?: string
+}
+
+// EULADocument is the End-User License Agreement shown during
+// onboarding. The full text is fetched from the daemon so the
+// Svelte UI does not embed legal copy. Shape mirrors
+// internal/onboarding/eula.go.
+export interface EULADocument {
+  // version is the EULA revision (e.g. "v1"). The wizard
+  // stores the accepted version and forces a re-accept on
+  // version bump.
+  version: string
+  // text is the full EULA markdown. Rendered in a scroll
+  // area so long content never overflows.
+  text: string
+  // updated_at is the last-modified date of the EULA file
+  // (or the version's release date for the bundled fallback).
+  updated_at: string
+}
+
+// PowerProbeResult reports what the daemon sees on the user's
+// machine so the wizard can recommend a "power source"
+// (subscription vs API key vs local Ollama). The user's
+// choice is independent of the probe; this is informational.
+// Shape mirrors internal/onboarding/power.go.
+export interface PowerProbeResult {
+  // ollama_reachable is true when a local Ollama daemon is
+  // reachable on 127.0.0.1:11434.
+  ollama_reachable: boolean
+  // ollama_models is the list of models Ollama reports. Empty
+  // when not reachable.
+  ollama_models: string[]
+  // clis is the list of CLI tools (claude-code, codex, etc.)
+  // found on PATH. The wizard can recommend "use your local
+  // Claude Code subscription" when found.
+  clis: PowerProbeCLI[]
+  // recommended is the daemon's best guess for the user's
+  // primary source ("ollama", "claude-code", "codex", or
+  // "none"). The user can override.
+  recommended: string
+}
+
+// PowerProbeCLI describes one CLI tool found on PATH.
+export interface PowerProbeCLI {
+  name: string
+  found: boolean
+}
+
+// OnboardingFinishParams is the payload the GUI sends to
+// complete the wizard. The daemon persists these as the
+// user's first-run preferences. Shape mirrors the params
+// the daemon's onboarding.finish RPC expects.
+export interface OnboardingFinishParams {
+  // hotkey is the user's chosen overlay hotkey (e.g.
+  // "Cmd+Shift+Space"). Persisted to config. Required.
+  hotkey: string
+  // eula_version is the EULA revision the user accepted.
+  // Persisted to step metadata so future EULA bumps force
+  // re-accept. Required.
+  eula_version: string
+  // permissions_skipped is true when the user opted to skip
+  // the permissions grant step. Per CLAUDE.md the user can
+  // grant later; we record the choice so the audit log has it.
+  permissions_skipped?: boolean
+}
+
+// OnboardingFinishResult tells the GUI whether the daemon
+// accepted the finish. On success, the wizard dismisses and
+// the main UI mounts. Shape mirrors the Go onboarding.finish
+// return value.
+export interface OnboardingFinishResult {
+  // power is the power probe result, used to render the
+  // Ready screen ("found your local Ollama, etc."). The
+  // probe is also used internally to auto-enable Ollama in
+  // config when reachable.
+  power: PowerProbeResult
+  // hotkey is the hotkey the daemon actually persisted.
+  // May differ from the user's request if the daemon
+  // detected a conflict (currently always equal).
+  hotkey: string
+  // completed_at is the RFC3339 timestamp of the completion.
+  completed_at: string
 }
 
 // ----- Phase 12: i18n -----

@@ -1892,3 +1892,45 @@ secrets exist.
 ### Next steps
 - User will run on-device verification checklist (`docs/on-device-verification.md`) and add Apple signing secrets for notarization if desired.
 - Remove the empty `cmd/sign-manifest` directory when convenient: `rm -rf cmd/sign-manifest`.
+
+---
+
+## [2026-06-17T00:00:00Z] AI Model: Claude Opus 4.8
+**Session ID:** 01JZPHASE14A-UI-DOCS
+**Branch:** main
+**Task:** Phase 14A onboarding — Svelte UI + docs (Agent 3). Build the converged 4-screen, value-first wizard (EULA → Permissions → Hotkey → Ready) on top of the daemon onboarding state machine + RPCs built in parallel.
+
+### Files created
+- `app/web/frontend/src/lib/components/HotkeyRecorder.svelte` — keydown/keyup capture that emits a parser-compatible hotkey spec (`Cmd+Shift+Space`); shows platform suggestions; `onRecord(combo)` callback prop.
+- `app/web/frontend/src/lib/components/onboarding/EulaScreen.svelte` — scrollable EULA (from `onboarding.eula`); Accept gated on scroll-to-bottom + checkbox; records acceptance with version.
+- `app/web/frontend/src/lib/components/onboarding/PermissionsScreen.svelte` — Accessibility + Screen Recording only; polls `permissions.status` every 2s; deep-link via `permissions.request_guide`; "Skip for now" + always-enabled Continue.
+- `app/web/frontend/src/lib/components/onboarding/HotkeyScreen.svelte` — wraps HotkeyRecorder; Continue enabled only after a valid combo.
+- `app/web/frontend/src/lib/components/onboarding/ReadyScreen.svelte` — `onboarding.probe_power` (Ollama + CLIs); optional Settings deep-link cards; "Start using Synaptic" → `onboarding.finish`.
+- `docs/onboarding-verification.md` — 9-step macOS clean-install manual checklist + edge cases + cross-platform smoke.
+
+### Files modified
+- `app/web/frontend/src/lib/stores/onboarding.svelte.ts` — rewritten as an RPC-driven cache (removed the old parallel frontend step machine). Exposes `currentStep`, `sync`, `acceptEula`, `completePermissions`, `skipStep`, `setHotkey`, `back`, `finish`, `reset`; remembers accepted `eulaVersion`.
+- `app/web/frontend/src/lib/components/OnboardingWizard.svelte` — rewritten to render by `store.currentStep` with a 4-dot indicator; removed provider/apikey/test/voice/privacy screens; `onComplete(route?)` callback dismisses the overlay (fixes the old done-screen `reset()` bug).
+- `app/web/frontend/src/App.svelte` — gate now `Promise.all([firstRunStatus, onboardingIsComplete])` (both must be incomplete to show wizard, so upgrades aren't re-wizarded); added `synaptic:show-onboarding` listener for Settings "Re-run setup"; passes `completeOnboarding` to the wizard.
+- `app/web/frontend/src/lib/routes/Settings.svelte` — added a **Legal** section (View EULA via `onboarding.eula`) and a **Setup** section with "Re-run setup" (`onboarding.reset()` + show-onboarding event).
+- `app/web/frontend/src/lib/ipc/client.ts` — added `onboardingBack`, `onboardingSetStep`, `onboardingReset` wrappers (the high-level `eula/probe_power/skip/finish/is_complete` wrappers were added by the backend agent).
+- `CLAUDE.md` §20 — documented the converged 4-screen flow; preserved the original 7-screen spec in a collapsed "Historical spec" block with rationale.
+
+### Decisions made
+- **Daemon is the single source of truth for step order.** The Svelte store is a thin cache; it never keeps its own step list. Prevents the pre-14A desync where the GUI had 8 frontend-only steps that ignored EULA + permissions.
+- **HotkeyRecorder emits specs the Go parser accepts** (`internal/hotkey/parse.go`): ≥1 modifier + a named key or single printable char. Uses `KeyboardEvent.code` for letters/digits so layout + held modifiers don't mangle the character. `Cmd` on mac / `Win` elsewhere for the Meta key.
+- **No `set_step` for EULA on the daemon's finish path**, so the UI records EULA acceptance via `onboarding.set_step` before advancing, and passes `eula_version` again at `finish` time (belt-and-suspenders for re-accept detection).
+- **"Re-run setup" uses a window CustomEvent**, not a backend change, because the first-run marker stays set; the App listens and force-shows the wizard after `onboarding.reset()`.
+- Conformed all UI types to the Go-mirrored contract in `types.ts` (`EULADocument.text`, `PowerProbeResult.ollama_reachable/clis`, `OnboardingFinishParams.eula_version`, finish result `{power,hotkey,completed_at}` — success = no thrown error).
+
+### Bugs / issues encountered
+- **Concurrent edits to `types.ts`/`client.ts` by parallel backend agents** mid-session: the EULA/power/finish shapes changed under me (e.g. `has_ollama` → `ollama_reachable`, `body` → `text`, `ok/errors` → throw-on-failure). Re-read the live contract and conformed; `npm run check` now reports **0 errors** (remaining warnings are pre-existing `background-clip` vendor-prefix advisories and an intentional initial-value capture in HotkeyRecorder).
+
+### Open questions for next session
+- EULA version string is inconsistent across layers (`internal/onboarding` uses `"v1"`, the RPC layer referenced `"1.0.0"`). The UI just echoes whatever `onboarding.eula` returns, but the daemon's re-accept comparison should be reconciled to one canonical value.
+- Phase 14B (optional account: Google/GitHub/magic link in the sidebar) and 14C (channels) are not started; Ready-screen "Connect messaging" card currently just deep-links to Settings.
+
+### Next steps
+- Run `docs/onboarding-verification.md` on a clean macOS machine (and Windows/Linux smoke).
+- Reconcile the canonical EULA version constant across `internal/onboarding`, the daemon RPC, and any persisted step data.
+- Verify the full Go build/tests for the parallel backend onboarding work (`go build ./... && go test ./internal/onboarding/... ./internal/daemon/...`).

@@ -788,7 +788,49 @@ Animated waveform when listening. Pulsing dots. Color reflects confidence.
 
 ## 20. Onboarding Flow
 
-The killer UX moment. 7 screens, all skippable but recommended:
+> **Phase 14A update (converged "value-first" flow).** The original
+> 7-screen plan (below, "Historical spec") put a login/power-source
+> wall and a voice test in front of the user before they ever saw the
+> agent work. That maximizes drop-off. The shipped flow is **4 screens,
+> ≤9 clicks**, legal-first, value-first. The deferred screens move to
+> Settings (progressive disclosure), not the critical path.
+
+**Shipped flow (4 screens):**
+
+1. **EULA** — Welcome copy + scrollable license; "I Accept" is disabled
+   until the user scrolls to the bottom **and** ticks the checkbox.
+   Legal consent happens **before** any system access. Acceptance is
+   recorded with the EULA version so a future bump forces re-accept.
+2. **Permissions** — only the two grants computer use actually needs:
+   **Accessibility** + **Screen Recording**. Live status badges poll
+   `permissions.status` every 2s; "Open System Settings" uses the
+   per-platform deep link from `permissions.request_guide`. A **"Skip
+   for now"** footer lets the user proceed; Continue is always enabled.
+   Microphone / Automation / Notifications are requested lazily from
+   Settings when the user enables those features.
+3. **Hotkey** — the user records a combo (no silent default, per locked
+   decision #8). Continue is enabled only once a valid combo is captured.
+4. **Ready** — `onboarding.probe_power` auto-detects local Ollama (and
+   installed CLIs) so the agent works immediately with **no account and
+   no API key**. Optional cards ("Add an API key", "Connect messaging")
+   deep-link into Settings. "Start using Synaptic" calls
+   `onboarding.finish`, which persists the hotkey + EULA version, enables
+   Ollama when reachable, writes the first-run marker, and dismisses the
+   wizard.
+
+**Architecture:** the daemon's `internal/onboarding` state machine is the
+single source of truth (`eula → permissions → hotkey → complete`); the
+Svelte wizard (`OnboardingWizard.svelte` + `lib/components/onboarding/*`)
+renders the current step over the `onboarding.*` RPCs and never keeps a
+parallel step list. Legacy 8-step persisted state is migrated forward on
+load. **No account is required to use the local agent** (locked decision
+#30: account is for Hub/dashboard/support only; sync is P2P). Settings
+exposes a **Legal** section (view EULA) and **Re-run setup**.
+
+After onboarding: menu bar icon (mac) / system tray (win) / status icon (linux) shows status.
+
+<details>
+<summary><strong>Historical spec (original 7-screen plan, superseded by the 4-screen flow above)</strong></summary>
 
 1. **Welcome** — what Synaptic is, mission
 2. **EULA acceptance** — must accept
@@ -798,7 +840,10 @@ The killer UX moment. 7 screens, all skippable but recommended:
 6. **Hotkey configuration** — record the key combo user wants
 7. **Voice test** — "Say something"
 
-After onboarding: menu bar icon (mac) / system tray (win) / status icon (linux) shows status.
+Rationale for change: power source, backend detection, and voice test are
+all discoverable in Settings after first value. Forcing them up front (and
+especially any login) costs users before they see the agent do anything.
+</details>
 
 ---
 

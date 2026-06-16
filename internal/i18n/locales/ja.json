@@ -96,5 +96,22 @@
   "error.not_found": "見つかりません: {0}",
   "error.unauthorized": "未認証",
   "error.timeout": "操作がタイムアウトしました",
-  "error.cancelled": "操作がキャンセルされました"
+  "error.cancelled": "操作がキャンセルされました",
+  "onboarding.eula.title": "ライセンス契約",
+  "onboarding.eula.body": "Synaptic フリウェアライセンス契約を読み、同意してください。",
+  "onboarding.eula.accept": "ライセンスに同意する",
+  "onboarding.eula.decline": "拒否",
+  "onboarding.permissions.title": "権限の付与",
+  "onboarding.permissions.accessibility": "アクセシビリティアクセスにより、エージェントが画面を読み、ユーザーに代わってクリックできます。",
+  "onboarding.permissions.screen_recording": "画面録画アクセスにより、エージェントは Replay(監査ログ)用のスクリーンショットを撮影できます。",
+  "onboarding.permissions.grant": "権限を付与",
+  "onboarding.permissions.skip": "今はスキップ",
+  "onboarding.hotkey.title": "ホットキーを選択",
+  "onboarding.hotkey.recording": "Synaptic オーバーレイに割り当てるキーの組み合わせを押してください。",
+  "onboarding.hotkey.continue": "続行",
+  "onboarding.ready.title": "設定完了",
+  "onboarding.ready.ollama_found": "ローカルで Ollama が実行中です。デフォルトのモデルソースとして使用します。",
+  "onboarding.ready.ollama_missing": "ローカル AI バックエンドが検出されませんでした。設定で API キーを追加するか、Ollama を後でインストールできます。",
+  "onboarding.ready.api_key_card": "API キーを追加",
+  "onboarding.ready.start": "Synaptic の使用を開始"
 }

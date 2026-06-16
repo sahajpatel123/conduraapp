@@ -270,6 +270,47 @@ class IPCClient {
   onboardingComplete(): Promise<import('./types').OnboardingDaemonState> {
     return this.call('onboarding.complete', {})
   }
+  // onboardingSetStep records a step's status + optional data.
+  // Used by the EULA step to record the accepted EULA
+  // version in step metadata, so future EULA bumps force a
+  // re-accept.
+  onboardingSetStep(
+    step: import('./types').OnboardingStep | string,
+    status: 'pending' | 'in_progress' | 'complete' | 'skipped' | string,
+    data?: string
+  ): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.set_step', { step, status, data: data ?? '' })
+  }
+  onboardingBack(): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.back', {})
+  }
+  onboardingReset(): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.reset', {})
+  }
+
+  // Onboarding (Phase 12/14 wizard). The high-level wrappers
+  // accept a step name and an optional payload; the daemon
+  // handles state transitions and persistence. The four-step
+  // union is: eula | permissions | hotkey | complete.
+  onboardingEula(): Promise<import('./types').EULADocument> {
+    return this.call('onboarding.eula', {})
+  }
+  onboardingProbePower(): Promise<import('./types').PowerProbeResult> {
+    return this.call('onboarding.probe_power', {})
+  }
+  onboardingSkip(
+    step: import('./types').OnboardingStep
+  ): Promise<import('./types').OnboardingDaemonState> {
+    return this.call('onboarding.skip', { step })
+  }
+  onboardingFinish(
+    p: import('./types').OnboardingFinishParams
+  ): Promise<import('./types').OnboardingFinishResult> {
+    return this.call('onboarding.finish', p)
+  }
+  onboardingIsComplete(): Promise<boolean> {
+    return this.call('onboarding.is_complete', {})
+  }
 
   // Phase 12 — i18n
   i18nLocales(): Promise<string[]> {

@@ -45,18 +45,40 @@
     // before any daemon communication starts.
     void initStores()
 
-    // Check first-run status; show wizard if not yet complete.
-    ipc.firstRunStatus().then((s) => {
-      if (!s.complete) showOnboarding = true
+    // Show the wizard only when BOTH gates say setup is unfinished:
+    // the legacy first-run marker AND the onboarding state machine.
+    // This keeps upgrades smooth — a user who finished onboarding in
+    // an older build (marker set) is never re-wizarded.
+    void Promise.all([
+      ipc.firstRunStatus().catch(() => ({ complete: false })),
+      ipc.onboardingIsComplete().catch(() => true)
+    ]).then(([fr, onboardComplete]) => {
+      showOnboarding = !fr.complete && !onboardComplete
     }).catch(() => {})
 
-    return () => window.removeEventListener('hashchange', onHashChange)
+    // Settings "Re-run setup" asks us to re-show the wizard even
+    // though the first-run marker is already set.
+    const onShowOnboarding = (): void => {
+      showOnboarding = true
+      window.location.hash = '#/'
+    }
+    window.addEventListener('synaptic:show-onboarding', onShowOnboarding)
+
+    return () => {
+      window.removeEventListener('hashchange', onHashChange)
+      window.removeEventListener('synaptic:show-onboarding', onShowOnboarding)
+    }
   })
+
+  function completeOnboarding(route?: string): void {
+    showOnboarding = false
+    if (route) window.location.hash = route
+  }
 </script>
 
 {#if showOnboarding}
   <div class="onboarding-overlay">
-    <OnboardingWizard />
+    <OnboardingWizard onComplete={completeOnboarding} />
   </div>
 {:else}
   <div class="app-shell" class:overlay-mode={overlay.active}>

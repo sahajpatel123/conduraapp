@@ -96,5 +96,22 @@
   "error.not_found": "未找到: {0}",
   "error.unauthorized": "未授权",
   "error.timeout": "操作超时",
-  "error.cancelled": "操作已取消"
+  "error.cancelled": "操作已取消",
+  "onboarding.eula.title": "许可协议",
+  "onboarding.eula.body": "请阅读并接受 Synaptic 自由软件许可协议。",
+  "onboarding.eula.accept": "我接受许可",
+  "onboarding.eula.decline": "拒绝",
+  "onboarding.permissions.title": "授予权限",
+  "onboarding.permissions.accessibility": "无障碍访问允许代理读取屏幕并代替您点击。",
+  "onboarding.permissions.screen_recording": "屏幕录制访问允许代理捕获 Replay(审计日志)的截图。",
+  "onboarding.permissions.grant": "授予权限",
+  "onboarding.permissions.skip": "暂时跳过",
+  "onboarding.hotkey.title": "选择您的快捷键",
+  "onboarding.hotkey.recording": "按下一个组合键以将其分配给 Synaptic 浮层。",
+  "onboarding.hotkey.continue": "继续",
+  "onboarding.ready.title": "一切就绪",
+  "onboarding.ready.ollama_found": "检测到本地运行 Ollama。我们将使用它作为默认模型来源。",
+  "onboarding.ready.ollama_missing": "未检测到本地 AI 后端。您可以在设置中添加 API 密钥或稍后安装 Ollama。",
+  "onboarding.ready.api_key_card": "添加 API 密钥",
+  "onboarding.ready.start": "开始使用 Synaptic"
 }

@@ -96,5 +96,22 @@
   "error.not_found": "No encontrado: {0}",
   "error.unauthorized": "No autorizado",
   "error.timeout": "Operación expiró",
-  "error.cancelled": "Operación cancelada"
+  "error.cancelled": "Operación cancelada",
+  "onboarding.eula.title": "Acuerdo de Licencia",
+  "onboarding.eula.body": "Por favor, lee y acepta el Acuerdo de Licencia Freeware de Synaptic.",
+  "onboarding.eula.accept": "Acepto la licencia",
+  "onboarding.eula.decline": "Rechazar",
+  "onboarding.permissions.title": "Conceder Permisos",
+  "onboarding.permissions.accessibility": "El acceso de accesibilidad permite al agente leer la pantalla y hacer clic en tu nombre.",
+  "onboarding.permissions.screen_recording": "El acceso de grabación de pantalla permite al agente capturar capturas para Replay (registro de auditoría).",
+  "onboarding.permissions.grant": "Conceder permisos",
+  "onboarding.permissions.skip": "Omitir por ahora",
+  "onboarding.hotkey.title": "Elige Tu Atajo",
+  "onboarding.hotkey.recording": "Pulsa una combinación de teclas para asignarla al overlay de Synaptic.",
+  "onboarding.hotkey.continue": "Continuar",
+  "onboarding.ready.title": "Todo Listo",
+  "onboarding.ready.ollama_found": "Ollama ejecutándose localmente. Lo usaremos como fuente de modelo predeterminada.",
+  "onboarding.ready.ollama_missing": "No se detectó un backend de IA local. Puedes añadir una clave API en Configuración o instalar Ollama más tarde.",
+  "onboarding.ready.api_key_card": "Añadir una clave API",
+  "onboarding.ready.start": "Empezar a usar Synaptic"
 }

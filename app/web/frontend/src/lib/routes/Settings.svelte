@@ -5,6 +5,8 @@
   import { halt } from '../stores/halt.svelte'
   import { spend } from '../stores/spend.svelte'
   import { trust } from '../stores/trust.svelte'
+  import { onboarding } from '../stores/onboarding.svelte'
+  import { ipc } from '../ipc/client'
   import LocaleSelector from '../components/LocaleSelector.svelte'
 
   let hotkeyInput = $state('')
@@ -15,6 +17,34 @@
   let settingAPIKey = $state(false)
   let creatingBackup = $state(false)
   let permissionGuide = $state<{ kind: string; title: string; steps: string[] } | null>(null)
+  let eulaText = $state('')
+  let eulaTitle = $state('')
+  let eulaVersion = $state('')
+  let rerunning = $state(false)
+
+  async function viewEula(): Promise<void> {
+    try {
+      const doc = await ipc.onboardingEula()
+      eulaText = doc.text
+      eulaTitle = 'Synaptic Freeware License'
+      eulaVersion = doc.version
+    } catch (err) {
+      alert(`Could not load the EULA: ${err}`)
+    }
+  }
+
+  async function rerunSetup(): Promise<void> {
+    if (!confirm('Re-run the setup wizard? Your data and settings are not affected.')) return
+    rerunning = true
+    try {
+      await onboarding.reset()
+      window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
+    } catch (err) {
+      alert(`Could not reset setup: ${err}`)
+    } finally {
+      rerunning = false
+    }
+  }
 
   $effect(() => {
     if (settings.config) {
@@ -270,6 +300,31 @@
       </button>
     </div>
   </section>
+
+  <section class="card">
+    <h3>Legal</h3>
+    <p class="muted">Review the license you accepted during setup. The full text is also available online.</p>
+    {#if eulaText}
+      <div class="eula-view">
+        <div class="eula-view-head">
+          <strong>{eulaTitle}</strong>
+          <span class="muted">{eulaVersion}</span>
+        </div>
+        <pre>{eulaText}</pre>
+      </div>
+      <button class="btn btn-ghost" onclick={() => { eulaText = '' }}>Hide</button>
+    {:else}
+      <button class="btn btn-ghost" onclick={viewEula}>View EULA</button>
+    {/if}
+  </section>
+
+  <section class="card">
+    <h3>Setup</h3>
+    <p class="muted">Run the first-time setup wizard again — EULA, permissions, and hotkey. Your data is not affected.</p>
+    <button class="btn btn-ghost" onclick={rerunSetup} disabled={rerunning}>
+      {rerunning ? 'Resetting…' : 'Re-run setup'}
+    </button>
+  </section>
 </div>
 
 <style>
@@ -312,6 +367,30 @@
     font-size: var(--size-lg);
     font-weight: 600;
     margin-bottom: var(--space-3);
+  }
+  .eula-view {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin: var(--space-3) 0;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .eula-view-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: var(--space-2);
+  }
+  .eula-view pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    margin: 0;
   }
   .card h4 {
     font-size: var(--size-md);

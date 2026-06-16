@@ -96,5 +96,22 @@
   "error.not_found": "Not found: {0}",
   "error.unauthorized": "Unauthorized",
   "error.timeout": "Operation timed out",
-  "error.cancelled": "Operation cancelled"
+  "error.cancelled": "Operation cancelled",
+  "onboarding.eula.title": "License Agreement",
+  "onboarding.eula.body": "Please read and accept the Synaptic Freeware License Agreement.",
+  "onboarding.eula.accept": "I accept the license",
+  "onboarding.eula.decline": "Decline",
+  "onboarding.permissions.title": "Grant Permissions",
+  "onboarding.permissions.accessibility": "Accessibility access lets the agent read the screen and click on your behalf.",
+  "onboarding.permissions.screen_recording": "Screen recording access lets the agent capture screenshots for Replay (audit log).",
+  "onboarding.permissions.grant": "Grant permissions",
+  "onboarding.permissions.skip": "Skip for now",
+  "onboarding.hotkey.title": "Choose Your Hotkey",
+  "onboarding.hotkey.recording": "Press a key combination to assign it to the Synaptic overlay.",
+  "onboarding.hotkey.continue": "Continue",
+  "onboarding.ready.title": "You're All Set",
+  "onboarding.ready.ollama_found": "Found Ollama running locally. We will use it as your default model source.",
+  "onboarding.ready.ollama_missing": "No local AI backend detected. You can add an API key in Settings or install Ollama later.",
+  "onboarding.ready.api_key_card": "Add an API key",
+  "onboarding.ready.start": "Start using Synaptic"
 }
