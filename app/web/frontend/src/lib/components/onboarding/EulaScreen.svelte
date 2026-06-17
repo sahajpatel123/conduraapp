@@ -4,7 +4,7 @@
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { EULADocument } from '../../ipc/types'
 
-  const EULA_TITLE = 'Synaptic Freeware License'
+  const EULA_TITLE = 'Condura Freeware License'
 
   let doc = $state<EULADocument | null>(null)
   let loading = $state(true)
@@ -48,7 +48,7 @@
 </script>
 
 <div class="wizard eula">
-  <h1>Welcome to Synaptic</h1>
+  <h1>Welcome to Condura</h1>
   <p class="lede">A free, on-device AI agent. Before we set things up, please review and accept the license.</p>
 
   {#if loading}

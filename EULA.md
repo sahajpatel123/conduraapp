@@ -1,14 +1,14 @@
-# Synaptic Freeware End-User License Agreement (EULA) v1
+# Condura Freeware End-User License Agreement (EULA) v1
 
 **Last updated:** 2026-06-06
 
-This End-User License Agreement ("EULA") governs your use of the Synaptic software application ("Software"). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this EULA.
+This End-User License Agreement ("EULA") governs your use of the Condura software application ("Software"). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this EULA.
 
 ---
 
 ## 1. Grant of License
 
-Subject to your compliance with this EULA, Synaptic grants you a **free, non-exclusive, non-transferable, revocable license** to:
+Subject to your compliance with this EULA, Condura grants you a **free, non-exclusive, non-transferable, revocable license** to:
 
 - Install and use the Software on any computer you own or control.
 - Use the Software for personal, commercial, educational, or any other lawful purpose.
@@ -18,7 +18,7 @@ Subject to your compliance with this EULA, Synaptic grants you a **free, non-exc
 
 You may **not**:
 
-- **Redistribute** the Software, in whole or in part, in any form (modified or unmodified) without prior written permission from Synaptic. You may share the official download link at `synaptic.app`.
+- **Redistribute** the Software, in whole or in part, in any form (modified or unmodified) without prior written permission from Condura. You may share the official download link at `condura.app`.
 - **Sell** the Software or any portion thereof.
 - **Reverse engineer** the Software for the purpose of creating a competing product.
 - **Remove or alter** any proprietary notices, labels, or marks on the Software.
@@ -33,7 +33,7 @@ You may **not**:
 
 THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
 
-**Synaptic does not warrant that:**
+**Condura does not warrant that:**
 
 - The Software will be uninterrupted, error-free, or secure.
 - The Software will meet your specific requirements.
@@ -45,14 +45,14 @@ THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIN
 - AI models can produce **incorrect, biased, or harmful output**.
 - The Software performs **physical actions on your computer** that may be **irreversible**.
 - You are **solely responsible** for the consequences of actions taken by the Software.
-- Synaptic is **not liable** for any damages arising from use of the Software, including but not limited to direct, indirect, incidental, consequential, or special damages.
+- Condura is **not liable** for any damages arising from use of the Software, including but not limited to direct, indirect, incidental, consequential, or special damages.
 
 ## 4. Your Data and Privacy
 
 - The Software runs **locally on your computer**. We do not have access to your data unless you explicitly share it (e.g., via support requests).
 - Your **API keys**, **memory**, **skills**, **configuration**, and **audit logs** are stored locally, encrypted at rest.
 - **Telemetry is off by default.** If you opt in, only anonymized aggregate usage statistics are collected. You can opt out at any time.
-- The Software connects only to **LLM providers you have configured** and to the **Synaptic update server** (for version checks). No other outbound network calls are made.
+- The Software connects only to **LLM providers you have configured** and to the **Condura update server** (for version checks). No other outbound network calls are made.
 - For full details, see `PRIVACY.md`.
 
 ## 5. Modifications and Source Code
@@ -69,20 +69,20 @@ The Software uses AI models to take actions on your computer. You acknowledge th
 - Actions taken by the Software may be **irreversible** (e.g., sending an email, transferring funds, deleting files).
 - The Software includes a **safety layer** that requires your explicit consent for destructive actions.
 - **You are responsible** for reviewing any action before approving it.
-- Synaptic is **not liable** for any loss or damage caused by AI-generated actions.
+- Condura is **not liable** for any loss or damage caused by AI-generated actions.
 
 ## 7. Updates
 
-- Synaptic may release updates from time to time. Updates may be automatic (via the auto-update feature) or manual.
+- Condura may release updates from time to time. Updates may be automatic (via the auto-update feature) or manual.
 - This EULA applies to all updates unless the update is accompanied by a separate EULA.
 - You may opt out of automatic updates in the Software's settings, but you are then responsible for keeping the Software up to date.
 
 ## 8. Termination
 
-This EULA is effective until terminated. Synaptic may **terminate or suspend** your license at any time, with or without cause, including but not limited to:
+This EULA is effective until terminated. Condura may **terminate or suspend** your license at any time, with or without cause, including but not limited to:
 
 - Your breach of this EULA.
-- Your use of the Software in a manner that harms Synaptic, other users, or third parties.
+- Your use of the Software in a manner that harms Condura, other users, or third parties.
 - Your use of the Software for unlawful purposes.
 - Discontinuation of the Software.
 
@@ -95,22 +95,22 @@ Upon termination, you must cease all use of the Software and destroy all copies 
 
 ## 10. Open Source Components
 
-The Software includes open-source components. A list of these components and their licenses is available in the Software's "About" section and at `synaptic.app/oss-licenses`.
+The Software includes open-source components. A list of these components and their licenses is available in the Software's "About" section and at `condura.app/oss-licenses`.
 
 ## 11. Governing Law
 
-This EULA shall be governed by and construed in accordance with the laws of the jurisdiction in which Synaptic is incorporated, without regard to its conflict of law provisions.
+This EULA shall be governed by and construed in accordance with the laws of the jurisdiction in which Condura is incorporated, without regard to its conflict of law provisions.
 
 ## 12. Entire Agreement
 
-This EULA, together with `PRIVACY.md` and any separate written agreements, constitutes the entire agreement between you and Synaptic regarding the Software.
+This EULA, together with `PRIVACY.md` and any separate written agreements, constitutes the entire agreement between you and Condura regarding the Software.
 
 ## 13. Contact
 
 If you have questions about this EULA, contact:
 
-- Email: `legal@synaptic.app`
-- Web: `synaptic.app/legal`
+- Email: `legal@condura.app`
+- Web: `condura.app/legal`
 
 ---
 

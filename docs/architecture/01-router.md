@@ -1,6 +1,6 @@
 # Architecture 01 — The Hybrid-with-Memory Router
 
-> How Synaptic picks the right model or CLI for each sub-task.
+> How Condura picks the right model or CLI for each sub-task.
 
 ---
 
@@ -124,7 +124,7 @@ The user drags items to reorder. This is one of the most-used settings.
 
 The user can pin a model for one request:
 
-- "Hey Synaptic, ask `claude-opus-4-7` for that one"
+- "Hey Condura, ask `claude-opus-4-7` for that one"
 - "Use local Ollama for this — I'm offline"
 - "Try `codex` first for code tasks"
 - A UI selector in the composer.

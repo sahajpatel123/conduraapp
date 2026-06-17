@@ -1,4 +1,4 @@
-# Release Runbook — Synaptic v0.1.0
+# Release Runbook — Condura v0.1.0
 
 ## Pre-release checklist
 
@@ -21,22 +21,22 @@
 
 ```bash
 # Tag the release
-git tag -a v0.1.0 -m "Synaptic v0.1.0"
+git tag -a v0.1.0 -m "Condura v0.1.0"
 git push origin v0.1.0
 
 # CI builds, signs, notarizes, and uploads to GitHub Releases.
-# Monitor: https://github.com/sahajpatel123/synapticapp/actions
+# Monitor: https://github.com/sahajpatel123/conduraapp/actions
 ```
 
 ## Verify artifacts
 
 ```bash
 # Download and verify checksums
-curl -LO https://github.com/sahajpatel123/synapticapp/releases/download/v0.1.0/SHA256SUMS
+curl -LO https://github.com/sahajpatel123/conduraapp/releases/download/v0.1.0/SHA256SUMS
 sha256sum -c SHA256SUMS
 
 # macOS: verify notarization
-spctl -a -v /Applications/Synaptic.app
+spctl -a -v /Applications/Condura.app
 
 # Windows: verify Authenticode
 signtool verify /pa /v synaptic.exe
@@ -69,7 +69,7 @@ Or generate from checksums manually:
 go run ./cmd/gen-update-manifest generate \
   --version v0.1.0 \
   --checksums dist/checksums.txt \
-  --base-url "https://github.com/sahajpatel123/synapticapp/releases/download/v0.1.0" \
+  --base-url "https://github.com/sahajpatel123/conduraapp/releases/download/v0.1.0" \
   --out dist/update-manifest.signed.json
 ```
 
@@ -78,11 +78,11 @@ Push the signed manifest to the update server (stable URL for the daemon poller)
 {
   "version": "0.1.0",
   "channel": "stable",
-  "download_url": "https://github.com/sahajpatel123/synapticapp/releases/download/v0.1.0/synaptic-0.1.0-darwin-arm64.tar.gz",
+  "download_url": "https://github.com/sahajpatel123/conduraapp/releases/download/v0.1.0/synaptic-0.1.0-darwin-arm64.tar.gz",
   "sha256": "<SHA256 from SHA256SUMS>",
   "ed25519_sig": "<signature from signing tool>",
   "mandatory": false,
-  "notes": "Initial release of Synaptic v0.1.0"
+  "notes": "Initial release of Condura v0.1.0"
 }
 ```
 

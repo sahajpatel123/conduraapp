@@ -1,5 +1,5 @@
 {
-  "daemon.starting": "Starting Synaptic daemon...",
+  "daemon.starting": "Starting Condura daemon...",
   "daemon.ready": "Daemon ready",
   "daemon.shutdown": "Shutting down...",
   "daemon.halted": "Daemon halted: {0}",

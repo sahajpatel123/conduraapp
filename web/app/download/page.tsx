@@ -1,37 +1,37 @@
 import { PLATFORMS, SITE } from "@/lib/site";
 
 const RELEASE_BASE =
-  "https://github.com/sahajpatel123/synapticapp/releases/latest/download";
+  "https://github.com/sahajpatel123/conduraapp/releases/latest/download";
 
 const DOWNLOADS = {
   mac: {
-    dmg: `${RELEASE_BASE}/synaptic-gui-darwin-arm64.dmg`,
-    zip: `${RELEASE_BASE}/synaptic-gui-darwin-arm64.zip`,
-    daemon: `${RELEASE_BASE}/synapticd-darwin-arm64.tar.gz`,
+    dmg: `${RELEASE_BASE}/condura-gui-darwin-arm64.dmg`,
+    zip: `${RELEASE_BASE}/condura-gui-darwin-arm64.zip`,
+    daemon: `${RELEASE_BASE}/condurad-darwin-arm64.tar.gz`,
   },
   windows: {
-    setup: `${RELEASE_BASE}/synaptic-gui-windows-amd64-setup.exe`,
-    exe: `${RELEASE_BASE}/synaptic-gui-windows-amd64.exe`,
-    daemon: `${RELEASE_BASE}/synapticd-windows-amd64.zip`,
+    setup: `${RELEASE_BASE}/condura-gui-windows-amd64-setup.exe`,
+    exe: `${RELEASE_BASE}/condura-gui-windows-amd64.exe`,
+    daemon: `${RELEASE_BASE}/condurad-windows-amd64.zip`,
   },
   linux: {
-    deb: `${RELEASE_BASE}/synapticd_0.1.0_linux_amd64.deb`,
-    cli: `${RELEASE_BASE}/synaptic-cli-linux-amd64.tar.gz`,
-    gui: `${RELEASE_BASE}/synaptic-gui-linux-amd64`,
+    deb: `${RELEASE_BASE}/condurad_0.1.0_linux_amd64.deb`,
+    cli: `${RELEASE_BASE}/condura-cli-linux-amd64.tar.gz`,
+    gui: `${RELEASE_BASE}/condura-gui-linux-amd64`,
   },
 } as const;
 
-const RELEASE_TAG = "https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0";
+const RELEASE_TAG = "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0";
 
 export default function DownloadPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 text-neutral-100">
-      <h1 className="text-3xl font-semibold tracking-tight">Download Synaptic</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Download Condura</h1>
       <p className="mt-4 text-neutral-400">
         {SITE.description} Installers are signed, checksummed, and published from{" "}
         <a
           className="underline hover:text-white"
-          href="https://github.com/sahajpatel123/synapticapp/releases"
+          href="https://github.com/sahajpatel123/conduraapp/releases"
         >
           GitHub Releases
         </a>

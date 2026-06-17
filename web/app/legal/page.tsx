@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { readRepoMarkdown } from "@/lib/markdown";
 
 export const metadata: Metadata = {
-  title: "Legal · Synaptic",
-  description: "The Synaptic End-User License Agreement.",
+  title: "Legal · Condura",
+  description: "The Condura End-User License Agreement.",
 };
 
 export default async function LegalPage() {
@@ -28,8 +28,8 @@ export default async function LegalPage() {
           <p className="mt-4 text-neutral-400">
             The license agreement is not available right now. Please check back
             shortly, or reach out at{" "}
-            <a className="underline hover:text-white" href="mailto:legal@synaptic.app">
-              legal@synaptic.app
+            <a className="underline hover:text-white" href="mailto:legal@condura.app">
+              legal@condura.app
             </a>
             .
           </p>

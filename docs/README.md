@@ -1,6 +1,6 @@
-# Synaptic Documentation
+# Condura Documentation
 
-> Comprehensive documentation for the Synaptic project.
+> Comprehensive documentation for the Condura project.
 
 ---
 

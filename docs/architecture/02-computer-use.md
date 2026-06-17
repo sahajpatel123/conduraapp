@@ -1,6 +1,6 @@
 # Architecture 02 — Computer Use (4-Tier)
 
-> How Synaptic actually controls the computer — and why we use a tiered system.
+> How Condura actually controls the computer — and why we use a tiered system.
 
 ---
 
@@ -95,7 +95,7 @@ When nothing else works (canvas-rendered apps, games, image-only PDFs), the agen
 Pros: works everywhere.
 Cons: slow (1-5s per step), expensive (a screenshot is hundreds of KB, sent to LLM), battery-hungry (continuous screenshots), privacy-poor (screenshots of your screen are sent to the LLM).
 
-**This tier is the only one that always works. It's also the only one the user can disable.** A user with privacy concerns can disable Tier 4 entirely — Synaptic will refuse tasks that require it.
+**This tier is the only one that always works. It's also the only one the user can disable.** A user with privacy concerns can disable Tier 4 entirely — Condura will refuse tasks that require it.
 
 ---
 

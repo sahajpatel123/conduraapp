@@ -33,9 +33,9 @@ func TestBuildAllBinaries(t *testing.T) {
 		pkg  string
 		name string
 	}{
-		{"./cmd/synapticd", "synapticd"},
-		{"./cmd/synaptic", "synaptic"},
-		{"./cmd/synaptic-tui", "synaptic-tui"},
+		{"./cmd/synapticd", "condurad"},
+		{"./cmd/synaptic", "condura"},
+		{"./cmd/condura-tui", "condura-tui"},
 	}
 	for _, p := range pkgs {
 		out := filepath.Join(outDir, p.name+ext)

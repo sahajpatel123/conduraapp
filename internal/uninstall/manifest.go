@@ -4,7 +4,7 @@
 // This is the MOST DANGEROUS code in the project: it deletes
 // user data. Every line of destructive code runs behind a
 // Gatekeeper check (presence+consent), a manifest-completeness
-// test, and a sandboxed temp HOME. Per MISSION §24: "Synaptic is
+// test, and a sandboxed temp HOME. Per MISSION §24: "Condura is
 // a guest. Make it leave cleanly."
 //
 // Three layers of defense:
@@ -73,7 +73,7 @@ type Manifest []ManifestEntry
 func DefaultManifest(dataDir string) Manifest {
 	if dataDir == "" {
 		home, _ := os.UserHomeDir()
-		dataDir = filepath.Join(home, ".synaptic")
+		dataDir = filepath.Join(home, ".condura")
 	}
 	// Every artifact (main DB, memory DB, skills DB, and all
 	// WAL/SHM sidecars) lives INSIDE the data dir. Previously
@@ -104,8 +104,8 @@ func DefaultManifest(dataDir string) Manifest {
 		{Name: "whisper binary", Path: filepath.Join(dataDir, "bin", "whisper"), Optional: true, Description: "Whisper.cpp binary (SHA256-pinned)."},
 		{Name: "whisper model", Path: filepath.Join(dataDir, "models", "whisper-base.bin"), Optional: true, Description: "Whisper model file (SHA256-pinned)."},
 		{Name: "data dir itself", Path: dataDir, Description: "Root of all Synaptic on-disk state. Removed last."},
-		{Name: "lockfile", Path: filepath.Join(dataDir, "synapticd.lock"), Optional: true, Description: "Single-instance lock (usually gone if daemon exited)."},
-		{Name: "addr sidecar", Path: filepath.Join(dataDir, "synapticd.addr"), Optional: true, Description: "Daemon listen address sidecar."},
+		{Name: "lockfile", Path: filepath.Join(dataDir, "condurad.lock"), Optional: true, Description: "Single-instance lock (usually gone if daemon exited)."},
+		{Name: "addr sidecar", Path: filepath.Join(dataDir, "condurad.addr"), Optional: true, Description: "Daemon listen address sidecar."},
 	}
 	return m
 }

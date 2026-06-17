@@ -24,7 +24,7 @@ type fileTokenManager struct {
 func newFileTokenManager(dataDir string, masterKey []byte) *fileTokenManager {
 	h := sha256.New()
 	h.Write(masterKey)
-	h.Write([]byte("synaptic-account-token-encryption-v1"))
+	h.Write([]byte("condura-account-token-encryption-v1"))
 	aesKey := h.Sum(nil)[:32] // AES-256
 	return &fileTokenManager{
 		path: filepath.Join(dataDir, "account-tokens.json.enc"),

@@ -177,18 +177,18 @@ jobs:
           CGO_ENABLED: 0
         run: go build -trimpath -ldflags="-s -w" -o synaptic-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/synaptic
 
-      - name: Build synaptic-tui
+      - name: Build condura-tui
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
-        run: go build -trimpath -ldflags="-s -w" -o synaptic-tui-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/synaptic-tui
+        run: go build -trimpath -ldflags="-s -w" -o condura-tui-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/condura-tui
 
       - name: Verify binary exists
         run: |
           ls -la synapticd-${{ matrix.goos }}-${{ matrix.goarch }}
           ls -la synaptic-${{ matrix.goos }}-${{ matrix.goarch }}
-          ls -la synaptic-tui-${{ matrix.goos }}-${{ matrix.goarch }}
+          ls -la condura-tui-${{ matrix.goos }}-${{ matrix.goarch }}
           # Linux/macOS: file command
           if [ "${{ matrix.goos }}" != "windows" ]; then
             file synapticd-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -201,7 +201,7 @@ jobs:
           path: |
             synapticd-${{ matrix.goos }}-${{ matrix.goarch }}
             synaptic-${{ matrix.goos }}-${{ matrix.goarch }}
-            synaptic-tui-${{ matrix.goos }}-${{ matrix.goarch }}
+            condura-tui-${{ matrix.goos }}-${{ matrix.goarch }}
           retention-days: 7
 
   # ---------------------------------------------------------------

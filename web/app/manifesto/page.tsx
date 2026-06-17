@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { INVARIANTS, SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Manifesto · Synaptic",
+  title: "Manifesto · Condura",
   description:
-    "Why Synaptic exists: a privacy-first, local-first AI agent that treats your computer as yours.",
+    "Why Condura exists: a privacy-first, local-first AI agent that treats your computer as yours.",
 };
 
 export default function ManifestoPage() {
@@ -25,7 +25,7 @@ export default function ManifestoPage() {
           black box with the most personal computer you own.
         </p>
         <p>
-          Synaptic was built on a different premise: that the most capable AI
+          Condura was built on a different premise: that the most capable AI
           should also be the most respectful of you. It runs on your hardware,
           routes work through models you choose and control, and keeps your
           data where it belongs — on your machine.
@@ -59,7 +59,7 @@ export default function ManifestoPage() {
           be undone. We refuse to pretend otherwise.
         </p>
         <p>
-          So Synaptic draws a hard line between thinking and acting. The part
+          So Condura draws a hard line between thinking and acting. The part
           that reasons is a model. The part that decides whether an action is
           allowed is plain, deterministic code. They are never the same system,
           and no model output reaches a click, a keystroke, or a shell command
@@ -72,7 +72,7 @@ export default function ManifestoPage() {
         </h2>
         <p>
           These are the commitments that hold even when they are inconvenient —
-          the promises that make Synaptic safe to invite into your work.
+          the promises that make Condura safe to invite into your work.
         </p>
       </div>
 
@@ -100,7 +100,7 @@ export default function ManifestoPage() {
           Free, and open to scrutiny.
         </h2>
         <p>
-          Synaptic is free. Not free as in a trial, or free until we change our
+          Condura is free. Not free as in a trial, or free until we change our
           minds — free because a tool this close to your private life should not
           come with a meter running. Every action it takes is written to a
           tamper-resistant, append-only log you can inspect. If something goes

@@ -112,7 +112,7 @@
             <input
               type="text"
               class="overlay-input"
-              placeholder="Ask Synaptic..."
+              placeholder="Ask Condura..."
               onkeydown={(e) => {
                 if (e.key === 'Escape') overlay.hide()
               }}

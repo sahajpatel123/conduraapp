@@ -28,7 +28,7 @@ package_dmg() {
   ln -s /Applications "$vol/Applications"
 
   rm -f "$dmg_out"
-  hdiutil create -volname "Synaptic" -srcfolder "$vol" -ov -format UDZO "$dmg_out" >/dev/null
+  hdiutil create -volname "Condura" -srcfolder "$vol" -ov -format UDZO "$dmg_out" >/dev/null
   echo "DMG: $dmg_out"
 }
 

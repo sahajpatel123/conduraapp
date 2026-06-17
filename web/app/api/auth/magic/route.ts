@@ -8,7 +8,7 @@
 //
 // Request body (JSON):
 //   { "email": "alice@example.com",
-//     "redirect_url": "https://synaptic.app/auth/callback" }
+//     "redirect_url": "https://condura.app/auth/callback" }
 //
 // Response (JSON):
 //   { "sent": true, "expires_in": 300 }
@@ -120,11 +120,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
       const resend = new mod.Resend(resendKey)
       await resend.emails.send({
-        from: 'Synaptic <noreply@synaptic.app>',
+        from: 'Condura <noreply@condura.app>',
         to: email,
-        subject: 'Sign in to Synaptic',
+        subject: 'Sign in to Condura',
         html:
-          `<p>Click the link below to sign in to Synaptic. The link expires in 5 minutes.</p>` +
+          `<p>Click the link below to sign in to Condura. The link expires in 5 minutes.</p>` +
           `<p><a href="${link}">Sign in</a></p>` +
           `<p>If you didn't request this, you can ignore the email.</p>`,
       })

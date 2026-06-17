@@ -21,7 +21,7 @@
 
 <div class="about-page">
   <header>
-    <h2>About Synaptic</h2>
+    <h2>About Condura</h2>
     <p class="muted"><em>A free, on-device AI agent.</em></p>
   </header>
 
@@ -30,7 +30,7 @@
   <section class="card">
     <h3>Version</h3>
     {#if version}
-      <div class="kv"><span class="k">Synaptic</span><span class="v">{version.version}</span></div>
+      <div class="kv"><span class="k">Condura</span><span class="v">{version.version}</span></div>
       <div class="kv"><span class="k">Commit</span><span class="v mono">{version.commit}</span></div>
       <div class="kv"><span class="k">Built</span><span class="v">{version.build_date}</span></div>
       <div class="kv"><span class="k">Go</span><span class="v mono">{version.go_version}</span></div>
@@ -61,9 +61,9 @@
   <section class="card">
     <h3>Links</h3>
     <ul class="links">
-      <li><a href="https://github.com/sahajpatel123/synapticapp" target="_blank" rel="noreferrer">GitHub repository</a></li>
-      <li><a href="https://synaptic.app" target="_blank" rel="noreferrer">synaptic.app</a></li>
-      <li><a href="https://hub.synaptic.app" target="_blank" rel="noreferrer">Skills Hub</a></li>
+      <li><a href="https://github.com/sahajpatel123/conduraapp" target="_blank" rel="noreferrer">GitHub repository</a></li>
+      <li><a href="https://condura.app" target="_blank" rel="noreferrer">condura.app</a></li>
+      <li><a href="https://hub.condura.app" target="_blank" rel="noreferrer">Skills Hub</a></li>
     </ul>
   </section>
 </div>

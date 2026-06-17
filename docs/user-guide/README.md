@@ -1,15 +1,15 @@
 # User Guide
 
-> End-user documentation for Synaptic. _(To be written in later phases.)_
+> End-user documentation for Condura. _(To be written in later phases.)_
 
 This section will contain step-by-step guides for end users:
 
-- **Installation** — how to install Synaptic on macOS, Windows, and Linux.
-- **Quickstart** — your first 10 minutes with Synaptic.
+- **Installation** — how to install Condura on macOS, Windows, and Linux.
+- **Quickstart** — your first 10 minutes with Condura.
 - **Configuration** — settings, profiles, and preferences.
 - **Backends** — connecting LLMs (Anthropic, OpenAI, Google, local Ollama, etc.).
 - **Skills** — installing, creating, and sharing skills.
-- **Memory** — managing what Synaptic remembers about you.
+- **Memory** — managing what Condura remembers about you.
 - **Safety** — autonomy matrix, kill switch, audit log.
 - **Voice** — wake word, TTS, STT.
 - **P2P Sync** — pairing devices, sync settings.

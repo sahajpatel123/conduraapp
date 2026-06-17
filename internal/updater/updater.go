@@ -92,7 +92,7 @@ func New(db *sql.DB, manifestURL string) *Updater {
 		enabled:  true,
 		client:   &http.Client{Timeout: 10 * time.Second},
 		pubKey:   PublicKey,
-		cacheDir: filepath.Join(userHome(), ".synaptic", "cache"),
+		cacheDir: filepath.Join(userHome(), ".condura", "cache"),
 		stdin:    os.Stdin,
 	}
 }

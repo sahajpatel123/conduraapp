@@ -521,7 +521,7 @@ func NewOpenRouter(apiKey string, models []ModelInfo) *OpenAICompat {
 		AuthPrefix: defaultAuthPrefix,
 		ExtraHeaders: map[string]string{
 			"HTTP-Referer": "https://synaptic.app",
-			"X-Title":      "Synaptic",
+			"X-Title":      "Condura",
 		},
 		ModelsList: models,
 	}

@@ -81,19 +81,19 @@
         {#if voice}
           Mic {voice.mic_available ? 'ready' : 'unavailable'} · wake word {voice.wake_word_enabled ? 'on' : 'off'}
         {:else}
-          Talk to Synaptic hands-free
+          Talk to Condura hands-free
         {/if}
       </span>
     </button>
   </div>
 
   {#if hotkey}
-    <p class="hotkey-note">Press <kbd>{hotkey}</kbd> anytime to summon Synaptic.</p>
+    <p class="hotkey-note">Press <kbd>{hotkey}</kbd> anytime to summon Condura.</p>
   {/if}
 
   <div class="actions center">
     <button class="btn btn-primary big" onclick={() => finish()} disabled={onboarding.busy}>
-      {onboarding.busy ? 'Starting…' : 'Start using Synaptic'}
+      {onboarding.busy ? 'Starting…' : 'Start using Condura'}
     </button>
   </div>
 </div>

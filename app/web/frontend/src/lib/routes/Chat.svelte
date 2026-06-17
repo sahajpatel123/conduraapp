@@ -71,7 +71,7 @@
       {#if conversation.messages.length === 0}
         <div class="empty-state">
           <div class="empty-icon">⊡</div>
-          <h3>Welcome to Synaptic</h3>
+          <h3>Welcome to Condura</h3>
           <p>
             {#if !settings.config}
               Checking daemon status…

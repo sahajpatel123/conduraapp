@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-06
 
-This Privacy Policy describes how Synaptic ("we", "us", "our") handles your information when you use our desktop application ("Software"). We take your privacy very seriously. **By design, Synaptic keeps your data on your computer and does not send it to us.**
+This Privacy Policy describes how Condura ("we", "us", "our") handles your information when you use our desktop application ("Software"). We take your privacy very seriously. **By design, Condura keeps your data on your computer and does not send it to us.**
 
 ---
 
@@ -11,7 +11,7 @@ This Privacy Policy describes how Synaptic ("we", "us", "our") handles your info
 - **Your data stays on your computer.** Memory, skills, audit logs, embeddings, API keys — all stored locally, encrypted.
 - **Telemetry is OFF by default.** We don't collect anything unless you opt in.
 - **The only outbound network calls** are to the LLM provider(s) you configured and to our update server. No other calls.
-- **No accounts required** for the core product. Synaptic Account (for Skills Hub, donations, support) is optional.
+- **No accounts required** for the core product. Condura Account (for Skills Hub, donations, support) is optional.
 - **P2P sync** is device-to-device, end-to-end encrypted. We never see the contents.
 
 ---
@@ -68,12 +68,12 @@ This helps us prioritize features and fix bugs. You can opt in or out at any tim
 
 ## Network Calls
 
-Synaptic makes outbound network calls **only** to:
+Condura makes outbound network calls **only** to:
 
 1. **LLM providers you have configured** (Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, OpenRouter, etc.) — to send your prompts and receive responses.
-2. **Our update server** (`updates.synaptic.app`) — to check for new versions every 6 hours and on launch. This sends your current version and OS type only.
+2. **Our update server** (`updates.condura.app`) — to check for new versions every 6 hours and on launch. This sends your current version and OS type only.
 3. **OAuth providers** (if you connect a subscription) — for authentication.
-4. **Optional: Skills Hub** (`hub.synaptic.app`) — if you browse or publish skills.
+4. **Optional: Skills Hub** (`hub.condura.app`) — if you browse or publish skills.
 5. **Optional: P2P sync relays** — only if your devices can't connect directly.
 6. **Optional: our error tracking service** — only if you opt in to crash reporting.
 
@@ -83,7 +83,7 @@ We do **not** make any other outbound network calls. We do **not** call home, ph
 
 ## Local Network Access
 
-Synaptic does **not** scan your local network, your files, or your apps unless you explicitly ask it to. Computer-use features only access apps and files when:
+Condura does **not** scan your local network, your files, or your apps unless you explicitly ask it to. Computer-use features only access apps and files when:
 
 - You summon the agent and ask it to do something.
 - You have pre-approved the app or action in your policy.
@@ -94,11 +94,11 @@ The agent will **never** silently scan your system in the background.
 
 ## Microphone, Camera, Screen Recording
 
-These are sensitive OS permissions. Synaptic requests them only when needed:
+These are sensitive OS permissions. Condura requests them only when needed:
 
 - **Microphone**: requested when you enable voice input. You can deny this and still use the app (text only).
 - **Screen Recording**: requested when the agent needs to see the screen (vision CUA fallback, screenshots). Denying this limits computer-use to Accessibility API only.
-- **Camera**: Synaptic does **not** access the camera. If you see a camera permission prompt, something is wrong — please report it.
+- **Camera**: Condura does **not** access the camera. If you see a camera permission prompt, something is wrong — please report it.
 
 You can revoke these permissions at any time in System Settings (or your OS's privacy settings).
 
@@ -106,7 +106,7 @@ You can revoke these permissions at any time in System Settings (or your OS's pr
 
 ## Children's Privacy
 
-Synaptic is not intended for children under 13. We do not knowingly collect information from children under 13. If you are a parent and believe your child has used Synaptic, please contact us at privacy@synaptic.app.
+Condura is not intended for children under 13. We do not knowingly collect information from children under 13. If you are a parent and believe your child has used Condura, please contact us at privacy@condura.app.
 
 ---
 
@@ -125,13 +125,13 @@ If you are in the EU/UK/EEA, you have the right to:
 
 If you are in California (CCPA), you have similar rights.
 
-To exercise any of these rights, contact privacy@synaptic.app. Since your data is local, you can typically do this yourself by exporting or deleting your local store.
+To exercise any of these rights, contact privacy@condura.app. Since your data is local, you can typically do this yourself by exporting or deleting your local store.
 
 ---
 
 ## Third-Party Services
 
-Synaptic integrates with third-party services. Their privacy policies apply to data you send to them:
+Condura integrates with third-party services. Their privacy policies apply to data you send to them:
 
 - **Anthropic** (Claude API) — [anthropic.com/privacy](https://www.anthropic.com/privacy)
 - **OpenAI** — [openai.com/policies/privacy-policy](https://openai.com/policies/privacy-policy)
@@ -146,7 +146,7 @@ When you connect a subscription or paste an API key, you are agreeing to the pri
 
 ## Cookies and Tracking
 
-Our website (`synaptic.app`) uses minimal, privacy-respecting analytics (Plausible or Umami, no cookies, no personal data). We do not use Google Analytics, Facebook Pixel, or any cross-site tracking.
+Our website (`condura.app`) uses minimal, privacy-respecting analytics (Plausible or Umami, no cookies, no personal data). We do not use Google Analytics, Facebook Pixel, or any cross-site tracking.
 
 ---
 
@@ -155,8 +155,8 @@ Our website (`synaptic.app`) uses minimal, privacy-respecting analytics (Plausib
 We may update this Privacy Policy from time to time. We will notify you via:
 
 - In-app notification
-- `synaptic.app/privacy` (date updated)
-- Email to registered users (for Synaptic Account holders)
+- `condura.app/privacy` (date updated)
+- Email to registered users (for Condura Account holders)
 
 Material changes will be announced at least 30 days in advance, during which you may export and delete your data if you disagree with the changes.
 
@@ -164,7 +164,7 @@ Material changes will be announced at least 30 days in advance, during which you
 
 ## Data Retention
 
-- **Local data**: as long as you keep Synaptic installed. Deleted when you uninstall (with auto-backup to `~/Documents/synaptic-backups/` for 30 days, then permanently deleted).
+- **Local data**: as long as you keep Condura installed. Deleted when you uninstall (with auto-backup to `~/Documents/synaptic-backups/` for 30 days, then permanently deleted).
 - **Opt-in telemetry**: 90 days, then aggregated (anonymized).
 - **Cloud backups** (if you use them): as long as you keep the account. Delete your account to delete all backups.
 - **OAuth tokens**: rotated automatically. Revoked when you log out or uninstall.
@@ -175,12 +175,12 @@ Material changes will be announced at least 30 days in advance, during which you
 
 If you have questions about this Privacy Policy, contact:
 
-- **Email**: privacy@synaptic.app
-- **Web**: synaptic.app/privacy
-- **Mail**: Synaptic Privacy Team, [address TBD]
+- **Email**: privacy@condura.app
+- **Web**: condura.app/privacy
+- **Mail**: Condura Privacy Team, [address TBD]
 
 ---
 
-**By using Synaptic, you acknowledge that you have read and understood this Privacy Policy.**
+**By using Condura, you acknowledge that you have read and understood this Privacy Policy.**
 
 **Your data is yours. We just help you use it.**

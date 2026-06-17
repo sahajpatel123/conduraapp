@@ -145,7 +145,7 @@ linters:
       - internal/tui
       - internal/sync
       - internal/onboarding
-      - cmd/synaptic-tui
+      - cmd/condura-tui
       - app/web/frontend/node_modules
       - app/web/frontend/src
       - web
@@ -187,7 +187,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/sahajpatel123/synapticapp
+        - github.com/sahajpatel123/conduraapp
   exclusions:
     paths:
       - vendor/

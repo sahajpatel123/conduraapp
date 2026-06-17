@@ -44,13 +44,13 @@ func Capture(recovered any) *Report {
 	return r
 }
 
-// writeLocal persists the crash dump to ~/.synaptic/crashes/.
+// writeLocal persists the crash dump to ~/.condura/crashes/.
 func (r *Report) writeLocal() {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
 	}
-	dir := filepath.Join(home, ".synaptic", "crashes")
+	dir := filepath.Join(home, ".condura", "crashes")
 	_ = os.MkdirAll(dir, 0o700)
 	path := filepath.Join(dir, fmt.Sprintf("crash-%s.log", r.Time.Format("20060102-150405")))
 	data := fmt.Sprintf("version: %s\nplatform: %s\ntime: %s\nstack_hash: %s\n\n%s",

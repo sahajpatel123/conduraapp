@@ -2,7 +2,7 @@
 
 Phase 14 adds the **optional** account, messaging (channels), P2P sync pairing,
 Hub publishing, voice onboarding, and the marketing website. Everything here is
-**additive**: Synaptic still works fully signed-out, offline, with no channels
+**additive**: Condura still works fully signed-out, offline, with no channels
 and no account. This checklist covers the UI / website / docs slice (Agent 3).
 
 How to run the app for manual checks:

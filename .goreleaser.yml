@@ -1,4 +1,4 @@
-# GoReleaser config for Synaptic releases (OSS — no prebuilt Pro builder).
+# GoReleaser config for Condura releases (OSS — no prebuilt Pro builder).
 # GUI artifacts are built in release.yml and uploaded separately.
 # Reference: https://goreleaser.com
 
@@ -19,9 +19,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux
@@ -38,9 +38,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux
@@ -50,16 +50,16 @@ builds:
       - arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
 
-  - id: synaptic-tui
-    main: ./cmd/synaptic-tui
-    binary: synaptic-tui
+  - id: condura-tui
+    main: ./cmd/condura-tui
+    binary: condura-tui
     env:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux
@@ -111,11 +111,11 @@ checksum:
 nfpms:
   - id: synapticd-deb
     package_name: synapticd
-    vendor: Synaptic
-    homepage: https://synaptic.app
-    maintainer: Synaptic <dev@synaptic.app>
-    description: Synaptic AI daemon — local-first desktop agent
-    license: Synaptic Freeware EULA
+    vendor: Condura
+    homepage: https://condura.app
+    maintainer: Condura <dev@condura.app>
+    description: Condura AI daemon — local-first desktop agent
+    license: Condura Freeware EULA
     formats:
       - deb
     bindir: /usr/bin
@@ -124,11 +124,11 @@ nfpms:
 
   - id: synaptic-cli-deb
     package_name: synaptic
-    vendor: Synaptic
-    homepage: https://synaptic.app
-    maintainer: Synaptic <dev@synaptic.app>
-    description: Synaptic CLI — control the Synaptic daemon
-    license: Synaptic Freeware EULA
+    vendor: Condura
+    homepage: https://condura.app
+    maintainer: Condura <dev@condura.app>
+    description: Condura CLI — control the Condura daemon
+    license: Condura Freeware EULA
     formats:
       - deb
     bindir: /usr/bin
@@ -149,9 +149,9 @@ changelog:
 release:
   draft: false
   prerelease: auto
-  name_template: "Synaptic {{.Version}}"
+  name_template: "Condura {{.Version}}"
   header: |
-    ## Synaptic {{.Version}}
+    ## Condura {{.Version}}
 
     Signed binaries and SHA-256 checksums are attached below.
     The update manifest (`update-manifest.json`) is signed with Ed25519 for auto-update.

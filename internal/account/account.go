@@ -1,6 +1,6 @@
 // Package account implements optional user sign-in (Phase 14B).
 //
-// Synaptic is local-first and fully usable signed-out; an account
+// Condura is local-first and fully usable signed-out; an account
 // is purely additive (cloud sync, Hub publishing identity, and
 // cross-device settings). Sign-in supports OAuth (Google, GitHub —
 // see oauth.go) and email magic links (see magic.go). OAuth refresh

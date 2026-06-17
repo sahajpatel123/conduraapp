@@ -60,7 +60,7 @@ func (a *App) beforeClose(ctx context.Context) bool {
 // with a timestamp. Used to verify the TS↔Go bridge works.
 func (a *App) Ping(name string) string {
 	diagLog(fmt.Sprintf("Ping called with name=%q", name))
-	return fmt.Sprintf("Hello %s, Synaptic is online (ts=%d).", name, time.Now().Unix())
+	return fmt.Sprintf("Hello %s, Condura is online (ts=%d).", name, time.Now().Unix())
 }
 
 // DaemonStatus returns whether the in-process daemon is up and

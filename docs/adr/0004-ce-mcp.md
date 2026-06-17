@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-06
-- **Deciders**: Synaptic core team
+- **Deciders**: Condura core team
 - **Supersedes**: —
 - **Superseded by**: —
 
@@ -10,7 +10,7 @@
 
 ## Context
 
-Synaptic's sub-agents (Claude Code, Codex, Hermes, etc.) need to **use tools**: read files, search the web, query a database, run a command, call an API.
+Condura's sub-agents (Claude Code, Codex, Hermes, etc.) need to **use tools**: read files, search the web, query a database, run a command, call an API.
 
 There are 3 patterns for giving an LLM tool access:
 
@@ -169,7 +169,7 @@ The sandbox has pre-installed:
 - `image` (read, write, transform, OCR)
 - `pdf` (read, write, extract)
 - `code` (run a sub-agent in a sub-sandbox)
-- `synaptic` (call back into the Synaptic daemon for higher-level ops)
+- `synaptic` (call back into the Condura daemon for higher-level ops)
 
 Each tool is a Python module that the sandbox can `import`. The LLM's generated code uses these.
 

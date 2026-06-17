@@ -72,7 +72,7 @@ func Get() Info {
 // String returns a one-line human-readable summary.
 func String() string {
 	i := Get()
-	return fmt.Sprintf("Synaptic %s (%s, %s, %s)", i.Version, i.ShortSHA, i.GoVersion, i.Platform)
+	return fmt.Sprintf("Condura %s (%s, %s, %s)", i.Version, i.ShortSHA, i.GoVersion, i.Platform)
 }
 
 func shortSHA(commit string) string {

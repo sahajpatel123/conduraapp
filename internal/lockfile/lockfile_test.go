@@ -9,7 +9,7 @@ import (
 
 func TestTryAcquire_Fresh(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "synapticd.lock")
+	path := filepath.Join(dir, "condurad.lock")
 	l, err := TryAcquire(path)
 	if err != nil {
 		t.Fatalf("TryAcquire: %v", err)
@@ -27,7 +27,7 @@ func TestTryAcquire_Fresh(t *testing.T) {
 
 func TestTryAcquire_Conflict(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "synapticd.lock")
+	path := filepath.Join(dir, "condurad.lock")
 	l, err := TryAcquire(path)
 	if err != nil {
 		t.Fatalf("first TryAcquire: %v", err)
@@ -42,7 +42,7 @@ func TestTryAcquire_Conflict(t *testing.T) {
 
 func TestTryAcquire_AfterRelease(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "synapticd.lock")
+	path := filepath.Join(dir, "condurad.lock")
 	l1, err := TryAcquire(path)
 	if err != nil {
 		t.Fatalf("first TryAcquire: %v", err)
@@ -121,7 +121,7 @@ func TestInstalledMarkerPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := filepath.Join(dir, ".synaptic", "installed")
+	expected := filepath.Join(dir, ".condura", "installed")
 	if path != expected {
 		t.Errorf("path = %q, want %q", path, expected)
 	}

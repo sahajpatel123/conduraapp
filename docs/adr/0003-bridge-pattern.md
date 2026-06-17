@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-06
-- **Deciders**: Synaptic core team
+- **Deciders**: Condura core team
 - **Supersedes**: —
 - **Superseded by**: —
 
@@ -10,7 +10,7 @@
 
 ## Context
 
-Synaptic needs to control the computer:
+Condura needs to control the computer:
 
 - **macOS**: AX APIs, AppleScript, native CLI tools.
 - **Windows**: UI Automation, PowerShell, native CLI tools.
@@ -231,7 +231,7 @@ The bridges are **powerful** — they can move the mouse, type, take screenshots
 - **Process isolation**: the bridge is a separate process. A crash doesn't kill the daemon.
 - **Capability tokens**: each bridge has a token that proves the daemon authorized it. The bridge checks the token on every method call.
 - **No network**: the bridges are **not allowed** to make network calls. Enforced by firewall rules (macOS: socket filter; Linux: nftables; Windows: WFP).
-- **No filesystem access** outside of the Synaptic data directory and the screenshot temp dir.
+- **No filesystem access** outside of the Condura data directory and the screenshot temp dir.
 - **Audit log**: every bridge call is logged.
 
 ---

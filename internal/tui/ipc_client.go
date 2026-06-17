@@ -157,13 +157,13 @@ func FindDaemonAddr() string {
 	if err != nil {
 		return ""
 	}
-	for _, dataDir := range []string{filepath.Join(home, ".synaptic"), "/tmp/synaptic"} {
-		addrFile := filepath.Join(dataDir, "synapticd.addr")
+	for _, dataDir := range []string{filepath.Join(home, ".condura"), "/tmp/synaptic"} {
+		addrFile := filepath.Join(dataDir, "condurad.addr")
 		data, err := os.ReadFile(addrFile)
 		if err == nil {
 			return strings.TrimSpace(string(data))
 		}
-		sockPath := filepath.Join(dataDir, "synapticd.sock")
+		sockPath := filepath.Join(dataDir, "condurad.sock")
 		if _, err := os.Stat(sockPath); err == nil {
 			return "unix://" + sockPath
 		}

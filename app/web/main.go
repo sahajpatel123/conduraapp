@@ -53,7 +53,7 @@ var (
 func main() {
 	cfg, loader, err := resolveConfig()
 	if err != nil {
-		println("synaptic-gui: config:", err.Error())
+		println("condura-gui: config:", err.Error())
 		os.Exit(1)
 	}
 
@@ -75,7 +75,7 @@ func main() {
 			Logger: slog.Default(),
 		})
 		if err != nil {
-			println("synaptic-gui: daemon:", err.Error())
+			println("condura-gui: daemon:", err.Error())
 			cancel()
 			return
 		}
@@ -100,7 +100,7 @@ func main() {
 	// Start the Wails app. The Wails runtime takes over the main
 	// goroutine; the daemon runs in its own goroutine above.
 	err = wails.Run(&options.App{
-		Title:     "Synaptic",
+		Title:     "Condura",
 		Width:     1200,
 		Height:    800,
 		MinWidth:  800,
@@ -121,7 +121,7 @@ func main() {
 		},
 	})
 	if err != nil {
-		println("synaptic-gui:", err.Error())
+		println("condura-gui:", err.Error())
 		os.Exit(1)
 	}
 }
@@ -158,7 +158,7 @@ func processPendingOAuth() {
 func processOAuthCallback(rawURL string) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		slog.Warn("synaptic-gui: bad oauth callback url", "url", rawURL, "err", err)
+		slog.Warn("condura-gui: bad oauth callback url", "url", rawURL, "err", err)
 		return
 	}
 	if !strings.HasPrefix(u.Path, "auth/callback") {
@@ -167,11 +167,11 @@ func processOAuthCallback(rawURL string) {
 	code := u.Query().Get("code")
 	state := u.Query().Get("state")
 	if code == "" || state == "" {
-		slog.Warn("synaptic-gui: oauth callback missing code or state", "url", rawURL)
+		slog.Warn("condura-gui: oauth callback missing code or state", "url", rawURL)
 		return
 	}
 	if embeddedDaemon == nil || embeddedDaemon.Account == nil {
-		slog.Warn("synaptic-gui: oauth callback received but daemon/account not ready")
+		slog.Warn("condura-gui: oauth callback received but daemon/account not ready")
 		return
 	}
 	ctx := context.Background()
@@ -181,10 +181,10 @@ func processOAuthCallback(rawURL string) {
 		sess, err = embeddedDaemon.Account.ExchangeCode(ctx, "github", code, state, "synaptic://auth/callback")
 	}
 	if err != nil || sess == nil {
-		slog.Error("synaptic-gui: oauth token exchange failed", "err", err)
+		slog.Error("condura-gui: oauth token exchange failed", "err", err)
 		return
 	}
-	slog.Info("synaptic-gui: oauth callback processed", "email", sess.Email, "provider", sess.Provider)
+	slog.Info("condura-gui: oauth callback processed", "email", sess.Email, "provider", sess.Provider)
 	// Emit event to frontend so the UI can refresh signed-in state.
 	if appInstance != nil && appInstance.ctx != nil {
 		wailsruntime.EventsEmit(appInstance.ctx, "synaptic:oauth-callback",

@@ -10,7 +10,7 @@
 
 ## 1. Why This Phase Exists
 
-Synaptic today (through Session 7) is **excellent plumbing with a kill
+Condura today (through Session 7) is **excellent plumbing with a kill
 switch**: 22 internal packages — storage, IPC, LLM clients, SSE, a real
 streaming pipeline, `audit`, and `halt` — plus a Wails + Svelte 5 chat
 shell. What it is *not*, yet, is alive. There is no agent loop, no voice,
@@ -26,7 +26,7 @@ forward and makes them real, while honoring the Survival Rule: the agent
 gains *presence and voice* now, and gains *the ability to act on the OS*
 only later, behind a safety seam that physically cannot be bypassessed.
 
-**In one sentence:** turn Synaptic from a chat window into a living
+**In one sentence:** turn Condura from a chat window into a living
 presence — a tray/menu-bar agent that you summon by holding a hotkey,
 speak to with your voice, and hear answer back — entirely on-device,
 with a deterministic safety seam that makes acting on your OS impossible

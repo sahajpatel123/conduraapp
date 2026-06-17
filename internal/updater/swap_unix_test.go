@@ -10,7 +10,7 @@ import (
 
 func TestSwapExecutable_Unix(t *testing.T) {
 	dir := t.TempDir()
-	target := filepath.Join(dir, "synapticd")
+	target := filepath.Join(dir, "condurad")
 	staged := filepath.Join(dir, "staged")
 	if err := os.WriteFile(target, []byte("old"), 0o755); err != nil {
 		t.Fatal(err)

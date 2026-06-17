@@ -23,7 +23,7 @@ agent in **≤9 in-app clicks**, with no account and no API key required.
 
 | # | Action | Expected result |
 |---|--------|-----------------|
-| 1 | Launch Synaptic for the first time | The **EULA screen** appears immediately. No login screen, no API-key prompt. |
+| 1 | Launch Condura for the first time | The **EULA screen** appears immediately. No login screen, no API-key prompt. |
 | 2 | Try clicking **I Accept** without scrolling | Button is disabled. The checkbox is disabled until you scroll to the bottom. |
 | 3 | Scroll the EULA to the bottom, tick the checkbox, click **I Accept** | Advances to the **Permissions** screen. Acceptance persists (see "Resumability" below). |
 | 4 | Observe the Permissions screen | Exactly **two** rows: Accessibility and Screen Recording, each with a live status badge. No Microphone/Automation/Notifications here. |
@@ -31,11 +31,11 @@ agent in **≤9 in-app clicks**, with no account and no API key required.
 | 6 | Click **Skip for now** (or grant Screen Recording, then **Continue**) | Advances to the **Hotkey** screen. (Both the skip and grant paths must advance.) |
 | 7 | Click the recorder, press a combo (e.g. `Cmd+Shift+Space`), click **Continue** | The combo is captured and shown; Continue was disabled until a valid combo was recorded. Advances to **Ready**. |
 | 8 | Observe the Ready screen | With Ollama running: "Local model ready" + detected model(s). Without Ollama: "No local model detected" + an Ollama install link. Optional cards for API key / messaging are present but not required. |
-| 9 | Click **Start using Synaptic** | Wizard dismisses, main chat UI mounts. With Ollama, sending a message gets a local response — **no API key was entered**. |
+| 9 | Click **Start using Condura** | Wizard dismisses, main chat UI mounts. With Ollama, sending a message gets a local response — **no API key was entered**. |
 
 **Click budget:** Accept (1) + checkbox (1) + permissions Continue/Skip (1)
 + recorder click (1) + key press (counts as the combo) + Hotkey Continue (1)
-+ Start using Synaptic (1) ≈ **6–9 clicks** depending on permission grants.
++ Start using Condura (1) ≈ **6–9 clicks** depending on permission grants.
 Confirm it never exceeds 9 in-app clicks (OS permission dialogs are out of
 our control and not counted).
 

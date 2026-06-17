@@ -3,7 +3,7 @@
 // stdio/HTTP/SSE transport. Tool calls are prefixed (mcp__<server>__<tool>)
 // and every execution passes through the Gatekeeper.
 //
-// Discovery: scans ~/.synaptic/mcp/ or config for server manifests.
+// Discovery: scans ~/.condura/mcp/ or config for server manifests.
 // Never auto-starts — requires explicit user enable. Never scans $PATH.
 package mcp
 

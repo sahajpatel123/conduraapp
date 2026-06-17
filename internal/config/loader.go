@@ -350,12 +350,12 @@ func defaultOAuthProviders() map[string]OAuthProviderConfig {
 // -----------------------------------------------------------------------------
 
 func defaultDataDir() string {
-	// Per CLAUDE.md Decision 28 and the architecture docs, we use ~/.synaptic/
+	// Per CLAUDE.md Decision 28 and the architecture docs, we use ~/.condura/
 	// for cross-platform consistency, with the OS-conventional location as a
 	// secondary option. We do NOT use the OS-conventional location by default
-	// because users explicitly want ~/.synaptic/ in the docs.
+	// because users explicitly want ~/.condura/ in the docs.
 	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".synaptic")
+		return filepath.Join(home, ".condura")
 	}
 	// Fallback to OS-conventional location.
 	return fallbackDataDir()
@@ -363,7 +363,7 @@ func defaultDataDir() string {
 
 func defaultCacheDir() string {
 	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".synaptic", "cache")
+		return filepath.Join(home, ".condura", "cache")
 	}
 	return filepath.Join(fallbackDataDir(), "cache")
 }
@@ -372,21 +372,21 @@ func fallbackDataDir() string {
 	switch runtime.GOOS {
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, "Library", "Application Support", "synaptic")
+			return filepath.Join(home, "Library", "Application Support", "condura")
 		}
 	case "windows":
 		if appData := os.Getenv("APPDATA"); appData != "" {
-			return filepath.Join(appData, "synaptic")
+			return filepath.Join(appData, "condura")
 		}
 	default:
 		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-			return filepath.Join(xdg, "synaptic")
+			return filepath.Join(xdg, "condura")
 		}
 		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, ".config", "synaptic")
+			return filepath.Join(home, ".config", "condura")
 		}
 	}
-	return ".synaptic"
+	return ".condura"
 }
 
 // -----------------------------------------------------------------------------
@@ -398,7 +398,7 @@ type Loader struct {
 	// Path is the path to the YAML file. If empty, the default location is used.
 	Path string
 	// EnvPrefix is the prefix for environment variable overrides.
-	// Default: SYNAPTIC_.
+	// Default: CONDURA_.
 	EnvPrefix string
 }
 
@@ -473,16 +473,16 @@ func (l *Loader) Save(cfg *Config) error {
 
 // applyEnvOverrides walks env vars matching the prefix and updates cfg.
 //
-// Convention: SYNAPTIC_<SECTION>__<FIELD>=value, where __ (double underscore)
+// Convention: CONDURA_<SECTION>__<FIELD>=value, where __ (double underscore)
 // separates the YAML hierarchy and _ is part of a field name.
 //
 // Examples:
 //
-//	SYNAPTIC_LOGGING__LEVEL=debug                       -> logging.level = LogLevelDebug
-//	SYNAPTIC_DAEMON__AUTO_START=true                    -> daemon.auto_start = true
-//	SYNAPTIC_API_SERVER__PORT=9000                      -> api_server.port = 9000
-//	SYNAPTIC_SECURITY__SPEND_LIMIT_USD_PER_DAY=20.5     -> security.spend_limit_usd_per_day = 20.5
-//	SYNAPTIC_LLM__PROVIDERS__ANTHROPIC__ENABLED=true    -> (read-only; use config file)
+//	CONDURA_LOGGING__LEVEL=debug                       -> logging.level = LogLevelDebug
+//	CONDURA_DAEMON__AUTO_START=true                    -> daemon.auto_start = true
+//	CONDURA_API_SERVER__PORT=9000                      -> api_server.port = 9000
+//	CONDURA_SECURITY__SPEND_LIMIT_USD_PER_DAY=20.5     -> security.spend_limit_usd_per_day = 20.5
+//	CONDURA_LLM__PROVIDERS__ANTHROPIC__ENABLED=true    -> (read-only; use config file)
 func applyEnvOverrides(cfg *Config, prefix string) error {
 	for _, env := range os.Environ() {
 		idx := strings.Index(env, "=")

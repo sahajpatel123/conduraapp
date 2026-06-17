@@ -258,7 +258,7 @@ jobs:
           APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ZIP=$(ls dist/prebuilt/synaptic-gui-darwin-arm64.zip 2>/dev/null || true)
+          ZIP=$(ls dist/prebuilt/condura-gui-darwin-arm64.zip 2>/dev/null || true)
           if [ -z "$ZIP" ] || [ -z "$APPLE_DEVELOPER_ID_APPLICATION" ]; then
             echo "nothing to sign"
             exit 0

@@ -1,4 +1,4 @@
-// Command synapticd is the Synaptic daemon.
+// Command condurad is the Condura daemon.
 //
 // It owns the on-disk database, the OS keyring, and the LLM registry.
 // Clients (the Wails GUI, the CLI, the future Skills Hub) talk to it
@@ -6,8 +6,8 @@
 //
 // Typical lifecycle:
 //
-//	synapticd --config ~/.synaptic/config.yaml
-//	synapticd --print-default-config > ~/.synaptic/config.yaml
+//	synapticd --config ~/.condura/config.yaml
+//	synapticd --print-default-config > ~/.condura/config.yaml
 //
 // Phase 2+: this binary is the standalone CLI daemon. The GUI
 // (cmd/synaptic-gui) embeds the same daemon logic via
@@ -38,7 +38,7 @@ func main() {
 	defer crash.Recover() //nolint:gocritic // Recover catches panics; os.Exit is the normal error path.
 	flags, err := parseFlags()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condurad: %v\n", err)
 		os.Exit(1) //nolint:gocritic // intentional: pre-daemon exit; no resources to clean up
 	}
 	if flags.quit {
@@ -47,12 +47,12 @@ func main() {
 
 	cfg, err := buildConfig(flags)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condurad: %v\n", err)
 		os.Exit(1)
 	}
 	loader, err := buildLoader(flags)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condurad: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -72,7 +72,7 @@ func main() {
 	}
 	if _, err := daemon.Run(ctx, opts); err != nil {
 		cancel()
-		fmt.Fprintf(os.Stderr, "synapticd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condurad: %v\n", err)
 		os.Exit(1)
 	}
 	cancel()
@@ -93,7 +93,7 @@ type runFlags struct {
 
 func parseFlags() (runFlags, error) {
 	var (
-		cfgPath       = flag.String("config", "", "path to config.yaml (default: ~/.synaptic/config.yaml)")
+		cfgPath       = flag.String("config", "", "path to config.yaml (default: ~/.condura/config.yaml)")
 		dataDir       = flag.String("data-dir", "", "data directory (overrides config)")
 		logLevel      = flag.String("log-level", "", "debug | info | warn | error (default: config value)")
 		listen        = flag.String("listen", "tcp://127.0.0.1:0", "IPC listen address")
@@ -132,7 +132,7 @@ func buildLoader(flags runFlags) (*config.Loader, error) {
 		if err != nil {
 			return nil, fmt.Errorf("locate home dir: %w", err)
 		}
-		cfgPath = filepath.Join(home, ".synaptic", "config.yaml")
+		cfgPath = filepath.Join(home, ".condura", "config.yaml")
 	}
 	return config.NewLoader(cfgPath), nil
 }
@@ -146,7 +146,7 @@ func buildConfig(flags runFlags) (*config.Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("locate home dir: %w", err)
 		}
-		cfgPath = filepath.Join(home, ".synaptic", "config.yaml")
+		cfgPath = filepath.Join(home, ".condura", "config.yaml")
 	}
 	loader := config.NewLoader(cfgPath)
 	cfg, err := loader.Load()

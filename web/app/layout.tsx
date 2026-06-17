@@ -4,7 +4,7 @@ import "./globals.css";
 import { NAV_LINKS, SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Synaptic",
+  title: "Condura",
 };
 
 export default function RootLayout({

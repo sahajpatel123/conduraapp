@@ -234,7 +234,7 @@ func TestTrustE2E_RestoreReloadsMemoryAndSkills(t *testing.T) {
 // The snapshot is created by createPreRestoreSnapshot inside
 // backup.Restore, which calls Manager.Create with the snapshot path.
 func TestTrustE2E_PreRestoreSnapshotCreated(t *testing.T) {
-	t.Skip("pre-restore snapshot creation is correct but the test env's SYNAPTIC_BACKUP_DIR resolution differs between handler and assertion; verified by code review and unit test in backup/restore.go")
+	t.Skip("pre-restore snapshot creation is correct but the test env's CONDURA_BACKUP_DIR resolution differs between handler and assertion; verified by code review and unit test in backup/restore.go")
 }
 
 // TestTrustE2E_RollbackCheckpointPersists verifies that rollback

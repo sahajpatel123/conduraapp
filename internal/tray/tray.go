@@ -142,7 +142,7 @@ func (m *Menu) SetStatus(s status.Status) {
 			tooltip = "Synaptic (error — see logs)"
 		}
 	} else {
-		tooltip = "Synaptic"
+		tooltip = "Condura"
 	}
 	m.SetTooltip(tooltip)
 }

@@ -24,7 +24,7 @@ func TestGet_Defaults(t *testing.T) {
 func TestString(t *testing.T) {
 	s := String()
 	require.NotEmpty(t, s)
-	assert.Contains(t, s, "Synaptic")
+	assert.Contains(t, s, "Condura")
 	assert.Contains(t, s, "v0.0.0-dev")
 }
 

@@ -18,7 +18,7 @@ import (
 //
 // On macOS / Linux we always also bind a Unix socket in the data
 // directory for fast local access. The TCP listener is the "primary"
-// address and is what we publish via the synapticd.addr sidecar.
+// address and is what we publish via the condurad.addr sidecar.
 func startListeners(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Logger, cfg *config.Config, opts ListenSpec) error {
 	addr := opts.Addr
 	if addr == "" {
@@ -42,7 +42,7 @@ func bindUnixSocket(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Lo
 	if isWindows {
 		return
 	}
-	unixPath := filepath.Join(cfg.General.DataDir, "synapticd.sock")
+	unixPath := filepath.Join(cfg.General.DataDir, "condurad.sock")
 	_ = os.Remove(unixPath)
 	if err := ipcT.Listen(ctx, "unix://"+unixPath); err != nil {
 		log.Warn("unix socket bind failed; continuing", "err", err)
@@ -58,7 +58,7 @@ func writeAddrFile(cfg *config.Config, ipcT *ipc.ServerTransport) {
 	if ipcT.Addr() == "" {
 		return
 	}
-	path := filepath.Join(cfg.General.DataDir, "synapticd.addr")
+	path := filepath.Join(cfg.General.DataDir, "condurad.addr")
 	_ = os.WriteFile(path, []byte(ipcT.Addr()+"\n"), addrFilePerm)
 }
 

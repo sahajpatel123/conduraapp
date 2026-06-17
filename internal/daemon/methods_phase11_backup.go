@@ -176,7 +176,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		// requiring the user to restart the daemon.
 		if subs.Storage != nil {
 			if rerr := subs.Storage.Reload(ctx); rerr != nil {
-				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appSynapticd, auditResultError, rerr.Error()))
+				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appCondurad, auditResultError, rerr.Error()))
 				return nil, fmt.Errorf("backup: restore succeeded on disk but storage reload failed: %w (daemon restart required to see restored data)", rerr)
 			}
 		}
@@ -184,16 +184,16 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		// calls (memory.recall, skills.list) see the restored
 		// data, not the stale handles from before the swap.
 		if rerr := subs.ReloadAuxiliaryDatabases(); rerr != nil {
-			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.aux_reload_failed", appSynapticd, auditResultError, rerr.Error()))
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.aux_reload_failed", appCondurad, auditResultError, rerr.Error()))
 			return nil, fmt.Errorf("backup: restore succeeded but auxiliary db reload failed: %w", rerr)
 		}
 		// Run integrity checks on all three restored databases.
 		// If any database is corrupt, report it (best-effort;
 		// we don't abort since the main data is already swapped in).
 		if ierr := runPostRestoreIntegrityChecks(ctx, subs); ierr != nil {
-			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.integrity_warning", appSynapticd, auditResultError, ierr.Error()))
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.integrity_warning", appCondurad, auditResultError, ierr.Error()))
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appSynapticd, auditResultAllow, "path="+p.Path))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appCondurad, auditResultAllow, "path="+p.Path))
 		return auditOK(), nil
 	})
 
@@ -219,7 +219,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil {
 			return nil, fmt.Errorf("backup: rollback: %w", err)
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.rollback", appSynapticd, auditResultAllow, fmt.Sprintf("reverted %d rows", n)))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.rollback", appCondurad, auditResultAllow, fmt.Sprintf("reverted %d rows", n)))
 		return map[string]any{"reverted_rows": n, "honest_scope": rb.HonestScope()}, nil
 	})
 }
@@ -283,7 +283,7 @@ func openIntegrityDB(path string) (*sql.DB, error) {
 }
 
 // backupDir is the on-disk location backup archives are written to.
-// Uses backup.ResolveBackupDir (Documents/synaptic-backups by default).
+// Uses backup.ResolveBackupDir (Documents/condura-backups by default).
 func backupDir(subs *Subsystems) string {
 	if subs == nil {
 		return ""

@@ -476,7 +476,7 @@ func TestScheduler_RotateKeepsN(t *testing.T) {
 	dir := t.TempDir()
 	// Create 5 fake backup files with different mtimes.
 	for i := 0; i < 5; i++ {
-		name := filepath.Join(dir, "synaptic-backup-2026-06-1"+string(rune('0'+i))+"T00-00-00Z.zip")
+		name := filepath.Join(dir, "condura-backup-2026-06-1"+string(rune('0'+i))+"T00-00-00Z.zip")
 		if err := os.WriteFile(name, []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}

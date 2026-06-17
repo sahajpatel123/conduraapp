@@ -1,6 +1,6 @@
 # Contributing
 
-> Synaptic is a proprietary, source-closed project. This document describes the conventions for **AI agents and a small set of named human contributors** working on the codebase under NDA.
+> Condura is a proprietary, source-closed project. This document describes the conventions for **AI agents and a small set of named human contributors** working on the codebase under NDA.
 
 If you are a user and have a feature request, please open a GitHub Issue or post in Discord (see README.md). This document is for the implementation team only.
 
@@ -110,7 +110,7 @@ If a feature conflicts with an invariant, **remove the feature**.
 
 1. Justify it in the PR description.
 2. Update `CLAUDE.md` Section 8 (Tech Stack) with the new dependency and rationale.
-3. Note the license compatibility — Synaptic ships with various open-source components and the combined license footprint must remain compatible with the proprietary distribution.
+3. Note the license compatibility — Condura ships with various open-source components and the combined license footprint must remain compatible with the proprietary distribution.
 4. Pin the version.
 
 ---

@@ -1,6 +1,6 @@
 # Recipes
 
-> Worked examples: how to do specific things with Synaptic. _(To be written in later phases.)_
+> Worked examples: how to do specific things with Condura. _(To be written in later phases.)_
 
 This section will contain step-by-step recipes for common use cases:
 

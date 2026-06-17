@@ -3,7 +3,7 @@
 ## 1. Scope
 
 This document covers the threat model for Phase 12 components:
-- **Skills Hub** (hub.synaptic.app) — public skill marketplace
+- **Skills Hub** (hub.condura.app) — public skill marketplace
 - **P2P Sync** — device-to-device state synchronization
 - **i18n** — internationalization layer
 - **TUI** — terminal user interface
@@ -32,7 +32,7 @@ This document covers the threat model for Phase 12 components:
 - **Mitigation:** Provenance tracking (author key, checksum). Users can pin skill versions. Trust levels (official/community/experimental) gate auto-updates.
 
 ### 3.4 Hub Server Compromise
-- **Risk:** Attacker controls hub.synaptic.app and serves malicious content.
+- **Risk:** Attacker controls hub.condura.app and serves malicious content.
 - **Mitigation:** Skills are scanned locally before installation. Users must explicitly approve. No automatic execution of downloaded skills.
 
 ## 4. P2P Sync Threats

@@ -13,7 +13,7 @@
   // Desktop deep-link the daemon registers for the OAuth redirect.
   const OAUTH_REDIRECT = 'synaptic://auth/callback'
   // Where the magic link lands the user back.
-  const MAGIC_REDIRECT = 'https://synaptic.app/auth/verify'
+  const MAGIC_REDIRECT = 'https://condura.app/auth/verify'
 
   let email = $state('')
   let magicSent = $state(false)
@@ -54,7 +54,7 @@
     class="signin-panel"
     role="dialog"
     aria-modal="true"
-    aria-label="Sign in to Synaptic"
+    aria-label="Sign in to Condura"
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
@@ -65,7 +65,7 @@
     </header>
 
     <p class="lead">
-      Synaptic works fully without an account. Sign in to sync settings across
+      Condura works fully without an account. Sign in to sync settings across
       devices, publish skills, and back up encrypted to the cloud.
     </p>
 

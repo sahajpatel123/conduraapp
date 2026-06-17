@@ -6,7 +6,7 @@
 
 ## The Goal
 
-Synaptic has multiple clients (overlay, TUI, web dashboard, voice daemon) that all need to talk to the same Go daemon. The protocol must be:
+Condura has multiple clients (overlay, TUI, web dashboard, voice daemon) that all need to talk to the same Go daemon. The protocol must be:
 
 1. **Simple** — easy to implement on any client (TypeScript, Rust, Go, Python).
 2. **Bidirectional** — server can push events to clients.

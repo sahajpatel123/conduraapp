@@ -1,12 +1,12 @@
 # Architecture 00 — Overview
 
-> The conductor pattern: how Synaptic orchestrates every AI tool on the user's computer.
+> The conductor pattern: how Condura orchestrates every AI tool on the user's computer.
 
 ---
 
 ## The One-Sentence Architecture
 
-Synaptic is a **persistent, on-device AI agent** that perceives the user's screen and actions through a battery-aware vision system (**Selective Perception**), decides what to do via a **hybrid-with-memory router** that picks the best model for each task, governs every action through a **deterministic Gatekeeper** that requires human consent for anything dangerous, and learns the user's behavior over time through a **closed learning loop** (the **Adaptive Engine**).
+Condura is a **persistent, on-device AI agent** that perceives the user's screen and actions through a battery-aware vision system (**Selective Perception**), decides what to do via a **hybrid-with-memory router** that picks the best model for each task, governs every action through a **deterministic Gatekeeper** that requires human consent for anything dangerous, and learns the user's behavior over time through a **closed learning loop** (the **Adaptive Engine**).
 
 ---
 
@@ -52,10 +52,10 @@ The hands. **Computer Use** for physical GUI actions. **Delegation Bus** for sub
 
 ## The Conductor Pattern
 
-Synaptic is **not** a single model that does everything. It's a **conductor** that orchestrates many specialists. The metaphor:
+Condura is **not** a single model that does everything. It's a **conductor** that orchestrates many specialists. The metaphor:
 
 - **The user** is the composer.
-- **Synaptic** is the conductor.
+- **Condura** is the conductor.
 - **The models, CLIs, and computer-use systems** are the orchestra.
 
 The conductor doesn't play any instrument. It knows when to cue the strings, when to bring in the brass, when to let the woodwinds carry the melody. Each specialist does what it does best.
@@ -97,7 +97,7 @@ When the user says "Find the cheapest flight from NYC to Tokyo next month and bo
 
 ## The Closed Learning Loop
 
-The Adaptive Engine is what makes Synaptic feel like *yours* over time.
+The Adaptive Engine is what makes Condura feel like *yours* over time.
 
 ```
    ┌──────────┐
@@ -143,9 +143,9 @@ The user can **always** see, edit, and delete anything the engine has learned. T
 | **OpenClaw** | Multi-agent platform | Multi-channel, cron, sub-agents | No native computer use |
 | **Claude Code** | Sub-agent CLI | Deep codebase reasoning | Single-vendor |
 | **mac-cua / macOS-MCP** | Computer-use MCPs | Control macOS apps | Single-purpose, no orchestration |
-| **Synaptic** | **Conductor + Adaptive + Selective Perception** | **All of the above, plus learning, plus safety, plus free** | _(this is what we're building)_ |
+| **Condura** | **Conductor + Adaptive + Selective Perception** | **All of the above, plus learning, plus safety, plus free** | _(this is what we're building)_ |
 
-Synaptic is the **only** tool that combines:
+Condura is the **only** tool that combines:
 - Persistent 24/7 runtime
 - Native computer use (background-first, battery-aware)
 - Cross-vendor LLM and CLI orchestration

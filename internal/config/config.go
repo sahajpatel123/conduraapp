@@ -1,6 +1,6 @@
 // Package config provides the Synaptic daemon's configuration system.
 //
-// The configuration is loaded from a YAML file (~/.synaptic/config.yaml by
+// The configuration is loaded from a YAML file (~/.condura/config.yaml by
 // default) and merged with built-in defaults and environment variable
 // overrides. It is validated on load to fail fast on misconfiguration.
 //
@@ -8,8 +8,8 @@
 // will refuse to start on a version mismatch (with a clear migration error),
 // preserving the user's data.
 //
-// Overrides: environment variables prefixed with SYNAPTIC_ override YAML
-// values, e.g., SYNAPTIC_LOGGING_LEVEL=debug overrides logging.level.
+// Overrides: environment variables prefixed with CONDURA_ override YAML
+// values, e.g., CONDURA_LOGGING_LEVEL=debug overrides logging.level.
 //
 // The Config struct is intended to be read-only after Load. Mutating it
 // at runtime should go through the IPC API (not direct mutation).
@@ -27,7 +27,7 @@ const ConfigSchemaVersion = 4
 // Default config file location per OS.
 const (
 	DefaultConfigFileName = "config.yaml"
-	DefaultEnvPrefix      = "SYNAPTIC_"
+	DefaultEnvPrefix      = "CONDURA_"
 )
 
 // Config is the root configuration struct.

@@ -1,6 +1,6 @@
 # Security Policy
 
-Synaptic performs physical, often irreversible actions on the user's operating system. Security is not a feature — it is a survival requirement. This document describes how to report vulnerabilities and how we handle them.
+Condura performs physical, often irreversible actions on the user's operating system. Security is not a feature — it is a survival requirement. This document describes how to report vulnerabilities and how we handle them.
 
 ---
 
@@ -20,9 +20,9 @@ We commit to security updates for the current major.minor version. Older version
 
 **Please do not report security vulnerabilities via public GitHub Issues.**
 
-Email: **security@synaptic.app**
+Email: **security@condura.app**
 
-PGP key: [synaptic.app/.well-known/pgp-key.asc](https://synaptic.app/.well-known/pgp-key.asc) (fingerprint: TBD)
+PGP key: [condura.app/.well-known/pgp-key.asc](https://condura.app/.well-known/pgp-key.asc) (fingerprint: TBD)
 
 ### What to include
 
@@ -30,7 +30,7 @@ PGP key: [synaptic.app/.well-known/pgp-key.asc](https://synaptic.app/.well-known
 2. **Steps to reproduce** (proof of concept preferred).
 3. **Affected versions**.
 4. **Impact** — what an attacker could achieve.
-5. **Environment** — macOS / Windows / Linux version, Synaptic version, any relevant config.
+5. **Environment** — macOS / Windows / Linux version, Condura version, any relevant config.
 
 ### What to expect
 
@@ -44,7 +44,7 @@ PGP key: [synaptic.app/.well-known/pgp-key.asc](https://synaptic.app/.well-known
 
 ## Our Security Architecture (High-Level)
 
-Synaptic is designed with defense in depth. Even if one layer is compromised, the system remains safe. The layers are:
+Condura is designed with defense in depth. Even if one layer is compromised, the system remains safe. The layers are:
 
 1. **The Strategist (LLM)** — proposes what to do. Cannot execute anything.
 2. **The Gatekeeper (deterministic)** — the only path to physical action. Cannot be prompt-injected.
@@ -100,9 +100,9 @@ Security updates are released as patch versions (e.g., v0.1.1, v0.1.2). They are
 
 Critical security updates are also announced via:
 - In-app notification
-- `synaptic.app/security`
+- `condura.app/security`
 - Discord `#security` channel
-- Email to registered users (for Synaptic Account holders)
+- Email to registered users (for Condura Account holders)
 
 ---
 
@@ -110,7 +110,7 @@ Critical security updates are also announced via:
 
 We do not currently operate a paid bug bounty program. We do credit reporters (with permission) in security advisories and our Hall of Fame page.
 
-If you are interested in a paid engagement, contact `security@synaptic.app`.
+If you are interested in a paid engagement, contact `security@condura.app`.
 
 ---
 
@@ -119,7 +119,7 @@ If you are interested in a paid engagement, contact `security@synaptic.app`.
 The following are **out of scope** for security reports:
 
 - Theoretical vulnerabilities without a working proof of concept.
-- Social engineering attacks against Synaptic staff.
+- Social engineering attacks against Condura staff.
 - Physical attacks against the user's machine.
 - Vulnerabilities in third-party software (LLM providers, MCP servers, CLI tools) — please report to those vendors.
 - Self-XSS (you attacking your own install).
@@ -136,10 +136,10 @@ _(No entries yet — be the first!)_
 
 ## Contact
 
-- **Security reports**: security@synaptic.app
-- **General questions**: support@synaptic.app
-- **PGP**: [synaptic.app/.well-known/pgp-key.asc](https://synaptic.app/.well-known/pgp-key.asc)
+- **Security reports**: security@condura.app
+- **General questions**: support@condura.app
+- **PGP**: [condura.app/.well-known/pgp-key.asc](https://condura.app/.well-known/pgp-key.asc)
 
 ---
 
-**Thank you for helping us keep Synaptic and its users safe.**
+**Thank you for helping us keep Condura and its users safe.**

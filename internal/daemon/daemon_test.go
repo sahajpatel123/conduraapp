@@ -25,13 +25,13 @@ func TestRun_Smoke(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 
-	// Unset SYNAPTIC_ env vars so the test isn't perturbed by the
-	// host environment. (applyEnvOverrides reads SYNAPTIC_*
+	// Unset CONDURA_ env vars so the test isn't perturbed by the
+	// host environment. (applyEnvOverrides reads CONDURA_*
 	// automatically.) Use t.Setenv with empty values to clear them
 	// for the duration of the test.
 	for _, e := range os.Environ() {
 		for i := 0; i < len(e)-9; i++ {
-			if e[i:i+9] == "SYNAPTIC_" {
+			if e[i:i+9] == "CONDURA_" {
 				name := e[:i+9]
 				end := i + 9
 				for end < len(e) && e[end] != '=' {
@@ -108,10 +108,10 @@ func TestRun_SingleInstance(t *testing.T) {
 	cfg.Logging.AddSource = false
 	cfg.APIServer.AuthToken = "test-token"
 
-	// Clear SYNAPTIC_ env so config stays deterministic.
+	// Clear CONDURA_ env so config stays deterministic.
 	for _, e := range os.Environ() {
 		for i := 0; i < len(e)-9; i++ {
-			if e[i:i+9] == "SYNAPTIC_" {
+			if e[i:i+9] == "CONDURA_" {
 				name := e[:i+9]
 				end := i + 9
 				for end < len(e) && e[end] != '=' {

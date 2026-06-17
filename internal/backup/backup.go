@@ -13,7 +13,7 @@
 // keychain entry is compromised, the attacker gains the live database
 // and any backups that reuse the same key. The backup key is
 // derived from the master key via HKDF-SHA256 with a fixed info
-// string ("synaptic-backup-encryption-key-v1") and shown to the
+// string ("condura-backup-encryption-key-v1") and shown to the
 // user **once** on first backup, with a notice to save it. Without
 // this derived key, the archive is unreadable even to someone with
 // the live master key. This is the passphrase model.
@@ -73,7 +73,7 @@ func DeriveKey(masterKey []byte) ([]byte, error) {
 	}
 	// HKDF-Extract: PRK = HMAC-SHA256(salt, IKM) with empty salt.
 	// HKDF-Expand: OKM = HMAC-SHA256(PRK, info || 0x01) for 32 bytes.
-	const info = "synaptic-backup-encryption-key-v1"
+	const info = "condura-backup-encryption-key-v1"
 	prk := hmacSHA256(nil, masterKey)
 	out := hmacSHA256(prk, []byte(info+"\x01"))
 	return out, nil
@@ -248,7 +248,7 @@ func (b *Manager) openOutput() (outPath string, createdTmp bool, err error) {
 	if err := os.MkdirAll(backupDir, 0o700); err != nil {
 		return "", false, fmt.Errorf("backup: mkdir backup dir: %w", err)
 	}
-	f, err := os.CreateTemp(backupDir, "synaptic-backup-*.zip.tmp")
+	f, err := os.CreateTemp(backupDir, "condura-backup-*.zip.tmp")
 	if err != nil {
 		return "", false, fmt.Errorf("backup: create temp: %w", err)
 	}
@@ -554,7 +554,7 @@ func ArchivePathFor(dataDir string, t time.Time) string {
 		t = time.Now().UTC()
 	}
 	stamp := t.Format("2006-01-02T15-04-05Z")
-	return filepath.Join(dataDir, "backups", "synaptic-backup-"+stamp+".zip")
+	return filepath.Join(dataDir, "backups", "condura-backup-"+stamp+".zip")
 }
 
 // isSafeArchivePath rejects zip-slip: paths that escape the target

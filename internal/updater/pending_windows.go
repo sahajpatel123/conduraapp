@@ -21,7 +21,7 @@ func completePendingUpdatePlatform() (bool, error) {
 	if _, err := os.Stat(script); err != nil {
 		return false, nil
 	}
-	cacheDir := filepath.Join(userHome(), ".synaptic", "cache")
+	cacheDir := filepath.Join(userHome(), ".condura", "cache")
 	staged, err := findStagedUpdate(cacheDir)
 	if err != nil || staged == "" {
 		removePendingScript(dir)

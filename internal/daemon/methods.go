@@ -173,7 +173,7 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 		cost := llm.EstimateCost(p.Request.Model, resp.Usage)
 		mon.Record(cost)
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "llm.chat", App: appSynapticG,
+			Actor: actorGUI, Action: "llm.chat", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
 			Message: "provider=" + p.Provider + " model=" + p.Request.Model,
 		})

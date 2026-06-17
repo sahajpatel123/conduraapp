@@ -1,4 +1,4 @@
-# Default Synaptic configuration.
+# Default Condura configuration.
 # Generated on first run; safe to edit. Comments show the YAML key path
 # for use with environment variable overrides (SYNAPTIC_<KEY>=value).
 #
@@ -178,13 +178,13 @@ telemetry:
   crash_reports: false
 
 # Skills Hub (Phase 12). ENABLED by default — opt-out for the
-# public hub.synaptic.app service. All downloaded skills are
+# public hub.condura.app service. All downloaded skills are
 # safety-scanned before install. For private / company hubs, set
 # base_url to your own server and use token for auth.
 # Set token via env SYNAPTIC_HUB__TOKEN=... (do not commit it).
 hub:
   enabled: true
-  base_url: "https://hub.synaptic.app"
+  base_url: "https://hub.condura.app"
   auto_update: false
   # token: ""  # set via env SYNAPTIC_HUB__TOKEN for security
 

@@ -1,12 +1,12 @@
 # Code Style Guide
 
-> Conventions for Go, TypeScript, and Python in the Synaptic codebase.
+> Conventions for Go, TypeScript, and Python in the Condura codebase.
 
 ---
 
 ## Overview
 
-Synaptic is a multi-language project:
+Condura is a multi-language project:
 
 - **Go** for the core daemon (`synapticd`).
 - **TypeScript / React** for the overlay, TUI, and web dashboard.
@@ -75,8 +75,8 @@ import (
     "github.com/libp2p/go-libp2p"
     "github.com/stretchr/testify/assert"
 
-    "github.com/sahajpatel123/synapticapp/internal/agent"
-    "github.com/sahajpatel123/synapticapp/internal/safety"
+    "github.com/sahajpatel123/conduraapp/internal/agent"
+    "github.com/sahajpatel123/conduraapp/internal/safety"
 )
 ```
 

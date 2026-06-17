@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-06
-- **Deciders**: Synaptic core team
+- **Deciders**: Condura core team
 - **Supersedes**: —
 - **Superseded by**: —
 
@@ -10,7 +10,7 @@
 
 ## Context
 
-Synaptic needs a **persistent, on-device daemon** that:
+Condura needs a **persistent, on-device daemon** that:
 
 1. Runs 24/7 in the background with low resource use.
 2. Speaks to 12 LLM providers and 8 sub-agent CLIs.

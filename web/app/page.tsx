@@ -7,7 +7,7 @@ import { SITE } from "@/lib/site";
 const FEATURES = [
   {
     title: "Runs locally with Ollama",
-    body: "Point Synaptic at your own models running on your machine. No cloud round-trips, no rented GPUs, no usage meter.",
+    body: "Point Condura at your own models running on your machine. No cloud round-trips, no rented GPUs, no usage meter.",
   },
   {
     title: "Your data never leaves your machine",
@@ -73,7 +73,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="mt-6 max-w-2xl text-lg text-neutral-400"
         >
-          Synaptic is a local-first desktop AI agent that runs on your own
+          Condura is a local-first desktop AI agent that runs on your own
           models and your own machine. Your data stays with you — nothing leaves
           your computer unless you say so.
         </motion.p>
@@ -121,7 +121,7 @@ export default function Home() {
                 <span className="h-3 w-3 rounded-full bg-neutral-700" />
               </div>
               <p className="text-sm font-medium text-neutral-400">
-                Press {SITE.name === "Synaptic" ? "Cmd+Shift+Space" : "your hotkey"} to summon
+                Press {SITE.name === "Condura" ? "Cmd+Shift+Space" : "your hotkey"} to summon
               </p>
               <p className="max-w-sm text-xs text-neutral-600">
                 Overlay appears. Type or speak. Agent responds. Your data stays local.
@@ -174,7 +174,7 @@ export default function Home() {
             href="/download"
             className="mt-8 inline-block rounded-md bg-white px-6 py-3 text-sm font-medium text-black transition-colors hover:bg-neutral-200"
           >
-            Download Synaptic
+            Download Condura
           </Link>
         </div>
       </section>

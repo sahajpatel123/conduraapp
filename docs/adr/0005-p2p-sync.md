@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-06
-- **Deciders**: Synaptic core team
+- **Deciders**: Condura core team
 - **Supersedes**: —
 - **Superseded by**: —
 
@@ -10,9 +10,9 @@
 
 ## Context
 
-A user has multiple devices. They want their Synaptic data (memory, skills, settings, user model) on all of them.
+A user has multiple devices. They want their Condura data (memory, skills, settings, user model) on all of them.
 
-The data is **highly personal**: API keys, OAuth tokens, conversation history, user-model beliefs. **We (Synaptic) must not be able to read it.**
+The data is **highly personal**: API keys, OAuth tokens, conversation history, user-model beliefs. **We (Condura) must not be able to read it.**
 
 Three architectures are possible:
 
@@ -144,7 +144,7 @@ We assume:
 
 We do not assume:
 
-- That the user has a Synaptic Account.
+- That the user has a Condura Account.
 - That any device is on the same network.
 - That the user has a static IP.
 
@@ -156,8 +156,8 @@ Our servers run:
 
 1. **DHT bootstrap nodes**: 5-10 nodes, geographically distributed. They help new devices find peers.
 2. **Optional relay**: for users behind NAT. End-to-end encrypted.
-3. **Version check**: `GET https://updates.synaptic.app/v0.1.0/check?version=X` — returns "newer version available."
-4. **Skills Hub**: `https://hub.synaptic.app` — public marketplace for skills.
+3. **Version check**: `GET https://updates.condura.app/v0.1.0/check?version=X` — returns "newer version available."
+4. **Skills Hub**: `https://hub.condura.app` — public marketplace for skills.
 5. **Crash reports**: opt-in only.
 
 We do **not** run:

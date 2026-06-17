@@ -22,7 +22,7 @@ import (
 // Client is a thin JSON-RPC 2.0 client over HTTP. It is safe for
 // concurrent use.
 type Client struct {
-	addr   string // "tcp://127.0.0.1:7666" or "unix:///tmp/synapse.sock"
+	addr   string // "tcp://127.0.0.1:7666" or "unix:///tmp/Condura.sock"
 	token  string // optional bearer token
 	httpc  *http.Client
 	scheme string // "http" or "https"

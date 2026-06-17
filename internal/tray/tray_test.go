@@ -24,14 +24,14 @@ func TestEventConstants(t *testing.T) {
 // a non-nil Events channel. The actual systray native code is not
 // invoked here (it requires a display server).
 func TestNew_BuildsMenu(t *testing.T) {
-	m := New("Synaptic", "Free on-device AI agent")
+	m := New("Condura", "Free on-device AI agent")
 	if m == nil {
 		t.Fatal("New returned nil")
 	}
 	if m.Events() == nil {
 		t.Fatal("Events() returned nil channel")
 	}
-	if m.title != "Synaptic" {
+	if m.title != "Condura" {
 		t.Fatalf("title = %q", m.title)
 	}
 }
@@ -40,7 +40,7 @@ func TestNew_BuildsMenu(t *testing.T) {
 // internal halted flag and the menu item title after onReady. We
 // can only assert the flag here (onReady needs a display).
 func TestSetHalted_Flag(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetHalted(true)
 	if !m.halted.Load() {
 		t.Fatal("flag should be true after SetHalted(true)")
@@ -53,7 +53,7 @@ func TestSetHalted_Flag(t *testing.T) {
 
 // TestSetSpendUSD verifies the cents conversion is exact.
 func TestSetSpendUSD(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetSpendUSD(12.34)
 	if got := m.spend.Load(); got != 1234 {
 		t.Fatalf("cents = %d, want 1234", got)
@@ -66,7 +66,7 @@ func TestSetSpendUSD(t *testing.T) {
 
 // TestSetSpendUSD_Fractional exercises sub-cent rounding.
 func TestSetSpendUSD_Fractional(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetSpendUSD(0.05)
 	if got := m.spend.Load(); got != 5 {
 		t.Fatalf("cents for $0.05 = %d, want 5", got)
@@ -81,7 +81,7 @@ func TestSetSpendUSD_Fractional(t *testing.T) {
 // struct field (the actual systray tooltip setter requires a
 // display and is verified manually).
 func TestSetTooltip_StoresValue(t *testing.T) {
-	m := New("Synaptic", "old")
+	m := New("Condura", "old")
 	m.SetTooltip("new")
 	if m.tooltip != "new" {
 		t.Fatalf("tooltip = %q, want \"new\"", m.tooltip)
@@ -92,7 +92,7 @@ func TestSetTooltip_StoresValue(t *testing.T) {
 // safe to call before onReady has run. It updates the flag but
 // does not panic on the nil m.mHalt.
 func TestSetHalted_NoMenuBeforeOnReady(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetHalted(true)
 	if !m.halted.Load() {
 		t.Fatal("flag should be true even without onReady")
@@ -105,7 +105,7 @@ func TestSetHalted_NoMenuBeforeOnReady(t *testing.T) {
 
 // TestIsHalted reports the current halt flag.
 func TestIsHalted(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	if m.IsHalted() {
 		t.Fatal("IsHalted should default to false")
 	}
@@ -122,7 +122,7 @@ func TestIsHalted(t *testing.T) {
 // TestSetStatus_StoresValue verifies that SetStatus updates the
 // atomic value and is safe to call before onReady.
 func TestSetStatus_StoresValue(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	if m.Status() != status.StatusIdle {
 		t.Fatalf("default status = %v, want idle", m.Status())
 	}
@@ -140,7 +140,7 @@ func TestSetStatus_StoresValue(t *testing.T) {
 // can be set and read back without panicking, including before
 // onReady has run.
 func TestSetStatus_CycleThroughAllStates(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	all := []status.Status{
 		status.StatusIdle,
 		status.StatusListening,
@@ -161,7 +161,7 @@ func TestSetStatus_CycleThroughAllStates(t *testing.T) {
 // keeps the halt flag in sync (so the existing SetHalted
 // consumers see a consistent view).
 func TestSetStatus_HaltedSetsHaltFlag(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetStatus(status.StatusHalted)
 	if !m.IsHalted() {
 		t.Fatal("SetStatus(Halted) should set the halt flag")
@@ -175,7 +175,7 @@ func TestSetStatus_HaltedSetsHaltFlag(t *testing.T) {
 // TestSetErrorMessage_StoresValue verifies the error message is
 // stored and can be set before onReady.
 func TestSetErrorMessage_StoresValue(t *testing.T) {
-	m := New("Synaptic", "t")
+	m := New("Condura", "t")
 	m.SetErrorMessage("whisper binary missing")
 	v, ok := m.errMsg.Load().(string)
 	if !ok || v != "whisper binary missing" {

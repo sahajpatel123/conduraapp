@@ -23,7 +23,7 @@ func seedEvents(t *testing.T, l *audit.Log, n int) {
 		ev := &audit.Event{
 			Actor:   "gatekeeper",
 			Action:  "consent.request",
-			App:     "synaptic-gui",
+			App:     "condura-gui",
 			Level:   "info",
 			Result:  "allow",
 			Message: "test",
@@ -86,7 +86,7 @@ func TestReplay_TimelinePrunesExpired(t *testing.T) {
 	ctx := context.Background()
 	// Insert one event 48h ago and one now.
 	old := &audit.Event{
-		Actor: "u", Action: "old", App: "synapticd",
+		Actor: "u", Action: "old", App: "condurad",
 		TS:     time.Now().Add(-48 * time.Hour),
 		Result: "allow",
 	}
@@ -95,7 +95,7 @@ func TestReplay_TimelinePrunesExpired(t *testing.T) {
 	}
 	old.ID = 1
 	recent := &audit.Event{
-		Actor: "u", Action: "new", App: "synapticd",
+		Actor: "u", Action: "new", App: "condurad",
 		Result: "allow",
 	}
 	if err := l.Append(ctx, *recent); err != nil {

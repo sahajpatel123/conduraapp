@@ -2,11 +2,11 @@ cask "synaptic" do
   version "0.1.0"
   sha256 :no_check
 
-  url "https://github.com/sahajpatel123/synapticapp/releases/latest/download/synaptic-gui-darwin-arm64.dmg",
-      verified: "github.com/sahajpatel123/synapticapp/"
-  name "Synaptic"
+  url "https://github.com/sahajpatel123/conduraapp/releases/latest/download/condura-gui-darwin-arm64.dmg",
+      verified: "github.com/sahajpatel123/conduraapp/"
+  name "Condura"
   desc "Free, local-first AI agent that lives on your computer and orchestrates every other AI tool"
-  homepage "https://synaptic.app"
+  homepage "https://condura.app"
 
   livecheck do
     url :url
@@ -15,11 +15,11 @@ cask "synaptic" do
 
   depends_on macos: ">= :ventura"
 
-  app "Synaptic.app"
+  app "Condura.app"
 
   zap trash: [
     "~/Library/Application Support/synaptic",
     "~/.synaptic",
-    "~/Library/Preferences/com.synaptic.app.plist",
+    "~/Library/Preferences/com.condura.app.plist",
   ]
 end

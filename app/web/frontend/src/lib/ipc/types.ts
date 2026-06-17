@@ -619,7 +619,7 @@ export interface OAuthURLParams {
   // redirect_uri is where the OAuth provider should
   // redirect after the user consents. The GUI typically
   // uses "synaptic://oauth-callback" on desktop and
-  // "https://synaptic.app/oauth-callback" on web.
+  // "https://condura.app/oauth-callback" on web.
   redirect_uri: string
   // scopes is the OAuth scopes to request. Empty = use
   // the provider's default scopes.

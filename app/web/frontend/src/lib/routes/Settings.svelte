@@ -95,7 +95,7 @@
     try {
       const doc = await ipc.onboardingEula()
       eulaText = doc.text
-      eulaTitle = 'Synaptic Freeware License'
+      eulaTitle = 'Condura Freeware License'
       eulaVersion = doc.version
     } catch (err) {
       alert(`Could not load the EULA: ${err}`)
@@ -214,7 +214,7 @@
         </button>
       </div>
     {:else}
-      <p class="muted">Synaptic works fully without an account. Sign in to:</p>
+      <p class="muted">Condura works fully without an account. Sign in to:</p>
       <ul class="benefits">
         <li>Sync settings and skills across your devices</li>
         <li>Publish skills to the Hub under your identity</li>
@@ -229,7 +229,7 @@
 
   <section class="card">
     <h3>Channels</h3>
-    <p class="muted">Connect Telegram and other messaging channels to talk to Synaptic from anywhere.</p>
+    <p class="muted">Connect Telegram and other messaging channels to talk to Condura from anywhere.</p>
     <div class="row">
       <button class="btn btn-ghost" onclick={goToChannels}>Manage channels</button>
     </div>
@@ -237,7 +237,7 @@
 
   <section class="card">
     <h3>Voice</h3>
-    <p class="muted">Talk to Synaptic hands-free with a wake word. Voice runs entirely on this machine.</p>
+    <p class="muted">Talk to Condura hands-free with a wake word. Voice runs entirely on this machine.</p>
     <label class="checkbox">
       <input
         type="checkbox"
@@ -313,7 +313,7 @@
 
   <section class="card">
     <h3>Auto-update</h3>
-    <p class="muted">Synaptic auto-updates by default. Disable here to opt out — but you'll need to update manually going forward.</p>
+    <p class="muted">Condura auto-updates by default. Disable here to opt out — but you'll need to update manually going forward.</p>
     <label class="checkbox">
       <input
         type="checkbox"
@@ -354,7 +354,7 @@
 
   <section class="card">
     <h3>OS permissions</h3>
-    <p class="muted">Synaptic needs OS permissions for accessibility, screen recording, and microphone. Grant them in System Settings if status is not granted.</p>
+    <p class="muted">Condura needs OS permissions for accessibility, screen recording, and microphone. Grant them in System Settings if status is not granted.</p>
     <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>Refresh status</button>
     {#if trust.loadingPermissions}
       <p class="muted">Checking permissions…</p>

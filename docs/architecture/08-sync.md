@@ -6,11 +6,11 @@
 
 ## The Goal
 
-A user has a Mac, a Windows PC, and an iPad. They want their Synaptic setup — memory, skills, user model, settings — to follow them across all three.
+A user has a Mac, a Windows PC, and an iPad. They want their Condura setup — memory, skills, user model, settings — to follow them across all three.
 
 Constraints:
 
-1. **Privacy**: we (Synaptic) must never be able to read the contents.
+1. **Privacy**: we (Condura) must never be able to read the contents.
 2. **Offline**: must work without internet. (LAN discovery.)
 3. **Resilient**: must work even if the central server is down.
 4. **Zero-config for LAN**: devices on the same Wi-Fi discover each other automatically.
@@ -24,13 +24,13 @@ Constraints:
 
 We assume:
 
-- The Synaptic server is honest-but-curious: it can see metadata (who, when, how much) but not contents.
+- The Condura server is honest-but-curious: it can see metadata (who, when, how much) but not contents.
 - The network is hostile: a coffee-shop attacker cannot decrypt traffic.
 - A device can be lost or stolen: revocation must work.
 
 We do not assume:
 
-- That the user has a Synaptic Account.
+- That the user has a Condura Account.
 - That any device is on the same network as another.
 - That the user has a static IP.
 
@@ -63,7 +63,7 @@ We do not assume:
 
 ## Device Identity (Ed25519)
 
-Every Synaptic install generates an **Ed25519 keypair** on first launch:
+Every Condura install generates an **Ed25519 keypair** on first launch:
 
 - **Private key**: stored in the OS keychain (Keychain on macOS, Credential Manager on Windows, libsecret on Linux). Never written to disk in plaintext.
 - **Public key**: the device's identity. Format: `syn:device:ed25519:<base32-public-key>`.
@@ -104,7 +104,7 @@ On the same network, devices advertise themselves via **mDNS** (`_synaptic._tcp.
 - Port: 7666 (default; configurable)
 - TXT records: `device_id`, `device_name`, `device_type`, `version`
 
-When the user opens the "Devices" panel in the overlay, they see all Synaptic devices on the LAN. Tapping initiates pairing.
+When the user opens the "Devices" panel in the overlay, they see all Condura devices on the LAN. Tapping initiates pairing.
 
 ### WAN: DHT (libp2p's Kademlia)
 
@@ -117,7 +117,7 @@ For devices on different networks, we use libp2p's **DHT** to find peers. Each d
 For devices behind NAT (most home networks), a **relay** is needed. Options:
 
 1. **User's own relay**: the user can run a relay on a VPS (we provide a Docker image). This is the most private.
-2. **Synaptic relay** (default if no other option): a relay we run. We see only ciphertext + metadata. Users can opt out entirely.
+2. **Condura relay** (default if no other option): a relay we run. We see only ciphertext + metadata. Users can opt out entirely.
 3. **No relay**: if all devices are on LAN, no relay is used.
 
 The user can also disable WAN sync entirely in Settings.
@@ -160,7 +160,7 @@ For **audit log**, we use **append-only CRDTs** — no entries are ever deleted,
 By default:
 
 - **LAN**: instant (when a change is made, push to all paired LAN devices immediately).
-- **WAN**: every 5 minutes, or on user action, or when the user re-opens Synaptic.
+- **WAN**: every 5 minutes, or on user action, or when the user re-opens Condura.
 
 The user can configure:
 
@@ -218,7 +218,7 @@ Total CRDT log size: ~10MB for a heavy user. Compressed and pruned daily.
 
 ---
 
-## The Server-Side (Synaptic's Own Servers)
+## The Server-Side (Condura's Own Servers)
 
 We run:
 
@@ -240,7 +240,7 @@ We do **not** run:
 ```
 You ─── trust ───► your own devices
         ─── trust ───► your own relay (if you run one)
-        ─── may not trust ───► Synaptic relay (sees only metadata)
+        ─── may not trust ───► Condura relay (sees only metadata)
         ─── must not trust ───► us, the network, the OS vendor
 ```
 

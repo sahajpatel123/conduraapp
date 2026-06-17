@@ -22,7 +22,7 @@ func TestCapture_WritesLocalFile(t *testing.T) {
 	}
 	// Verify local file written.
 	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".synaptic", "crashes")
+	dir := filepath.Join(home, ".condura", "crashes")
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) == 0 {
 		t.Fatal("no crash file written to", dir)

@@ -1,6 +1,6 @@
-# Synaptic — CLAUDE.md
+# Condura — CLAUDE.md
 
-> **The single source of truth for the Synaptic project.**
+> **The single source of truth for the Condura project.**
 > Every AI model and every human working on this project MUST read this file
 > end-to-end before starting any work, and must read `LOGBOOK.md` for the latest
 > session state. After every working session, append an entry to `LOGBOOK.md`.
@@ -15,7 +15,7 @@
 
 1. [Mission](#1-mission)
 2. [The Survival Rule (Non-Negotiable Invariants)](#2-the-survival-rule)
-3. [What Synaptic Is (and Is Not)](#3-what-synaptic-is-and-is-not)
+3. [What Condura Is (and Is Not)](#3-what-synaptic-is-and-is-not)
 4. [The 26 Locked Decisions](#4-the-26-locked-decisions)
 5. [The 7 Technical Non-Negotiables](#5-the-7-technical-non-negotiables)
 6. [Selective Perception (Battery + Safety)](#6-selective-perception)
@@ -56,13 +56,13 @@ Mission statement (one line):
 
 > Make AI useful to every ordinary person, on every computer, for free. No lock-in. No tracking. No compromise on speed or safety.
 
-**Why this exists:** Hermes Agent, OpenClaw, Antigravity, Claude Code, Codex — all amazing, all locked behind either subscriptions, cloud platforms, or single-vendor stacks. None of them talk to each other. None of them give the user a single hotkey that does anything on the computer. Synaptic is the missing conductor. Free, fast, theirs.
+**Why this exists:** Hermes Agent, OpenClaw, Antigravity, Claude Code, Codex — all amazing, all locked behind either subscriptions, cloud platforms, or single-vendor stacks. None of them talk to each other. None of them give the user a single hotkey that does anything on the computer. Condura is the missing conductor. Free, fast, theirs.
 
 ---
 
 ## 2. The Survival Rule
 
-Synaptic performs physical, often irreversible actions on the user's operating system. A fallible multi-model system. Async-supervised. Operating with stale screen state. **This is not an optimization problem. It is a survival problem.**
+Condura performs physical, often irreversible actions on the user's operating system. A fallible multi-model system. Async-supervised. Operating with stale screen state. **This is not an optimization problem. It is a survival problem.**
 
 If a feature conflicts with the invariants below, **the feature is wrong. Remove the feature.**
 
@@ -89,11 +89,11 @@ If a feature conflicts with the invariants below, **the feature is wrong. Remove
 3. **Speed is the product.** Cold start < 500ms. Hotkey → overlay < 100ms. First token < 1.5s. No exceptions.
 4. **Local-first.** Memory, skills, audit log, embeddings — all on disk, encrypted. The only network calls are to the LLM provider(s) the user configured.
 5. **Free forever.** No feature gates. No premium tier. No nags. A donate button in the menu bar, that's it.
-6. **Proprietary source, free binary.** Repo is private. Binaries are signed, notarized, and downloadable from synaptic.app.
+6. **Proprietary source, free binary.** Repo is private. Binaries are signed, notarized, and downloadable from condura.app.
 
 ---
 
-## 3. What Synaptic Is (and Is Not)
+## 3. What Condura Is (and Is Not)
 
 ### Is
 - A **free** desktop application (Mac, Windows, Linux).
@@ -118,24 +118,24 @@ Every decision made during planning. Nothing is open. Implementation may surface
 
 | # | Decision | Value | Source |
 |---|---|---|---|
-| 1 | Project name | **Synaptic** | User |
-| 2 | License (binary) | **Synaptic Freeware EULA v1** (free personal + commercial, no redistribution, revocable for abuse) | User |
+| 1 | Project name | **Condura** | User |
+| 2 | License (binary) | **Condura Freeware EULA v1** (free personal + commercial, no redistribution, revocable for abuse) | User |
 | 3 | License (source) | **Proprietary** (private repo, source available on request) | User |
 | 4 | Foundation approach | **From scratch in Go + TypeScript** (no Hermes fork) | User |
 | 5 | Computer use backends | **All 3 + vision CUA, with 4-tier router** (ORAX Eye → mac-cua → macOS-MCP → vision CUA) | User |
 | 6 | Routing strategy | **Hybrid with memory** (cost-first cascade, bias toward what worked) | User |
 | 7 | Plan depth | **Exhaustive detail** (every small detail, since AI is building it) | User |
 | 8 | Hotkey | **User must set on first run** (no default; suggestions: Option+Option, Cmd+Shift+Space, Ctrl+Space) | User |
-| 9 | Web app stack | **Next.js 14 on Vercel** at `synaptic.app` | User |
+| 9 | Web app stack | **Next.js 14 on Vercel** at `condura.app` | User |
 | 10 | Donation platform | **All three** — GitHub Sponsors + Open Collective + Stripe | User |
 | 11 | Languages at v0.1.0 | **English + Spanish + French + German + Japanese + Mandarin** (i18n from day 1) | User |
 | 12 | Visual brand | **Decide later** (placeholder palette, iterate after first UI mockup) | User |
 | 13 | Launch strategy | **Public v0.1.0, all in** — Product Hunt + Hacker News + Reddit (r/singularity, r/LocalLLaMA, r/AI_Agents) on same day | User |
-| 14 | Support channels | **All** — Discord + GitHub Issues + support@synaptic.app | User |
+| 14 | Support channels | **All** — Discord + GitHub Issues + support@condura.app | User |
 | 15 | Provider down behavior | **Auto-failover** — Ollama local first, then any configured backup key | User |
 | 16 | Multi-machine sync | **P2P encrypted sync** (device-to-device, E2E encrypted, no central server) | User |
 | 17 | Uninstall behavior | **Auto-backup before uninstall** to `~/Documents/synaptic-backups/` | User |
-| 18 | Skill sharing | **Public Skills Hub** at `hub.synaptic.app` (curated, safety-scanned, versioned) | User |
+| 18 | Skill sharing | **Public Skills Hub** at `hub.condura.app` (curated, safety-scanned, versioned) | User |
 | 19 | Feedback UX | **Thumbs up/down** on every response (optional text; feeds adaptive engine) | User |
 | 20 | Persona | **Adaptive, mirrors user** (no fixed character; learns communication style) | User |
 | 21 | Sensitive data handling | **Warn + ask each time** (banking/health portals: native dialog before any action) | User |
@@ -337,11 +337,11 @@ When the user is typing, **the agent is asleep**. When the user clicks, the agen
 | Notarization | `notarytool` + altool for macOS | Required for Gatekeeper |
 | Installers | **GoReleaser** (macOS dmg/pkg, Windows msi/exe, Linux deb/AppImage) | One config, all OSes |
 | P2P sync | **Custom Kademlia DHT + Noise XX handshake** OR Syncthing-fork | E2E encrypted, no server |
-| License (binary) | **Synaptic Freeware EULA v1** | Custom, free, revocable |
+| License (binary) | **Condura Freeware EULA v1** | Custom, free, revocable |
 | License (source) | **Proprietary** | Private repo |
 | Build | **GoReleaser** (Go) + **tsup** (TS) + **npm** + **Homebrew tap** | Standard |
 | Package | **GitHub Releases** + **Homebrew** + direct download | Standard |
-| Repo | **github.com/sahajpatel123/synapticapp** (private) | Standard |
+| Repo | **github.com/sahajpatel123/conduraapp** (private) | Standard |
 
 **What we DON'T use:** Python in our main code. Python is *only* a substrate for the 3 computer-use MCPs we don't rewrite.
 
@@ -390,7 +390,7 @@ type UserModel struct {
 - Style mirror (apply at prompt-building time)
 
 ### 9.5 Visibility (the user can SEE and EDIT)
-- "What Synaptic has learned about you" view in Settings
+- "What Condura has learned about you" view in Settings
 - Every inferred preference with evidence
 - One-click delete for any item
 - Dialectic log: recent arguments the model had about you
@@ -690,7 +690,7 @@ Skills (separate package). Auto-created, self-improved.
 4. **Shared** via Skills Hub
 5. **Scanned** for promptware on import
 
-### 15.3 Skills Hub (`hub.synaptic.app`)
+### 15.3 Skills Hub (`hub.condura.app`)
 - Public, curated, safety-scanned
 - Versioned (semver)
 - User can subscribe to updates
@@ -710,7 +710,7 @@ Skills (separate package). Auto-created, self-improved.
 Users can author their own. We ship a Go SDK + TS SDK.
 
 ### 16.3 Curated Catalog
-"Approved by Synaptic" catalog with one-click install. Mirrors the optional-skills pattern from Hermes.
+"Approved by Condura" catalog with one-click install. Mirrors the optional-skills pattern from Hermes.
 
 ---
 
@@ -735,7 +735,7 @@ Settings → "Pair a new device" → QR code with public key + LAN IP + pairing 
 ### 17.4 Revocation
 Any paired device can revoke any other. Revoked device forgets the encryption keys.
 
-### 17.5 Synaptic Account (separate from P2P)
+### 17.5 Condura Account (separate from P2P)
 For Skills Hub, donations, support. Optional. P2P sync works without it.
 
 ---
@@ -790,7 +790,7 @@ Animated waveform when listening. Pulsing dots. Color reflects confidence.
 
 The killer UX moment. 7 screens, all skippable but recommended:
 
-1. **Welcome** — what Synaptic is, mission
+1. **Welcome** — what Condura is, mission
 2. **EULA acceptance** — must accept
 3. **Power source** — choose: connect subscription (ChatGPT Plus, Claude Pro, Gemini AI Pro, SuperGrok) OR paste API key OR use local model OR mix
 4. **Permission grants** — Accessibility, Screen Recording, Microphone, Notifications (macOS); equivalents on Windows/Linux
@@ -820,7 +820,7 @@ After onboarding: menu bar icon (mac) / system tray (win) / status icon (linux) 
 - Status icon on Linux
 
 ### 21.3 Web Dashboard
-- At `synaptic.app/dashboard` (or local `localhost:7475`)
+- At `condura.app/dashboard` (or local `localhost:7475`)
 - Same auth as desktop (magic link)
 - Mobile-responsive
 - Real-time session tracking
@@ -847,7 +847,7 @@ After onboarding: menu bar icon (mac) / system tray (win) / status icon (linux) 
 - Atomic rollback on failure
 
 ### 22.4 Update Server
-GitHub Releases. Synaptic checks every 6h and on launch.
+GitHub Releases. Condura checks every 6h and on launch.
 
 ### 22.5 Block Second Install
 One stable instance per machine. Second install blocked with friendly message.
@@ -909,17 +909,17 @@ When primary provider is down or key is rejected:
 ### 26.1 Support
 - **Discord**: `discord.gg/synaptic` (community + dev)
 - **GitHub Issues**: bug reports + feature requests
-- **Email**: `support@synaptic.app`
-- **Docs site**: `synaptic.app/docs`
+- **Email**: `support@condura.app`
+- **Docs site**: `condura.app/docs`
 
 ### 26.2 Donations
 - **GitHub Sponsors**: recurring
 - **Open Collective**: recurring + transparent ledger
-- **Stripe one-time**: via `synaptic.app/donate`
+- **Stripe one-time**: via `condura.app/donate`
 
 ### 26.3 Marketing
-- `synaptic.app` — landing, demo GIF/video, download, donate, changelog
-- `hub.synaptic.app` — Skills Hub
+- `condura.app` — landing, demo GIF/video, download, donate, changelog
+- `hub.condura.app` — Skills Hub
 - Launch on Product Hunt + Hacker News + Reddit (r/singularity, r/LocalLLaMA, r/AI_Agents)
 - Demo video: 60s showing overlay → voice → task done
 - Screenshots of overlay, main window, settings, on each OS
@@ -996,7 +996,7 @@ Gatekeeper reads this matrix on every action.
 | 26.6 | **Action Replay** (24h scrubbable) | 3 |
 | 27 | Auto-backup + uninstall flow | 1 |
 | 28 | Web app (Next.js on Vercel, 6 pages, i18n) | 3 |
-| 29 | Public Skills Hub (hub.synaptic.app) | 3 |
+| 29 | Public Skills Hub (hub.condura.app) | 3 |
 | 30 | i18n (6 languages, TS + Go) | 3 |
 | 31 | Marketing assets (PH page, screenshots, demo video) | 2 |
 | 32 | Build, sign, notarize, distribute v0.1.0 | 3 |
@@ -1013,7 +1013,7 @@ synaptic/
 ├── CLAUDE.md                          # This file
 ├── LOGBOOK.md                         # Append-only AI session log
 ├── README.md
-├── EULA.md                            # Synaptic Freeware License v1
+├── EULA.md                            # Condura Freeware License v1
 ├── LICENSE                            # Proprietary
 ├── CONTRIBUTING.md
 ├── SECURITY.md
@@ -1147,7 +1147,7 @@ This project is being built by a human + AI partnership. The human is the archit
 
 | Term | Meaning |
 |---|---|
-| **Synaptic** | The product name. |
+| **Condura** | The product name. |
 | **The Conductor** | The main agent loop + router. |
 | **The Strategist** | Any LLM that decides WHAT to do. |
 | **The Gatekeeper** | Deterministic rules engine that decides IF it's safe. |
@@ -1160,7 +1160,7 @@ This project is being built by a human + AI partnership. The human is the archit
 | **Adaptive Engine** | User-Adaptive Engine: closed learning loop. |
 | **Dialectic** | Proposer + critic + adjudicator pattern for learning. |
 | **P2P Sync** | Device-to-device encrypted sync, no central server. |
-| **Hub** | Public Skills Hub at hub.synaptic.app. |
+| **Hub** | Public Skills Hub at hub.condura.app. |
 | **Overlay** | Floating chat/voice box. |
 | **TUI** | Terminal UI (Ink). |
 | **Wails** | Desktop shell framework (Go + web). |

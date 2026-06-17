@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-06
-- **Deciders**: Synaptic core team
+- **Deciders**: Condura core team
 - **Supersedes**: —
 - **Superseded by**: —
 
@@ -10,7 +10,7 @@
 
 ## Context
 
-Synaptic has 3 UIs:
+Condura has 3 UIs:
 
 1. **Overlay** — a floating chat/voice box on the desktop.
 2. **TUI** — a terminal user interface for power users and SSH.

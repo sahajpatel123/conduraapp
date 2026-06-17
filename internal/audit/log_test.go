@@ -29,7 +29,7 @@ func TestLog_AppendAndList(t *testing.T) {
 		err := l.Append(ctx, Event{
 			Actor:   "user",
 			Action:  "test.append",
-			App:     "synapticd",
+			App:     "condurad",
 			Level:   "info",
 			Result:  "allow",
 			Message: "hello",
@@ -198,7 +198,7 @@ func TestLog_StructuredFieldsRoundTrip(t *testing.T) {
 	in := Event{
 		Actor:         "gatekeeper",
 		Action:        "consent.request",
-		App:           "synaptic-gui",
+		App:           "condura-gui",
 		Level:         "info",
 		Result:        "allow",
 		Kind:          "consent.request",

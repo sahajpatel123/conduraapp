@@ -56,4 +56,4 @@ go run ./cmd/gen-update-manifest verify dist/verify-v0.1.0/manifest.json
 - [ ] Screenshots of auto-update notification
 - [ ] Screenshots of backup/restore flow
 - [ ] Log output from a full end-to-end session
-- [ ] Notarization staple verification: `stapler validate /Applications/Synaptic.app` (when Apple secrets configured)
+- [ ] Notarization staple verification: `stapler validate /Applications/Condura.app` (when Apple secrets configured)

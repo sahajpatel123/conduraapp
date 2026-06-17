@@ -184,7 +184,7 @@ func darwinSteps(k Kind) ([]string, string, string) {
 			"Open System Settings → Privacy & Security → Accessibility",
 			"Click the lock icon and authenticate",
 			"Find Synaptic in the list and toggle it ON",
-			"If Synaptic is not in the list, click + and add it from /Applications",
+			"If Condura is not in the list, click + and add it from /Applications",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindScreenRecording:
 		return []string{

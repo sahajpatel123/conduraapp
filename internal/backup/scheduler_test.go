@@ -11,7 +11,7 @@ import (
 
 func TestScheduler_DefaultBackupDir(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(tmp, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(tmp, "backups"))
 	mk := make([]byte, 32)
 	bm, err := New(Options{DataDir: tmp, MasterKey: mk})
 	if err != nil {
@@ -72,7 +72,7 @@ func TestScheduler_CreateAndRotate(t *testing.T) {
 	}
 	var backups []string
 	for _, f := range files {
-		if strings.HasPrefix(f.Name(), "synaptic-backup-") && strings.HasSuffix(f.Name(), ".zip") {
+		if strings.HasPrefix(f.Name(), "condura-backup-") && strings.HasSuffix(f.Name(), ".zip") {
 			backups = append(backups, f.Name())
 		}
 	}

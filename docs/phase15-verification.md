@@ -1,11 +1,11 @@
 # Phase 15 Verification Checklist
 
-> Final pre-public-launch verification for Synaptic v0.1.0.
+> Final pre-public-launch verification for Condura v0.1.0.
 > Goal: prove that a real user can download, install, onboard, and use the product safely.
 >
 > Execute this checklist on **at least one clean machine per OS**:
 > macOS (arm64), Windows 11 (amd64), Ubuntu 22.04 (amd64).
-> A "clean machine" means no prior Synaptic install, no pre-existing `~/.synaptic/`,
+> A "clean machine" means no prior Condura install, no pre-existing `~/.synaptic/`,
 > no Ollama, no API keys configured, and no developer tooling beyond a browser.
 
 ---
@@ -24,7 +24,7 @@
 
 | # | Step | Expected Result | Status | Notes |
 |---|------|-----------------|--------|-------|
-| 1.1 | Visit `https://synaptic.app/download` | Page loads, platform auto-detected, no console errors | | |
+| 1.1 | Visit `https://condura.app/download` | Page loads, platform auto-detected, no console errors | | |
 | 1.2 | Download the artifact for the current OS | Download completes; file size matches release manifest | | |
 | 1.3 | Verify checksum (macOS/Linux: `sha256sum`; Windows: `CertUtil`) | Checksum matches `manifest.json` entry | | |
 | 1.4 | Verify code signature | macOS: `codesign -dv --verbose=4`; Windows: signature present in file properties; Linux: GPG signature if provided | | |
@@ -53,7 +53,7 @@
 | 3.4 | Grant Screen Recording permission | `permissions.status` reports `granted` within 2 polling cycles | | |
 | 3.5 | Hotkey screen | Records a valid combo; Continue enabled only after record | | |
 | 3.6 | Ready screen | Detects Ollama if present; otherwise shows API key / CLI options | | |
-| 3.7 | Click "Start using Synaptic" | Wizard dismisses; main chat UI appears | | |
+| 3.7 | Click "Start using Condura" | Wizard dismisses; main chat UI appears | | |
 | 3.8 | Re-run setup from Settings | Wizard re-appears at EULA; does not lose existing config | | |
 
 ---

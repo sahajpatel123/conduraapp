@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build-gui.sh — build the Synaptic Wails desktop app for the current OS/arch.
+# build-gui.sh — build the Condura Wails desktop app for the current OS/arch.
 # Output: dist/prebuilt/synaptic-gui-<goos>-<goarch>[.exe]
 set -euo pipefail
 
@@ -11,9 +11,9 @@ COMMIT="${COMMIT:-$(git rev-parse HEAD 2>/dev/null || echo none)}"
 BUILD_DATE="${BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 
 LDFLAGS="-s -w \
-  -X github.com/sahajpatel123/synapticapp/internal/version.Version=${VERSION} \
-  -X github.com/sahajpatel123/synapticapp/internal/version.Commit=${COMMIT} \
-  -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate=${BUILD_DATE}"
+  -X github.com/sahajpatel123/conduraapp/internal/version.Version=${VERSION} \
+  -X github.com/sahajpatel123/conduraapp/internal/version.Commit=${COMMIT} \
+  -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate=${BUILD_DATE}"
 
 OUT_DIR="${ROOT}/dist/prebuilt"
 EXT=""
@@ -45,7 +45,7 @@ fi
 # Wails outputfilename is "web" — normalize to synaptic for releases.
 case "$GOOS" in
   darwin)
-    APP="${ROOT}/app/web/build/bin/synaptic.app"
+    APP="${ROOT}/app/web/build/bin/condura.app"
     if [ ! -d "$APP" ]; then
       APP="${ROOT}/app/web/build/bin/web.app"
     fi

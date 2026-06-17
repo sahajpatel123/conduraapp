@@ -221,7 +221,7 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 	u := New(nil, manifestSrv.URL)
 	u.pubKey = pub
 	u.cacheDir = t.TempDir()
-	target := filepath.Join(t.TempDir(), "synapticd")
+	target := filepath.Join(t.TempDir(), "condurad")
 	if err := os.WriteFile(target, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}

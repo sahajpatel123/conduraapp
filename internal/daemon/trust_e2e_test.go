@@ -86,10 +86,10 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	addr := l.Addr().String()
 	_ = l.Close()
 
-	// Clear SYNAPTIC_ env so config stays deterministic.
+	// Clear CONDURA_ env so config stays deterministic.
 	for _, e := range os.Environ() {
 		for i := 0; i < len(e)-9; i++ {
-			if e[i:i+9] == "SYNAPTIC_" {
+			if e[i:i+9] == "CONDURA_" {
 				name := e[:i+9]
 				end := i + 9
 				for end < len(e) && e[end] != '=' {
@@ -102,7 +102,7 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 			}
 		}
 	}
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)

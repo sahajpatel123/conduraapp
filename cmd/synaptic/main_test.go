@@ -41,15 +41,15 @@ func buildBinariesOnce() (daemonBin, cliBin string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	daemonBin = filepath.Join(binDir, "synapticd"+ext)
-	cliBin = filepath.Join(binDir, "synaptic"+ext)
+	daemonBin = filepath.Join(binDir, "condurad"+ext)
+	cliBin = filepath.Join(binDir, "condura"+ext)
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
 	for _, p := range []struct {
 		path, name string
 	}{
-		{daemonBin, "synapticd"},
-		{cliBin, "synaptic"},
+		{daemonBin, "condurad"},
+		{cliBin, "condura"},
 	} {
 		cmd := exec.Command("go", "build", "-o", p.path, "./cmd/"+p.name)
 		cmd.Dir = repoRoot
@@ -103,7 +103,7 @@ func startDaemon(t *testing.T, bin, dataDir string) *daemon {
 	})
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := os.Stat(filepath.Join(dataDir, "synapticd.addr")); err == nil {
+		if _, err := os.Stat(filepath.Join(dataDir, "condurad.addr")); err == nil {
 			return d
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -162,7 +162,7 @@ func TestCLIVersion(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("version exit %d", code)
 	}
-	if !strings.Contains(so, "synapticd") {
+	if !strings.Contains(so, "condurad") {
 		t.Fatalf("expected 'synapticd' in output, got: %s", so)
 	}
 }

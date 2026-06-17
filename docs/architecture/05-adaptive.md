@@ -1,14 +1,14 @@
 # Architecture 05 — The User-Adaptive Engine
 
-> Synaptic learns how you work. You can always see, edit, and delete what it learns.
+> Condura learns how you work. You can always see, edit, and delete what it learns.
 
 ---
 
 ## The Goal
 
-A new user installs Synaptic. It works.
+A new user installs Condura. It works.
 
-A user uses Synaptic for 3 months. It **anticipates**.
+A user uses Condura for 3 months. It **anticipates**.
 
 - It knows which app you reach for in the morning.
 - It knows your writing style and uses it.

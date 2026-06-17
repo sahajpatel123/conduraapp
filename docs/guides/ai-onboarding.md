@@ -1,12 +1,12 @@
 # AI Onboarding Guide
 
-> A step-by-step guide for AI agents (or humans) picking up the Synaptic project.
+> A step-by-step guide for AI agents (or humans) picking up the Condura project.
 
 ---
 
 ## Welcome
 
-You're about to work on **Synaptic**, a free, on-device, persistent AI agent. The project is in **Phase 0 (Foundation)** as of 2026-06-06. Before you write a single line of code, read this guide.
+You're about to work on **Condura**, a free, on-device, persistent AI agent. The project is in **Phase 0 (Foundation)** as of 2026-06-06. Before you write a single line of code, read this guide.
 
 ---
 
@@ -271,7 +271,7 @@ The user is the architect. The AI is the implementer. The user reviews. If you f
 
 ## Welcome to the Project
 
-Synaptic is an ambitious project. It's a free, on-device AI agent that orchestrates every AI tool a user has. It has a safety-first design, a battery-aware perception system, a closed-loop learning engine, and a public Skills Hub.
+Condura is an ambitious project. It's a free, on-device AI agent that orchestrates every AI tool a user has. It has a safety-first design, a battery-aware perception system, a closed-loop learning engine, and a public Skills Hub.
 
 If you follow the rules, respect the decisions, and do the work, you'll do well. If you cut corners, you'll be told.
 

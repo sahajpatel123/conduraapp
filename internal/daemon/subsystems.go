@@ -370,7 +370,7 @@ func (s *Subsystems) GatekeeperAllow(ctx context.Context, kind, detail string) b
 	}
 	action := blastradius.Action{
 		Kind:      kind,
-		TargetApp: "synapticd",
+		TargetApp: "condurad",
 		Body:      detail,
 	}
 	decision, reason := s.Safety.Engine.Evaluate(ctx, action)
@@ -392,7 +392,7 @@ func (s *Subsystems) GatekeeperAllow(ctx context.Context, kind, detail string) b
 	if s.AuditLog != nil {
 		_ = s.AuditLog.Append(auditCtx, buildAuditEvent(
 			"gate."+decisionName(decision),
-			appSynapticd,
+			appCondurad,
 			auditResultFromDecision(decision),
 			"kind="+kind+" reason="+reason,
 		))

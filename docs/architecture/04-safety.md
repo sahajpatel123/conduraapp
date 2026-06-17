@@ -1,12 +1,12 @@
 # Architecture 04 — The Safety Layer
 
-> The 5 modules and 7 non-negotiables that keep Synaptic safe.
+> The 5 modules and 7 non-negotiables that keep Condura safe.
 
 ---
 
 ## The Philosophy
 
-Synaptic performs physical, often irreversible actions on the user's computer. A single bug, a single prompt injection, a single moment of inattention could result in data loss, financial damage, or worse.
+Condura performs physical, often irreversible actions on the user's computer. A single bug, a single prompt injection, a single moment of inattention could result in data loss, financial damage, or worse.
 
 Therefore: **safety is not a feature. It is the foundation.** Every other feature is built on top of safety. If safety and convenience conflict, safety wins, every time, no exceptions.
 

@@ -11,9 +11,9 @@
 // is unavailable (headless servers, CI, minimal Linux without libsecret).
 //
 // Selection logic:
-//  1. If SYNAPTIC_SECRETS_BACKEND=keyring is set, use the keyring (fail if
+//  1. If CONDURA_SECRETS_BACKEND=keyring is set, use the keyring (fail if
 //     unavailable).
-//  2. If SYNAPTIC_SECRETS_BACKEND=file is set, use the file backend.
+//  2. If CONDURA_SECRETS_BACKEND=file is set, use the file backend.
 //  3. Otherwise (auto): try the keyring; if it fails, fall back to file with
 //     a one-time warning.
 //
@@ -33,7 +33,7 @@ import (
 )
 
 // Service is the keyring service name used for all Synaptic secrets.
-const Service = "synaptic"
+const Service = "condura"
 
 // File-mode bits for the local-encrypted-secrets file. We keep the
 // permissions strict (owner-only) because the file holds the master

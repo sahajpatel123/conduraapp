@@ -14,8 +14,8 @@
     screen_recording: 'Screen Recording'
   }
   const WHY: Record<string, string> = {
-    accessibility: 'Lets Synaptic click, type, and read UI elements in other apps.',
-    screen_recording: 'Lets Synaptic see your screen to understand what to do.'
+    accessibility: 'Lets Condura click, type, and read UI elements in other apps.',
+    screen_recording: 'Lets Condura see your screen to understand what to do.'
   }
 
   let statuses = $state<PermissionStatus[]>([])
@@ -86,7 +86,7 @@
 <div class="wizard perms">
   <h2>Grant access</h2>
   <p class="muted">
-    Synaptic needs two permissions to control your computer. Grant them now for the full experience, or skip and enable
+    Condura needs two permissions to control your computer. Grant them now for the full experience, or skip and enable
     later in Settings.
   </p>
 

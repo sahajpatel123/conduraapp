@@ -1,6 +1,6 @@
 # STYLE.md
 
-> The operating manual for every AI model that touches the Synaptic
+> The operating manual for every AI model that touches the Condura
 > project. This file is the working style I have learned — written
 > in first person, because every AI reading this should be able to
 > say "I will work like this" the moment they finish reading.
@@ -428,7 +428,7 @@ A session, top to bottom:
 
 ## 17. The Quality Bar for This Project Specifically
 
-Synaptic is a privacy-respecting AI agent. The user trusts
+Condura is a privacy-respecting AI agent. The user trusts
 this software with their data. That means:
 
 - **Encryption is real, not theater.** Every secret goes

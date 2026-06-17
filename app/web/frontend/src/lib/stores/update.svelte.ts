@@ -44,7 +44,7 @@ class UpdateStore {
           notifications.push({
             kind: 'info',
             title: 'Updated',
-            message: `Synaptic ${applied.latest_version} is being installed. Restart when convenient.`,
+            message: `Condura ${applied.latest_version} is being installed. Restart when convenient.`,
             sticky: true
           })
         }

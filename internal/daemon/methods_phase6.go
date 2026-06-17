@@ -71,7 +71,7 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "voice.cancel", App: appSynapticG,
+				Actor: actorGUI, Action: "voice.cancel", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 			})
 		}
@@ -94,7 +94,7 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "voice.speak", App: appSynapticG,
+				Actor: actorGUI, Action: "voice.speak", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 				Message: "len=" + itoa(int64(len(p.Text))),
 			})
@@ -111,7 +111,7 @@ func registerPresenceMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "presence.summon", App: appSynapticG,
+				Actor: actorGUI, Action: "presence.summon", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 			})
 		}
@@ -125,7 +125,7 @@ func registerPresenceMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "presence.dismiss", App: appSynapticG,
+				Actor: actorGUI, Action: "presence.dismiss", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 			})
 		}
@@ -174,7 +174,7 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "agent.ask", App: appSynapticG,
+				Actor: actorGUI, Action: "agent.ask", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 				Message: "conversation_id=" + itoa(p.ConversationID) + " reply_len=" + itoa(int64(len(reply))),
 			})

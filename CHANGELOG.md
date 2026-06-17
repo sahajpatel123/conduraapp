@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Synaptic are documented in this file.
+All notable changes to Condura are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -36,4 +36,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `cmd/synaptic` `--stream` is a no-op in Phase 1; streaming will be added in Phase 2 (per-Provider `Stream()` is already implemented in the LLM package).
 - `Makefile` `daemon-init` / `daemon-stop` targets call into CLI subcommands that don't exist yet; they will be added with the install / LaunchAgent work in Phase 5.
 
-[Unreleased]: https://github.com/sahajpatel123/synapticapp/compare/main...HEAD
+[Unreleased]: https://github.com/sahajpatel123/conduraapp/compare/main...HEAD

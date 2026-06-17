@@ -1,4 +1,4 @@
-// Smoke tests for the synapticd binary. These spawn the actual binary
+// Smoke tests for the condurad binary. These spawn the actual binary
 // as a subprocess so we exercise the full startup path, but they keep
 // the scope small: version flag, default-config flag, and a brief
 // run that exits cleanly on SIGTERM.
@@ -29,7 +29,7 @@ func TestBinaryPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		ext = ".exe"
 	}
-	bin := filepath.Join(binDir, "synapticd"+ext)
+	bin := filepath.Join(binDir, "condurad"+ext)
 	// Repo root is two levels up from this test file (cmd/synapticd).
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
@@ -39,7 +39,7 @@ func TestBinaryPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build synapticd: %v\n%s", err, out)
 	}
-	// Use a non-SYNAPTIC_ env var name so it doesn't get parsed as a
+	// Use a non-CONDURA_ env var name so it doesn't get parsed as a
 	// config override by the daemon's env-loader.
 	t.Setenv("__SYNAPSE_TEST_BIN", bin)
 }
@@ -74,7 +74,7 @@ func TestVersionFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--version: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "Synaptic") {
+	if !strings.Contains(string(out), "Condura") {
 		t.Fatalf("unexpected --version output: %q", out)
 	}
 }
@@ -116,7 +116,7 @@ func TestStartsAndStopsCleanly(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	var addr string
 	for time.Now().Before(deadline) {
-		b, err := os.ReadFile(filepath.Join(dataDir, "synapticd.addr"))
+		b, err := os.ReadFile(filepath.Join(dataDir, "condurad.addr"))
 		if err == nil && len(b) > 0 {
 			addr = strings.TrimSpace(string(b))
 			break
@@ -160,7 +160,7 @@ func TestDataDirFlagPropagates(t *testing.T) {
 	// the daemon has finished startup and written its log line.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := os.Stat(filepath.Join(dataDir, "synapticd.addr")); err == nil {
+		if _, err := os.Stat(filepath.Join(dataDir, "condurad.addr")); err == nil {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -205,7 +205,7 @@ func startDaemon(t *testing.T, bin, dataDir string) (*exec.Cmd, string) {
 	deadline := time.Now().Add(10 * time.Second)
 	var addr string
 	for time.Now().Before(deadline) {
-		b, err := os.ReadFile(filepath.Join(dataDir, "synapticd.addr"))
+		b, err := os.ReadFile(filepath.Join(dataDir, "condurad.addr"))
 		if err == nil && len(b) > 0 {
 			addr = strings.TrimSpace(string(b))
 			break
@@ -232,7 +232,7 @@ func ollamaReachable(ctx context.Context) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// TestDaemonSmoke boots the real synapticd binary, exercises RPC ping,
+// TestDaemonSmoke boots the real condurad binary, exercises RPC ping,
 // optionally attempts an Ollama chat when a local server is reachable,
 // and verifies the daemon stays responsive (no crash).
 func TestDaemonSmoke(t *testing.T) {

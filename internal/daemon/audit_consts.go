@@ -13,10 +13,10 @@ const (
 
 // Audit app strings (which app produced the action).
 const (
-	appSynapticd  = "synapticd"
-	appSynapticG  = "synaptic-gui"
-	appSynaptic   = "synaptic"
-	appSynapticCL = "synaptic-cli"
+	appCondurad  = "condurad"
+	appConduraG  = "condura-gui"
+	appSynaptic   = "condura"
+	appConduraCL = "synaptic-cli"
 )
 
 // Audit level strings.

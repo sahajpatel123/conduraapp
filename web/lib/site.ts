@@ -4,12 +4,12 @@
 */
 
 export const SITE = {
-  name: "Synaptic",
+  name: "Condura",
   tagline: "A permissioned intelligence layer for your OS.",
   description:
-    "Synaptic is a free, local-first desktop AI agent that appears from the operating system, routes work through your own models, and stops at deterministic safety boundaries before acting.",
-  url: "https://synaptic.app",
-  github: "https://github.com/sahajpatel123/synapticapp",
+    "Condura is a free, local-first desktop AI agent that appears from the operating system, routes work through your own models, and stops at deterministic safety boundaries before acting.",
+  url: "https://condura.app",
+  github: "https://github.com/sahajpatel123/conduraapp",
   discord: "https://discord.gg/synaptic",
 } as const;
 
@@ -20,7 +20,7 @@ export const NAV_LINKS = [
   { href: "/legal", label: "Legal" },
 ] as const;
 
-/** The local/model delegates Synaptic can route through. */
+/** The local/model delegates Condura can route through. */
 export const TOOL_ROSTER = [
   "Claude Code",
   "Codex",
@@ -90,6 +90,6 @@ export const INVARIANTS = [
   {
     numeral: "VII",
     title: "OS permissions are granted by you, on your machine.",
-    body: "Synaptic ships with no access at all. It asks; you grant. Onboarding makes each grant clear and reversible.",
+    body: "Condura ships with no access at all. It asks; you grant. Onboarding makes each grant clear and reversible.",
   },
 ] as const;

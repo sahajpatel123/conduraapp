@@ -26,7 +26,7 @@
 <div class="wizard hotkey">
   <h2>Set your hotkey</h2>
   <p class="muted">
-    Press the keys you want to use to summon Synaptic from anywhere. You can change this later in Settings.
+    Press the keys you want to use to summon Condura from anywhere. You can change this later in Settings.
   </p>
 
   <HotkeyRecorder value={combo} {onRecord} />

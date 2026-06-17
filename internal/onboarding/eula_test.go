@@ -14,7 +14,7 @@ func TestReadEULA_FromDataDirSibling(t *testing.T) {
 		t.Fatalf("write EULA: %v", err)
 	}
 	// dataDir is inside the parent; sibling path should be found.
-	dataDir := filepath.Join(dir, ".synaptic")
+	dataDir := filepath.Join(dir, ".condura")
 	_ = os.MkdirAll(dataDir, 0o755)
 
 	doc, err := ReadEULA(dataDir)

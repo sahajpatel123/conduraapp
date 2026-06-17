@@ -1,8 +1,8 @@
-// Package daemon is the in-process entry point for the Synaptic daemon.
+// Package daemon is the in-process entry point for the Condura daemon.
 // It is the same code path used by:
 //
-//   - cmd/synapticd      — the standalone CLI daemon (Phase 1)
-//   - cmd/synaptic-gui   — the Wails-based desktop GUI (Phase 2)
+//   - cmd/condurad    — the standalone CLI daemon
+//   - cmd/condura-gui — the Wails-based desktop GUI
 //
 // Run() is the single public entry point. It is safe to call from a
 // goroutine; the caller is expected to cancel ctx to request a graceful
@@ -13,7 +13,7 @@
 // and will conflict.
 //
 // Single-instance enforcement: Run acquires an advisory flock on
-// <data-dir>/synapticd.lock at startup. If another process holds the
+// <data-dir>/condurad.lock at startup. If another process holds the
 // lock, Run returns ErrAlreadyRunning. The lock is released when Run
 // returns.
 package daemon
@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
@@ -34,12 +35,12 @@ import (
 
 // ErrAlreadyRunning is returned by Run if another synaptic instance
 // is already using the same data directory. The user-visible message
-// should be "Another instance of Synaptic is already running."
+// should be "Another instance of Condura is already running."
 var ErrAlreadyRunning = errors.New("daemon: another instance is already running")
 
 // DefaultLockFile is the file name used by single-instance enforcement
 // inside the data dir. The full path is <data-dir>/<DefaultLockFile>.
-const DefaultLockFile = "synapticd.lock"
+const DefaultLockFile = "condurad.lock"
 
 // Options configures a single Run() invocation. Build it once, reuse it
 // across calls if you need to (it is read-only inside Run).
@@ -112,6 +113,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	if err := mkdirDataDir(opts.Config.General.DataDir); err != nil {
 		return nil, err
 	}
+	migrateLegacyDataDir(opts.Config.General.DataDir)
 	maybeApplyPendingUpdate()
 
 	// Acquire the single-instance lock before logger/DB/IPC so a
@@ -135,7 +137,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	if ver.Commit == "" {
 		ver = version.Get()
 	}
-	log.Info("starting synapticd",
+	log.Info("starting condurad",
 		"version", ver.Version,
 		"commit", ver.Commit,
 		"build_date", ver.BuildDate,
@@ -210,4 +212,46 @@ func shutdownDaemon(subs *Subsystems) {
 	}
 	_ = subs.Close()
 	_ = subs.Storage.Close()
+}
+
+// migrateLegacyDataDir copies the old ~/.condura/ data directory to
+// the new ~/.condura/ location if the legacy dir exists and the new
+// one is empty. This handles the Synaptic → Condura rename transparently
+// so users don't lose their data, API keys, or settings.
+func migrateLegacyDataDir(newDir string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	legacyDir := filepath.Join(home, ".synaptic")
+	if _, err := os.Stat(legacyDir); os.IsNotExist(err) {
+		return
+	}
+	entries, _ := os.ReadDir(newDir)
+	if len(entries) > 1 {
+		return
+	}
+	slog.Info("migrating legacy Synaptic data", "from", legacyDir, "to", newDir)
+	copyDir(legacyDir, newDir)
+	slog.Info("data migration complete — you can safely delete ~/.condura/")
+}
+
+func copyDir(src, dst string) {
+	_ = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(src, path)
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			_ = os.MkdirAll(target, 0o700)
+			return nil
+		}
+		data, err := os.ReadFile(path) //nolint:gosec
+		if err != nil {
+			return nil
+		}
+		_ = os.WriteFile(target, data, info.Mode())
+		return nil
+	})
 }

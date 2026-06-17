@@ -68,7 +68,7 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 		if backupPath != "" {
 			result.BackupPath = backupPath
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("uninstall.execute", appSynapticd, auditResultAllow, "files_removed="+fmt.Sprint(result.FilesRemoved)))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("uninstall.execute", appCondurad, auditResultAllow, "files_removed="+fmt.Sprint(result.FilesRemoved)))
 		return result, nil
 	})
 }
@@ -226,7 +226,7 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.skip", appSynapticd, auditResultAllow, "step="+p.Step))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.skip", appCondurad, auditResultAllow, "step="+p.Step))
 		return s, nil
 	})
 
@@ -288,7 +288,7 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 			}
 		}
 
-		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.finish", appSynapticd, auditResultAllow,
+		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.finish", appCondurad, auditResultAllow,
 			fmt.Sprintf("hotkey=%s power=%s", p.Hotkey, power.Recommended)))
 
 		return map[string]any{

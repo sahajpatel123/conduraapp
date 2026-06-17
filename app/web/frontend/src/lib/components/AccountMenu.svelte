@@ -52,7 +52,7 @@
     <div class="sep"></div>
 
     {#if confirmingSignOut}
-      <p class="confirm-q">Sign out of Synaptic?</p>
+      <p class="confirm-q">Sign out of Condura?</p>
       <div class="confirm-actions">
         <button class="ghost" onclick={() => (confirmingSignOut = false)}>Cancel</button>
         <button class="danger" onclick={doSignOut} disabled={account.loading}>

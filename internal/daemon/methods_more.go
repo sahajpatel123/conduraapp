@@ -42,7 +42,7 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "config.update", App: appSynapticG,
+				Actor: actorGUI, Action: "config.update", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 				Message: "patched keys",
 			})
@@ -68,7 +68,7 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		subs.Telemetry.SetEnabled(p.Enabled)
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
-				Actor: actorGUI, Action: "telemetry.setEnabled", App: appSynapticG,
+				Actor: actorGUI, Action: "telemetry.setEnabled", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
 				Message: "enabled=" + boolStr(p.Enabled),
 			})
@@ -155,7 +155,7 @@ func registerFirstRunMethods(srv *ipc.Server, auditLog *audit.Log) {
 			return nil, err
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "firstRun.complete", App: appSynapticG,
+			Actor: actorGUI, Action: "firstRun.complete", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
 		})
 		return auditOK(), nil
@@ -170,7 +170,7 @@ func registerUpdateMethods(srv *ipc.Server, u *updater.Updater, auditLog *audit.
 			return nil, err
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorDaemon, Action: "update.check", App: appSynapticd,
+			Actor: actorDaemon, Action: "update.check", App: appCondurad,
 			Level: auditLevelInfo, Result: auditResultAllow,
 			Message: "available=" + boolStr(r.UpdateAvailable) + " latest=" + r.LatestVersion,
 		})
@@ -186,7 +186,7 @@ func registerUpdateMethods(srv *ipc.Server, u *updater.Updater, auditLog *audit.
 			return nil, err
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorDaemon, Action: "update.apply", App: appSynapticd,
+			Actor: actorDaemon, Action: "update.apply", App: appCondurad,
 			Level: auditLevelWarn, Result: auditResultAllow,
 			Message: "version=" + r.LatestVersion,
 		})
@@ -300,7 +300,7 @@ func auditEvent(ctx context.Context, subs *Subsystems, action, msg string) {
 		return
 	}
 	_ = subs.Audit.Append(ctx, audit.Event{
-		Actor: actorGUI, Action: action, App: appSynapticG,
+		Actor: actorGUI, Action: action, App: appConduraG,
 		Level: auditLevelInfo, Result: auditResultAllow, Message: msg,
 	})
 }
@@ -317,18 +317,18 @@ func decodeParams(params json.RawMessage, v any) error {
 	return nil
 }
 
-// firstRunMarkerExists reports whether ~/.synaptic/first-run-complete
+// firstRunMarkerExists reports whether ~/.condura/first-run-complete
 // exists.
 func firstRunMarkerExists() bool {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(home, ".synaptic", "first-run-complete"))
+	_, err = os.Stat(filepath.Join(home, ".condura", "first-run-complete"))
 	return err == nil
 }
 
-// writeFirstRunMarker creates ~/.synaptic/first-run-complete. The
+// writeFirstRunMarker creates ~/.condura/first-run-complete. The
 // marker is a plain 2-byte file ("ok"). Presence/absence is the only
 // signal; we never write anything else.
 func writeFirstRunMarker() error {
@@ -336,7 +336,7 @@ func writeFirstRunMarker() error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(home, ".synaptic")
+	dir := filepath.Join(home, ".condura")
 	if err := os.MkdirAll(dir, firstRunDirPerm); err != nil {
 		return err
 	}

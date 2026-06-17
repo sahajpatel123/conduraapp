@@ -9,7 +9,7 @@
 
 ## 1. Goals
 
-Phase 5 gives Synaptic the ability to **see the screen**, **interact with applications**, and **remember everything**. It transforms the agent from a chat-only assistant into a true computer-use agent that can click, type, scroll, and navigate — while building a persistent memory of every interaction.
+Phase 5 gives Condura the ability to **see the screen**, **interact with applications**, and **remember everything**. It transforms the agent from a chat-only assistant into a true computer-use agent that can click, type, scroll, and navigate — while building a persistent memory of every interaction.
 
 ### 1.1 What Phase 5 Delivers
 
@@ -437,9 +437,9 @@ All dependencies are local-first, no cloud required.
 
 Phase 5 is done when:
 
-1. Synaptic can read the AX tree on macOS
-2. Synaptic can capture screenshots
-3. Synaptic can click, type, scroll, and press keys
+1. Condura can read the AX tree on macOS
+2. Condura can capture screenshots
+3. Condura can click, type, scroll, and press keys
 4. Twin-snapshot verification prevents stale-state actions
 5. 3-layer memory stores and retrieves information
 6. Agent loop decomposes tasks into steps

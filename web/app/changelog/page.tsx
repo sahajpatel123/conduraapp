@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { readRepoMarkdown } from "@/lib/markdown";
 
 export const metadata: Metadata = {
-  title: "Changelog · Synaptic",
-  description: "Notable changes to Synaptic, release by release.",
+  title: "Changelog · Condura",
+  description: "Notable changes to Condura, release by release.",
 };
 
 export default async function ChangelogPage() {
@@ -29,7 +29,7 @@ export default async function ChangelogPage() {
             The changelog is not available right now. Check the{" "}
             <a
               className="underline hover:text-white"
-              href="https://github.com/sahajpatel123/synapticapp/releases"
+              href="https://github.com/sahajpatel123/conduraapp/releases"
             >
               GitHub releases
             </a>{" "}

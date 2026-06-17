@@ -48,7 +48,7 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 			return nil, err
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorDaemon, Action: "conversations.create", App: appSynapticd,
+			Actor: actorDaemon, Action: "conversations.create", App: appCondurad,
 			Level: auditLevelInfo, Result: auditResultAllow,
 			Message: "id=" + itoa(m.ID),
 		})
@@ -71,7 +71,7 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 			sm.CancelByConversation(p.ID)
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorDaemon, Action: "conversations.delete", App: appSynapticd,
+			Actor: actorDaemon, Action: "conversations.delete", App: appCondurad,
 			Level: auditLevelInfo, Result: auditResultAllow,
 			Message: "id=" + itoa(p.ID),
 		})
@@ -154,7 +154,7 @@ func handleLLMStream(
 		return nil, mapStreamError(err)
 	}
 	_ = auditLog.Append(ctx, audit.Event{
-		Actor: actorGUI, Action: "llm.stream", App: appSynapticG,
+		Actor: actorGUI, Action: "llm.stream", App: appConduraG,
 		Level: auditLevelInfo, Result: auditResultAllow,
 		Message: "provider=" + p.Provider + " model=" + p.Request.Model,
 	})
@@ -196,7 +196,7 @@ func handleLLMCancel(
 			return nil, mapStreamError(err)
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "llm.cancel", App: appSynapticG,
+			Actor: actorGUI, Action: "llm.cancel", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
 			Message: "request_id=" + p.RequestID,
 		})
@@ -210,7 +210,7 @@ func handleLLMCancel(
 	// Cancel all streams for the conversation.
 	canceled := sm.CancelByConversation(p.ConversationID)
 	_ = auditLog.Append(ctx, audit.Event{
-		Actor: actorGUI, Action: "llm.cancel", App: appSynapticG,
+		Actor: actorGUI, Action: "llm.cancel", App: appConduraG,
 		Level: auditLevelInfo, Result: auditResultAllow,
 		Message: "conversation_id=" + strconv.FormatInt(p.ConversationID, 10),
 	})
@@ -286,7 +286,7 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			streamsCanceled = sm.CancelAll()
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "daemon.halt", App: appSynapticG,
+			Actor: actorGUI, Action: "daemon.halt", App: appConduraG,
 			Level: auditLevelWarn, Result: auditResultAllow,
 			Message: p.Reason,
 		})
@@ -299,7 +299,7 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 	srv.Register("daemon.resume", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		_, _ = haltFlag.Resume(ctx)
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "daemon.resume", App: appSynapticG,
+			Actor: actorGUI, Action: "daemon.resume", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
 		})
 		return auditOK(), nil

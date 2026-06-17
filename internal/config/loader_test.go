@@ -340,12 +340,12 @@ func TestLoader_Load_EnvOverrides(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
 	// Convention: __ separates YAML hierarchy; _ is part of a field name.
-	t.Setenv("SYNAPTIC_LOGGING__LEVEL", "debug")
-	t.Setenv("SYNAPTIC_HOTKEY__OVERLAY", "Ctrl+Space")
-	t.Setenv("SYNAPTIC_SECURITY__SPEND_LIMIT_USD_PER_DAY", "20.5")
-	t.Setenv("SYNAPTIC_TELEMETRY__ENABLED", "true")
-	t.Setenv("SYNAPTIC_API_SERVER__PORT", "9999")
-	t.Setenv("SYNAPTIC_GENERAL__LANGUAGE", "ja-JP")
+	t.Setenv("CONDURA_LOGGING__LEVEL", "debug")
+	t.Setenv("CONDURA_HOTKEY__OVERLAY", "Ctrl+Space")
+	t.Setenv("CONDURA_SECURITY__SPEND_LIMIT_USD_PER_DAY", "20.5")
+	t.Setenv("CONDURA_TELEMETRY__ENABLED", "true")
+	t.Setenv("CONDURA_API_SERVER__PORT", "9999")
+	t.Setenv("CONDURA_GENERAL__LANGUAGE", "ja-JP")
 
 	loader := NewLoader(path)
 	cfg, err := loader.Load()
@@ -363,7 +363,7 @@ func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 	path := filepath.Join(tmpDir, "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
-	t.Setenv("SYNAPTIC_TELEMETRY__ENABLED", "yes-please")
+	t.Setenv("CONDURA_TELEMETRY__ENABLED", "yes-please")
 	loader := NewLoader(path)
 	_, err := loader.Load()
 	require.Error(t, err)
@@ -375,7 +375,7 @@ func TestLoader_Load_EnvUnknownField(t *testing.T) {
 	path := filepath.Join(tmpDir, "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
-	t.Setenv("SYNAPTIC_LOGGING__BOGUS", "value")
+	t.Setenv("CONDURA_LOGGING__BOGUS", "value")
 	loader := NewLoader(path)
 	_, err := loader.Load()
 	require.Error(t, err)
@@ -387,7 +387,7 @@ func TestLoader_Load_EnvReadOnly(t *testing.T) {
 	path := filepath.Join(tmpDir, "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
 
-	t.Setenv("SYNAPTIC_STORAGE__ENCRYPTION__ENABLED", "false")
+	t.Setenv("CONDURA_STORAGE__ENCRYPTION__ENABLED", "false")
 	loader := NewLoader(path)
 	_, err := loader.Load()
 	require.Error(t, err)
@@ -418,7 +418,7 @@ func TestDefaultDataDir(t *testing.T) {
 	assert.NotEmpty(t, dir)
 	if runtime.GOOS != "windows" {
 		// On macOS/Linux, default is ~/.synaptic (CLAUDE.md convention).
-		assert.Contains(t, dir, ".synaptic")
+		assert.Contains(t, dir, ".condura")
 	}
 }
 
@@ -618,7 +618,7 @@ func TestSetByYAMLKey(t *testing.T) {
 
 func TestApplyEnvOverrides_EmptyPrefix(t *testing.T) {
 	cfg := Default()
-	require.NoError(t, applyEnvOverrides(cfg, "SYNAPTIC_NONEXISTENT_"))
+	require.NoError(t, applyEnvOverrides(cfg, "CONDURA_NONEXISTENT_"))
 }
 
 // -----------------------------------------------------------------------------

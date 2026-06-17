@@ -2,7 +2,7 @@
 
 > JSON-RPC method and event reference. _(To be written when the protocol is locked in Phase 4.)_
 
-This section will contain the full reference for the Synaptic IPC protocol:
+This section will contain the full reference for the Condura IPC protocol:
 
 - **Methods** — every JSON-RPC method, its parameters, return type, and examples.
 - **Events** — every server-pushed event, its payload, and when it fires.

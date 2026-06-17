@@ -3,7 +3,7 @@
 ## The Crown Jewel
 
 The Ed25519 update-signing key is the single most sensitive secret in the
-Synaptic project. If it leaks, every user can be pushed a malicious update —
+Condura project. If it leaks, every user can be pushed a malicious update —
 the auto-update system becomes a universal RCE vector. Treat it accordingly.
 
 ## Key Generation (offline, one-time)

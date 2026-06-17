@@ -1,6 +1,6 @@
 <script lang="ts">
   // Channels route (Phase 14C — "Reach"). Connect messaging
-  // channels (Telegram first) so you can talk to Synaptic from
+  // channels (Telegram first) so you can talk to Condura from
   // your phone. Backend: the daemon's channels.* RPCs (reach
   // subsystem). We use the generic ipc.call so this component
   // owns its own contract.
@@ -52,7 +52,7 @@
   }
 
   async function disconnect(name: string): Promise<void> {
-    if (!confirm(`Disconnect ${name}? Synaptic will stop receiving messages from it.`)) return
+    if (!confirm(`Disconnect ${name}? Condura will stop receiving messages from it.`)) return
     error = null
     try {
       await ipc.call('channels.disconnect', { channel: name })
@@ -81,7 +81,7 @@
   <header>
     <h2>Channels</h2>
     <p class="muted">
-      Connect a messaging channel to talk to Synaptic from anywhere. Messages are
+      Connect a messaging channel to talk to Condura from anywhere. Messages are
       routed through the daemon on this machine — nothing runs in the cloud.
     </p>
   </header>

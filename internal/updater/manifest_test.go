@@ -6,8 +6,8 @@ import (
 )
 
 func TestParseChecksums(t *testing.T) {
-	raw := `aabbcc synapticd-1.0.0-linux-amd64.tar.gz
-ddeeff synapticd-1.0.0-darwin-arm64.zip
+	raw := `aabbcc condurad-1.0.0-linux-amd64.tar.gz
+ddeeff condurad-1.0.0-darwin-arm64.zip
 `
 	entries, err := ParseChecksums(raw)
 	if err != nil {
@@ -20,9 +20,9 @@ ddeeff synapticd-1.0.0-darwin-arm64.zip
 
 func TestBuildManifestFromChecksums(t *testing.T) {
 	entries := []ChecksumEntry{
-		{Hash: "aa", Name: "synapticd-1.0.0-linux-amd64.tar.gz"},
-		{Hash: "bb", Name: "synapticd-1.0.0-darwin-arm64.tar.gz"},
-		{Hash: "cc", Name: "synaptic-cli-1.0.0-linux-amd64.tar.gz"},
+		{Hash: "aa", Name: "condurad-1.0.0-linux-amd64.tar.gz"},
+		{Hash: "bb", Name: "condurad-1.0.0-darwin-arm64.tar.gz"},
+		{Hash: "cc", Name: "condura-cli-1.0.0-linux-amd64.tar.gz"},
 	}
 	p, err := BuildManifestFromChecksums("v1.0.0", "stable", "https://example.com/v1.0.0", "notes", entries)
 	if err != nil {

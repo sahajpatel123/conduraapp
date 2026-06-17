@@ -142,7 +142,7 @@ func (s *Scheduler) tryBackup(ctx context.Context) {
 		return
 	}
 	now := s.cfg.Now()
-	out := filepath.Join(s.cfg.BackupDir, "synaptic-backup-"+now.Format("2006-01-02T15-04-05Z")+".zip")
+	out := filepath.Join(s.cfg.BackupDir, "condura-backup-"+now.Format("2006-01-02T15-04-05Z")+".zip")
 	opts := Options{
 		DataDir:       s.bm.opts.DataDir,
 		MasterKey:     s.bm.opts.MasterKey,
@@ -193,7 +193,7 @@ func (s *Scheduler) Rotate() error {
 		if f.IsDir() {
 			continue
 		}
-		if !strings.HasPrefix(f.Name(), "synaptic-backup-") || !strings.HasSuffix(f.Name(), ".zip") {
+		if !strings.HasPrefix(f.Name(), "condura-backup-") || !strings.HasSuffix(f.Name(), ".zip") {
 			continue
 		}
 		info, err := f.Info()

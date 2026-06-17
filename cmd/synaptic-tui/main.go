@@ -20,7 +20,7 @@ func main() {
 		daemonAddr = tui.FindDaemonAddr()
 	}
 	if daemonAddr == "" {
-		fmt.Fprintln(os.Stderr, "synaptic-tui: cannot find daemon. Is synapticd running?")
+		fmt.Fprintln(os.Stderr, "condura-tui: cannot find daemon. Is synapticd running?")
 		fmt.Fprintln(os.Stderr, "  Pass --addr or start synapticd first.")
 		os.Exit(1)
 	}
@@ -29,14 +29,14 @@ func main() {
 
 	client, err := tui.NewIPCClient(daemonAddr, logger)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "synaptic-tui: connect to daemon: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condura-tui: connect to daemon: %v\n", err)
 		os.Exit(1)
 	}
 	defer client.Close()
 
 	p := tea.NewProgram(tui.InitialModel(client, logger), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "synaptic-tui: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condura-tui: %v\n", err)
 		os.Exit(1)
 	}
 }

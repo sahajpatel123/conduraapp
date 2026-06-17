@@ -2,7 +2,7 @@
 //
 // It handles downloading models from pinned URLs, verifying SHA-256 hashes,
 // and atomic rename to prevent partial files on crash. Models are stored
-// in ~/.synaptic/models/.
+// in ~/.condura/models/.
 package modelmgr
 
 import (

@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="${1:-v0.1.0}"
-REPO="${GITHUB_REPOSITORY:-sahajpatel123/synapticapp}"
+REPO="${GITHUB_REPOSITORY:-sahajpatel123/conduraapp}"
 WORKDIR="${ROOT}/dist/verify-${TAG}"
 
 rm -rf "$WORKDIR"

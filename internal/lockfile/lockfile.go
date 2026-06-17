@@ -86,7 +86,7 @@ func (l *Lock) Release() error {
 	return nil
 }
 
-// IsInstalled checks whether Synaptic is installed on this machine
+// IsInstalled checks whether Condura is installed on this machine
 // by looking for the data directory. Used by the installer to block
 // a second installation (§22.5).
 func IsInstalled() bool {
@@ -94,7 +94,7 @@ func IsInstalled() bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(home, ".synaptic"))
+	_, err = os.Stat(filepath.Join(home, ".condura"))
 	return err == nil
 }
 
@@ -104,7 +104,7 @@ func InstalledMarkerPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".synaptic", "installed"), nil
+	return filepath.Join(home, ".condura", "installed"), nil
 }
 
 // MarkInstalled writes the installed marker. Call this from the
@@ -114,7 +114,7 @@ func MarkInstalled() error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(home, ".synaptic")
+	dir := filepath.Join(home, ".condura")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

@@ -1,12 +1,12 @@
 # Architecture 06 — Delegation Bus and Sub-Agents
 
-> How Synaptic orchestrates 12 LLM providers and 8 CLI sub-agents.
+> How Condura orchestrates 12 LLM providers and 8 CLI sub-agents.
 
 ---
 
 ## The Goal
 
-Synaptic is a **conductor**, not a soloist. The user has subscriptions to many tools. Synaptic should use them all, in concert.
+Condura is a **conductor**, not a soloist. The user has subscriptions to many tools. Condura should use them all, in concert.
 
 The Delegation Bus is the **pluggable transport** for sending work to any of:
 
@@ -71,13 +71,13 @@ Each is a thin Go client that wraps the provider's HTTP API:
 
 The local option is **special**: it can also be a **delegate for tool use** (some local models support function calling). It's also the **offline fallback** when all cloud providers are down.
 
-**OAuth for subscriptions**: the user can connect their ChatGPT Plus, Claude Pro, Gemini CLI, Antigravity CLI subscriptions via OAuth 2.0. Synaptic stores the refresh token **encrypted at rest**. We **never** see the token.
+**OAuth for subscriptions**: the user can connect their ChatGPT Plus, Claude Pro, Gemini CLI, Antigravity CLI subscriptions via OAuth 2.0. Condura stores the refresh token **encrypted at rest**. We **never** see the token.
 
 ---
 
 ## CLI Sub-Agents (8)
 
-Each is a subprocess the user has installed. Synaptic spawns it, gives it a task, and gets back a result.
+Each is a subprocess the user has installed. Condura spawns it, gives it a task, and gets back a result.
 
 | # | CLI | Spawn as | Capabilities |
 |---|---|---|---|

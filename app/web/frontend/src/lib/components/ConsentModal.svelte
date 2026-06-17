@@ -50,7 +50,7 @@
       <h2 id="consent-title" class="consent-title">Allow this action?</h2>
 
       <p id="consent-body" class="consent-body">
-        <strong>Synaptic</strong> wants to
+        <strong>Condura</strong> wants to
         <strong>{formatAction(consent.ticket.action_kind)}</strong>
         {#if consent.ticket.detail}
           {consent.ticket.detail}

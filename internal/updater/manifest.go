@@ -173,10 +173,10 @@ func BuildManifestFromChecksums(version, channel, baseURL, notes string, entries
 	platforms := make(map[string]PlatformArtifact)
 	for _, e := range entries {
 		// Auto-update targets synapticd archives (daemon/GUI host binary name).
-		if !strings.Contains(e.Name, "synapticd-") || strings.Contains(e.Name, "synaptic-cli-") {
+		if !strings.Contains(e.Name, "condurad-") || strings.Contains(e.Name, "condura-cli-") {
 			continue
 		}
-		plat, ok := PlatformFromArchiveName(e.Name, "synapticd")
+		plat, ok := PlatformFromArchiveName(e.Name, "condurad")
 		if !ok {
 			continue
 		}
@@ -186,7 +186,7 @@ func BuildManifestFromChecksums(version, channel, baseURL, notes string, entries
 		}
 	}
 	if len(platforms) == 0 {
-		return ManifestPayload{}, fmt.Errorf("no synapticd archives found in checksums")
+		return ManifestPayload{}, fmt.Errorf("no condurad archives found in checksums")
 	}
 	keys := make([]string, 0, len(platforms))
 	for k := range platforms {

@@ -1,4 +1,4 @@
-// IPC client for the Synaptic daemon.
+// IPC client for the Condura daemon.
 //
 // Talks JSON-RPC 2.0 over HTTP POST to the daemon's /api endpoint.
 // The auth token (if any) is sent as a Bearer header.

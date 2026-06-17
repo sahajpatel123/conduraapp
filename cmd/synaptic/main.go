@@ -55,7 +55,7 @@ func run(args []string) error {
 		return nil
 	}
 	gf := &globalFlags{}
-	fs := flag.NewFlagSet("synaptic", flag.ContinueOnError)
+	fs := flag.NewFlagSet("condura", flag.ContinueOnError)
 	fs.StringVar(&gf.addr, "addr", "", "daemon address (default: read from <data-dir>/synapticd.addr)")
 	fs.StringVar(&gf.dataDir, "data-dir", "", "data dir (default: ~/.synaptic)")
 	fs.StringVar(&gf.token, "token", "", "bearer token for the daemon")
@@ -138,12 +138,12 @@ Run 'synaptic help <command>' for command-specific help.`)
 }
 
 // connect dials the daemon and returns a Client. The address is
-// resolved in this order: --addr, $SYNAPTIC_ADDR, <data_dir>/synapticd.addr,
+// resolved in this order: --addr, $CONDURA_ADDR, <data_dir>/synapticd.addr,
 // then the default data dir.
 func connect(gf *globalFlags) (*ipc.Client, error) {
 	addr := gf.addr
 	if addr == "" {
-		addr = os.Getenv("SYNAPTIC_ADDR")
+		addr = os.Getenv("CONDURA_ADDR")
 	}
 	if addr == "" {
 		dir := gf.dataDir
@@ -153,7 +153,7 @@ func connect(gf *globalFlags) (*ipc.Client, error) {
 		addr = ipc.ReadAddrFile(dir)
 	}
 	if addr == "" {
-		return nil, fmt.Errorf("no daemon address: pass --addr or start synapticd first (looked in $SYNAPTIC_ADDR and <data_dir>/synapticd.addr)")
+		return nil, fmt.Errorf("no daemon address: pass --addr or start synapticd first (looked in $CONDURA_ADDR and <data_dir>/synapticd.addr)")
 	}
 	c, err := ipc.Dial(addr, gf.token)
 	if err != nil {

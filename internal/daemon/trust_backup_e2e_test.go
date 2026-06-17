@@ -66,7 +66,7 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -194,7 +194,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -286,7 +286,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 // has no .zip.tmp leftovers.
 func TestTrustE2E_BackupErrorLeavesNoOrphans(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
 	// Note: no synaptic.db written here, so Create must fail.
 	mk := make([]byte, 32)
 	for i := range mk {
@@ -323,7 +323,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	cfg.Security.SpendLimitUSDPerDay = 1.0
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
-	t.Setenv("SYNAPTIC_BACKUP_DIR", filepath.Join(dir, "backups"))
+	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -335,7 +335,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	// Append a few events directly to the audit log.
 	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		err := subs.AuditLog.Append(ctx, buildAuditEvent("test.action", appSynapticd, "allow", "action #"+itoaTest(i)))
+		err := subs.AuditLog.Append(ctx, buildAuditEvent("test.action", appCondurad, "allow", "action #"+itoaTest(i)))
 		if err != nil {
 			t.Fatalf("Append %d: %v", i, err)
 		}
@@ -430,7 +430,7 @@ func clearSynapticEnv(t *testing.T) {
 	t.Helper()
 	for _, e := range os.Environ() {
 		for i := 0; i < len(e)-9; i++ {
-			if e[i:i+9] == "SYNAPTIC_" {
+			if e[i:i+9] == "CONDURA_" {
 				name := e[:i+9]
 				end := i + 9
 				for end < len(e) && e[end] != '=' {

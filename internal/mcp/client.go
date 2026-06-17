@@ -62,7 +62,7 @@ func (c *Client) Connect(ctx context.Context) error {
 			"protocolVersion": "2024-11-05",
 			"capabilities":    map[string]any{},
 			"clientInfo": map[string]string{
-				"name":    "synaptic",
+				"name":    "condura",
 				"version": "0.1.0",
 			},
 		}); err != nil {

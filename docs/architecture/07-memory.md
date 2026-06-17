@@ -1,12 +1,12 @@
 # Architecture 07 — The 3-Layer Memory System
 
-> How Synaptic remembers what matters, forgets what doesn't, and never loses the audit trail.
+> How Condura remembers what matters, forgets what doesn't, and never loses the audit trail.
 
 ---
 
 ## The Goal
 
-Synaptic must:
+Condura must:
 
 1. **Remember** facts, preferences, and context that make future interactions better.
 2. **Forget** stale, wrong, or sensitive data automatically.

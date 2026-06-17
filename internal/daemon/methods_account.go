@@ -69,7 +69,7 @@ func registerAccountMethods(srv *ipc.Server, subs *Subsystems) {
 		if sess == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: fmt.Sprintf("token exchange failed: %v", lastErr)}
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("account.oauth_callback", appSynapticd, auditResultAllow, "email="+sess.Email+" provider="+sess.Provider))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("account.oauth_callback", appCondurad, auditResultAllow, "email="+sess.Email+" provider="+sess.Provider))
 		return map[string]any{
 			"signed_in":  true,
 			"email":      sess.Email,
@@ -95,7 +95,7 @@ func registerAccountMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := subs.Account.SignOut(ctx); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("account.logout", appSynapticd, auditResultAllow, ""))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("account.logout", appCondurad, auditResultAllow, ""))
 		return map[string]any{"ok": true}, nil
 	})
 }
