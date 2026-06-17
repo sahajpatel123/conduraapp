@@ -21,16 +21,22 @@ const DOWNLOADS = {
   },
 } as const;
 
-const RELEASE_TAG = "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0";
+const RELEASE_TAG =
+  "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0";
 
 export default function DownloadPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16 text-neutral-100">
-      <h1 className="text-3xl font-semibold tracking-tight">Download Condura</h1>
-      <p className="mt-4 text-neutral-400">
+    <main className="mx-auto max-w-3xl px-6 py-24 pt-[88px] text-neutral-100">
+      <h1
+        className="text-[32px] font-semibold tracking-tighter text-white sm:text-[40px]"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        Download Condura
+      </h1>
+      <p className="mt-4 text-[17px] leading-relaxed text-neutral-400">
         {SITE.description} Installers are signed, checksummed, and published from{" "}
         <a
-          className="underline hover:text-white"
+          className="underline transition-colors hover:text-white"
           href="https://github.com/sahajpatel123/conduraapp/releases"
         >
           GitHub Releases
@@ -38,38 +44,61 @@ export default function DownloadPage() {
         .
       </p>
 
-      <ul className="mt-10 space-y-8">
+      <ul className="mt-12 space-y-6">
         {PLATFORMS.map((p) => (
-          <li key={p.key} className="rounded-lg border border-neutral-800 p-6">
-            <h2 className="text-xl font-medium">{p.name}</h2>
-            <p className="mt-1 text-sm text-neutral-500">{p.requirement}</p>
+          <li
+            key={p.key}
+            className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-6 transition-colors hover:border-white/[0.12] hover:bg-white/[0.05]"
+          >
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-xl font-semibold text-white">{p.name}</h2>
+              <p className="text-sm text-neutral-500">{p.requirement}</p>
+            </div>
             <div className="mt-4 flex flex-wrap gap-3">
               {p.key === "mac" && (
                 <>
-                  <a className="rounded bg-white px-4 py-2 text-sm font-medium text-black" href={DOWNLOADS.mac.dmg}>
+                  <a
+                    className="inline-flex items-center rounded-full bg-white px-5 py-2.5 text-sm font-medium text-black shadow-product transition-colors hover:bg-neutral-200"
+                    href={DOWNLOADS.mac.dmg}
+                  >
                     Download .dmg
                   </a>
-                  <a className="rounded border border-neutral-600 px-4 py-2 text-sm" href={DOWNLOADS.mac.daemon}>
+                  <a
+                    className="inline-flex items-center rounded-full border border-neutral-700 px-5 py-2.5 text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white"
+                    href={DOWNLOADS.mac.daemon}
+                  >
                     Daemon only
                   </a>
                 </>
               )}
               {p.key === "windows" && (
                 <>
-                  <a className="rounded bg-white px-4 py-2 text-sm font-medium text-black" href={DOWNLOADS.windows.setup}>
+                  <a
+                    className="inline-flex items-center rounded-full bg-white px-5 py-2.5 text-sm font-medium text-black shadow-product transition-colors hover:bg-neutral-200"
+                    href={DOWNLOADS.windows.setup}
+                  >
                     Download installer
                   </a>
-                  <a className="rounded border border-neutral-600 px-4 py-2 text-sm" href={DOWNLOADS.windows.exe}>
+                  <a
+                    className="inline-flex items-center rounded-full border border-neutral-700 px-5 py-2.5 text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white"
+                    href={DOWNLOADS.windows.exe}
+                  >
                     Portable .exe
                   </a>
                 </>
               )}
               {p.key === "linux" && (
                 <>
-                  <a className="rounded bg-white px-4 py-2 text-sm font-medium text-black" href={DOWNLOADS.linux.deb}>
+                  <a
+                    className="inline-flex items-center rounded-full bg-white px-5 py-2.5 text-sm font-medium text-black shadow-product transition-colors hover:bg-neutral-200"
+                    href={DOWNLOADS.linux.deb}
+                  >
                     Download .deb (daemon)
                   </a>
-                  <a className="rounded border border-neutral-600 px-4 py-2 text-sm" href={DOWNLOADS.linux.cli}>
+                  <a
+                    className="inline-flex items-center rounded-full border border-neutral-700 px-5 py-2.5 text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white"
+                    href={DOWNLOADS.linux.cli}
+                  >
                     CLI tarball
                   </a>
                 </>
@@ -89,7 +118,10 @@ export default function DownloadPage() {
           manifest.json
         </a>
         . Verify with{" "}
-        <code className="text-neutral-300">go run ./cmd/gen-update-manifest verify manifest.json</code>.
+        <code className="text-neutral-300">
+          go run ./cmd/gen-update-manifest verify manifest.json
+        </code>
+        .
       </p>
     </main>
   );

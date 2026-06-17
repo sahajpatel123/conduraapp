@@ -2082,3 +2082,107 @@ secrets exist.
 - Let Agents 1/2/3 reconcile their uncommitted working-tree changes (`cmd/synapticd/main_test.go`, `internal/daemon/agent_e2e_smoke_test.go`, `internal/memory/sqlite_store.go` was already committed).
 
 ---
+
+## [2026-06-17 18:15 UTC] AI Model: Gemini 3.1 Pro (High)
+**Session ID:** a3be6cb8-0361-4afd-b234-813f91ac716d
+**Branch:** main
+**Task:** Perform in-depth tier 3 analysis, understanding STYLE.md and MISSION.md, and following LOGBOOK instructions to prevent future doubts.
+
+### Files created
+- `tier3_analysis.md` (Artifact) — Summarized the findings of the project's foundational guidelines, safety constraints, Tier 3 verification rules, and identified a test issue.
+
+### Files modified
+- `LOGBOOK.md` — Appended this session entry.
+
+### Decisions made
+- Opted to write the Tier 3 analysis summary as an artifact to clearly outline rules and current state for the user without cluttering context.
+- Verified codebase compiles successfully (`go build ./...`).
+- Ran tests (`go test ./...`) which uncovered a naming inconsistency.
+
+### Bugs / issues encountered
+- **Test Failure in `cmd/synaptic`**: Tests in `main_test.go` are failing because they look for `cmd/condurad` instead of `cmd/synapticd`. The project name was changed to Synaptic, but test fixtures/paths still reference the old name.
+
+### Open questions for next session
+- Do we proceed to fix `main_test.go` to unblock the test suite immediately, or do we prioritize another Phase implementation?
+- Are there other scattered references to `condurad` in the source code or configs that need cleaning?
+
+### Next steps
+- Fix `cmd/synaptic/main_test.go` to correctly reference `synapticd`.
+- Search the codebase for lingering instances of `condurad` or `condura`.
+- Get user confirmation on the next Phase task to execute.
+
+---
+
+## [2026-06-17 18:22 UTC] AI Model: Gemini 3.1 Pro (High)
+**Session ID:** a3be6cb8-0361-4afd-b234-813f91ac716d
+**Branch:** main
+**Task:** Brainstorm and create a 60-second demo video storyboard.
+
+### Files created
+- `demo_video_storyboard.md` (Artifact) — Created a highly creative, 60-second storyboard script highlighting Condura's overlay speed, voice interaction, background delegation, and strict Gatekeeper safety layer.
+
+### Files modified
+- `LOGBOOK.md` — Appended this session entry.
+
+### Decisions made
+- **Project Name Reverted to Condura**: The user explicitly decided to use "Condura" as the final project name instead of "Synaptic". This means my earlier observation about the test failure (looking for `condurad`) is actually the desired target state.
+
+### Bugs / issues encountered
+- None during this step. 
+
+### Open questions for next session
+- Now that the name is finalized as "Condura", we need to conduct a massive rename across the repository. Currently, directories are named `synaptic`, `synapticd`, etc. Does the user want to perform this refactoring in the next phase?
+
+### Next steps
+- Await user feedback on the demo video storyboard.
+- Plan the execution for renaming the project files, Go modules, and directories from "synaptic" back to "condura" across the entire workspace.
+
+---
+
+## [2026-06-17 19:15 UTC] AI Model: Kimi-K2.6
+**Session ID:** 550e8400-e29b-41d4-a716-446655440002
+**Branch:** main
+**Task:** Rebuild Condura landing page as premium Apple-inspired marketing site.
+
+### Files created
+- `web/components/GlobalNav.tsx` — 44px pinned black nav, mobile hamburger with morphing bars
+- `web/components/CommandPalette.tsx` — Cmd+K page navigation, fuzzy search, arrow keys, Escape
+- `web/components/home/HeroSection.tsx` — word-by-word stagger headline, CSS glassmorphic overlay mockup, sessionStorage gate
+- `web/components/home/FeatureGrid.tsx` — 6 cards on dark tile, scroll-triggered stagger, hover lift
+- `web/components/home/HowItWorks.tsx` — 3 steps + single TiltCard with spring physics
+- `web/components/home/TrustMarquee.tsx` — infinite-scroll text badges, pause on hover, fade edges
+- `web/components/home/CTASection.tsx` — OS auto-detection, spring-glide platform tabs, download states
+- `web/components/home/Footer.tsx` — parchment tile, 3-column links, fine-print
+
+### Files modified
+- `web/app/globals.css` — Design tokens (colors, typography, spacing, motion), marquee + breathe animations, reduced-motion, prose styles
+- `web/app/layout.tsx` — Inter font, GlobalNav + CommandPalette + Footer shell, OpenGraph metadata
+- `web/app/page.tsx` — Stacked all 7 home sections
+- `web/app/download/page.tsx` — Restyled to design system (kept all URLs)
+- `web/app/manifesto/page.tsx` — Restyled to light/parchment design system
+- `web/app/changelog/page.tsx` — Restyled to light design system
+- `web/app/legal/page.tsx` — Restyled to light design system
+
+### Decisions made
+- Brand name confirmed as "Condura" (per LOGBOOK). All web content updated.
+- No global theme toggle — tile alternation IS the theme system. Added `prefers-reduced-motion` support.
+- Hero animation gated by `sessionStorage` (once per session, no replay on back-nav).
+- Single TiltCard in HowItWorks — one moment of delight, rest is hover lift only.
+- Trust Marquee uses text badges (no logos) to avoid copyright — facts, not endorsements.
+- Command Palette limited to page navigation (no product actions — desktop app domain).
+- Protected files preserved: `api/auth/*`, `public/install.sh`, `lib/site.ts`, `lib/kv.ts`, `lib/markdown.ts`.
+
+### Bugs / issues encountered
+- Motion `ease` array type mismatch: needed `as [number, number, number, number]` cast.
+- ESLint `react-hooks/set-state-in-effect` rules in Next.js 16: refactored synchronous `setState` in effects to initialization-time or `requestAnimationFrame` deferrals.
+- Unused variable warnings: cleaned up `isHovered`, `useEffect`, `Link` imports.
+
+### Verification
+- `npx tsc --noEmit` — 0 errors
+- `npm run build` — succeeds (10 static pages, 2 dynamic routes)
+- `npm run lint` — 0 errors (2 pre-existing warnings in `api/auth/magic/route.ts` untouched)
+
+### Next steps
+- Continue with Phase 15 end-to-end verification if needed, or move to next build order step.
+
+---

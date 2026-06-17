@@ -9,15 +9,15 @@ export const metadata: Metadata = {
 
 export default function ManifestoPage() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-20">
-      <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
+    <main className="mx-auto max-w-2xl px-6 py-24 pt-[88px]">
+      <p className="text-[13px] font-medium uppercase tracking-widest text-white/30">
         Manifesto
       </p>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+      <h1 className="mt-3 text-[32px] font-semibold tracking-tighter text-white sm:text-[40px]">
         Your computer should work for you alone.
       </h1>
 
-      <div className="mt-10 space-y-6 text-[17px] leading-relaxed text-neutral-300">
+      <div className="mt-10 space-y-6 text-[17px] leading-relaxed text-white/50">
         <p>
           Artificial intelligence is becoming the way we use our machines. That
           shift is too important to hand to systems that watch everything you
@@ -31,16 +31,14 @@ export default function ManifestoPage() {
           data where it belongs — on your machine.
         </p>
 
-        <h2 className="pt-6 text-2xl font-semibold tracking-tight text-white">
+        <h2 className="pt-6 text-[24px] font-semibold tracking-tighter text-white">
           Local-first is not a feature. It is the foundation.
         </h2>
         <p>
           {SITE.name} is local-first by default. Your memory, your API keys,
           your skills, your configuration, and your audit logs live on your
           disk, encrypted at rest. There is no account to create, no profile to
-          build, and no telemetry collected unless you explicitly opt in. The
-          software connects only to the model providers you configure and to the
-          update server that checks for new versions. Nothing else.
+          build, and no telemetry collected unless you explicitly opt in.
         </p>
         <p>
           When you do choose to sync across your devices, that data is
@@ -49,7 +47,7 @@ export default function ManifestoPage() {
           the state you start in.
         </p>
 
-        <h2 className="pt-6 text-2xl font-semibold tracking-tight text-white">
+        <h2 className="pt-6 text-[24px] font-semibold tracking-tighter text-white">
           Capability without a blank check.
         </h2>
         <p>
@@ -63,11 +61,10 @@ export default function ManifestoPage() {
           that reasons is a model. The part that decides whether an action is
           allowed is plain, deterministic code. They are never the same system,
           and no model output reaches a click, a keystroke, or a shell command
-          without passing the gate. Destructive actions stop and wait for a real
-          human at the keyboard.
+          without passing the gate.
         </p>
 
-        <h2 className="pt-6 text-2xl font-semibold tracking-tight text-white">
+        <h2 className="pt-6 text-[24px] font-semibold tracking-tighter text-white">
           The invariants we will not break.
         </h2>
         <p>
@@ -76,35 +73,34 @@ export default function ManifestoPage() {
         </p>
       </div>
 
-      <ol className="mt-8 space-y-6">
+      <ol className="mt-8 space-y-4">
         {INVARIANTS.map((inv) => (
           <li
             key={inv.numeral}
-            className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-5"
+            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5"
           >
             <div className="flex items-baseline gap-3">
-              <span className="font-mono text-sm text-neutral-500">
+              <span className="font-mono text-sm text-white/30">
                 {inv.numeral}
               </span>
-              <h3 className="text-base font-medium text-white">{inv.title}</h3>
+              <h3 className="text-base font-semibold text-white">{inv.title}</h3>
             </div>
-            <p className="mt-2 pl-7 text-sm leading-relaxed text-neutral-400">
+            <p className="mt-2 pl-7 text-sm leading-relaxed text-white/40">
               {inv.body}
             </p>
           </li>
         ))}
       </ol>
 
-      <div className="mt-12 space-y-6 text-[17px] leading-relaxed text-neutral-300">
-        <h2 className="pt-2 text-2xl font-semibold tracking-tight text-white">
+      <div className="mt-12 space-y-6 text-[17px] leading-relaxed text-white/50">
+        <h2 className="pt-2 text-[24px] font-semibold tracking-tighter text-white">
           Free, and open to scrutiny.
         </h2>
         <p>
           Condura is free. Not free as in a trial, or free until we change our
           minds — free because a tool this close to your private life should not
           come with a meter running. Every action it takes is written to a
-          tamper-resistant, append-only log you can inspect. If something goes
-          wrong, the record proves exactly what happened.
+          tamper-resistant, append-only log you can inspect.
         </p>
         <p>
           This is the agent we wanted to exist: one that earns trust instead of

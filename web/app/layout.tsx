@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { NAV_LINKS, SITE } from "@/lib/site";
+import { SITE } from "@/lib/site";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Condura",
+  title: `${SITE.name} — AI on your computer. Free.`,
+  description:
+    "A ghost that lives inside your computer. Press a hotkey. It appears. Orchestrates every AI tool you have. Then vanishes. Free forever.",
+  openGraph: {
+    title: SITE.name,
+    description: "AI on your computer. Free.",
+    url: SITE.url,
+    siteName: SITE.name,
+    locale: "en_US",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -13,61 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="flex min-h-screen flex-col bg-neutral-950 text-neutral-100 antialiased">
-        <header className="sticky top-0 z-50 border-b border-neutral-900 bg-neutral-950/80 backdrop-blur">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link
-              href="/"
-              className="text-base font-semibold tracking-tight text-white"
-            >
-              {SITE.name}
-            </Link>
-            <div className="flex items-center gap-5 text-sm text-neutral-400">
-              <Link href="/" className="transition-colors hover:text-white">
-                Home
-              </Link>
-              {NAV_LINKS.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className="transition-colors hover:text-white"
-                >
-                  {l.label}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        </header>
-
-        <div className="flex-1">{children}</div>
-
-        <footer className="border-t border-neutral-900">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
-            <p>© 2026 {SITE.name}</p>
-            <div className="flex items-center gap-6">
-              <a
-                href={SITE.github}
-                target="_blank"
-                rel="noreferrer"
-                className="transition-colors hover:text-white"
-              >
-                GitHub
-              </a>
-              <a
-                href={SITE.discord}
-                target="_blank"
-                rel="noreferrer"
-                className="transition-colors hover:text-white"
-              >
-                Discord
-              </a>
-              <Link href="/legal" className="transition-colors hover:text-white">
-                Legal
-              </Link>
-            </div>
-          </div>
-        </footer>
+    <html lang="en" className={inter.variable}>
+      <body className="min-h-screen antialiased bg-[#050505] text-[#e5e5e5]">
+        {children}
       </body>
     </html>
   );
