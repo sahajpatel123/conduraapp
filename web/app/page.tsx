@@ -121,11 +121,10 @@ export default function Home() {
                 <span className="h-3 w-3 rounded-full bg-neutral-700" />
               </div>
               <p className="text-sm font-medium text-neutral-400">
-                Product demo coming soon
+                Press {SITE.name === "Synaptic" ? "Cmd+Shift+Space" : "your hotkey"} to summon
               </p>
               <p className="max-w-sm text-xs text-neutral-600">
-                A glimpse of Synaptic appearing from your OS and working through
-                your own models.
+                Overlay appears. Type or speak. Agent responds. Your data stays local.
               </p>
             </div>
           </div>

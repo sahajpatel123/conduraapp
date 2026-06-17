@@ -68,6 +68,25 @@
   <!-- Message thread -->
   <div class="chat-thread">
     <div class="thread-inner">
+      {#if conversation.messages.length === 0}
+        <div class="empty-state">
+          <div class="empty-icon">⊡</div>
+          <h3>Welcome to Synaptic</h3>
+          <p>
+            {#if !settings.config}
+              Checking daemon status…
+            {:else if !daemon.connected}
+              Waiting for daemon connection…
+            {:else}
+              {#if Object.values(settings.config.llm?.providers ?? {}).every((p: any) => !p?.enabled)}
+                No provider configured. Go to <a href="#/settings">Settings</a> to add an API key or enable Ollama.
+              {:else}
+                Type a message below to get started with {selectedProvider}.
+              {/if}
+            {/if}
+          </p>
+        </div>
+      {/if}
       {#each conversation.messages as msg, i (i)}
         <div class="message message-{msg.role}">
           <div class="message-content">{msg.content}</div>
@@ -425,5 +444,34 @@
   .hint .warn {
     color: var(--color-warn);
     opacity: 1;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-10) var(--space-4);
+    text-align: center;
+    color: var(--color-text-muted);
+  }
+  .empty-icon {
+    font-size: 48px;
+    opacity: 0.3;
+    margin-bottom: var(--space-4);
+  }
+  .empty-state h3 {
+    font-size: var(--size-xl);
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--space-2);
+  }
+  .empty-state p {
+    max-width: 360px;
+    line-height: 1.6;
+  }
+  .empty-state a {
+    color: var(--color-accent);
+    text-decoration: underline;
   }
 </style>
