@@ -8,6 +8,10 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 )
 
+// errUnknownConsentTicket is returned when a GUI approve/deny request
+// references a ticket that has already expired, been answered, or never existed.
+const errUnknownConsentTicket = "unknown or expired consent ticket"
+
 // registerSafetyMethods registers safety/consent RPC methods.
 func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Safety == nil {
@@ -23,7 +27,7 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, err
 		}
 		if ok := subs.Safety.Engine.ApproveTicket(p.Nonce); !ok {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown or expired consent ticket"}
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: errUnknownConsentTicket}
 		}
 		return auditOK(), nil
 	})
@@ -37,7 +41,7 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, err
 		}
 		if ok := subs.Safety.Engine.DenyTicket(p.Nonce); !ok {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown or expired consent ticket"}
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: errUnknownConsentTicket}
 		}
 		return auditOK(), nil
 	})

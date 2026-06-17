@@ -66,6 +66,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerAdaptiveMethods(srv, subs)
 	registerMCPMethods(srv, subs)
 	registerSafetyMethods(srv, subs)
+	registerGatekeeperMethods(srv, subs)
 	registerDelegationMethods(srv, subs)
 	registerPhase12Methods(srv, subs.Phase12)
 	// Phase 11: trust & recovery.
