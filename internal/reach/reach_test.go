@@ -105,7 +105,7 @@ func TestManager_CreateChannel(t *testing.T) {
 func TestManager_UnknownChannel(t *testing.T) {
 	s := newTestReachStore(t)
 	m := NewManager(s)
-	_, err := m.getOrCreateChannel("whatsapp")
+	_, err := m.getOrCreateChannel("discord")
 	if err == nil {
 		t.Fatal("should reject unknown channel")
 	}
@@ -113,8 +113,54 @@ func TestManager_UnknownChannel(t *testing.T) {
 	if !errors.As(err, &ue) {
 		t.Fatalf("wrong error type: %T", err)
 	}
-	if ue.Name != "whatsapp" {
+	if ue.Name != "discord" {
 		t.Fatalf("error name: got %q", ue.Name)
+	}
+}
+
+func TestManager_WhatsAppConnectComingSoon(t *testing.T) {
+	s := newTestReachStore(t)
+	m := NewManager(s)
+	_, err := m.Connect(context.Background(), "whatsapp", "token")
+	if err == nil {
+		t.Fatal("whatsapp Connect should fail")
+	}
+	var ue *UnsupportedError
+	if !errors.As(err, &ue) {
+		t.Fatalf("wrong error type: %T", err)
+	}
+	if ue.Message != whatsAppComingSoon {
+		t.Fatalf("message: got %q", ue.Message)
+	}
+}
+
+func TestManager_SignalConnectComingSoon(t *testing.T) {
+	s := newTestReachStore(t)
+	m := NewManager(s)
+	_, err := m.Connect(context.Background(), "signal", "token")
+	if err == nil {
+		t.Fatal("signal Connect should fail")
+	}
+	var ue *UnsupportedError
+	if !errors.As(err, &ue) {
+		t.Fatalf("wrong error type: %T", err)
+	}
+	if ue.Message != signalComingSoon {
+		t.Fatalf("message: got %q", ue.Message)
+	}
+}
+
+func TestManager_CreateStubChannels(t *testing.T) {
+	s := newTestReachStore(t)
+	m := NewManager(s)
+	for _, name := range []string{"whatsapp", "signal", "imessage"} {
+		ch, err := m.getOrCreateChannel(name)
+		if err != nil {
+			t.Fatalf("getOrCreateChannel(%q): %v", name, err)
+		}
+		if ch == nil {
+			t.Fatalf("channel %q is nil", name)
+		}
 	}
 }
 
@@ -163,6 +209,10 @@ func TestUnsupportedError(t *testing.T) {
 	e := &UnsupportedError{Name: "test"}
 	if e.Error() != "reach: unsupported channel: test" {
 		t.Fatalf("Error(): got %q", e.Error())
+	}
+	e2 := &UnsupportedError{Name: "whatsapp", Message: whatsAppComingSoon}
+	if e2.Error() != whatsAppComingSoon {
+		t.Fatalf("custom Error(): got %q", e2.Error())
 	}
 }
 

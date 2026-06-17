@@ -99,6 +99,18 @@ func (m *Manager) getOrCreateChannel(name string) (Channel, error) {
 		ch := newTelegramChannel()
 		m.channels[name] = ch
 		return ch, nil
+	case "whatsapp":
+		ch := newWhatsAppChannel()
+		m.channels[name] = ch
+		return ch, nil
+	case "signal":
+		ch := newSignalChannel()
+		m.channels[name] = ch
+		return ch, nil
+	case "imessage":
+		ch := newIMessageChannel()
+		m.channels[name] = ch
+		return ch, nil
 	default:
 		return nil, &UnsupportedError{Name: name}
 	}
@@ -106,9 +118,13 @@ func (m *Manager) getOrCreateChannel(name string) (Channel, error) {
 
 // UnsupportedError is returned for channels not yet implemented.
 type UnsupportedError struct {
-	Name string
+	Name    string
+	Message string
 }
 
 func (e *UnsupportedError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
 	return "reach: unsupported channel: " + e.Name
 }
