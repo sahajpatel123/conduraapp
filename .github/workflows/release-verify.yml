@@ -128,7 +128,7 @@ jobs:
             exit 0
           fi
           mkdir -p dist
-          printf '%s synapticd-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
+          printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
           go run ./cmd/gen-update-manifest generate \
             --version v0.0.0-keycheck \
             --checksums dist/checksums.txt \
