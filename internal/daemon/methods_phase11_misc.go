@@ -260,19 +260,6 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		// 3. Probe power for the Ready screen response.
 		power := onboarding.ProbePowerWithTimeout(ctx)
 
-		// 4. If Ollama is reachable, enable it in config.
-		// ProviderConfig doesn't carry its own name; the LLM
-		// provider map is keyed by name. Look up "ollama" by key.
-		if power.OllamaReachable && subs.cfg != nil {
-			if prov, ok := subs.cfg.LLM.Providers["ollama"]; ok {
-				prov.Enabled = true
-				if power.FirstModel() != "" && prov.DefaultModel == "" {
-					prov.DefaultModel = power.FirstModel()
-				}
-				subs.cfg.LLM.Providers["ollama"] = prov
-			}
-		}
-
 		// 5. Apply hotkey to in-memory config.
 		if subs.cfg != nil {
 			subs.cfg.Hotkey.Overlay = p.Hotkey

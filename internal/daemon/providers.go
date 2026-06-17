@@ -24,13 +24,16 @@ func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *con
 			log.Warn("list keys failed", "provider", name, "err", err)
 			continue
 		}
-		if len(keys) == 0 {
+		var key string
+		if len(keys) > 0 {
+			key = keys[0].Secret
+		}
+		// Ollama is a keyless local provider — register it
+		// without requiring an API key.
+		if len(keys) == 0 && name != config.ProviderOllama {
 			log.Debug("no api key for provider, skipping", "provider", name)
 			continue
 		}
-		// Use the first key (we currently support one key per
-		// provider per label; future versions can support multiple).
-		key := keys[0].Secret
 		prov := buildProvider(name, key, p.BaseURL, models)
 		if prov == nil {
 			log.Warn("unknown provider in config", "provider", name)
