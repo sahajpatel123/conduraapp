@@ -93,7 +93,7 @@ export default function HeroSection() {
       <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
 
         {/* ── LEFT: Copy ── */}
-        <div className="w-full lg:w-[45%] h-full flex flex-col justify-between px-8 lg:px-16 pt-32 pb-12 relative z-20">
+        <div className="w-full lg:w-1/2 h-full flex flex-col justify-between px-8 lg:px-16 pt-32 pb-12 relative z-20">
           <div className="flex-1 flex flex-col justify-center">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -150,7 +150,7 @@ export default function HeroSection() {
 
         {/* ── RIGHT: One Perfect Window ── */}
         <div
-          className="hidden lg:flex w-[55%] h-full relative border-l border-white/[0.06] items-center justify-center overflow-hidden"
+          className="hidden lg:flex w-1/2 h-full relative items-center justify-center overflow-hidden"
           style={{ perspective: "1200px" }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
@@ -160,6 +160,8 @@ export default function HeroSection() {
             className="absolute inset-0 bg-cover bg-center opacity-40"
             style={{ backgroundImage: "url('/images/condura-desktop-light.jpg')" }}
           />
+          {/* Smooth blended transition from the left panel — no sharp edge */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/30" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/80" />
 
           {/* The Single Window */}
