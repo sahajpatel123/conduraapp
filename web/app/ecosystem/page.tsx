@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence, useScroll, useTransform } from "motion/react";
-import { useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import TiltCard from "@/components/motion/TiltCard";
 import MagneticButton from "@/components/motion/MagneticButton";
@@ -314,7 +314,7 @@ function DetectionDemoSection() {
             </p>
 
             <AnimatePresence>
-              {DETECTION_SEQUENCE.slice(0, scanIndex).map((item, i) => (
+              {DETECTION_SEQUENCE.slice(0, scanIndex).map((item) => (
                 <motion.div
                   key={item.path}
                   initial={{ opacity: 0, x: -10 }}

@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence, useScroll, useTransform } from "motion/react";
-import { useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import TiltCard from "@/components/motion/TiltCard";
 import { EASE_OUT } from "@/lib/motion";

@@ -196,7 +196,7 @@ function DecompositionSection() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const drawProgress = useTransform(scrollYProgress, [0.1, 0.5], [0, 1]);
-  const smoothDraw = useSpring(drawProgress, { damping: 30, stiffness: 80 });
+  useSpring(drawProgress, { damping: 30, stiffness: 80 });
 
   return (
     <section ref={ref} className="relative w-full py-[160px] px-6 border-t border-white/[0.08]">
