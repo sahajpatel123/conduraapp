@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "The Condura End-User License Agreement.",
 };
 
+import FadeInStagger from "@/components/motion/FadeInStagger";
+
 export default async function LegalPage() {
   const html = await readRepoMarkdown("EULA.md");
 
@@ -18,7 +20,9 @@ export default async function LegalPage() {
       description="The terms governing use of the Condura application."
     >
       {html ? (
-        <article className="prose-md" dangerouslySetInnerHTML={{ __html: html }} />
+        <FadeInStagger>
+          <article className="prose-md" dangerouslySetInnerHTML={{ __html: html }} />
+        </FadeInStagger>
       ) : (
         <p className="text-white/45">
           The license agreement is not available right now. Contact{" "}

@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { SITE } from "@/lib/site";
 
 const NAV_ITEMS = [
-  { label: "Orchestration", id: "orchestration-tile" },
-  { label: "Ecosystem", id: "marquee-tile" },
-  { label: "Security", id: "safety-tile" },
+  { label: "Orchestration", href: "/orchestration" },
+  { label: "Ecosystem", href: "/ecosystem" },
+  { label: "Security", href: "/security" },
   { label: "Manifesto", href: "/manifesto" },
 ];
 
@@ -52,13 +52,12 @@ export default function GlobalNav() {
           onMouseLeave={() => setHoveredIndex(null)}
         >
           {NAV_ITEMS.map((item, i) => (
-            <button
-              type="button"
+            <Link
+              href={item.href}
               key={item.label}
-              className="relative h-10 rounded-[14px] px-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40"
+              className="relative h-10 rounded-[14px] px-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40 flex items-center"
               onMouseEnter={() => setHoveredIndex(i)}
               onFocus={() => setHoveredIndex(i)}
-              onClick={() => item.id ? handleScrollToSection(item.id) : (window.location.href = item.href!)}
             >
               <AnimatePresence>
                 {hoveredIndex === i && (
@@ -78,7 +77,7 @@ export default function GlobalNav() {
               }`}>
                 {item.label}
               </span>
-            </button>
+            </Link>
           ))}
         </div>
 

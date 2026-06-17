@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Notable changes to Condura, release by release.",
 };
 
+import FadeInStagger from "@/components/motion/FadeInStagger";
+
 export default async function ChangelogPage() {
   const html = await readRepoMarkdown("CHANGELOG.md");
 
@@ -18,7 +20,9 @@ export default async function ChangelogPage() {
       description="Release notes pulled from the repository changelog when available."
     >
       {html ? (
-        <article className="prose-md" dangerouslySetInnerHTML={{ __html: html }} />
+        <FadeInStagger>
+          <article className="prose-md" dangerouslySetInnerHTML={{ __html: html }} />
+        </FadeInStagger>
       ) : (
         <p className="text-white/45">
           The changelog is not available right now. Check{" "}
