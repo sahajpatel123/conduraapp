@@ -10,6 +10,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/sanitize"
+	"github.com/sahajpatel123/synapticapp/internal/sensitive"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
 )
 
@@ -75,6 +76,13 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger)
 			}
 		}
 		return nil
+	}
+
+	// Sensitive site hook: escalate actions on banking/health URLs
+	// or data-entry contexts to RequirePresenceAndConsent.
+	sensitiveDetector := sensitive.NewDetector()
+	engine.SensitiveHook = func(url, ctx string) bool {
+		return sensitiveDetector.Match(url, ctx)
 	}
 
 	return &SafetyComponents{

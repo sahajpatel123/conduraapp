@@ -38,6 +38,10 @@ type Engine struct {
 	SanitizeHook func(a *blastradius.Action) error
 	// AutonomyHook returns the current autonomy level. If nil, autonomy is disabled.
 	AutonomyHook func(taskType, app string) (level int)
+	// SensitiveHook checks whether a target URL or context is on a
+	// sensitive site (banking, health, government). If true, the
+	// decision is escalated to RequirePresenceAndConsent.
+	SensitiveHook func(url, context string) bool
 }
 
 // NewEngine creates the real Gatekeeper engine.
@@ -60,6 +64,14 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 	// Anomaly (9B hook, stubbed).
 	if e.AnomalyHook != nil {
 		e.AnomalyHook(a)
+	}
+
+	// Sensitive site check: escalate any action on banking/health
+	// sites to RequirePresenceAndConsent before evaluating policy.
+	if e.SensitiveHook != nil {
+		if e.SensitiveHook(a.TargetURL, a.Body) {
+			return RequirePresenceAndConsent, "sensitive site: escalated to presence-and-consent"
+		}
 	}
 
 	// Pure policy verdict first. Autonomy can only bypass consent,
