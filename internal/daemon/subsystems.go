@@ -890,6 +890,34 @@ func pickPrimaryProvider(cfg *config.Config) (string, string) {
 	return "", ""
 }
 
+// RebuildProviders re-registers providers from the current config
+// and API keys into the LLM registry. Call this after enabling a
+// provider (onboarding.finish) or adding an API key (apikeys.set)
+// so the daemon can use the new provider without a restart.
+// Returns the number of providers registered.
+func (s *Subsystems) RebuildProviders() int {
+	if s.LLM == nil || s.cfg == nil {
+		return 0
+	}
+	registered := buildProvidersFromConfig(slog.Default(), s.LLM, s.cfg, s.APIKeys)
+	s.rebuildSessionFactory()
+	return registered
+}
+
+// rebuildSessionFactory updates the session factory's primary
+// provider name and model from the current config.
+func (s *Subsystems) rebuildSessionFactory() {
+	if s.SessionFactory == nil || s.cfg == nil {
+		return
+	}
+	primaryName, primaryModel := pickPrimaryProvider(s.cfg)
+	if primaryName == "" {
+		return
+	}
+	s.SessionFactory.UpdatePrimary(primaryName, primaryModel)
+	slog.Info("session factory primary updated", "provider", primaryName, "model", primaryModel)
+}
+
 // defaultModelFor returns a sensible default model name for a
 // provider. Used by the session factory when the user hasn't
 // pinned a model.

@@ -287,6 +287,12 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		firstRunMarker := filepath.Join(subs.GeneralDataDir(), "first-run-complete")
 		_ = os.WriteFile(firstRunMarker, []byte(time.Now().UTC().Format(time.RFC3339)), firstRunFilePerm) //nolint:gosec
 
+		// 7.5. Rebuild providers so chats work immediately.
+		if subs.cfg != nil {
+			n := subs.RebuildProviders()
+			slog.Info("onboarding.finish: providers rebuilt", "count", n)
+		}
+
 		// 8. Persist config to disk.
 		if subs.Loader != nil && subs.cfg != nil {
 			subs.cfg.General.FirstRun = false

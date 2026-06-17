@@ -180,6 +180,14 @@ func (f *Factory) SetPredictor(p PredictorStore) {
 	f.predictor = p
 }
 
+// UpdatePrimary updates the primary provider name and model.
+// Call after enabling a new provider or adding an API key so
+// sessions use the new configuration without daemon restart.
+func (f *Factory) UpdatePrimary(providerName, model string) {
+	f.providerName = providerName
+	f.model = model
+}
+
 // New builds a Session for a specific conversation. The
 // session's lifetime is the lifetime of one Run call.
 func (f *Factory) New(conversationID int64) *Session {

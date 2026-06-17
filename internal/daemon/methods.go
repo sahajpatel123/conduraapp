@@ -51,7 +51,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		return prov.Models(), nil
 	})
 
-	registerAPIKeyMethods(srv, subs.APIKeys)
+	registerAPIKeyMethods(srv, subs)
 	registerLLMMethods(srv, subs.LLM, subs.Spend, subs.Halt, subs.Audit)
 	registerSpendMethods(srv, subs.Spend)
 	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM)
@@ -80,7 +80,8 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.
-func registerAPIKeyMethods(srv *ipc.Server, akm *api_key.Manager) {
+func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
+	akm := subs.APIKeys
 	srv.Register("apikeys.list", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		keys, err := akm.List(ctx)
 		if err != nil {
@@ -122,6 +123,7 @@ func registerAPIKeyMethods(srv *ipc.Server, akm *api_key.Manager) {
 		if err != nil {
 			return nil, err
 		}
+		subs.RebuildProviders()
 		return map[string]any{"id": id}, nil
 	})
 	srv.Register("apikeys.delete", func(ctx context.Context, params json.RawMessage) (any, error) {
