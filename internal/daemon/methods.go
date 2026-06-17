@@ -35,7 +35,12 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		return subs.Health.Snapshot(ctx), nil
 	})
 	srv.Register("providers.list", func(_ context.Context, _ json.RawMessage) (any, error) {
-		return subs.LLM.List(), nil
+		list := subs.LLM.List()
+		out := make([]map[string]string, 0, len(list))
+		for _, p := range list {
+			out = append(out, map[string]string{"name": p.Name()})
+		}
+		return out, nil
 	})
 	srv.Register("providers.models", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
