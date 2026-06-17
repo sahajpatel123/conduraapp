@@ -1,189 +1,255 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { useState, useEffect, MouseEvent } from "react";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
 
-const HEADLINE_WORDS = ["AI", "on", "your", "computer.", "Free."];
-const TYPING_LINES = [
-  { text: "Summarize the quarterly report...", delay: 800 },
-  { text: "Here's your summary. Revenue up 12%.", delay: 2200, isResponse: true },
+/**
+ * DESIGN PHILOSOPHY — FINAL VERSION
+ * 
+ * The right side must feel like a photograph of a real product, not a collage of UI toys.
+ * 
+ * RULE: ONE element. One single, impeccably crafted terminal window floating over the
+ * wallpaper. That's it. No fake docks, no fake menu bars, no fake notification banners,
+ * no colored circles pretending to be app icons. Just ONE window. Confidence through restraint.
+ * 
+ * This is how Apple, Linear, and Raycast present their products: a single, perfectly lit
+ * screenshot of the actual application. Nothing else competes for attention.
+ */
+
+const STEPS = [
+  { input: "condura boot --local",          output: "Gatekeeper mounted. SQLite bus online." },
+  { input: "condura spawn --agent=react",   output: "Agent spawned. Analyzing workspace AST..." },
+  { input: "react-agent: patch Hero.tsx",   output: "Diff applied cleanly. +12 lines, -4 lines." },
+  { input: "condura verify --strict",       output: "All deterministic safety rules passed." },
 ];
 
-function useFirstVisit() {
-  const [isFirst] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const key = "condura-hero-seen";
-    const alreadyPlayed = sessionStorage.getItem(key);
-    if (!alreadyPlayed) {
-      sessionStorage.setItem(key, "1");
-      return true;
-    }
-    return false;
-  });
-  return isFirst;
-}
-
-function TypingText({ text, delay, isResponse }: { text: string; delay: number; isResponse?: boolean }) {
-  const isFirst = useFirstVisit();
-  const [displayed, setDisplayed] = useState(isFirst ? "" : text);
-
-  useEffect(() => {
-    if (!isFirst) return;
-    let i = 0;
-    const start = setTimeout(() => {
-      const interval = setInterval(() => {
-        i++;
-        setDisplayed(text.slice(0, i));
-        if (i >= text.length) clearInterval(interval);
-      }, 40);
-      return () => clearInterval(interval);
-    }, delay);
-    return () => clearTimeout(start);
-  }, [text, delay, isFirst]);
-
-  return (
-    <span className={isResponse ? "text-[#64c8ff]" : "text-[#e5e5e5]"}>
-      {displayed}
-      {displayed.length < text.length && !isResponse && (
-        <span className="animate-cursor ml-0.5 inline-block h-4 w-[2px] bg-[#0066cc] align-middle" />
-      )}
-    </span>
-  );
-}
-
-function Orb() {
-  return (
-    <div className="relative flex items-center justify-center">
-      <div className="animate-orb h-3 w-3 rounded-full bg-[#0066cc]" />
-    </div>
-  );
-}
-
 export default function HeroSection() {
-  const isFirst = useFirstVisit();
-  const [showLines] = useState(!isFirst);
+  const [introFinished, setIntroFinished] = useState(false);
+  const [step, setStep] = useState(0);
+
+  // Subtle 3D tilt on hover
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const sX = useSpring(mx, { stiffness: 80, damping: 30 });
+  const sY = useSpring(my, { stiffness: 80, damping: 30 });
+  const rotateX = useTransform(sY, [-0.5, 0.5], ["3deg", "-3deg"]);
+  const rotateY = useTransform(sX, [-0.5, 0.5], ["-3deg", "3deg"]);
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    mx.set((e.clientX - r.left) / r.width - 0.5);
+    my.set((e.clientY - r.top) / r.height - 0.5);
+  };
+  const handleMouseLeave = () => { mx.set(0); my.set(0); };
 
   useEffect(() => {
-    if (!isFirst) return;
-    const t = setTimeout(() => {}, 400);
+    const t = setTimeout(() => setIntroFinished(true), 2500);
     return () => clearTimeout(t);
-  }, [isFirst]);
+  }, []);
+
+  useEffect(() => {
+    if (!introFinished) return;
+    const interval = setInterval(() => setStep((p) => (p + 1) % STEPS.length), 3500);
+    return () => clearInterval(interval);
+  }, [introFinished]);
 
   return (
-    <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505]">
-      <div className="bg-circuit pointer-events-none absolute inset-0 opacity-40" />
-      <div className="radiant-aura pointer-events-none absolute inset-0" />
-
-      <div className="relative z-10 mx-auto max-w-5xl px-6 text-center">
-        <motion.div
-          initial={isFirst ? { opacity: 0, scale: 0.9, filter: "blur(12px)" } : false}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-          className="animate-float mx-auto mb-12 max-w-[520px]"
-        >
-          <div className="glass-overlay relative overflow-hidden rounded-2xl p-5">
-            <div className="flex items-center gap-2 border-b border-white/[0.06] pb-3">
-              <div className="h-2 w-2 rounded-full bg-[#ff5f57]" />
-              <div className="h-2 w-2 rounded-full bg-[#febc2e]" />
-              <div className="h-2 w-2 rounded-full bg-[#28c840]" />
-              <span className="ml-auto text-[11px] font-medium tracking-wide text-white/30">Condura</span>
-            </div>
-
-            <div className="mt-4 space-y-3 text-left">
-              {showLines && TYPING_LINES.map((line, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: isFirst ? line.delay / 1000 : 0, duration: 0.4 }}
-                  className="flex items-start gap-2.5"
-                >
-                  {!line.isResponse && <Orb />}
-                  <div
-                    className={`rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
-                      line.isResponse
-                        ? "bg-[#0066cc]/10 border border-[#0066cc]/15 text-[#64c8ff]"
-                        : "bg-white/[0.04] text-[#e5e5e5]"
-                    }`}
-                  >
-                    <TypingText text={line.text} delay={line.delay} isResponse={line.isResponse} />
-                  </div>
-                </motion.div>
-              ))}
-
-              {showLines && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: isFirst ? 4.5 : 0, duration: 0.3 }}
-                  className="flex items-center gap-1.5 pl-6"
-                >
-                  <span className="h-1 w-1 animate-[typing-dot_1.4s_infinite_-0.32s] rounded-full bg-white/30" />
-                  <span className="h-1 w-1 animate-[typing-dot_1.4s_infinite_-0.16s] rounded-full bg-white/30" />
-                  <span className="h-1 w-1 animate-[typing-dot_1.4s_infinite_0s] rounded-full bg-white/30" />
-                </motion.div>
-              )}
-            </div>
-
-            <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3 text-[12px] text-white/25">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-              </svg>
-              Say &ldquo;hey condura&rdquo; or type...
-            </div>
-          </div>
-        </motion.div>
-
-        <h1 className="text-balance text-[56px] font-semibold leading-[1.05] tracking-tighter text-white sm:text-[72px] md:text-[88px]">
-          {HEADLINE_WORDS.map((word, i) => (
-            <motion.span
-              key={i}
-              initial={isFirst ? { opacity: 0, y: 20 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.6,
-                delay: 0.1 + i * 0.08,
-                ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-              }}
-              className="mr-[0.2em] inline-block"
-            >
-              {word}
-            </motion.span>
-          ))}
-        </h1>
-
-        <motion.p
-          initial={isFirst ? { opacity: 0, y: 12 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-          className="mx-auto mt-5 max-w-lg text-[17px] leading-relaxed text-white/40"
-        >
-          A ghost that lives inside your computer. Press a hotkey. It appears.
-          Orchestrates every AI tool you have. Then vanishes.
-        </motion.p>
-
-        <motion.div
-          initial={isFirst ? { opacity: 0, y: 12 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.9 }}
-          className="mt-10"
-        >
-          <a
-            href="/download"
-            className="group inline-flex items-center rounded-full bg-[#0066cc] px-8 py-4 text-[16px] font-semibold text-white transition-all duration-300 hover:bg-[#0055aa] hover:shadow-[0_0_40px_rgba(0,102,204,0.4)] active:scale-[0.95]"
+    <>
+      {/* Boot Sequence */}
+      <AnimatePresence>
+        {!introFinished && (
+          <motion.div
+            key="boot"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="fixed inset-0 z-[100] bg-[#000] flex flex-col items-center justify-center"
           >
-            Download Condura
-            <svg className="ml-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
-            </svg>
-          </a>
-          <p className="mt-3 text-[13px] text-white/25">
-            Free forever. No account. No tracking. No cloud.
-          </p>
-        </motion.div>
-      </div>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: "200px" }}
+              transition={{ duration: 1.5, ease: "easeInOut" }}
+              className="h-[1px] bg-white/20 relative"
+            >
+              <motion.div
+                initial={{ x: 0 }}
+                animate={{ x: 200 }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+                className="absolute top-0 left-0 w-10 h-[1px] bg-white shadow-[0_0_10px_white]"
+              />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 1 }}
+              className="mt-8 font-mono text-[10px] text-[#a1a1aa] tracking-[0.3em] uppercase"
+            >
+              Establishing secure environment
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-    </section>
+      <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
+
+        {/* ── LEFT: Copy ── */}
+        <div className="w-full lg:w-[45%] h-full flex flex-col justify-between px-8 lg:px-16 pt-32 pb-12 relative z-20">
+          <div className="flex-1 flex flex-col justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 30 }}
+              transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="font-mono text-[11px] text-[#a1a1aa] tracking-widest uppercase mb-8 flex items-center gap-3">
+                <span className="w-8 h-[1px] bg-white/20" />
+                V0.1.0 Open Alpha
+              </div>
+
+              <h1 className="text-[56px] lg:text-[72px] font-medium leading-[0.95] tracking-[-0.03em] text-[#fff] mb-6">
+                Your OS, now <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-[#71717a]">
+                  autonomous.
+                </span>
+              </h1>
+
+              <p className="font-body-mature text-[#a1a1aa] text-[16px] leading-[1.6] mb-12 max-w-md">
+                Stop pasting code into a browser tab. Condura orchestrates massive parallel AI workflows directly on your machine. Secure, local, and incredibly fast.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <button
+                  onClick={() => document.getElementById("download-tile")?.scrollIntoView({ behavior: "smooth" })}
+                  className="mature-button w-full px-8 py-3.5 font-body-mature text-[14px] font-semibold sm:w-auto"
+                >
+                  Download Bundle
+                </button>
+                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[12px] text-white/55">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                  <span>Mac, Win, Linux</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: introFinished ? 1 : 0 }}
+            transition={{ duration: 1.5, delay: 1 }}
+            className="w-full border-t border-white/[0.08] pt-6 flex justify-between items-center"
+          >
+            <div className="flex flex-col">
+              <span className="font-mono text-[10px] text-white/40 tracking-widest uppercase mb-1">Architecture</span>
+              <span className="font-body-mature text-[13px] text-white">Local-First</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-mono text-[10px] text-white/40 tracking-widest uppercase mb-1">Concurrency</span>
+              <span className="font-body-mature text-[13px] text-white">Parallel Threads</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ── RIGHT: One Perfect Window ── */}
+        <div
+          className="hidden lg:flex w-[55%] h-full relative border-l border-white/[0.06] items-center justify-center overflow-hidden"
+          style={{ perspective: "1200px" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Wallpaper — subtle, warm, ambient */}
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-40"
+            style={{ backgroundImage: "url('/images/condura-desktop-light.jpg')" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/80" />
+
+          {/* The Single Window */}
+          <motion.div
+            initial={{ scale: 1.06, opacity: 0 }}
+            animate={{ scale: introFinished ? 1 : 1.06, opacity: introFinished ? 1 : 0 }}
+            transition={{ duration: 2, delay: 0.4, ease: "easeOut" }}
+            className="relative z-10 w-[88%] max-w-[580px]"
+          >
+            <motion.div
+              style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+              className="w-full rounded-xl overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.06)]"
+            >
+              {/* Title Bar */}
+              <div className="h-[40px] bg-[#1e1e1e] border-b border-white/[0.06] flex items-center px-4 relative">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                  <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                  <div className="w-3 h-3 rounded-full bg-[#28c840]" />
+                </div>
+                <span className="absolute left-1/2 -translate-x-1/2 text-[12px] text-white/30 font-medium">
+                  Condura
+                </span>
+              </div>
+
+              {/* Toolbar */}
+              <div className="h-[44px] bg-[#181818] border-b border-white/[0.04] flex items-center justify-between px-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center">
+                    <span className="text-white/70 text-[11px] font-semibold">C</span>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-white/70 leading-none">Orchestrator Engine</p>
+                    <p className="text-[9px] text-white/25 font-mono mt-[2px] leading-none">condura-core v0.1.0</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] text-white/20 font-mono border border-white/[0.06] rounded px-1.5 py-0.5">⌘K</span>
+                </div>
+              </div>
+
+              {/* Terminal Body */}
+              <div className="bg-[#0e0e0e] p-6 min-h-[280px] flex flex-col justify-between">
+                <div className="space-y-5">
+                  <AnimatePresence mode="wait">
+                    {STEPS.slice(0, step + 1).map((s, i) => (
+                      <motion.div
+                        key={`step-${i}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: i === step ? 1 : 0.4, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="font-mono text-[12px] leading-relaxed"
+                      >
+                        <p className="text-white/80">
+                          <span className="text-white/50 mr-2">❯</span>
+                          {s.input}
+                        </p>
+                        <p className="text-white/30 mt-1 pl-5">{s.output}</p>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                {/* Blinking cursor at bottom */}
+                <div className="mt-6 flex items-center gap-2 font-mono text-[12px]">
+                  <span className="text-white/50">❯</span>
+                  <motion.span
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ repeat: Infinity, duration: 0.9 }}
+                    className="inline-block w-[7px] h-[14px] bg-white/40"
+                  />
+                </div>
+              </div>
+
+              {/* Status Bar */}
+              <div className="h-[28px] bg-[#151515] border-t border-white/[0.04] flex items-center justify-between px-5">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1.5 text-[10px] text-white/25 font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                    3 agents active
+                  </span>
+                  <span className="text-[10px] text-white/15 font-mono">sqlite: locked</span>
+                </div>
+                <span className="text-[10px] text-white/15 font-mono">gatekeeper: sealed</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+
+      </section>
+    </>
   );
 }

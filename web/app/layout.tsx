@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Syne } from "next/font/google";
 import "./globals.css";
+import Providers from "@/components/shell/Providers";
+import SiteShell from "@/components/shell/SiteShell";
 import { SITE } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 
 export const metadata: Metadata = {
   title: `${SITE.name} — AI on your computer. Free.`,
   description:
-    "A ghost that lives inside your computer. Press a hotkey. It appears. Orchestrates every AI tool you have. Then vanishes. Free forever.",
+    "A local-first desktop agent that appears from your OS, orchestrates every AI tool you own, and stops at deterministic safety gates.",
   openGraph: {
     title: SITE.name,
     description: "AI on your computer. Free.",
@@ -25,9 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen antialiased bg-[#050505] text-[#e5e5e5]">
-        {children}
+    <html lang="en" className={`${inter.variable} ${syne.variable}`}>
+      <body className="min-h-screen bg-void text-fg antialiased">
+        <Providers>
+          <SiteShell>{children}</SiteShell>
+        </Providers>
       </body>
     </html>
   );

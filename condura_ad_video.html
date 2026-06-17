@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condura - The Flawless Masterpiece</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+<style>
+/* Reset & Force Hardware Acceleration */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #050508; color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* 3D World Setup */
+#stage { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+.world-container { position: absolute; inset: 0; perspective: 1600px; display: flex; justify-content: center; align-items: center; z-index: 10; }
+#world-parallax { width: 1400px; height: 1000px; transform-style: preserve-3d; will-change: transform; }
+#world { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; will-change: transform; }
+
+/* The Deep Void Particles (Act 1) */
+#void-container { position: absolute; inset: 0; transform-style: preserve-3d; z-index: 1; }
+.data-shard {
+  position: absolute; top: 50%; left: 50%;
+  width: 140px; height: 90px;
+  background: rgba(25,25,30,0.3); border: 0.5px solid rgba(255,255,255,0.05);
+  border-radius: 8px; padding: 16px; display: flex; flex-direction: column; justify-content: center;
+  backdrop-filter: blur(5px);
+  will-change: transform, opacity;
+}
+
+/* The Floor Grid */
+.floor-grid { position: absolute; width: 200vw; height: 200vh; top: -50vh; left: -50vw; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 80px 80px; transform: translateZ(-200px); mask-image: radial-gradient(circle at center, black 0%, transparent 50%); -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 50%); opacity: 0; pointer-events: none; will-change: opacity; }
+
+/* Condura The Conductor */
+.condura {
+  position: absolute; top: 50%; left: 50%;
+  width: 600px; height: 80px; padding: 0 32px;
+  background: rgba(20,20,24,0.85); backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.2); border-radius: 40px;
+  display: flex; align-items: center; gap: 24px; justify-content: flex-start;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.15);
+  opacity: 0; z-index: 200;
+  will-change: transform, opacity;
+}
+.orb { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: radial-gradient(circle at 30% 30%, #fff 0%, #00f0ff 40%, #0022ff 80%, #000 100%); box-shadow: inset -2px -2px 6px rgba(0,0,0,0.8), inset 2px 2px 8px rgba(255,255,255,0.9), 0 0 30px rgba(0,240,255,0.4); animation: liquid 4s linear infinite; will-change: transform, box-shadow, background; }
+@keyframes liquid { 100% { transform: rotate(360deg); } }
+.prompt { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 400; color: #fff; white-space: nowrap; overflow: hidden; border-right: 2px solid transparent; flex: 1; letter-spacing: 0.01em; text-align: left; }
+
+/* The Premium Glass Apps */
+.ui-card {
+  position: absolute; top: 50%; left: 50%;
+  width: 280px; height: 190px;
+  background: rgba(18, 18, 22, 0.7); 
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.15); border-radius: 20px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+  display: flex; flex-direction: column; overflow: hidden; opacity: 0;
+  will-change: transform, opacity;
+}
+.card-head { padding: 14px 18px; background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%); border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: #fff; letter-spacing: 0.02em; }
+.card-head svg { width: 18px; height: 18px; stroke: #ccc; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.card-body { padding: 18px 22px; flex: 1; display: flex; flex-direction: column; gap: 10px; position: relative; }
+
+/* Ghost Clutter Cards */
+.ghost-card {
+  position: absolute; top: 50%; left: 50%; width: 280px; height: 190px;
+  background: rgba(40, 40, 45, 0.3); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 20px; opacity: 0; z-index: 1; filter: blur(6px);
+  will-change: transform, opacity;
+}
+
+/* Status Badges & Consumer AI Text */
+.skeleton-wrap { display: flex; flex-direction: column; gap: 12px; overflow: hidden; will-change: height, opacity; }
+.skeleton { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; }
+.c-badge { align-self: flex-start; padding: 6px 12px; background: rgba(255,59,48,0.2); color: #ff3b30; border: 1px solid rgba(255,59,48,0.4); font-size: 11px; font-weight: 800; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em; will-change: background, color, border-color; transition: all 0.3s; }
+.ai-text { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 400; color: #00f0ff; line-height: 1.6; padding-top: 2px; }
+
+/* The Tactile Hotkey */
+.hotkey {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translateY(20px);
+  padding: 24px 40px; background: rgba(15,15,18,0.9); backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255,255,255,0.2); border-radius: 24px; font-size: 24px; font-weight: 400; color: #fff;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.1); opacity: 0; z-index: 500; display: flex; gap: 16px; align-items: center;
+  will-change: transform, opacity;
+}
+.key { display: inline-flex; justify-content: center; align-items: center; padding: 12px 20px; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%); border: 0.5px solid rgba(255,255,255,0.3); border-radius: 10px; font-weight: 600; font-family: 'Inter'; box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.4); will-change: transform, background; }
+
+/* S-Curve Connections */
+.connections { position: absolute; inset: 0; z-index: 5; opacity: 0; pointer-events: none; filter: drop-shadow(0 0 8px #00f0ff); will-change: opacity; }
+.c-line { fill: none; stroke: url(#beamGrad); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 20 50; animation: laserflow 0.5s linear infinite; }
+@keyframes laserflow { to { stroke-dashoffset: -70; } }
+
+/* Cinematic Flashbang */
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 900; pointer-events: none; }
+
+/* Finale */
+.finale { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; z-index: 1000; pointer-events: none; }
+.f-logo { font-size: 72px; font-weight: 800; color: #fff; text-shadow: 0 20px 40px rgba(0,0,0,0.5); will-change: transform, opacity, filter; }
+.f-sub { font-size: 22px; font-weight: 300; color: #aaa; margin-top: 12px; will-change: transform, opacity, filter; }
+.f-cta { margin-top: 50px; padding: 22px 64px; border-radius: 100px; background: #fff; color: #000; font-size: 16px; font-weight: 700; border: none; cursor: pointer; pointer-events: auto; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 40px rgba(255,255,255,0.2); letter-spacing: 0.05em; text-transform: uppercase; will-change: transform, opacity, filter; }
+.f-cta:hover { transform: scale(1.05); box-shadow: 0 0 80px rgba(255,255,255,0.5); }
+
+/* Play Button */
+#play-btn { position: absolute; z-index: 10000; padding: 20px 48px; border-radius: 100px; background: rgba(255,255,255,0.05); border: 0.5px solid rgba(255,255,255,0.2); color: #fff; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; backdrop-filter: blur(20px); cursor: pointer; transition: all 0.4s ease; text-transform: uppercase; letter-spacing: 0.1em; }
+#play-btn:hover { background: #fff; color: #000; box-shadow: 0 20px 60px rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<button id="play-btn">Initialize Condura</button>
+
+<div id="stage">
+
+  <div class="world-container">
+    <div id="world-parallax">
+      <div id="world">
+        
+        <div class="floor-grid" id="floor-grid"></div>
+
+        <!-- ACT 1: The Infinite Data Void -->
+        <div id="void-container"></div>
+
+        <!-- S-Curve Beams -->
+        <svg class="connections" id="connections" viewBox="0 0 1400 1000">
+          <defs>
+            <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fff" />
+              <stop offset="50%" stop-color="#00f0ff" />
+              <stop offset="100%" stop-color="rgba(0,240,255,0)" />
+            </linearGradient>
+          </defs>
+          <path class="c-line" d="M 700 500 C 700 320, 380 500, 380 320" />
+          <path class="c-line" d="M 700 500 C 700 320, 1020 500, 1020 320" />
+          <path class="c-line" d="M 700 500 C 700 680, 380 500, 380 680" />
+          <path class="c-line" d="M 700 500 C 700 680, 1020 500, 1020 680" />
+        </svg>
+
+        <!-- Ghost Clutter Cards -->
+        <div class="ghost-card"></div><div class="ghost-card"></div>
+        <div class="ghost-card"></div><div class="ghost-card"></div>
+        <div class="ghost-card"></div><div class="ghost-card"></div>
+
+        <!-- ACT 2: Real-Life Problem Apps -->
+        <div class="ui-card chaos-card" id="app-web">
+          <div class="card-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10zM2 12h20"/></svg>Browser</div>
+          <div class="card-body">
+            <div class="skeleton-wrap"><div class="c-badge" id="badge-web">38 Tabs - High Memory</div><div class="skeleton" style="width: 100%"></div><div class="skeleton" style="width: 80%"></div></div>
+            <div class="ai-text" id="w-t1"></div><div class="ai-text" id="w-t2"></div>
+          </div>
+        </div>
+
+        <div class="ui-card chaos-card" id="app-mail">
+          <div class="card-head"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Mail</div>
+          <div class="card-body">
+            <div class="skeleton-wrap"><div class="c-badge" id="badge-mail">142 Unread</div><div class="skeleton" style="width: 80%"></div><div class="skeleton" style="width: 60%"></div><div class="skeleton" style="width: 90%"></div></div>
+            <div class="ai-text" id="m-t1"></div><div class="ai-text" id="m-t2"></div>
+          </div>
+        </div>
+
+        <div class="ui-card chaos-card" id="app-notes">
+          <div class="card-head"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>Notes</div>
+          <div class="card-body">
+            <div class="skeleton-wrap"><div class="c-badge" id="badge-notes">Unsaved Drafts</div><div class="skeleton" style="width: 100%"></div><div class="skeleton" style="width: 90%"></div><div class="skeleton" style="width: 85%"></div></div>
+            <div class="ai-text" id="n-t1"></div><div class="ai-text" id="n-t2"></div>
+          </div>
+        </div>
+
+        <div class="ui-card chaos-card" id="app-cal">
+          <div class="card-head"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</div>
+          <div class="card-body">
+            <div class="skeleton-wrap"><div class="c-badge" id="badge-cal">Meeting in 10m</div><div class="skeleton" style="width: 70%"></div><div class="skeleton" style="width: 50%"></div></div>
+            <div class="ai-text" id="c-t1"></div><div class="ai-text" id="c-t2"></div>
+          </div>
+        </div>
+
+        <!-- The Conductor Box -->
+        <div class="condura" id="condura">
+          <div class="orb" id="orb"></div>
+          <div class="prompt" id="prompt"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="hotkey" id="hotkey">Press <span class="key">⌘</span> <span class="key">Space</span></div>
+  <div class="flash" id="flash"></div>
+
+  <!-- The Cinematic Finale -->
+  <div class="finale" id="finale">
+    <div class="f-logo" id="flogo">CONDURA</div>
+    <div class="f-sub" id="fsub">The AI that clicks, scrolls, and executes.</div>
+    <button class="f-cta" id="fcta">Install Now</button>
+  </div>
+
+</div>
+
+<script>
+// Generate the 3D Void Shards dynamically
+const voidContainer = document.getElementById("void-container");
+for(let i=0; i<40; i++) {
+  let shard = document.createElement("div");
+  shard.className = "data-shard";
+  shard.innerHTML = `<div style="width:${Math.random()*80+20}%; height:4px; background:rgba(255,255,255,0.2); border-radius:2px; margin-bottom:8px;"></div><div style="width:${Math.random()*60+20}%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px;"></div>`;
+  voidContainer.appendChild(shard);
+}
+
+// 3D Parallax
+document.addEventListener('mousemove', (e) => {
+  const x = (window.innerWidth / 2 - e.pageX) / 80;
+  const y = (window.innerHeight / 2 - e.pageY) / 80;
+  gsap.to("#world-parallax", { rotateY: -x, rotateX: y, duration: 1, ease: "power2.out" });
+});
+
+document.getElementById('play-btn').addEventListener('click', () => {
+  document.getElementById('play-btn').style.display = 'none';
+  gsap.registerPlugin(TextPlugin);
+  
+  // Guarantee perfect absolute centering
+  gsap.set([".ui-card", ".condura", ".hotkey", ".ghost-card", ".data-shard"], { xPercent: -50, yPercent: -50 });
+  
+  gsap.to("#prompt", { borderRightColor: "rgba(255,255,255,0.8)", duration: 0.5, repeat: -1, yoyo: true, ease: "steps(1)" });
+  gsap.set("*", { force3D: true });
+
+  // Init Void Shards
+  gsap.set(".data-shard", {
+    x: () => (Math.random() - 0.5) * 2000,
+    y: () => (Math.random() - 0.5) * 1500,
+    z: () => (Math.random() * -3000) + 500,
+    rotateX: () => Math.random() * 360,
+    rotateY: () => Math.random() * 360,
+    rotateZ: () => Math.random() * 360,
+    opacity: () => Math.random() * 0.4 + 0.1
+  });
+
+  const tl = gsap.timeline();
+
+  // 1. ACT 1: THE CONSUMER-FRIENDLY TEASER (Snappy pacing)
+  tl.set(".chaos-card, .ghost-card", { opacity: 0, scale: 0.5, z: -1000 })
+    .set("#condura", { y: -200, opacity: 0, scale: 0.5 })
+    
+    // Slow camera push through the data galaxy
+    .to(".data-shard", { z: "+=1500", rotateX: "+=45", rotateY: "+=45", duration: 10, ease: "none" }, 0)
+    
+    // Condura Boot speaking natural human language
+    .to("#condura", { opacity: 1, scale: 1, y: 0, duration: 1.5, ease: "expo.out" }, 1)
+    .to("#prompt", { text: "I can see your screen.", duration: 1.0, ease: "none" }, 2.5)
+    .to("#prompt", { text: "I can scroll your pages.", duration: 1.0, ease: "none" }, 4.5)
+    .to("#prompt", { text: "I can click your buttons.", duration: 1.0, ease: "none" }, 6.5)
+    .to("#prompt", { text: "Let me handle the chaos.", duration: 1.0, ease: "none" }, 8.5)
+
+  // 2. ACT 2: REAL-LIFE CLUTTER & EXECUTION
+    .to(".data-shard", { scale: 0, opacity: 0, duration: 0.8, ease: "power4.in" }, 10)
+    .to("#condura", { y: 200, duration: 1, ease: "power2.inOut" }, 10)
+    .to("#prompt", { text: "", duration: 0.2 }, 10)
+
+    // The Chaos Appears (Heavy clutter)
+    .to([".chaos-card", ".ghost-card"], { 
+      opacity: 1, scale: 1, 
+      x: () => (Math.random() - 0.5) * 1000, 
+      y: () => (Math.random() - 0.5) * 800, 
+      z: () => (Math.random() - 0.5) * 400, 
+      rotateX: () => (Math.random() - 0.5) * 40,
+      rotateY: () => (Math.random() - 0.5) * 40,
+      rotateZ: () => (Math.random() - 0.5) * 60, 
+      duration: 1.5, stagger: 0.05, ease: "back.out(1.2)" 
+    }, 10.5)
+
+    // The Hotkey
+    .to("#world", { opacity: 0.4, scale: 0.98, duration: 1.5, ease: "power2.inOut" }, 11)
+    .to("#hotkey", { opacity: 1, y: -20, duration: 1.5, ease: "power4.out" }, 11.5)
+    .to(".key", { scale: 0.92, background: "#fff", color: "#000", duration: 0.15, yoyo: true, repeat: 1, ease: "power1.inOut" }, 12.5)
+    .to("#hotkey", { opacity: 0, scale: 1.2, duration: 0.8, ease: "power2.in" }, 13.5)
+    .to("#world", { opacity: 1, scale: 1, duration: 1.0 }, 13.5)
+
+    // The Snap (Clearing clutter)
+    .to(".ghost-card", { opacity: 0, scale: 0.5, filter: "blur(20px)", duration: 0.5, ease: "power2.in" }, 14)
+    .to(".chaos-card", { 
+      x: (i) => [-320, 320, -320, 320][i], 
+      y: (i) => [-180, -180, 180, 180][i], 
+      z: 0, rotateX: 0, rotateY: 0, rotateZ: 0, duration: 1.8, ease: "expo.inOut" 
+    }, 14)
+    .to("#floor-grid", { opacity: 1, duration: 2 }, 13.5)
+    .to("#condura", { y: 0, duration: 1.5, ease: "back.out(1.2)" }, 13.5)
+    .to("#world", { rotateX: 25, rotateY: 0, scale: 0.85, duration: 2, ease: "expo.inOut" }, 13.5)
+
+    // The Agentic Command (Simple, everyday human wording)
+    .to("#prompt", { text: "Find the Acme report, click download, and type a summary.", duration: 3.0, ease: "none" }, 16)
+
+    // The Symphony Camera Dive
+    .to("#world", { rotateX: 45, scale: 1.25, z: 120, duration: 4, ease: "power2.inOut" }, 16.5)
+    .to("#orb", { scale: 1.3, boxShadow: "0 0 60px #00f0ff", duration: 0.5 }, 18)
+    .to("#connections", { opacity: 1, duration: 0.8 }, 18.5)
+    
+    // Processing Real-Life AGENTIC Work with dynamic badges
+    .to("#badge-web", { background: "rgba(0,240,255,0.2)", borderColor: "rgba(0,240,255,0.5)", color: "#00f0ff", text: "SCROLLING", duration: 0.2 }, 19)
+    .to("#badge-mail", { background: "rgba(255,204,0,0.2)", borderColor: "rgba(255,204,0,0.5)", color: "#ffcc00", text: "SEARCHING", duration: 0.2 }, 19.1)
+    .to("#badge-notes", { background: "rgba(191,90,242,0.2)", borderColor: "rgba(191,90,242,0.5)", color: "#bf5af2", text: "TYPING", duration: 0.2 }, 19.2)
+    .to("#badge-cal", { background: "rgba(48,209,88,0.2)", borderColor: "rgba(48,209,88,0.5)", color: "#30d158", text: "NAVIGATING", duration: 0.2 }, 19.3)
+
+    .to(".skeleton-wrap", { opacity: 0, height: 0, duration: 0.5 }, 19)
+    
+    // Executing everyday actions in clean, non-technical English
+    .to("#w-t1", { text: "> Scrolling search results...", duration: 0.8, ease: "none" }, 19.5)
+    .to("#w-t2", { text: "> Found the latest news.", duration: 0.8, ease: "none" }, 20.5)
+    
+    .to("#m-t1", { text: "> Scanning inbox for report.", duration: 0.8, ease: "none" }, 19.5)
+    .to("#m-t2", { text: "> Clicked 'Download'.", duration: 0.8, ease: "none" }, 20.5)
+    
+    .to("#n-t1", { text: "> Reading PDF data...", duration: 0.8, ease: "none" }, 19.5)
+    .to("#n-t2", { text: "> Typing the summary.", duration: 0.8, ease: "none" }, 20.5)
+    
+    .to("#c-t1", { text: "> Opening next week...", duration: 0.8, ease: "none" }, 19.5)
+    .to("#c-t2", { text: "> Clicked 'Save Event'.", duration: 0.8, ease: "none" }, 20.5)
+
+    // Resolution
+    .to(".c-badge", { background: "rgba(48,209,88,0.2)", borderColor: "rgba(48,209,88,0.5)", color: "#30d158", text: "RESOLVED", duration: 0.2 }, 22)
+    .to(".chaos-card", { borderColor: "rgba(48,209,88,0.5)", boxShadow: "0 20px 80px rgba(48,209,88,0.2)", duration: 0.4 }, 22)
+
+  // 3. ACT 3: THE CINEMATIC IMPLOSION & BLUR REVEAL
+    .to("#prompt", { text: "Execution complete.", duration: 0.5, ease: "none" }, 23)
+    .set("#connections", { opacity: 0 })
+    
+    // Orb glows intensely green
+    .to("#orb", { scale: 1.3, boxShadow: "0 0 80px #30d158", background: "radial-gradient(circle at 30% 30%, #fff 0%, #30d158 40%, #000 100%)", duration: 0.4 }, 23)
+    
+    // The Implosion: All cards violently sucked into the center
+    .to(".chaos-card", { 
+      x: 0, y: 0, z: -500, scale: 0, opacity: 0, 
+      rotateZ: (i) => [90, -90, 180, -180][i],
+      duration: 1.2, ease: "power4.in", stagger: 0.05 
+    }, 24)
+    
+    // The entire 3D world compresses into the void
+    .to("#floor-grid", { opacity: 0, duration: 1 }, 24.5)
+    .to("#world", { scale: 0, rotateZ: 90, duration: 1.2, ease: "expo.in" }, 24.5)
+    .to("#condura", { scale: 0, opacity: 0, duration: 1.2, ease: "expo.in" }, 24.5)
+
+    // The Flashbang
+    .to("#flash", { opacity: 1, duration: 0.05 }, 25.8)
+    .to("#flash", { opacity: 0, duration: 1.5, ease: "power2.out" }, 25.85)
+
+    // The Cinematic Apple-style Blur Focus Reveal
+    .to("#finale", { opacity: 1, duration: 0.1 }, 25.8)
+    .fromTo("#flogo", 
+      { filter: "blur(40px)", opacity: 0, scale: 1.5, letterSpacing: "0.2em" },
+      { filter: "blur(0px)", opacity: 1, scale: 1, letterSpacing: "-0.05em", duration: 2.5, ease: "power3.out" }, 
+      25.85
+    )
+    .fromTo("#fsub", 
+      { filter: "blur(20px)", opacity: 0, y: 20 },
+      { filter: "blur(0px)", opacity: 1, y: 0, duration: 2, ease: "power2.out" }, 
+      26.5
+    )
+    .fromTo("#fcta", 
+      { opacity: 0, scale: 0.5, filter: "blur(10px)" },
+      { opacity: 1, scale: 1, filter: "blur(0px)", duration: 1.5, ease: "back.out(1.5)" }, 
+      27.0
+    );
+
+});
+</script>
+</body>
+</html>

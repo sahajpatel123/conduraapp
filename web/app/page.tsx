@@ -1,28 +1,29 @@
 "use client";
 
-import GlobalNav from "@/components/GlobalNav";
-import CommandPalette from "@/components/CommandPalette";
+import GlobalNav from "@/components/shell/GlobalNav";
 import HeroSection from "@/components/home/HeroSection";
-import HowItFeels from "@/components/home/HowItFeels";
-import Stats from "@/components/home/Stats";
-import TrustMarquee from "@/components/home/TrustMarquee";
-import Demo from "@/components/home/Demo";
-import CTASection from "@/components/home/CTASection";
+import OrchestrationTile from "@/components/home/OrchestrationTile";
+import MarqueeTile from "@/components/home/MarqueeTile";
+import SafetyTile from "@/components/home/SafetyTile";
+import DownloadTile from "@/components/home/DownloadTile";
 import Footer from "@/components/home/Footer";
 
 export default function Home() {
   return (
     <>
+      {/* Floating Pill Navigation */}
       <GlobalNav />
-      <CommandPalette />
-      <main className="bg-[#050505]">
+
+      {/* Main stacked sections */}
+      <main id="main" className="bg-canvas">
         <HeroSection />
-        <HowItFeels />
-        <Stats />
-        <TrustMarquee />
-        <Demo />
-        <CTASection />
+        <OrchestrationTile />
+        <MarqueeTile />
+        <SafetyTile />
+        <DownloadTile />
       </main>
+
+      {/* Global Apple Footer */}
       <Footer />
     </>
   );

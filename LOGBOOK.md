@@ -6,6 +6,59 @@
 
 ---
 
+## [2026-06-18 03:54 IST] AI Model: Codex
+**Session ID:** web-hero-live-mac-demo
+**Task:** Replace the abstract right-side hero panels with a live-feeling Mac desktop demo using the supplied background screenshot.
+**Files modified:**
+- `web/components/home/HeroSection.tsx` — Replaced the orchestration atlas with a Mac desktop scene that uses the provided wallpaper/menu-bar screenshot, layered with a Condura command surface, live agent progress, permission gate, and real-time task state driven by the existing hero step cycle.
+- `web/public/images/macbook-desktop-background.png` — Added the supplied Mac desktop screenshot as the hero demo background.
+**Design decisions:**
+- Removed the fake abstract hero graph in favor of a believable in-context product demo.
+- Preserved the restored navbar and avoided reintroducing cursor-brightening or site-wide liquid glass.
+- Kept the right-side demo desktop-only so the mobile hero remains clean and readable.
+**Verification:**
+- `npx eslint components/home/HeroSection.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x1024` and `390x844`; desktop shows the live Mac demo scene, mobile remains stable with no overflow.
+**Notes:**
+- The supplied PNG is about 6 MB. A later performance pass should export a compressed WebP/AVIF version if page weight becomes a priority.
+
+---
+
+## [2026-06-18 03:41 IST] AI Model: Codex
+**Session ID:** web-hero-orchestration-atlas
+**Task:** Upgrade the right side of the landing hero into a more creative, premium product scene while preserving the restored navbar and avoiding site-wide liquid glass.
+**Files modified:**
+- `web/components/home/HeroSection.tsx` — Replaced the simple right-side image-backed terminal with a live orchestration atlas: agent lanes, execution graph, tracked file diff, gatekeeper policy meters, thread stack, local state panel, decision panel, and animated terminal state driven by the existing step cycle.
+**Design decisions:**
+- Kept the main navbar untouched, including the text-only Condura wordmark and liquid nav shell.
+- Did not reintroduce cursor-reactive background brightening or site-wide liquid classes.
+- Used normal dark mature panels, grid texture, subtle status accents, and meaningful product UI instead of a decorative stock-image background.
+**Verification:**
+- `npx eslint components/home/HeroSection.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x1024` and `390x844`; desktop hero shows the new atlas without clipping, mobile hero remains readable and does not overflow.
+
+---
+
+## [2026-06-18 03:30 IST] AI Model: Codex
+**Session ID:** web-liquid-glass-rollback-nav-wordmark
+**Task:** Keep the main navigation glass treatment, remove the cursor-brightening liquid interaction, restore non-navbar UI away from liquid glass, and simplify the left nav brand to a text-only wordmark.
+**Files modified:**
+- `web/components/shell/GlobalNav.tsx` — Removed the left logo and `Native AI layer` tagline, replacing them with a minimal text-only `Condura` wordmark while preserving the existing nav hover capsule animation and glass shell.
+- `web/app/globals.css` — Removed the site-wide liquid/solid material system and cursor-reactive glow variables; kept only the `liquid-glass` nav shell styling.
+- `web/components/shell/Providers.tsx` and `web/components/motion/Glass.tsx` — Removed the document-level pointer tracking runtime and deleted the unused glass primitive module.
+- `web/components/home/*`, `web/components/download/DownloadExperience.tsx`, `web/components/motion/*`, and `web/components/shell/*` — Replaced non-nav `liquid-*`/`solid-*` classes with normal dark panels, mature buttons, or plain bordered surfaces.
+**Verification:**
+- `rg -n "LiquidGlassRuntime|LiquidCursorHighlight|liquid-cursor|glass-x|glass-y|glass-intensity|liquid-|solid-" web/app web/components web/hooks web/lib` — only `GlobalNav.tsx` and `globals.css` nav shell references remain.
+- Targeted `npx eslint` over edited web files — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x1024` and `384x844`; nav shows text-only wordmark, no logo/tagline, mobile nav fits, and non-nav surfaces no longer use the liquid material classes.
+**Notes:**
+- The bottom dock remains a normal dark blurred dock, not liquid glass.
+
+---
+
 ## How to Use This Log
 
 ### Before You Start a Session
@@ -2234,5 +2287,91 @@ Deleted the entire first build and rebuilt the landing page from scratch per the
 ### Next steps
 - Preview at http://localhost:3000 (run `npm run dev` in `web/`)
 - Consider Phase 15 end-to-end verification or next build order step
+
+---
+
+## [2026-06-17 19:35] AI Model: Composer
+**Session ID:** web-dev-global-error-fix
+**Task:** Fix Next.js dev server `global-error.js` React Client Manifest error and bring local site back up.
+**Files created:**
+- `web/app/global-error.tsx` — App-level error boundary with branded fallback UI (avoids builtin global-error manifest path on failures).
+**Files modified:**
+- `web/components/home/HeroSection.tsx` — Moved `sessionStorage` first-visit detection to `useEffect` so SSR/hydration match; removed `showLines` gate that hid chat on first paint; pass `isFirst` into `TypingText` instead of duplicate hook calls.
+- `web/next.config.ts` — Set `turbopack.root` to `web/` cwd so monorepo root `package-lock.json` does not confuse Turbopack manifests.
+**Decisions made:** Root cause was hydration mismatch in `HeroSection` (server rendered chat lines + motion at rest; client first visit hid lines and applied motion initial styles). That error triggered Next's builtin `global-error`, which then failed manifest lookup (`[project]/web/node_modules/.../global-error.js`). Fixing hydration + custom `global-error.tsx` resolves the visible crash without changing page content/design.
+**Bugs/issues encountered:** Stale `.next` cache and wrong Turbopack workspace root warning from empty repo-level `package-lock.json`.
+**Verification:** Cleared `.next`, restarted `npm run dev`; `/`, `/manifesto`, `/download`, `/changelog`, `/legal` all return 200 with no manifest errors in dev log; `npm run build` green.
+**Next steps:** Hard-refresh browser (or clear `condura-hero-seen` session key) to see first-visit hero animation; remove stray root `package-lock.json` if not needed.
+
+## [2026-06-17 16:05 UTC] AI Model: Gemini 3.5 Flash (Antigravity CLI)
+**Session ID:** web-design-museum-gallery
+**Task:** Rebuild Condura landing page as a high-fidelity Apple-style photography-first presentation with interactive elements.
+**Files created:**
+- `web/components/motion/TiltCard.tsx` — 3D cursor-tracked card perspective with glare highlight.
+- `web/components/shell/GlobalNav.tsx` — Pinned 44px global navigation bar in solid black.
+- `web/components/shell/SubNav.tsx` — Frosted 52px secondary navigation bar with action blue primary CTA.
+- `web/components/home/OrchestrationTile.tsx` — Dark tile visualizing parallel execution waves and CLI sub-agents.
+- `web/components/home/MarqueeTile.tsx` — Infinite horizontal monochrome marquee of supported tools.
+- `web/components/home/SafetyTile.tsx` — Dark tile detailing safety modules, twin-snapshots, and sandbox rules.
+- `web/components/home/DownloadTile.tsx` — Interactive download configurator with OS-autodetect and morphing installation steps modal.
+**Files modified:**
+- `web/app/globals.css` — Configured custom Apple theme variables, negative tracking scales, and drop-shadow definitions.
+- `web/app/page.tsx` — Stacked new header, footer, and alternating light/dark page tiles.
+- `web/components/home/Footer.tsx` — Rebuilt Apple footer with dense link columns.
+- `web/components/home/HeroSection.tsx` — Refactored to light theme with negative tracking and simulated interactive overlay window.
+**Files deleted:**
+- `web/components/home/CapabilitySection.tsx` — Replaced by orchestration layout.
+- `web/components/home/HeroStage.tsx` — Replaced by hero stack.
+- `web/components/home/SafetyTeaser.tsx` — Replaced by safety tile layout.
+- `web/components/home/StatsStrip.tsx` — Removed for low-density presentation.
+**Decisions made:**
+- Visual identity aligned with standard Apple web design: no card shadows (except one product mockup shadow), alternating full-bleed tiles acting as section dividers, and Action Blue (#0066cc) as the single interactive accent color.
+- Integrated `TiltCard` on the primary overlay mockup inside the Hero section to increase presentation polish.
+- Provided an interactive OS selector and helper modal to serve direct user downloads and setup instructions.
+**Bugs/issues encountered:**
+- Type error: Unused import `applePressScale` in `SubNav.tsx` triggered build failure during TypeScript check. Resolved by removing import.
+**Verification:**
+- `npm run build` completed successfully, producing static pages for `/`, `/download`, `/manifesto`, `/changelog`, `/legal` with 0 warnings or errors.
+**Next steps:**
+- Proceed to live-preview testing using `npm run dev` inside the `web` workspace.
+
+---
+
+## [2026-06-18 02:43 IST] AI Model: Codex
+**Session ID:** web-navbar-centering-polish
+**Task:** Remove the duplicate idle Condura island, polish the top navigation bar, preserve the cursor-following hover animation, and recenter the navbar.
+**Files modified:**
+- `web/components/shell/GlobalNav.tsx` — Reworked the nav into a centered fixed glass bar with explicit `1fr / auto / 1fr` grid columns, preserved the `nav-hover` shared-layout cursor animation, improved focus states, and pinned mobile clusters to logo-left/action-right.
+- `web/components/motion/DynamicIsland.tsx` — Hid the island while idle and moved active status/download state below the navbar to avoid overlapping the persistent header.
+**Verification:**
+- `npx eslint components/shell/GlobalNav.tsx components/motion/DynamicIsland.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x720` and `390x844` against `http://localhost:3000`; desktop navbar and center rail are centered, mobile header keeps logo left and download action right.
+**Notes:**
+- Full `npm run lint` still fails on unrelated pre-existing React hook lint errors in download/platform/motion files.
+
+---
+
+## [2026-06-18 02:46 IST] AI Model: Codex
+**Session ID:** web-navbar-brand-polish
+**Task:** Improve the left navigation brand name/logo treatment without disturbing navbar layout or interaction.
+**Files modified:**
+- `web/components/shell/GlobalNav.tsx` — Replaced the generic info icon with a custom inline SVG "conductor core" C-mark, added a small green routing node, refined the Condura wordmark stack, and changed the desktop descriptor to `OS conductor`.
+**Verification:**
+- `npx eslint components/shell/GlobalNav.tsx components/motion/DynamicIsland.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x720` and `390x844`; desktop wordmark is readable, mobile logo-only treatment does not clip, and the centered nav rail remains stable.
+
+---
+
+## [2026-06-18 02:51 IST] AI Model: Codex
+**Session ID:** web-navbar-brand-creative-pass
+**Task:** Push the left navigation brand/logo further: cooler, more creative, still minimal and simple.
+**Files modified:**
+- `web/components/shell/GlobalNav.tsx` — Reworked the brand mark into a dark glass command-lens with routed C geometry, internal ring, green live node, hover rotation, and a refined `Condura` + `Native AI layer` lockup.
+**Verification:**
+- `npx eslint components/shell/GlobalNav.tsx components/motion/DynamicIsland.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright CLI screenshots checked at `2048x720` and `390x844`; logo remains compact on mobile, the desktop lockup is readable, and the center nav position remains stable.
 
 ---
