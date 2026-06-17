@@ -15,7 +15,9 @@
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
   import VoiceOrb from './lib/components/VoiceOrb.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
+  import ConsentModal from './lib/components/ConsentModal.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
+  import { consent } from './lib/stores/consent.svelte'
   import { overlay } from './lib/stores/overlay.svelte'
   import { ipc } from './lib/ipc/client'
   import { initStores } from './lib/stores/init'
@@ -66,9 +68,14 @@
     }
     window.addEventListener('synaptic:show-onboarding', onShowOnboarding)
 
+    // Start polling for Gatekeeper consent tickets once the daemon
+    // connection is up.
+    consent.start()
+
     return () => {
       window.removeEventListener('hashchange', onHashChange)
       window.removeEventListener('synaptic:show-onboarding', onShowOnboarding)
+      consent.stop()
     }
   })
 
@@ -144,6 +151,8 @@
     <LiveTranscript />
   </div>
 {/if}
+
+<ConsentModal />
 
 <style>
   .app-shell {

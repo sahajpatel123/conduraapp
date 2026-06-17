@@ -378,6 +378,17 @@ class IPCClient {
     return this.call('replay.export', destination ? { destination } : {})
   }
 
+  // ----- Phase 15: Gatekeeper consent -----
+  gatekeeperPendingConsent(): Promise<import('./types').ConsentPendingResult> {
+    return this.call('gatekeeper.pending_consent', {})
+  }
+  gatekeeperApprove(nonce: string): Promise<{ ok: boolean }> {
+    return this.call('gatekeeper.approve', { nonce })
+  }
+  gatekeeperDeny(nonce: string): Promise<{ ok: boolean }> {
+    return this.call('gatekeeper.deny', { nonce })
+  }
+
   // ----- Phase 14B: Account (auth) -----
   // The account.* RPCs talk to the daemon's user record. The
   // magic-link OAuth flow on web talks to the Next.js

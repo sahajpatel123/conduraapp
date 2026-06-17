@@ -720,6 +720,32 @@ export interface PairConfirmResult {
   device_id: string
 }
 
+// ----- Phase 15: Gatekeeper consent -----
+
+// ConsentTicket is a pending Gatekeeper consent request surfaced
+// by gatekeeper.pending_consent. The GUI renders these as a modal
+// with Allow / Deny buttons.
+export interface ConsentTicket {
+  // action_kind is the blast-radius class, e.g. "write" or "network".
+  action_kind: string
+  // actor describes the source of the action (e.g. "claude").
+  actor: string
+  // detail is a human-readable sentence like "send an email in Gmail".
+  detail: string
+  // nonce uniquely identifies this ticket for approve/deny.
+  nonce: string
+  // created_at is the ticket's creation time (RFC 3339).
+  created_at: string
+  // expires_at is when the ticket times out (RFC 3339).
+  expires_at: string
+  // approved is true if the user already approved this ticket.
+  approved: boolean
+}
+
+export interface ConsentPendingResult {
+  tickets: ConsentTicket[]
+}
+
 // ----- Phase 14G: Hub publish types -----
 
 // HubPublishParams is the payload the GUI sends to
