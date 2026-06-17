@@ -25,5 +25,5 @@ var fmtErrNotImplemented = errNotImplemented{}
 type errNotImplemented struct{}
 
 func (errNotImplemented) Error() string {
-	return "TTS is not available on this platform. Add an OpenAI or ElevenLabs API key in Settings → API Keys to enable cloud speech."
+	return "TTS is not available on this platform; add an OpenAI or ElevenLabs API key in Settings → API Keys to enable cloud speech"
 }

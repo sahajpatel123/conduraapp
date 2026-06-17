@@ -35,7 +35,7 @@ func NewRecorder(sampleRate, channels int) Recorder {
 func RecorderAvailable() bool { return false }
 
 func (r *noopRecorder) Start(_ context.Context) error {
-	return fmt.Errorf("audio capture is not available on this platform. Install whisper.cpp and configure voice.binary_path in Settings to enable local transcription, or add an OpenAI API key for cloud transcription.")
+	return fmt.Errorf("audio capture is not available on this platform; install whisper.cpp and configure voice.binary_path in Settings to enable local transcription, or add an OpenAI API key for cloud transcription")
 }
 
 func (r *noopRecorder) Stop() ([]byte, error) {
