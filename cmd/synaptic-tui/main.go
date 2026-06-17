@@ -1,3 +1,4 @@
+// Command condura-tui is the terminal UI for Condura.
 package main
 
 import (
@@ -12,6 +13,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	addr := flag.String("addr", "", "daemon IPC address (e.g. unix:///path/to/sock, tcp://127.0.0.1:PORT)")
 	flag.Parse()
 
@@ -20,23 +28,20 @@ func main() {
 		daemonAddr = tui.FindDaemonAddr()
 	}
 	if daemonAddr == "" {
-		fmt.Fprintln(os.Stderr, "condura-tui: cannot find daemon. Is synapticd running?")
-		fmt.Fprintln(os.Stderr, "  Pass --addr or start synapticd first.")
-		os.Exit(1)
+		return fmt.Errorf("condura-tui: cannot find daemon — is condurad running?\n  Pass --addr or start condurad first")
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 
 	client, err := tui.NewIPCClient(daemonAddr, logger)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "condura-tui: connect to daemon: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("condura-tui: connect to daemon: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	p := tea.NewProgram(tui.InitialModel(client, logger), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "condura-tui: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("condura-tui: %w", err)
 	}
+	return nil
 }

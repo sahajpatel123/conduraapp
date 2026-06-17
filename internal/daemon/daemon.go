@@ -239,7 +239,7 @@ func migrateLegacyDataDir(newDir string) {
 func copyDir(src, dst string) {
 	_ = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // skip unreadable files
 		}
 		rel, _ := filepath.Rel(src, path)
 		target := filepath.Join(dst, rel)
@@ -249,9 +249,9 @@ func copyDir(src, dst string) {
 		}
 		data, err := os.ReadFile(path) //nolint:gosec
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // skip unreadable files
 		}
-		_ = os.WriteFile(target, data, info.Mode())
+		_ = os.WriteFile(target, data, info.Mode()) //nolint:gosec // trusted internal path
 		return nil
 	})
 }

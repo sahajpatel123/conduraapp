@@ -15,7 +15,7 @@ const (
 const (
 	appCondurad  = "condurad"
 	appConduraG  = "condura-gui"
-	appSynaptic   = "condura"
+	appSynaptic  = "condura"
 	appConduraCL = "synaptic-cli"
 )
 
