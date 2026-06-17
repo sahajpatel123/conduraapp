@@ -30,14 +30,14 @@ func TestBinaryPath(t *testing.T) {
 		ext = ".exe"
 	}
 	bin := filepath.Join(binDir, "condurad"+ext)
-	// Repo root is two levels up from this test file (cmd/synapticd).
+	// Repo root is two levels up from this test file (cmd/condurad).
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/synapticd")
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/condurad")
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("build synapticd: %v\n%s", err, out)
+		t.Fatalf("build condurad: %v\n%s", err, out)
 	}
 	// Use a non-CONDURA_ env var name so it doesn't get parsed as a
 	// config override by the daemon's env-loader.
@@ -124,7 +124,7 @@ func TestStartsAndStopsCleanly(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	if addr == "" {
-		t.Fatalf("synapticd.addr never appeared\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout.String(), stderr.String())
+		t.Fatalf("condurad.addr never appeared\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout.String(), stderr.String())
 	}
 	if !strings.HasPrefix(addr, "127.0.0.1:") {
 		t.Fatalf("unexpected addr: %q", addr)
@@ -214,7 +214,7 @@ func startDaemon(t *testing.T, bin, dataDir string) (*exec.Cmd, string) {
 	}
 	if addr == "" {
 		stopDaemon(t, cmd)
-		t.Fatalf("synapticd.addr never appeared\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout.String(), stderr.String())
+		t.Fatalf("condurad.addr never appeared\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout.String(), stderr.String())
 	}
 	return cmd, addr
 }

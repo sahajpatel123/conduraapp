@@ -141,10 +141,10 @@ func (c *Client) Call(ctx context.Context, method string, params, out any) error
 	return nil
 }
 
-// ReadAddrFile reads the listen address that synapticd writes to
-// <data_dir>/synapticd.addr. Returns "" if the file does not exist.
+// ReadAddrFile reads the listen address that condurad writes to
+// <data_dir>/condurad.addr. Returns "" if the file does not exist.
 func ReadAddrFile(dataDir string) string {
-	path := dataDir + "/synapticd.addr"
+	path := dataDir + "/condurad.addr"
 	b, err := os.ReadFile(path) //nolint:gosec // G304: path is rooted in our own data dir, written by the daemon
 	if err != nil {
 		return ""
@@ -152,13 +152,13 @@ func ReadAddrFile(dataDir string) string {
 	return strings.TrimSpace(string(b))
 }
 
-// DefaultDataDir returns ~/.synaptic, the same default the daemon uses.
+// DefaultDataDir returns ~/.condura, the same default the daemon uses.
 func DefaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return home + "/.synaptic"
+	return home + "/.condura"
 }
 
 // IsConnRefused reports whether err indicates the daemon is not

@@ -33,8 +33,8 @@ func TestBuildAllBinaries(t *testing.T) {
 		pkg  string
 		name string
 	}{
-		{"./cmd/synapticd", "condurad"},
-		{"./cmd/synaptic", "condura"},
+		{"./cmd/condurad", "condurad"},
+		{"./cmd/condura", "condura"},
 		{"./cmd/condura-tui", "condura-tui"},
 	}
 	for _, p := range pkgs {

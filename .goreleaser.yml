@@ -19,9 +19,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux
@@ -38,9 +38,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux
@@ -57,9 +57,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Version={{.Version}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate={{.Date}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
       - darwin
       - linux

@@ -43,10 +43,10 @@ jobs:
         run: |
           test -f dist/checksums.txt
           ls -la dist/
-          echo "synapticd archives:"
-          ls dist/synapticd-* 2>/dev/null | head -5
-          echo "synaptic-cli archives:"
-          ls dist/synaptic-cli-* 2>/dev/null | head -5
+          echo "condurad archives:"
+          ls dist/condurad-* 2>/dev/null | head -5
+          echo "condura-cli archives:"
+          ls dist/condura-cli-* 2>/dev/null | head -5
 
       - name: Generate unsigned manifest from snapshot checksums
         run: |
@@ -80,7 +80,7 @@ jobs:
       - name: Build sample checksums
         run: |
           mkdir -p dist
-          printf '%s synapticd-0.0.0-linux-amd64.tar.gz\n' \
+          printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' \
             "$(printf 'a%.0s' {1..64})" > dist/checksums.txt
 
       - name: Generate signed manifest

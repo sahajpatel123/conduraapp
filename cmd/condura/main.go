@@ -1,7 +1,7 @@
-// Command synaptic is the official Synaptic CLI client.
+// Command condura is the official Condura CLI client.
 //
-// It talks JSON-RPC 2.0 over HTTP to a running synapticd instance.
-// The connection address is read from <data_dir>/synapticd.addr
+// It talks JSON-RPC 2.0 over HTTP to a running condurad instance.
+// The connection address is read from <data_dir>/condurad.addr
 // unless --addr is given.
 //
 // Usage:
@@ -37,7 +37,7 @@ import (
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "synaptic: %v\n", err)
+		fmt.Fprintf(os.Stderr, "condura: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -56,8 +56,8 @@ func run(args []string) error {
 	}
 	gf := &globalFlags{}
 	fs := flag.NewFlagSet("condura", flag.ContinueOnError)
-	fs.StringVar(&gf.addr, "addr", "", "daemon address (default: read from <data-dir>/synapticd.addr)")
-	fs.StringVar(&gf.dataDir, "data-dir", "", "data dir (default: ~/.synaptic)")
+	fs.StringVar(&gf.addr, "addr", "", "daemon address (default: read from <data-dir>/condurad.addr)")
+	fs.StringVar(&gf.dataDir, "data-dir", "", "data dir (default: ~/.condura)")
 	fs.StringVar(&gf.token, "token", "", "bearer token for the daemon")
 	fs.BoolVar(&gf.jsonOut, "json", false, "output as JSON")
 	// Subcommand is the first non-flag arg; the rest are passed to the
@@ -110,10 +110,10 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 }
 
 func printUsage() {
-	fmt.Println(`synaptic — Synaptic CLI client
+	fmt.Println(`condura — Condura CLI client
 
 Usage:
-  synaptic [global flags] <command> [command flags] [args...]
+  condura [global flags] <command> [command flags] [args...]
 
 Commands:
   ping           Send a JSON-RPC ping; prints "pong" and a timestamp.
@@ -130,15 +130,15 @@ Commands:
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
-  --data-dir DIR      data directory (default: ~/.synaptic)
+  --data-dir DIR      data directory (default: ~/.condura)
   --token TOKEN       bearer token for the daemon
   --json              output as JSON
 
-Run 'synaptic help <command>' for command-specific help.`)
+Run 'condura help <command>' for command-specific help.`)
 }
 
 // connect dials the daemon and returns a Client. The address is
-// resolved in this order: --addr, $CONDURA_ADDR, <data_dir>/synapticd.addr,
+// resolved in this order: --addr, $CONDURA_ADDR, <data_dir>/condurad.addr,
 // then the default data dir.
 func connect(gf *globalFlags) (*ipc.Client, error) {
 	addr := gf.addr
@@ -153,7 +153,7 @@ func connect(gf *globalFlags) (*ipc.Client, error) {
 		addr = ipc.ReadAddrFile(dir)
 	}
 	if addr == "" {
-		return nil, fmt.Errorf("no daemon address: pass --addr or start synapticd first (looked in $CONDURA_ADDR and <data_dir>/synapticd.addr)")
+		return nil, fmt.Errorf("no daemon address: pass --addr or start condurad first (looked in $CONDURA_ADDR and <data_dir>/condurad.addr)")
 	}
 	c, err := ipc.Dial(addr, gf.token)
 	if err != nil {
@@ -172,7 +172,7 @@ func mustPing(ctx context.Context, gf *globalFlags) error {
 	var out map[string]any
 	if err := c.Call(ctx, "ping", nil, &out); err != nil {
 		if ipc.IsConnRefused(err) {
-			return fmt.Errorf("daemon not running at %s (try 'synapticd --data-dir %s')",
+			return fmt.Errorf("daemon not running at %s (try 'condurad --data-dir %s')",
 				c.Addr(), gf.dataDir)
 		}
 		return err
@@ -225,7 +225,7 @@ func cmdVersion(gf *globalFlags, args []string) error {
 	if gf.jsonOut {
 		return printJSON(out)
 	}
-	fmt.Printf("synapticd %s (%s, %s, %s)\n", out.Version, out.Commit, out.GoVersion, out.Platform)
+	fmt.Printf("condurad %s (%s, %s, %s)\n", out.Version, out.Commit, out.GoVersion, out.Platform)
 	if out.BuildDate != "" && out.BuildDate != "unknown" {
 		fmt.Printf("built: %s\n", out.BuildDate)
 	}

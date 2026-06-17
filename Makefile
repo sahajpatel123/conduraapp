@@ -7,9 +7,9 @@
 # Variables
 # ------------------------------------------------------------------
 
-BINARY_NAME := synapticd
-CLI_NAME := synaptic
-TUI_NAME := synaptic-tui
+BINARY_NAME := condurad
+CLI_NAME := condura
+TUI_NAME := condura-tui
 VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
 COMMIT           := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 BUILD_DATE       := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -47,25 +47,25 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build synapticd, synaptic, and synaptic-tui into ./bin
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/synapticd
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./cmd/synaptic
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME)    ./cmd/synaptic-tui
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./cmd/condura
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME)    ./cmd/condura-tui
 	@echo "Built: bin/$(BINARY_NAME), bin/$(CLI_NAME), bin/$(TUI_NAME)"
 
 .PHONY: build-daemon
 build-daemon: ## Build only synapticd
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/synapticd
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
 
 .PHONY: build-cli
 build-cli: ## Build only the CLI
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME) ./cmd/synaptic
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME) ./cmd/condura
 
 .PHONY: build-tui
 build-tui: ## Build only the TUI
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME) ./cmd/synaptic-tui
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME) ./cmd/condura-tui
 
 .PHONY: build-all
 build-all: ## Cross-compile for all supported platforms
@@ -75,20 +75,20 @@ build-all: ## Cross-compile for all supported platforms
 	    ext=""; [ "$$os" = "windows" ] && ext=".exe"; \
 	    echo "Building $$os/$$arch..."; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(BINARY_NAME)-$$os-$$arch$$ext ./cmd/synapticd; \
+	      -o dist/$(BINARY_NAME)-$$os-$$arch$$ext ./cmd/condurad; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(CLI_NAME)-$$os-$$arch$$ext ./cmd/synaptic; \
+	      -o dist/$(CLI_NAME)-$$os-$$arch$$ext ./cmd/condura; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(TUI_NAME)-$$os-$$arch$$ext ./cmd/synaptic-tui; \
+	      -o dist/$(TUI_NAME)-$$os-$$arch$$ext ./cmd/condura-tui; \
 	  done; \
 	done
 	@echo "All builds complete in dist/"
 
 .PHONY: install
 install: build ## Build and install to GOPATH/bin
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synapticd
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synaptic
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/synaptic-tui
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condurad
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condura
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condura-tui
 
 .PHONY: clean
 clean: ## Remove build artifacts

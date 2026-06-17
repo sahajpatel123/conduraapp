@@ -163,7 +163,7 @@ func TestCLIVersion(t *testing.T) {
 		t.Fatalf("version exit %d", code)
 	}
 	if !strings.Contains(so, "condurad") {
-		t.Fatalf("expected 'synapticd' in output, got: %s", so)
+		t.Fatalf("expected 'condurad' in output, got: %s", so)
 	}
 }
 

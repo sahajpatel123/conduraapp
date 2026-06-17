@@ -184,7 +184,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	}()
 
 	<-ctx.Done()
-	log.Info("synapticd stopped")
+	log.Info("condurad stopped")
 	shutdownDaemon(subs)
 	return subs, nil
 }
