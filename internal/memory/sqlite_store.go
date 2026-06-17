@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -75,6 +74,77 @@ func (s *SQLiteStore) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_episodes_timestamp ON episodes(timestamp)`,
 		`CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category)`,
 		`CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name)`,
+		// FTS5 virtual table for full-text search across episodes.
+		`CREATE VIRTUAL TABLE IF NOT EXISTS episodes_fts USING fts5(
+			id,
+			session_id,
+			user_message,
+			agent_response,
+			summary,
+			content='episodes',
+			content_rowid='rowid'
+		)`,
+		// FTS5 virtual table for full-text search across facts.
+		`CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(
+			id,
+			category,
+			content,
+			content='facts',
+			content_rowid='rowid'
+		)`,
+		// FTS5 virtual table for full-text search across skills.
+		`CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts USING fts5(
+			id,
+			name,
+			description,
+			content='skills',
+			content_rowid='rowid'
+		)`,
+		// Triggers to keep episodes_fts in sync.
+		`CREATE TRIGGER IF NOT EXISTS episodes_ai AFTER INSERT ON episodes BEGIN
+			INSERT INTO episodes_fts(rowid, id, session_id, user_message, agent_response, summary)
+			VALUES (new.rowid, new.id, new.session_id, new.user_message, new.agent_response, new.summary);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS episodes_ad AFTER DELETE ON episodes BEGIN
+			INSERT INTO episodes_fts(episodes_fts, rowid, id, session_id, user_message, agent_response, summary)
+			VALUES ('delete', old.rowid, old.id, old.session_id, old.user_message, old.agent_response, old.summary);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS episodes_au AFTER UPDATE ON episodes BEGIN
+			INSERT INTO episodes_fts(episodes_fts, rowid, id, session_id, user_message, agent_response, summary)
+			VALUES ('delete', old.rowid, old.id, old.session_id, old.user_message, old.agent_response, old.summary);
+			INSERT INTO episodes_fts(rowid, id, session_id, user_message, agent_response, summary)
+			VALUES (new.rowid, new.id, new.session_id, new.user_message, new.agent_response, new.summary);
+		END`,
+		// Triggers to keep facts_fts in sync.
+		`CREATE TRIGGER IF NOT EXISTS facts_ai AFTER INSERT ON facts BEGIN
+			INSERT INTO facts_fts(rowid, id, category, content)
+			VALUES (new.rowid, new.id, new.category, new.content);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS facts_ad AFTER DELETE ON facts BEGIN
+			INSERT INTO facts_fts(facts_fts, rowid, id, category, content)
+			VALUES ('delete', old.rowid, old.id, old.category, old.content);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS facts_au AFTER UPDATE ON facts BEGIN
+			INSERT INTO facts_fts(facts_fts, rowid, id, category, content)
+			VALUES ('delete', old.rowid, old.id, old.category, old.content);
+			INSERT INTO facts_fts(rowid, id, category, content)
+			VALUES (new.rowid, new.id, new.category, new.content);
+		END`,
+		// Triggers to keep skills_fts in sync.
+		`CREATE TRIGGER IF NOT EXISTS skills_ai AFTER INSERT ON skills BEGIN
+			INSERT INTO skills_fts(rowid, id, name, description)
+			VALUES (new.rowid, new.id, new.name, new.description);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS skills_ad AFTER DELETE ON skills BEGIN
+			INSERT INTO skills_fts(skills_fts, rowid, id, name, description)
+			VALUES ('delete', old.rowid, old.id, old.name, old.description);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS skills_au AFTER UPDATE ON skills BEGIN
+			INSERT INTO skills_fts(skills_fts, rowid, id, name, description)
+			VALUES ('delete', old.rowid, old.id, old.name, old.description);
+			INSERT INTO skills_fts(rowid, id, name, description)
+			VALUES (new.rowid, new.id, new.name, new.description);
+		END`,
 	}
 
 	for _, q := range queries {
@@ -167,18 +237,22 @@ func (s *SQLiteStore) ListEpisodes(ctx context.Context, limit int) ([]*Episode, 
 	return episodes, rows.Err()
 }
 
-// SearchEpisodes searches episodes by text content.
+// SearchEpisodes searches episodes by text content using FTS5.
 func (s *SQLiteStore) SearchEpisodes(ctx context.Context, query string, limit int) ([]*Episode, error) {
 	if s.closed {
 		return nil, ErrStoreClosed
 	}
 
+	// Use FTS5 MATCH for full-text search.
+	// The FTS5 table has the same rowids as the episodes table,
+	// so we join on rowid to get the full episode data.
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, session_id, user_message, agent_response, actions_taken, timestamp, summary
-		 FROM episodes
-		 WHERE user_message LIKE ? OR agent_response LIKE ? OR summary LIKE ?
-		 ORDER BY timestamp DESC LIMIT ?`,
-		"%"+query+"%", "%"+query+"%", "%"+query+"%", limit,
+		`SELECT e.id, e.session_id, e.user_message, e.agent_response, e.actions_taken, e.timestamp, e.summary
+		 FROM episodes e
+		 INNER JOIN episodes_fts f ON e.rowid = f.rowid
+		 WHERE episodes_fts MATCH ?
+		 ORDER BY e.timestamp DESC LIMIT ?`,
+		query, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -483,52 +557,75 @@ func (s *SQLiteStore) findEpisodeResults(ctx context.Context, query *SearchQuery
 	return results, nil
 }
 
-// findFactResults searches facts and returns results.
+// findFactResults searches facts and returns results using FTS5.
 func (s *SQLiteStore) findFactResults(ctx context.Context, query *SearchQuery) ([]*SearchResult, error) {
-	facts, err := s.ListFacts(ctx, "", query.Limit)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT f.id, f.category, f.content, f.confidence, f.source_episode_id, f.created_at, f.updated_at
+		 FROM facts f
+		 INNER JOIN facts_fts ft ON f.rowid = ft.rowid
+		 WHERE facts_fts MATCH ?
+		 ORDER BY f.confidence DESC LIMIT ?`,
+		query.Query, query.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = rows.Close() }()
 
 	var results []*SearchResult
-	for _, fact := range facts {
-		if containsText(fact.Content, query.Query) {
-			results = append(results, &SearchResult{
-				Memory: &Memory{
-					ID:        fact.ID,
-					Type:      Semantic,
-					Content:   fact.Content,
-					Timestamp: fact.CreatedAt,
-				},
-				Score: fact.Confidence,
-			})
+	for rows.Next() {
+		fact := &Fact{}
+		if err := rows.Scan(&fact.ID, &fact.Category, &fact.Content, &fact.Confidence,
+			&fact.SourceEpisodeID, &fact.CreatedAt, &fact.UpdatedAt); err != nil {
+			return nil, err
 		}
+		results = append(results, &SearchResult{
+			Memory: &Memory{
+				ID:        fact.ID,
+				Type:      Semantic,
+				Content:   fact.Content,
+				Timestamp: fact.CreatedAt,
+			},
+			Score: fact.Confidence,
+		})
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
-// findSkillResults searches skills and returns results.
+// findSkillResults searches skills and returns results using FTS5.
 func (s *SQLiteStore) findSkillResults(ctx context.Context, query *SearchQuery) ([]*SearchResult, error) {
-	skills, err := s.ListSkills(ctx, query.Limit)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT sk.id, sk.name, sk.description, sk.success_count, sk.failure_count, sk.created_at
+		 FROM skills sk
+		 INNER JOIN skills_fts st ON sk.rowid = st.rowid
+		 WHERE skills_fts MATCH ?
+		 ORDER BY sk.success_count DESC LIMIT ?`,
+		query.Query, query.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = rows.Close() }()
 
 	var results []*SearchResult
-	for _, skill := range skills {
-		if containsText(skill.Name+" "+skill.Description, query.Query) {
-			results = append(results, &SearchResult{
-				Memory: &Memory{
-					ID:        skill.ID,
-					Type:      Procedural,
-					Content:   skill.Description,
-					Timestamp: skill.CreatedAt,
-				},
-				Score: float64(skill.SuccessCount) / float64(skill.SuccessCount+skill.FailureCount+1),
-			})
+	for rows.Next() {
+		skill := &Skill{}
+		if err := rows.Scan(&skill.ID, &skill.Name, &skill.Description,
+			&skill.SuccessCount, &skill.FailureCount, &skill.CreatedAt); err != nil {
+			return nil, err
 		}
+		score := float64(skill.SuccessCount) / float64(skill.SuccessCount+skill.FailureCount+1)
+		results = append(results, &SearchResult{
+			Memory: &Memory{
+				ID:        skill.ID,
+				Type:      Procedural,
+				Content:   skill.Description,
+				Timestamp: skill.CreatedAt,
+			},
+			Score: score,
+		})
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
 // Cleanup removes old memories.
@@ -557,12 +654,4 @@ func (s *SQLiteStore) Close() error {
 
 	s.closed = true
 	return s.db.Close()
-}
-
-// containsText checks if text contains a substring (case-insensitive).
-func containsText(text, query string) bool {
-	if query == "" {
-		return true
-	}
-	return strings.Contains(strings.ToLower(text), strings.ToLower(query))
 }
