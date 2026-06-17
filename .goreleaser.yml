@@ -4,7 +4,7 @@
 
 version: 2
 
-project_name: synaptic
+project_name: condura
 
 before:
   hooks:
@@ -12,9 +12,9 @@ before:
     - go mod download
 
 builds:
-  - id: synapticd
-    main: ./cmd/synapticd
-    binary: synapticd
+  - id: condurad
+    main: ./cmd/condurad
+    binary: condurad
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -31,9 +31,9 @@ builds:
       - arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
 
-  - id: synaptic
-    main: ./cmd/synaptic
-    binary: synaptic
+  - id: condura
+    main: ./cmd/condura
+    binary: condura
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -70,9 +70,9 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
-  - id: synapticd-archive
+  - id: condurad-archive
     ids:
-      - synapticd
+      - condurad
     formats:
       - tar.gz
       - zip
@@ -81,15 +81,15 @@ archives:
         formats:
           - zip
     name_template: >-
-      synapticd-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+      condurad-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
       - LICENSE
       - EULA.md
 
-  - id: synaptic-archive
+  - id: condura-archive
     ids:
-      - synaptic
+      - condura
     formats:
       - tar.gz
       - zip
@@ -98,7 +98,7 @@ archives:
         formats:
           - zip
     name_template: >-
-      synaptic-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+      condura-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
       - LICENSE
@@ -109,8 +109,8 @@ checksum:
   algorithm: sha256
 
 nfpms:
-  - id: synapticd-deb
-    package_name: synapticd
+  - id: condurad-deb
+    package_name: condurad
     vendor: Condura
     homepage: https://condura.app
     maintainer: Condura <dev@condura.app>
@@ -120,10 +120,10 @@ nfpms:
       - deb
     bindir: /usr/bin
     ids:
-      - synapticd
+      - condurad
 
-  - id: synaptic-cli-deb
-    package_name: synaptic
+  - id: condura-cli-deb
+    package_name: condura
     vendor: Condura
     homepage: https://condura.app
     maintainer: Condura <dev@condura.app>
@@ -133,7 +133,7 @@ nfpms:
       - deb
     bindir: /usr/bin
     ids:
-      - synaptic
+      - condura
 
 changelog:
   use: git
