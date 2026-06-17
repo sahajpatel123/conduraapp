@@ -10,8 +10,11 @@ import (
 	"context"
 	"embed"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/sahajpatel123/synapticapp/internal/config"
@@ -19,6 +22,8 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wailsmac "github.com/wailsapp/wails/v2/pkg/options/mac"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -36,6 +41,14 @@ var daemonReady = make(chan struct{})
 // appInstance is the Wails App struct, set before wails.Run so the
 // daemon goroutine can access it for overlay/tray wiring.
 var appInstance *App
+
+// pendingOAuthCallback stores a URL received via OnUrlOpen before
+// the daemon is ready. Once the daemon is up, the goroutine processes
+// any pending callbacks.
+var (
+	pendingOAuthMu sync.Mutex
+	pendingOAuth   []string
+)
 
 func main() {
 	cfg, loader, err := resolveConfig()
@@ -69,6 +82,10 @@ func main() {
 		embeddedDaemon = subs
 		close(daemonReady)
 
+		// Process any OAuth callbacks that arrived before the
+		// daemon was ready.
+		processPendingOAuth()
+
 		// Wire the conductor (hotkey → overlay toggle) once the
 		// daemon is ready. The conductor's onShow/onHide callbacks
 		// route through the Wails window methods so the overlay
@@ -95,7 +112,10 @@ func main() {
 		OnStartup:                appInstance.startup,
 		OnDomReady:               appInstance.domReady,
 		OnBeforeClose:            appInstance.beforeClose,
-		EnableDefaultContextMenu: true, // right-click → "Inspect Element"
+		EnableDefaultContextMenu: true,
+		Mac: &wailsmac.Options{
+			OnUrlOpen: handleOpenURL,
+		},
 		Bind: []interface{}{
 			appInstance,
 		},
@@ -103,6 +123,76 @@ func main() {
 	if err != nil {
 		println("synaptic-gui:", err.Error())
 		os.Exit(1)
+	}
+}
+
+// handleOpenURL is called by the OS when a synaptic:// URL is
+// opened. On macOS this fires via the OnUrlOpen callback. We queue
+// the URL for processing once the daemon is ready.
+func handleOpenURL(rawURL string) {
+	if rawURL == "" || !strings.HasPrefix(rawURL, "synaptic://") {
+		return
+	}
+	pendingOAuthMu.Lock()
+	pendingOAuth = append(pendingOAuth, rawURL)
+	pendingOAuthMu.Unlock()
+}
+
+// processPendingOAuth drains queued OAuth callback URLs once the
+// daemon is running. Called from the daemon goroutine after the
+// daemon is fully initialized.
+func processPendingOAuth() {
+	pendingOAuthMu.Lock()
+	urls := pendingOAuth
+	pendingOAuth = nil
+	pendingOAuthMu.Unlock()
+
+	for _, rawURL := range urls {
+		processOAuthCallback(rawURL)
+	}
+}
+
+// processOAuthCallback parses a synaptic://auth/callback URL and
+// calls the daemon's account.oauth_callback RPC. On success, it
+// emits a frontend event so the UI can refresh its signed-in state.
+func processOAuthCallback(rawURL string) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		slog.Warn("synaptic-gui: bad oauth callback url", "url", rawURL, "err", err)
+		return
+	}
+	if !strings.HasPrefix(u.Path, "auth/callback") {
+		return // not an OAuth callback
+	}
+	code := u.Query().Get("code")
+	state := u.Query().Get("state")
+	if code == "" || state == "" {
+		slog.Warn("synaptic-gui: oauth callback missing code or state", "url", rawURL)
+		return
+	}
+	if embeddedDaemon == nil || embeddedDaemon.Account == nil {
+		slog.Warn("synaptic-gui: oauth callback received but daemon/account not ready")
+		return
+	}
+	ctx := context.Background()
+	sess, err := embeddedDaemon.Account.ExchangeCode(ctx, "google", code, state, "synaptic://auth/callback")
+	if err != nil {
+		// Try GitHub as fallback.
+		sess, err = embeddedDaemon.Account.ExchangeCode(ctx, "github", code, state, "synaptic://auth/callback")
+	}
+	if err != nil || sess == nil {
+		slog.Error("synaptic-gui: oauth token exchange failed", "err", err)
+		return
+	}
+	slog.Info("synaptic-gui: oauth callback processed", "email", sess.Email, "provider", sess.Provider)
+	// Emit event to frontend so the UI can refresh signed-in state.
+	if appInstance != nil && appInstance.ctx != nil {
+		wailsruntime.EventsEmit(appInstance.ctx, "synaptic:oauth-callback",
+			map[string]interface{}{
+				"signed_in": true,
+				"email":     sess.Email,
+				"provider":  sess.Provider,
+			})
 	}
 }
 

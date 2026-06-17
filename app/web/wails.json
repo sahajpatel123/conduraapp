@@ -10,5 +10,14 @@
     "name": "Synaptic",
     "email": "dev@synaptic.app"
   },
+  "info": {
+    "protocols": [
+      {
+        "scheme": "synaptic",
+        "description": "Synaptic OAuth and deep-link callback handler",
+        "role": "Viewer"
+      }
+    ]
+  },
   "build:tags": "webkit2_41"
 }
