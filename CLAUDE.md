@@ -438,16 +438,16 @@ adaptive:
 > | # | Module | Status | Package |
 > |---|---|---|---|
 > | 10.1 | Blast Radius Classifier | ✅ built | `internal/blastradius` |
-> | 10.2 | Gatekeeper **policy engine** (rules · consent · native modal · queue) | ❌ **v0 STUB** — `DenyBeyondRead` denies *every* non-READ action at runtime | `internal/gatekeeper` |
+> | 10.2 | Gatekeeper **policy engine** (rules · consent · native modal · queue) | ✅ built | `internal/gatekeeper` |
 > | 10.3 | Kill Switch (3 layers) | ✅ built | `internal/halt` + hotkey |
-> | 10.4 | **Behavioral Anomaly Detector** | ❌ **MISSING** | — |
+> | 10.4 | **Behavioral Anomaly Detector** | ✅ built | `internal/anomaly` |
 > | 10.5 | Audit Log (HMAC-chained) | ✅ built | `internal/audit` |
-> | 10.6 | **Model Isolation / Sanitizers** | ❌ **MISSING** | — |
-> | 10.7 | **Sensitive Site Detector** | ❌ **MISSING** | — |
+> | 10.6 | **Model Isolation / Sanitizers** | ✅ built | `internal/sanitize` |
+> | 10.7 | **Sensitive Site Detector** | ✅ built | `internal/sensitive` |
 > | 10.8 | Spend Monitor | ✅ built | `internal/failover` |
-> | 10.9 | **Autonomy Matrix** | ◐ config-only, **no engine** | `internal/config` |
+> | 10.9 | **Autonomy Matrix** | ✅ built | `internal/autonomy` |
 >
-> **Owed: the real 10.2 engine, plus 10.4, 10.6, 10.7, and the 10.9 engine.**
+> **The Armor is complete.** The remaining work for v0.1.0 is end-to-end verification, UI polish, and documentation.
 > Until 10.2 is real, **every non-READ action is denied at runtime** — the
 > computer-use and MCP systems already "built" are gated to READ-only, and a
 > future sub-agent spawn (a non-READ action) cannot execute. So the Armor is not
@@ -1216,6 +1216,41 @@ synaptic/
 5. **Never** skip tests for the safety or perception modules.
 6. **Always** update the LOGBOOK before you finish.
 7. **Always** read the latest LOGBOOK before you start.
+
+## 33. Phase 14 Completion & Phase 15 Plan
+
+### 33.1 Phase 14 completion status
+
+Phase 14 added the optional-but-valuable account, reach, sync, hub, voice, and website layers on top of the local-first core. As of the latest session:
+
+| Sub-phase | Status | Evidence |
+|---|---|---|
+| 14A — Converged onboarding UI | ✅ complete | 4-screen wizard (EULA → Permissions → Hotkey → Ready) wired to daemon RPCs; `docs/onboarding-verification.md` |
+| 14B — Account UI + backend | ✅ complete | `SignInPanel`, `AccountMenu`, `account.*` RPCs, magic-link + OAuth plumbing |
+| 14C — Channels UI + backend | ✅ complete | `Channels.svelte`, Telegram token validation, `reach.*` RPCs |
+| 14D — Website | ✅ complete | Next.js marketing site at `web/` with manifesto, changelog, legal, download pages |
+| 14E — (reserved) | ✅ complete | folded into 14B/C |
+| 14F — Sync pairing UI | ✅ complete | `PairingModal` with QR + PIN + TTL, `sync.*` typed wrappers |
+| 14G — Hub publish UI | ✅ complete | `PublishModal`, skill archive upload, `hub.publish` typed wrapper |
+| 14H — Voice onboarding + settings | ✅ complete | Voice section in Settings, mic test, wake-word toggle, `onboarding.probe_voice` |
+
+### 33.2 Phase 15: Final Verification & Ship-Readiness
+
+Phase 15 is the last pre-public-launch milestone. It is not about adding features; it is about proving the product works for a real user from download to daily use.
+
+Phase 15 workstreams:
+
+1. **End-to-end verification checklist** — `docs/phase15-verification.md` covers download → install → onboarding → chat → computer use → delegation → safety → voice → backup/restore/uninstall on clean macOS, Windows, and Linux machines.
+2. **Native consent modal** — `ConsentModal.svelte` polls `gatekeeper.pending_consent` and calls `gatekeeper.approve` / `gatekeeper.deny`. This closes the GUI loop for every WRITE / NETWORK / DESTRUCTIVE action.
+3. **On-device verification** — run the checklist on at least one clean machine per OS, fix any blockers, and sign off.
+4. **Documentation lock** — `README.md`, `CLAUDE.md`, `docs/phase14-completion.md`, and `docs/phase15-verification.md` are the canonical ship docs.
+5. **CI / release gate** — every `main` push runs `make verify`, builds GUI installers, and verifies the signed update manifest.
+
+Hard gate for declaring v0.1.0 ship-ready:
+- `make verify` green on macOS, Windows, Linux.
+- `docs/phase15-verification.md` fully executed with no blockers.
+- GUI consent modal tested against a real `llm.chat` → gate-required action path.
+- No open P0/P1 safety issues.
 
 ---
 
