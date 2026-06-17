@@ -7,7 +7,7 @@
 // Architecture: leaves-only (v0.1.0). Sub-agents return output only.
 // Peer protocol and capability tokens are deferred to v0.2.0.
 //
-//nolint:revive,mnd,gocritic // OutputFormat constants; budget values; range copies
+//nolint:revive,mnd,gocritic,goconst // OutputFormat constants; budget values; range copies; CLI flag strings
 package delegation
 
 import (
@@ -87,19 +87,62 @@ func DefaultConfig() Config {
 
 // DefaultAgents returns the built-in agent configs.
 func DefaultAgents() []AgentConfig {
+	fiveMin := 5 * time.Minute
 	return []AgentConfig{
 		{
 			Name: "claude", Command: "claude",
 			ArgsTemplate: []string{"--print", "--output-format", "stream-json", "--model"},
 			OutputFormat: FmtStreamJSON, ModelFlag: "--model",
 			BinaryProbe: "claude", Description: "Anthropic Claude Code CLI",
-			MaxDepth: 3, Timeout: 5 * time.Minute, BudgetCap: 2.0,
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "codex", Command: "codex",
+			ArgsTemplate: []string{"--json", "--model"},
+			OutputFormat: FmtJSON, ModelFlag: "--model",
+			BinaryProbe: "codex", Description: "OpenAI Codex CLI",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "antigravity", Command: "agy",
+			ArgsTemplate: []string{"--output-format", "json", "--model"},
+			OutputFormat: FmtJSON, ModelFlag: "--model",
+			BinaryProbe: "agy", Description: "Google Antigravity IDE agent",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "opencode", Command: "opencode",
+			ArgsTemplate: []string{"--format", "json"},
+			OutputFormat: FmtJSON,
+			BinaryProbe:  "opencode", Description: "OpenCode CLI (open-source)",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "kilo", Command: "kilo",
+			ArgsTemplate: []string{"--json"},
+			OutputFormat: FmtJSON,
+			BinaryProbe:  "kilo", Description: "Kilo Code CLI (multi-model)",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "hermes", Command: "hermes",
+			ArgsTemplate: []string{"--format", "json"},
+			OutputFormat: FmtJSON,
+			BinaryProbe:  "hermes", Description: "Hermes Agent CLI (persistent skills)",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
+		},
+		{
+			Name: "gemini", Command: "gemini",
+			ArgsTemplate: []string{"--output-format", "json"},
+			OutputFormat: FmtJSON,
+			BinaryProbe:  "gemini", Description: "Gemini CLI (legacy)",
+			MaxDepth: 3, Timeout: fiveMin, BudgetCap: 2.0,
 		},
 		{
 			Name: "ollama", Command: "",
 			OutputFormat: FmtJSON,
 			BinaryProbe:  "ollama", Description: "Local Ollama (HTTP, no subprocess)",
-			MaxDepth: 1, Timeout: 5 * time.Minute, BudgetCap: 0,
+			MaxDepth: 1, Timeout: fiveMin, BudgetCap: 0,
 		},
 	}
 }
