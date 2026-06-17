@@ -7,6 +7,8 @@ package main_test
 
 import (
 	"bytes"
+	"context"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +17,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/sahajpatel123/synapticapp/internal/ipc"
 )
 
 func TestBinaryPath(t *testing.T) {
@@ -180,5 +184,103 @@ func TestDataDirFlagPropagates(t *testing.T) {
 		// to confirm the path the daemon LOGGED was correct, which we
 		// already checked above.
 		t.Logf("note: %s not yet on disk: %v", dbPath, err)
+	}
+}
+
+func startDaemon(t *testing.T, bin, dataDir string) (*exec.Cmd, string) {
+	t.Helper()
+	cmd := exec.Command(bin,
+		"--data-dir", dataDir,
+		"--listen", "tcp://127.0.0.1:0",
+		"--log-level", "info",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	t.Cleanup(func() { stopDaemon(t, cmd) })
+
+	deadline := time.Now().Add(10 * time.Second)
+	var addr string
+	for time.Now().Before(deadline) {
+		b, err := os.ReadFile(filepath.Join(dataDir, "synapticd.addr"))
+		if err == nil && len(b) > 0 {
+			addr = strings.TrimSpace(string(b))
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if addr == "" {
+		stopDaemon(t, cmd)
+		t.Fatalf("synapticd.addr never appeared\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout.String(), stderr.String())
+	}
+	return cmd, addr
+}
+
+func ollamaReachable(ctx context.Context) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:11434/api/tags", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusOK
+}
+
+// TestDaemonSmoke boots the real synapticd binary, exercises RPC ping,
+// optionally attempts an Ollama chat when a local server is reachable,
+// and verifies the daemon stays responsive (no crash).
+func TestDaemonSmoke(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping daemon smoke in -short mode")
+	}
+	TestBinaryPath(t)
+	bin := synapticd(t)
+	dataDir := t.TempDir()
+	_, addr := startDaemon(t, bin, dataDir)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial("tcp://"+addr, "")
+	if err != nil {
+		t.Fatalf("ipc dial: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	var ping map[string]any
+	if err := client.Call(ctx, "ping", nil, &ping); err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+	if ping["pong"] != true {
+		t.Fatalf("ping response: %#v", ping)
+	}
+
+	if ollamaReachable(ctx) {
+		t.Log("ollama detected at 127.0.0.1:11434; attempting llm.chat")
+		var chatOut map[string]any
+		err := client.Call(ctx, "llm.chat", map[string]any{
+			"provider": "ollama",
+			"request": map[string]any{
+				"messages": []map[string]any{
+					{"role": "user", "content": "Reply with exactly: pong"},
+				},
+			},
+		}, &chatOut)
+		if err != nil {
+			t.Logf("llm.chat with ollama returned error (non-fatal): %v", err)
+		} else {
+			t.Logf("llm.chat succeeded: %#v", chatOut)
+		}
+	}
+
+	var pingAfter map[string]any
+	if err := client.Call(ctx, "ping", nil, &pingAfter); err != nil {
+		t.Fatalf("daemon unresponsive after smoke: %v", err)
 	}
 }
