@@ -2186,3 +2186,53 @@ secrets exist.
 - Continue with Phase 15 end-to-end verification if needed, or move to next build order step.
 
 ---
+
+## [2026-06-17 19:35 UTC] AI Model: Kimi-K2.6
+**Session ID:** 550e8400-e29b-41d4-a716-446655440003
+**Branch:** main
+**Task:** Creative Reset — rebuild Condura landing page from scratch with dark machine aesthetic and emotional storytelling.
+
+### Summary
+Deleted the entire first build and rebuilt the landing page from scratch per the creative reset directive: *"Make someone feel like they just discovered something secret and powerful."*
+
+### Files created
+- `web/components/home/HeroSection.tsx` — Full-viewport spectacle. Living glassmorphic overlay with bloom materialization, breathing orb, typing text animation inside the overlay, circuit grid background, radiant aura. Headline "AI on your computer. Free." with word-by-word stagger. sessionStorage-gated (once per session).
+- `web/components/home/HowItFeels.tsx` — Scroll-bound animation sequence via useScroll/useTransform. Three phases bound to scroll progress: (1) keyboard keypress with ripple → (2) overlay slides up with spring → (3) response streams in. Not cards. A story told by scrolling.
+- `web/components/home/Stats.tsx` — Single powerful quote block + three 100% stats (Local-first, Free forever, Yours) with text glow. Floating particles rising slowly through the section.
+- `web/components/home/Demo.tsx` — Inline interactive overlay simulation. 4 canned commands. Visitor clicks → overlay materializes → "thinking" with orb animation → response types word-by-word. The shareable moment.
+
+### Files modified
+- `web/app/globals.css` — Complete overhaul: dark machine palette (#050505 void, #0a0a0b surface), 12 custom keyframe animations (bloom, orb-breathe, float-sine, typing-dot, particle-rise, glow-expand, etc.), circuit grid backgrounds (.bg-circuit, .bg-circuit-fine), glassmorphic overlay styles, edge glow utility, radial aura, text glow, gradient headlines.
+- `web/app/layout.tsx` — Updated to dark theme, metadata refreshed.
+- `web/app/page.tsx` — Stacked 7 sections: Hero → HowItFeels → Stats → TrustMarquee → Demo → CTASection → Footer.
+- `web/components/GlobalNav.tsx` — Restyled for dark machine aesthetic: frosted glass, thinner border, muted links.
+- `web/components/CommandPalette.tsx` — Restyled for dark aesthetic.
+- `web/components/home/CTASection.tsx` — One irresistible button with expanding glow on hover. OS auto-detect. "Free forever. No account. No tracking. No cloud. One hotkey away."
+- `web/components/home/TrustMarquee.tsx` — Dark tile with edge glow, gradient fade edges.
+- `web/components/home/Footer.tsx` — Minimal dark footer.
+- `web/app/manifesto/page.tsx` — Restyled to dark theme.
+- `web/app/changelog/page.tsx` — Restyled to dark theme.
+- `web/app/legal/page.tsx` — Restyled to dark theme.
+
+### Files deleted
+- `web/components/home/FeatureGrid.tsx` — replaced by HowItFeels + Stats
+- `web/components/home/HowItWorks.tsx` — replaced by HowItFeels
+
+### Decisions made
+- Full dark theme across entire site (no alternating tiles). The dark IS the "inside the machine" aesthetic.
+- Deleted generic feature cards, icons, light tiles — everything that felt like a template.
+- Demo simulation is hard-coded (canned responses) — no backend. Feels real enough to share.
+- `window` usage in motion animations guarded by useState initialization or mounted flags to prevent SSR crashes.
+- ESLint `react-hooks/set-state-in-effect` rule in Next.js 16 is strict — refactored all synchronous `setState` in effects to initialization-time patterns.
+
+### Verification
+- `npx tsc --noEmit` — 0 errors
+- `npm run build` — succeeds (10 static pages, 2 dynamic routes)
+- `npm run lint` — 0 errors (2 pre-existing auth route warnings untouched)
+- Squashed into single commit `751f88b` and pushed to `origin/main`
+
+### Next steps
+- Preview at http://localhost:3000 (run `npm run dev` in `web/`)
+- Consider Phase 15 end-to-end verification or next build order step
+
+---
