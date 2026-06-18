@@ -3,6 +3,7 @@
 import { motion, useScroll, useTransform, useSpring } from "motion/react";
 import { useRef, useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
+import { Icon } from "@/components/motion/Icon";
 import { INVARIANTS } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -15,7 +16,7 @@ import { EASE_OUT } from "@/lib/motion";
 
 export default function ManifestoPage() {
   return (
-    <main className="relative w-full bg-black text-white overflow-x-hidden">
+    <main className="relative w-full bg-black text-white">
       <ManifestoHero />
       <TheProblemSection />
       <InvariantsScrollSection />
@@ -307,7 +308,7 @@ function ThePromiseSection() {
               className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] mb-4">
-                <span className="font-mono text-[11px] text-white/50">✓</span>
+                <Icon name="check" size={16} className="text-white/60" />
               </div>
               <h3 className="font-body-mature text-[16px] font-semibold text-white">{p.title}</h3>
               <p className="mt-2 font-body-mature text-[14px] text-white/45 leading-relaxed">{p.desc}</p>

@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "mot
 import { useRef, useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import TiltCard from "@/components/motion/TiltCard";
+import { Icon, type IconKey } from "@/components/motion/Icon";
 import { EASE_OUT } from "@/lib/motion";
 
 /* ────────────────────────────────────────────────────────────
@@ -537,11 +538,11 @@ function EventBusSection() {
 
         {/* Bus properties */}
         <div className="mt-12 grid md:grid-cols-3 gap-6">
-          {[
-            { icon: "⚡", title: "Sub-millisecond", desc: "SQLite WAL mode delivers events in under 1ms on local disk. No network hop." },
-            { icon: "🔒", title: "ACID guarantees", desc: "Every event is a transaction. Partial writes are rolled back. State is always consistent." },
-            { icon: "📋", title: "Replayable", desc: "The full event log is your audit trail. Replay any session, inspect any decision." },
-          ].map((prop, i) => (
+          {([
+            { icon: "bolt" as IconKey, title: "Sub-millisecond", desc: "SQLite WAL mode delivers events in under 1ms on local disk. No network hop." },
+            { icon: "lock" as IconKey, title: "ACID guarantees", desc: "Every event is a transaction. Partial writes are rolled back. State is always consistent." },
+            { icon: "list" as IconKey, title: "Replayable", desc: "The full event log is your audit trail. Replay any session, inspect any decision." },
+          ]).map((prop, i) => (
             <motion.div
               key={prop.title}
               initial={{ opacity: 0, y: 20 }}
@@ -550,7 +551,9 @@ function EventBusSection() {
               transition={{ delay: i * 0.1 }}
               className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6"
             >
-              <span className="text-[20px]">{prop.icon}</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
+                <Icon name={prop.icon} size={20} className="text-white/60" />
+              </div>
               <h3 className="mt-3 font-body-mature text-[16px] font-semibold text-white">{prop.title}</h3>
               <p className="mt-2 font-body-mature text-[14px] text-white/45 leading-relaxed">{prop.desc}</p>
             </motion.div>

@@ -7,6 +7,7 @@ import TiltCard from "@/components/motion/TiltCard";
 import MagneticButton from "@/components/motion/MagneticButton";
 import StatefulButton from "@/components/motion/StatefulButton";
 import BouncyAccordion from "@/components/motion/BouncyAccordion";
+import { Icon, type IconKey } from "@/components/motion/Icon";
 import { useToast } from "@/context/ToastContext";
 import { useIsland } from "@/context/IslandContext";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -22,10 +23,10 @@ import { EASE_OUT } from "@/lib/motion";
    verification, and FAQ.
    ──────────────────────────────────────────────────────────── */
 
-const PLATFORM_ICONS: Record<PlatformKey, string> = {
-  mac: "",
-  windows: "⊞",
-  linux: "🐧",
+const PLATFORM_ICONS: Record<PlatformKey, IconKey> = {
+  mac: "mac",
+  windows: "windows",
+  linux: "linux",
 };
 
 const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
@@ -49,13 +50,13 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
   ],
 };
 
-const FEATURES = [
-  { icon: "⚡", title: "Cold start < 500ms", desc: "The daemon lives in your menu bar. Hotkey to overlay in under 100ms." },
-  { icon: "🔒", title: "Local-first by default", desc: "Memory, skills, and audit log on disk. Your API keys never leave your machine." },
-  { icon: "🆓", title: "Free forever", desc: "No subscriptions. No premium tier. No nags. A donate button, that's it." },
-  { icon: "🌐", title: "12+ LLM providers", desc: "Route through Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, or 100% local Ollama." },
-  { icon: "🛡️", title: "Deterministic safety", desc: "A pure-rules gatekeeper. No model can bypass it. Every action is audited." },
-  { icon: "🖥️", title: "Native on every OS", desc: "macOS, Windows, Linux. Signed, notarized, and auto-updated on each." },
+const FEATURES: { icon: IconKey; title: string; desc: string }[] = [
+  { icon: "bolt", title: "Cold start < 500ms", desc: "The daemon lives in your menu bar. Hotkey to overlay in under 100ms." },
+  { icon: "lock", title: "Local-first by default", desc: "Memory, skills, and audit log on disk. Your API keys never leave your machine." },
+  { icon: "gift", title: "Free forever", desc: "No subscriptions. No premium tier. No nags. A donate button, that's it." },
+  { icon: "globe", title: "12+ LLM providers", desc: "Route through Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, or 100% local Ollama." },
+  { icon: "shield", title: "Deterministic safety", desc: "A pure-rules gatekeeper. No model can bypass it. Every action is audited." },
+  { icon: "monitor", title: "Native on every OS", desc: "macOS, Windows, Linux. Signed, notarized, and auto-updated on each." },
 ];
 
 const FAQ_ITEMS = [
@@ -286,7 +287,7 @@ function PlatformSelector() {
                   <div className="relative z-10">
                     {/* Icon */}
                     <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${isActive ? "border-white/20 bg-white/[0.08]" : "border-white/10 bg-white/[0.03]"}`}>
-                      <span className="text-[24px]">{PLATFORM_ICONS[p.key]}</span>
+                      <Icon name={PLATFORM_ICONS[p.key]} size={26} className={isActive ? "text-white/80" : "text-white/50"} />
                     </div>
 
                     {/* Name */}
@@ -383,7 +384,9 @@ function WhyDownload() {
               transition={{ delay: i * 0.06 }}
               className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-colors"
             >
-              <span className="text-[24px]">{feat.icon}</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
+                <Icon name={feat.icon} size={20} className="text-white/60" />
+              </div>
               <h3 className="mt-4 font-body-mature text-[16px] font-semibold text-white">{feat.title}</h3>
               <p className="mt-2 font-body-mature text-[14px] text-white/45 leading-relaxed">{feat.desc}</p>
             </motion.div>
@@ -500,7 +503,9 @@ function SystemRequirements() {
               className="mature-panel rounded-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-[20px]">{PLATFORM_ICONS[p.key]}</span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
+                  <Icon name={PLATFORM_ICONS[p.key]} size={20} className="text-white/60" />
+                </div>
                 <h3 className="font-body-mature text-[17px] font-semibold text-white">{p.name}</h3>
               </div>
               <dl className="space-y-3">
@@ -596,7 +601,7 @@ Get-FileHash condura-setup.exe -Algorithm SHA256
           ].map((badge) => (
             <div key={badge.label} className="flex flex-col items-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.04]">
-                <span className="text-white/50">✓</span>
+                <Icon name="check" size={18} className="text-white/60" />
               </div>
               <span className="mt-3 font-body-mature text-[14px] font-semibold text-white">{badge.label}</span>
               <span className="mt-1 font-mono text-[10px] text-white/30">{badge.sub}</span>
