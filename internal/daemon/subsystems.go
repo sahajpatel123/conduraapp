@@ -920,21 +920,22 @@ func (s *Subsystems) rebuildSessionFactory() {
 
 // defaultModelFor returns a sensible default model name for a
 // provider. Used by the session factory when the user hasn't
-// pinned a model.
+// pinned a model. Defaults follow the marketing-aligned current
+// generation; users can override at any time in Settings.
 func defaultModelFor(provider string) string {
 	switch provider {
 	case "anthropic":
-		return "claude-3-5-sonnet-20241022"
+		return "claude-sonnet-4-5"
 	case "openai":
-		return "gpt-4o-mini"
+		return "gpt-5.5"
 	case providerGoogle:
-		return "gemini-1.5-flash"
+		return "gemini-3.5-flash"
 	case "ollama":
 		return "llama3.2"
 	case "xai":
-		return "grok-beta"
+		return "grok-4.3"
 	case "mistral":
-		return "mistral-large-latest"
+		return "mistral-large-3"
 	default:
 		return ""
 	}

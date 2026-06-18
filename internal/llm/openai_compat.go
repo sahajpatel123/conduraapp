@@ -621,6 +621,58 @@ func NewOllama(baseURL string, models []ModelInfo) *OpenAICompat {
 	}
 }
 
+// NewLocalAI returns a Provider for LocalAI (no API key required).
+// LocalAI is an OpenAI-compatible local inference server. Default port 8080.
+// See https://github.com/mudler/LocalAI
+func NewLocalAI(baseURL string, models []ModelInfo) *OpenAICompat {
+	if baseURL == "" {
+		baseURL = "http://localhost:8080/v1"
+	}
+	return &OpenAICompat{
+		NameVal:    "localai",
+		BaseURL:    baseURL,
+		APIKey:     "localai", // LocalAI ignores; pass-through by default
+		HTTPClient: &http.Client{Timeout: 10 * time.Minute},
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
+		ModelsList: models,
+	}
+}
+
+// NewLMStudio returns a Provider for LM Studio's local OpenAI-compatible
+// server. Default port 1234. See https://lmstudio.ai/
+func NewLMStudio(baseURL string, models []ModelInfo) *OpenAICompat {
+	if baseURL == "" {
+		baseURL = "http://localhost:1234/v1"
+	}
+	return &OpenAICompat{
+		NameVal:    "lmstudio",
+		BaseURL:    baseURL,
+		APIKey:     "lmstudio", // LM Studio ignores; pass-through by default
+		HTTPClient: &http.Client{Timeout: 10 * time.Minute},
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
+		ModelsList: models,
+	}
+}
+
+// NewVLLM returns a Provider for a vLLM OpenAI-compatible server.
+// vLLM has no default port; users configure BaseURL when they start the server.
+func NewVLLM(baseURL string, models []ModelInfo) *OpenAICompat {
+	if baseURL == "" {
+		baseURL = "http://localhost:8000/v1"
+	}
+	return &OpenAICompat{
+		NameVal:    "vllm",
+		BaseURL:    baseURL,
+		APIKey:     "vllm", // vLLM ignores by default; can be overridden with --api-key
+		HTTPClient: &http.Client{Timeout: 10 * time.Minute},
+		AuthHeader: defaultAuthHeader,
+		AuthPrefix: defaultAuthPrefix,
+		ModelsList: models,
+	}
+}
+
 // NewCustom returns a Provider for a custom OpenAI-compatible endpoint.
 func NewCustom(name, baseURL, apiKey string, models []ModelInfo) *OpenAICompat {
 	return &OpenAICompat{

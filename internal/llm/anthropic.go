@@ -49,12 +49,15 @@ func (a *Anthropic) Name() string { return "anthropic" }
 func (a *Anthropic) Models() []ModelInfo { return a.ModelsList }
 
 // DefaultModel returns the recommended model for a given task
-// (e.g. "chat", "code", "vision"). Falls back to the first model
-// in the registry.
+// (e.g. "chat", "code", "vision"). Prefers the marketing-aligned
+// current generation; falls back to the first model in the registry.
 func (a *Anthropic) DefaultModel(task string) string {
-	for _, m := range a.ModelsList {
-		if m.ID == "claude-3-5-sonnet-20241022" {
-			return m.ID
+	// Preference order: current gen, then legacy Claude 3.5, then first.
+	for _, id := range []string{"claude-sonnet-4-5", "claude-3-5-sonnet-20241022"} {
+		for _, m := range a.ModelsList {
+			if m.ID == id {
+				return m.ID
+			}
 		}
 	}
 	if len(a.ModelsList) == 0 {
