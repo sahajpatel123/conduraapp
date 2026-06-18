@@ -6,10 +6,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { SITE } from "@/lib/site";
 
 const NAV_ITEMS = [
-  { label: "Orchestration", href: "/orchestration" },
-  { label: "Ecosystem", href: "/ecosystem" },
+  { label: "How it works", href: "/orchestration" },
+  { label: "Integrations", href: "/ecosystem" },
   { label: "Security", href: "/security" },
-  { label: "Manifesto", href: "/manifesto" },
+  { label: "Mission", href: "/manifesto" },
 ];
 
 export default function GlobalNav() {

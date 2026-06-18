@@ -14,7 +14,7 @@ export const SITE = {
 } as const;
 
 export const NAV_LINKS = [
-  { href: "/manifesto", label: "Manifesto" },
+  { href: "/manifesto", label: "Mission" },
   { href: "/changelog", label: "Changelog" },
   { href: "/download", label: "Download" },
   { href: "/legal", label: "Legal" },
