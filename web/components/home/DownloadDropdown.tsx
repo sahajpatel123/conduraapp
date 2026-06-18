@@ -134,7 +134,7 @@ export default function DownloadDropdown() {
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.22, ease: EASE_OUT }}
             role="menu"
-            className="absolute left-0 right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 top-[calc(100%+12px)] z-50 w-[min(640px,calc(100vw-2rem))] origin-top"
+            className="absolute left-0 right-0 sm:left-0 sm:right-auto top-[calc(100%+12px)] z-50 w-full sm:w-[min(620px,calc(100vw-1rem))] origin-top-left"
           >
             {/* Glass shell */}
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-xl shadow-[0_30px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)]">
@@ -242,8 +242,8 @@ export default function DownloadDropdown() {
               </div>
             </div>
 
-            {/* Tail pointer */}
-            <div className="pointer-events-none absolute -top-[6px] left-1/2 -translate-x-1/2 hidden sm:block">
+            {/* Tail pointer — anchored under the button, not the panel center */}
+            <div className="pointer-events-none absolute -top-[6px] left-[130px] hidden sm:block">
               <div className="h-3 w-3 rotate-45 border-l border-t border-white/10 bg-[#0a0a0a]/95" />
             </div>
           </motion.div>
