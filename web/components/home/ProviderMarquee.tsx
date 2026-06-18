@@ -1,19 +1,15 @@
 "use client";
 
-import { motion } from "motion/react";
-
 /* ────────────────────────────────────────────────────────────
    ProviderMarquee — infinite rolling banner of supported
    companies/runtimes. Sits directly below the hero.
 
    Design intent:
    - Centered uppercase label, widely tracked, zinc-muted.
-   - Two side-by-side tracks scrolling in OPPOSITE directions
-     for a mature, layered feel (not a single flat strip).
-   - Bold provider names in zinc-300, generous letter-spacing.
+   - Infinite leftward scroll, never pauses, ignores cursor
+     and clicks — purely ambient motion.
    - Soft edge masks so names fade in/out rather than hard-cut.
-   - Pause on hover/focus so users can read a name.
-   - Prefers-reduced-motion: static, centered row.
+   - Prefers-reduced-motion: static row (no animation).
    ──────────────────────────────────────────────────────────── */
 
 const PROVIDERS = [
@@ -32,7 +28,7 @@ const PROVIDERS = [
 ];
 
 export default function ProviderMarquee() {
-  // Duplicate enough for seamless infinite scroll on each track.
+  // Duplicate enough for seamless infinite scroll.
   const row = [...PROVIDERS, ...PROVIDERS];
 
   return (
@@ -51,10 +47,15 @@ export default function ProviderMarquee() {
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-black to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-black to-transparent" />
 
-        {/* Track 1 — scrolls left */}
-        <div className="flex w-max gap-12 py-2 will-change-transform animate-[provider-marquee_40s_linear_infinite] hover:[animation-play-state:paused] motion-reduce:animate-none">
+        {/* Track — infinite leftward scroll, no hover pause */}
+        <div className="flex w-max gap-12 py-2 will-change-transform animate-[provider-marquee_40s_linear_infinite] motion-reduce:animate-none">
           {row.map((name, i) => (
-            <ProviderName key={`t1-${i}`} name={name} />
+            <span
+              key={`t1-${i}`}
+              className="select-none whitespace-nowrap font-display text-[clamp(20px,2.4vw,28px)] font-bold tracking-[-0.01em] text-white/45"
+            >
+              {name}
+            </span>
           ))}
         </div>
       </div>
@@ -66,17 +67,5 @@ export default function ProviderMarquee() {
         }
       `}</style>
     </section>
-  );
-}
-
-function ProviderName({ name }: { name: string }) {
-  return (
-    <motion.span
-      whileHover={{ color: "rgba(255,255,255,0.95)" }}
-      transition={{ duration: 0.3 }}
-      className="select-none whitespace-nowrap font-display text-[clamp(20px,2.4vw,28px)] font-bold tracking-[-0.01em] text-white/45 transition-colors"
-    >
-      {name}
-    </motion.span>
   );
 }
