@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform, useSpring } from "motion/react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { useRef, useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import { Icon } from "@/components/motion/Icon";
@@ -175,27 +175,30 @@ function TheProblemSection() {
 
 function InvariantsScrollSection() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const n = INVARIANTS.length;
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
   });
 
-  const smoothProgress = useSpring(scrollYProgress, { damping: 30, stiffness: 80 });
-
-  // Move the track horizontally: from 0 to -(n-1) * 100vw
-  const n = INVARIANTS.length;
-  const x = useTransform(smoothProgress, [0, 1], ["0vw", `-${(n - 1) * 100}vw`]);
+  // The sticky element (h-screen) pins from progress 0 until the container's
+  // bottom passes the sticky's bottom — that happens at progress (n-1)/n.
+  // We must complete the horizontal travel by that exact point, otherwise the
+  // last panels slide up into blank space while the sticky unpins.
+  const pinRange = (n - 1) / n;
+  const x = useTransform(scrollYProgress, [0, pinRange, 1], ["0vw", `-${(n - 1) * 100}vw`, `-${(n - 1) * 100}vw`]);
 
   // Active index for the progress dots
   const [activeIndex, setActiveIndex] = useState(0);
   useEffect(() => {
-    return smoothProgress.on("change", (v) => {
-      setActiveIndex(Math.min(n - 1, Math.max(0, Math.round(v * (n - 1)))));
+    return scrollYProgress.on("change", (v) => {
+      const norm = Math.min(1, Math.max(0, v / pinRange));
+      setActiveIndex(Math.min(n - 1, Math.max(0, Math.round(norm * (n - 1)))));
     });
-  }, [smoothProgress, n]);
+  }, [scrollYProgress, pinRange, n]);
 
   return (
-    <section ref={containerRef} className="relative" style={{ height: `${n * 90}vh` }}>
+    <section ref={containerRef} className="relative" style={{ height: `${n * 100}vh` }}>
       {/* Sticky horizontal viewport */}
       <div className="sticky top-0 h-screen overflow-hidden flex flex-col">
         {/* Section label */}

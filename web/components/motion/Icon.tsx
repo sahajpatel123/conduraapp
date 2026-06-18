@@ -187,6 +187,66 @@ export function IconFingerprint(props: IconProps) {
   );
 }
 
+export function IconTerminal(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9l3 3-3 3M13 15h4" />
+    </svg>
+  );
+}
+
+export function IconCopy(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </svg>
+  );
+}
+
+export function IconSparkle(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" />
+    </svg>
+  );
+}
+
+export function IconRocket(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 15c-1.5 1-2 4-2 4s3-.5 4-2M9 11a3 3 0 1 1 6 0c0 4-3 7-3 7s-3-3-3-7z" />
+      <path d="M9 11c-2 0-4 1-4 3l2 1M15 11c2 0 4 1 4 3l-2 1M12 14h.01" />
+    </svg>
+  );
+}
+
+export function IconLayers(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3l9 5-9 5-9-5 9-5z" />
+      <path d="M3 13l9 5 9-5M3 17l9 5 9-5" />
+    </svg>
+  );
+}
+
+export function IconGithub(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 19c-4 1.5-4-2-6-2.5M15 22v-3.5c0-1 .3-1.8-.5-2.5 2.5-.3 5-1.2 5-5.5 0-1.2-.4-2.2-1-3 .1-.3.5-1.5-.1-3 0 0-1-.3-3.3 1a11 11 0 0 0-6 0C6 3 5 3.3 5 3.3c-.6 1.5-.2 2.7-.1 3-.6.8-1 1.8-1 3 0 4.3 2.5 5.2 5 5.5-.5.5-.8 1.2-.6 2V22" />
+    </svg>
+  );
+}
+
+export function IconHeart(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 21s-7-4.5-9-9.5C1.5 7 4 4 7 4c2 0 3 1 5 3 2-2 3-3 5-3 3 0 5.5 3 4 7.5-2 5-9 9.5-9 9.5z" />
+    </svg>
+  );
+}
+
 /* ── Map string keys → components for data-driven sections ── */
 
 export const ICONS = {
@@ -205,6 +265,13 @@ export const ICONS = {
   eye: IconEye,
   cpu: IconCpu,
   fingerprint: IconFingerprint,
+  terminal: IconTerminal,
+  copy: IconCopy,
+  sparkle: IconSparkle,
+  rocket: IconRocket,
+  layers: IconLayers,
+  github: IconGithub,
+  heart: IconHeart,
 } as const;
 
 export type IconKey = keyof typeof ICONS;
