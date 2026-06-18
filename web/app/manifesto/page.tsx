@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "motion/react";
 import { useRef, useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import { INVARIANTS } from "@/lib/site";
@@ -166,7 +166,10 @@ function TheProblemSection() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   3. INVARIANTS — The Seven Non-Negotiables
+   3. INVARIANTS — Horizontal Scroll Gallery
+   Vertical scroll drives a horizontal track of 7 full-screen
+   invariant cards. Each card is a self-contained "panel"
+   with its numeral, title, and body.
    ════════════════════════════════════════════════════════════ */
 
 function InvariantsScrollSection() {
@@ -177,87 +180,78 @@ function InvariantsScrollSection() {
   });
 
   const smoothProgress = useSpring(scrollYProgress, { damping: 30, stiffness: 80 });
-  const [activeIndex, setActiveIndex] = useState(0);
 
-  // Map scroll progress to active invariant index
+  // Move the track horizontally: from 0 to -(n-1) * 100vw
+  const n = INVARIANTS.length;
+  const x = useTransform(smoothProgress, [0, 1], ["0vw", `-${(n - 1) * 100}vw`]);
+
+  // Active index for the progress dots
+  const [activeIndex, setActiveIndex] = useState(0);
   useEffect(() => {
     return smoothProgress.on("change", (v) => {
-      const idx = Math.min(
-        INVARIANTS.length - 1,
-        Math.max(0, Math.floor(v * INVARIANTS.length))
-      );
-      setActiveIndex(idx);
+      setActiveIndex(Math.min(n - 1, Math.max(0, Math.round(v * (n - 1)))));
     });
-  }, [smoothProgress]);
+  }, [smoothProgress, n]);
 
   return (
-    <section ref={containerRef} className="relative" style={{ height: `${INVARIANTS.length * 80}vh` }}>
-      <div className="sticky top-0 h-screen flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 px-6 max-w-6xl mx-auto">
-        {/* ── Left: The Visualizer ── */}
-        <div className="w-full md:w-1/2 h-[320px] md:h-[420px] flex items-center justify-center relative">
-          <AnimatePresence mode="wait">
+    <section ref={containerRef} className="relative" style={{ height: `${n * 90}vh` }}>
+      {/* Sticky horizontal viewport */}
+      <div className="sticky top-0 h-screen overflow-hidden flex flex-col">
+        {/* Section label */}
+        <div className="pt-24 pb-4 text-center">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-white/30">
+            The Seven Invariants · scroll to advance →
+          </span>
+        </div>
+
+        {/* Horizontal track */}
+        <div className="flex-1 flex items-center">
+          <motion.div style={{ x }} className="flex">
             {INVARIANTS.map((inv, idx) => (
-              <motion.div
+              <div
                 key={inv.numeral}
-                initial={{ opacity: 0, scale: 0.7, rotateY: -30 }}
-                animate={{
-                  opacity: activeIndex === idx ? 1 : 0,
-                  scale: activeIndex === idx ? 1 : 0.7,
-                  rotateY: activeIndex === idx ? 0 : -30,
-                }}
-                exit={{ opacity: 0, scale: 0.7 }}
-                transition={{ duration: 0.6, ease: EASE_OUT }}
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ transformStyle: "preserve-3d", perspective: 1000 }}
+                className="w-screen h-full flex items-center justify-center shrink-0 px-6"
               >
-                <div className="relative w-56 h-56 md:w-72 md:h-72 rounded-full border border-white/20 bg-white/[0.02] backdrop-blur-md flex items-center justify-center overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
-                  {/* Pulse ring */}
-                  <motion.div
-                    animate={{ scale: [1, 1.3], opacity: [0.4, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 rounded-full border border-white/15"
-                  />
-                  <span className="font-mono text-5xl md:text-7xl font-light text-white/80 tracking-tighter">
-                    {inv.numeral}
-                  </span>
+                <div className="flex flex-col md:flex-row items-center gap-8 md:gap-20 max-w-5xl w-full">
+                  {/* Left: Giant numeral */}
+                  <div className="relative flex items-center justify-center">
+                    {/* Pulse ring */}
+                    <motion.div
+                      animate={{ scale: [1, 1.4], opacity: [0.3, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, delay: idx * 0.2 }}
+                      className="absolute w-56 h-56 md:w-80 md:h-80 rounded-full border border-white/15"
+                    />
+                    {/* Glow */}
+                    <div className="absolute w-40 h-40 md:w-60 md:h-60 rounded-full bg-white/[0.03] blur-3xl" />
+                    {/* Numeral circle */}
+                    <div className="relative w-48 h-48 md:w-72 md:h-72 rounded-full border border-white/20 bg-white/[0.02] backdrop-blur-md flex items-center justify-center overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
+                      <span className="font-mono text-6xl md:text-8xl font-light text-white/80 tracking-tighter">
+                        {inv.numeral}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: Text */}
+                  <div className="flex-1 max-w-lg">
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-white/30 mb-4 block">
+                      Invariant {inv.numeral} of {n}
+                    </span>
+                    <h3 className="font-display text-[clamp(1.5rem,4vw,3rem)] font-semibold tracking-[-0.02em] text-white leading-[1.15] mb-6">
+                      {inv.title}
+                    </h3>
+                    <p className="font-lead-airy text-white/50">
+                      {inv.body}
+                    </p>
+                  </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </AnimatePresence>
+          </motion.div>
         </div>
 
-        {/* ── Right: The Text ── */}
-        <div className="w-full md:w-1/2 relative h-[280px] md:h-[360px]">
-          <AnimatePresence mode="wait">
-            {INVARIANTS.map((inv, idx) => (
-              <motion.div
-                key={inv.title}
-                initial={{ opacity: 0, x: 30 }}
-                animate={{
-                  opacity: activeIndex === idx ? 1 : 0,
-                  x: activeIndex === idx ? 0 : 30,
-                }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.5, ease: EASE_OUT }}
-                className="absolute inset-0 flex flex-col justify-center"
-              >
-                <span className="font-mono text-[11px] uppercase tracking-widest text-white/30 mb-4">
-                  Invariant {inv.numeral}
-                </span>
-                <h3 className="font-display text-[clamp(1.5rem,3.5vw,2.5rem)] font-semibold tracking-[-0.02em] text-white leading-[1.15] mb-5">
-                  {inv.title}
-                </h3>
-                <p className="font-lead-airy text-white/50 max-w-lg">
-                  {inv.body}
-                </p>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2">
+        {/* Progress dots */}
+        <div className="pb-10 flex justify-center gap-2">
           {INVARIANTS.map((_, idx) => (
             <div
               key={idx}
