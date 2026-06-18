@@ -2,6 +2,7 @@
 
 import GlobalNav from "@/components/shell/GlobalNav";
 import HeroSection from "@/components/home/HeroSection";
+import ProviderMarquee from "@/components/home/ProviderMarquee";
 import OrchestrationTile from "@/components/home/OrchestrationTile";
 import MarqueeTile from "@/components/home/MarqueeTile";
 import SafetyTile from "@/components/home/SafetyTile";
@@ -17,6 +18,7 @@ export default function Home() {
       {/* Main stacked sections */}
       <main id="main" className="bg-canvas">
         <HeroSection />
+        <ProviderMarquee />
         <OrchestrationTile />
         <MarqueeTile />
         <SafetyTile />
