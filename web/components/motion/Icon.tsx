@@ -261,6 +261,56 @@ export function IconHeart(props: IconProps) {
   );
 }
 
+export function IconHome(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 10.5L12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+
+export function IconClock(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+export function IconScale(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v18M5 7h14M7 7l-3 6a3 3 0 0 0 6 0L7 7zM17 7l-3 6a3 3 0 0 0 6 0l-3-6zM7 21h10" />
+    </svg>
+  );
+}
+
+export function IconCompass(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" />
+    </svg>
+  );
+}
+
+export function IconCommand(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6z" />
+    </svg>
+  );
+}
+
+export function IconArrowUp(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
 /* ── Map string keys → components for data-driven sections ── */
 
 export const ICONS = {
@@ -286,6 +336,13 @@ export const ICONS = {
   layers: IconLayers,
   github: IconGithub,
   heart: IconHeart,
+  home: IconHome,
+  clock: IconClock,
+  scale: IconScale,
+  compass: IconCompass,
+  command: IconCommand,
+  arrowUp: IconArrowUp,
+  download: IconDownload,
 } as const;
 
 export type IconKey = keyof typeof ICONS;
