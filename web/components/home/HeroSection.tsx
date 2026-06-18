@@ -1,33 +1,26 @@
 "use client";
 
 import { useState, useEffect, MouseEvent } from "react";
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import DownloadDropdown from "./DownloadDropdown";
 import NeuralHandshake from "./NeuralHandshake";
+import RoutingDemo from "./RoutingDemo";
 
 /**
  * DESIGN PHILOSOPHY — FINAL VERSION
- * 
+ *
  * The right side must feel like a photograph of a real product, not a collage of UI toys.
- * 
+ *
  * RULE: ONE element. One single, impeccably crafted terminal window floating over the
  * wallpaper. That's it. No fake docks, no fake menu bars, no fake notification banners,
  * no colored circles pretending to be app icons. Just ONE window. Confidence through restraint.
- * 
- * This is how Apple, Linear, and Raycast present their products: a single, perfectly lit
- * screenshot of the actual application. Nothing else competes for attention.
+ *
+ * The window's content is the product's value: a live routing demo — the conductor
+ * handing real work to sub-agents, one turn at a time. Minimal, useful, creative.
  */
-
-const STEPS = [
-  { input: "condura boot --local",          output: "Gatekeeper mounted. SQLite bus online." },
-  { input: "condura spawn --agent=react",   output: "Agent spawned. Analyzing workspace AST..." },
-  { input: "react-agent: patch Hero.tsx",   output: "Diff applied cleanly. +12 lines, -4 lines." },
-  { input: "condura verify --strict",       output: "All deterministic safety rules passed." },
-];
 
 export default function HeroSection() {
   const [introFinished, setIntroFinished] = useState(false);
-  const [step, setStep] = useState(0);
 
   // Subtle 3D tilt on hover
   const mx = useMotionValue(0);
@@ -48,12 +41,6 @@ export default function HeroSection() {
     const t = setTimeout(() => setIntroFinished(true), 1700);
     return () => clearTimeout(t);
   }, []);
-
-  useEffect(() => {
-    if (!introFinished) return;
-    const interval = setInterval(() => setStep((p) => (p + 1) % STEPS.length), 3500);
-    return () => clearInterval(interval);
-  }, [introFinished]);
 
   return (
     <>
@@ -149,37 +136,9 @@ export default function HeroSection() {
                 </div>
               </div>
 
-              {/* Terminal Body */}
+              {/* Terminal Body — live routing demo */}
               <div className="bg-[#0e0e0e] p-6 min-h-[280px] flex flex-col justify-between">
-                <div className="space-y-5">
-                  <AnimatePresence mode="wait">
-                    {STEPS.slice(0, step + 1).map((s, i) => (
-                      <motion.div
-                        key={`step-${i}`}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: i === step ? 1 : 0.4, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="font-mono text-[12px] leading-relaxed"
-                      >
-                        <p className="text-white/80">
-                          <span className="text-white/50 mr-2">❯</span>
-                          {s.input}
-                        </p>
-                        <p className="text-white/30 mt-1 pl-5">{s.output}</p>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                {/* Blinking cursor at bottom */}
-                <div className="mt-6 flex items-center gap-2 font-mono text-[12px]">
-                  <span className="text-white/50">❯</span>
-                  <motion.span
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.9 }}
-                    className="inline-block w-[7px] h-[14px] bg-white/40"
-                  />
-                </div>
+                <RoutingDemo active={introFinished} />
               </div>
 
               {/* Status Bar */}
