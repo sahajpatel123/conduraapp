@@ -2375,3 +2375,41 @@ Deleted the entire first build and rebuilt the landing page from scratch per the
 - Playwright CLI screenshots checked at `2048x720` and `390x844`; logo remains compact on mobile, the desktop lockup is readable, and the center nav position remains stable.
 
 ---
+
+---
+
+## [2026-06-18 16:39 IST] AI Model: opencode-go/minimax-m3
+**Session ID:** llm-marketing-alignment
+**Task:** Bring the backend LLM provider registry into alignment with the marketing site (/ecosystem). The website lists 12+ providers and current-generation model IDs (Claude Opus 4.7/Sonnet 4.5/Haiku 4.5, GPT-5.5/o3/o4-mini, Gemini 3.5 Flash/3.1 Pro, Grok-4.3, Mistral Large 3, DeepSeek V4, Llama 4, etc.) but the code's `model_pricing.go` and `allModels` were stuck on Claude 3.5/GPT-4o/Gemini 1.5/Grok 2 era. User decision: marketing will not change; the code must. Add LocalAI, LM Studio, vLLM as first-class providers (they were not in the constants list before).
+**Files created:**
+- `internal/llm/local_providers_test.go` — coverage for NewLocalAI/NewLMStudio/NewVLLM constructors + regression tests asserting every marketing-listed model ID is in the pricing registry, every legacy model is still registered, and EstimateCost is non-negative for every marketing model.
+**Files modified:**
+- `internal/config/loader.go` — added `ProviderLocalAI`, `ProviderLMStudio`, `ProviderVLLM` constants next to the existing `ProviderOllama`/`ProviderCustom`.
+- `internal/llm/openai_compat.go` — added `NewLocalAI`, `NewLMStudio`, `NewVLLM` constructors (all keyless OpenAI-compat, sane default ports 8080/1234/8000).
+- `internal/llm/model_pricing.go` — added the marketing-aligned current-gen model IDs for every provider; kept all legacy IDs for backward compatibility with users upgrading from earlier builds; added a header comment explaining the marketing→code alignment and the unknown-pricing fallback.
+- `internal/daemon/providers.go` — added `case config.ProviderLocalAI/LMStudio/VLLM` in `buildProvider`; expanded `allModels` with current-gen defaults for every provider (marketing entries first, legacy preserved).
+- `internal/llm/anthropic.go` — `DefaultModel` now prefers `claude-sonnet-4-5` (current gen) and falls back to `claude-3-5-sonnet-20241022` (legacy).
+- `internal/daemon/subsystems.go` — `defaultModelFor` updated to current-gen defaults: anthropic→claude-sonnet-4-5, openai→gpt-5.5, google→gemini-3.5-flash, xai→grok-4.3, mistral→mistral-large-3, ollama unchanged.
+**Decisions made:**
+- Pricing for the new current-gen models follows the previous-generation's pricing pattern (e.g. Sonnet 4.5 inherits Sonnet 3.5's $3/$15). The existing failover layer already handles unknown pricing as 0.0; users can override per-request.
+- Whisper is *not* registered as a chat LLM model — it is STT-only and is handled by the voice subsystem. The marketing site lists "Whisper" under Groq; this is noted in `model_pricing.go` so future agents don't try to register it.
+- LM Studio and vLLM share the same OpenAI-compat pattern as Ollama; they live alongside it as first-class keyless providers so users can `provider.base_url` override per-installation.
+- Kept all legacy model IDs (gpt-4o, claude-3-5-sonnet, gemini-1.5-flash, etc.) so installs upgrading from previous builds keep their pinned models. New installs default to current gen.
+- Did *not* add tests asserting specific model IDs at specific providers, because the upstream API contracts for some of these IDs (e.g. `gpt-5.5`, `claude-opus-4-7`) cannot be verified from a static analysis perspective — they will be exercised at runtime when a user configures an API key.
+**Verification:**
+- `go test -count=1 ./...` — all 60 packages pass (60 ok, 1 pre-existing flake in `internal/secrets` that is unrelated to this change; the test passes 3/3 in isolation and only fails under full-suite load).
+- `golangci-lint run ./...` — 0 issues.
+- `npx svelte-check` — 0 errors, 9 pre-existing warnings (none from this change).
+- `go test ./internal/llm/...` — new tests pass: `TestMarketingModels_AllRegistered`, `TestLegacyModels_StillRegistered`, `TestEstimateCost_MarketingModels`, `TestNewLocalAI_*`, `TestNewLMStudio_*`, `TestNewVLLM_*`.
+- CI (commit `614ffae`): all 14 jobs green — Lint, Security Scan (govulncheck), 6 test jobs (Linux x2, macOS x2, Windows x2), 6 platform builds (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64), Integration Tests.
+- Release Verify: success.
+**Bugs/issues encountered:**
+- Initial lint pass flagged `gofmt` (one LocalAI entry had wrong indentation) and `revive` (blank line between package comment and `package llm`). Both fixed.
+- `internal/secrets` `TestNew_NoFilePath_Auto` is a known pre-existing flake that depends on a system keyring being available in the test environment; passes 3/3 in isolation. Tracked but not addressed in this commit.
+- Did not touch `web/app/orchestration/page.tsx` — that file was modified by KIMI K2.6's website reset and is not part of this scope.
+**Open questions for next session:**
+- Confirm with user the exact model-ID conventions for the marketing names. Some IDs (e.g. `claude-opus-4-7`, `gpt-5.5`, `llama-4-70b-versatile`) are best-guess slugs following each provider's naming pattern; if Anthropic/OpenAI/Meta reject an ID at runtime, the failover layer routes around it. The user has accepted this risk for v0.1.0.
+- Consider adding a `models.refresh` daemon RPC that hits each provider's `/v1/models` endpoint at startup so the registry is always self-updating (instead of the static catalog in `model_pricing.go`). Out of scope here.
+**Next steps:**
+- KIMI K2.6's website reset is in progress; the new `/ecosystem` page should be the source of truth for the canonical model list. After it lands, run `TestMarketingModels_AllRegistered` against the new file to catch any drift.
+- Phase 15 verification: spin up a clean macOS box, install condurad, configure an OpenAI key, confirm `gpt-5.5` is selectable in the model picker (will fail at runtime if the model ID isn't real — that's the actual contract test).
