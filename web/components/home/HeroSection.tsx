@@ -2,6 +2,7 @@
 
 import { useState, useEffect, MouseEvent } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
+import DownloadDropdown from "./DownloadDropdown";
 
 /**
  * DESIGN PHILOSOPHY — FINAL VERSION
@@ -117,35 +118,11 @@ export default function HeroSection() {
               </p>
 
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                <button
-                  onClick={() => document.getElementById("download-tile")?.scrollIntoView({ behavior: "smooth" })}
-                  className="mature-button w-full px-8 py-3.5 font-body-mature text-[14px] font-semibold sm:w-auto"
-                >
-                  Download Bundle
-                </button>
-                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[12px] text-white/55">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                  <span>Mac, Win, Linux</span>
-                </div>
+                <DownloadDropdown />
               </div>
             </motion.div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: introFinished ? 1 : 0 }}
-            transition={{ duration: 1.5, delay: 1 }}
-            className="w-full border-t border-white/[0.08] pt-6 flex justify-between items-center"
-          >
-            <div className="flex flex-col">
-              <span className="font-mono text-[10px] text-white/40 tracking-widest uppercase mb-1">Architecture</span>
-              <span className="font-body-mature text-[13px] text-white">Local-First</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-mono text-[10px] text-white/40 tracking-widest uppercase mb-1">Concurrency</span>
-              <span className="font-body-mature text-[13px] text-white">Parallel Threads</span>
-            </div>
-          </motion.div>
         </div>
 
         {/* ── RIGHT: One Perfect Window ── */}
