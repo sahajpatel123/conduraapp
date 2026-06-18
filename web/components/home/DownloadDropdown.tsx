@@ -83,19 +83,19 @@ export default function DownloadDropdown() {
   return (
     <div ref={wrapRef} className="relative w-full sm:w-auto">
       {/* ── Split trigger: primary download + chevron toggle ── */}
-      <div className="mature-button w-full sm:w-auto p-0 flex items-stretch overflow-hidden">
+      <div className="glass-download relative w-full sm:w-auto p-0 flex items-stretch">
         {/* Primary — direct download for the detected OS */}
         <button
           type="button"
           onClick={() => triggerDownload(detected)}
           className="flex-1 px-7 py-3.5 font-body-mature text-[14px] font-semibold inline-flex items-center justify-center gap-2.5 text-left"
         >
-          <Icon name={PLATFORM_ICON[detected]} size={16} className="shrink-0" />
+          <Icon name={PLATFORM_ICON[detected]} size={16} className="shrink-0 text-white/85" />
           <span>Download for {osLabel}</span>
         </button>
 
         {/* Divider */}
-        <span className="w-px self-stretch bg-black/15" aria-hidden />
+        <span className="w-px self-stretch bg-white/15" aria-hidden />
 
         {/* Chevron — opens the panel for other platforms */}
         <button
@@ -104,7 +104,7 @@ export default function DownloadDropdown() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Choose another platform"
-          className="px-4 py-3.5 inline-flex items-center justify-center"
+          className="px-4 py-3.5 inline-flex items-center justify-center text-white/70 hover:text-white transition-colors"
         >
           <motion.span
             animate={{ rotate: open ? 180 : 0 }}
