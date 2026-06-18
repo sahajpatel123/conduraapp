@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, MouseEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePlatform } from "@/hooks/usePlatform";
 import { DOWNLOADS } from "@/lib/downloads";
@@ -11,14 +11,16 @@ import { EASE_OUT } from "@/lib/motion";
 /**
  * DownloadDropdown — the hero's commit surface.
  *
- * One button. A single chevron. A floating glass panel that unfurls
- * into three platform lanes — each with its own glyph, its own
- * detected-status whisper, and its own signed download. Clicking
- * outside, pressing Escape, or choosing a lane closes the panel.
+ * A split button. The primary action auto-detects the visitor's OS and
+ * reads "Download for {macOS | Windows | Linux}" — clicking it starts
+ * the signed download for that platform immediately, no menu required.
+ * The chevron beside it unfurls a floating glass panel of all three
+ * platforms for anyone on a different machine than the one they're
+ * downloading for.
  *
- * The panel is positioned absolutely beneath the button so the hero
- * copy never reflows when it opens. The detected platform is
- * pre-highlighted and its lane reads "Recommended for your machine".
+ * Detection happens client-side via usePlatform (navigator.userAgent).
+ * The panel is positioned absolutely so the hero copy never reflows.
+ * Outside-click, Escape, or lane selection closes it.
  */
 
 const PLATFORM_ICON: Record<PlatformKey, IconKey> = {
@@ -33,10 +35,20 @@ const PLATFORM_SUBTITLE: Record<PlatformKey, string> = {
   linux: "glibc 2.31+ · x64",
 };
 
+const PLATFORM_LABEL: Record<PlatformKey, string> = {
+  mac: "macOS",
+  windows: "Windows",
+  linux: "Linux",
+};
+
 export default function DownloadDropdown() {
   const detected = usePlatform();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Avoid hydration mismatch — render detected label only after mount
+  useEffect(() => { setMounted(true); }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -66,37 +78,55 @@ export default function DownloadDropdown() {
     setOpen(false);
   };
 
+  const osLabel = mounted ? PLATFORM_LABEL[detected] : "your platform";
+
   return (
     <div ref={wrapRef} className="relative w-full sm:w-auto">
-      {/* ── Trigger ── */}
-      <button
-        type="button"
-        onClick={() => setOpen((p) => !p)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="mature-button group w-full sm:w-auto px-8 py-3.5 font-body-mature text-[14px] font-semibold inline-flex items-center justify-center gap-3"
-      >
-        <span>Download</span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.3, ease: EASE_OUT }}
-          className="inline-flex"
-          aria-hidden
+      {/* ── Split trigger: primary download + chevron toggle ── */}
+      <div className="mature-button w-full sm:w-auto p-0 flex items-stretch overflow-hidden">
+        {/* Primary — direct download for the detected OS */}
+        <button
+          type="button"
+          onClick={() => triggerDownload(detected)}
+          className="flex-1 px-7 py-3.5 font-body-mature text-[14px] font-semibold inline-flex items-center justify-center gap-2.5 text-left"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <Icon name={PLATFORM_ICON[detected]} size={16} className="shrink-0" />
+          <span>Download for {osLabel}</span>
+        </button>
+
+        {/* Divider */}
+        <span className="w-px self-stretch bg-black/15" aria-hidden />
+
+        {/* Chevron — opens the panel for other platforms */}
+        <button
+          type="button"
+          onClick={() => setOpen((p) => !p)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Choose another platform"
+          className="px-4 py-3.5 inline-flex items-center justify-center"
+        >
+          <motion.span
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.3, ease: EASE_OUT }}
+            className="inline-flex"
+            aria-hidden
           >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </motion.span>
-      </button>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </motion.span>
+        </button>
+      </div>
 
       {/* ── Floating panel ── */}
       <AnimatePresence>
@@ -119,7 +149,7 @@ export default function DownloadDropdown() {
               <div className="px-5 pt-5 pb-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
-                    Choose your platform
+                    Other platforms
                   </span>
                   <span className="h-px flex-1 bg-white/[0.06]" />
                   <span className="font-mono text-[10px] text-white/25">v0.1.0</span>
@@ -179,7 +209,7 @@ export default function DownloadDropdown() {
                             <span className="inline-flex items-center gap-1 rounded-full border border-green-400/20 bg-green-400/10 px-2 py-0.5">
                               <span className="h-1 w-1 rounded-full bg-green-400/80" />
                               <span className="font-mono text-[9px] text-green-400/80 uppercase tracking-wider">
-                                Detected
+                                Yours
                               </span>
                             </span>
                           )}

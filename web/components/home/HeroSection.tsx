@@ -3,6 +3,7 @@
 import { useState, useEffect, MouseEvent } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
 import DownloadDropdown from "./DownloadDropdown";
+import NeuralHandshake from "./NeuralHandshake";
 
 /**
  * DESIGN PHILOSOPHY — FINAL VERSION
@@ -44,7 +45,7 @@ export default function HeroSection() {
   const handleMouseLeave = () => { mx.set(0); my.set(0); };
 
   useEffect(() => {
-    const t = setTimeout(() => setIntroFinished(true), 2500);
+    const t = setTimeout(() => setIntroFinished(true), 1700);
     return () => clearTimeout(t);
   }, []);
 
@@ -56,40 +57,8 @@ export default function HeroSection() {
 
   return (
     <>
-      {/* Boot Sequence */}
-      <AnimatePresence>
-        {!introFinished && (
-          <motion.div
-            key="boot"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="fixed inset-0 z-[100] bg-[#000] flex flex-col items-center justify-center"
-          >
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: "200px" }}
-              transition={{ duration: 1.5, ease: "easeInOut" }}
-              className="h-[1px] bg-white/20 relative"
-            >
-              <motion.div
-                initial={{ x: 0 }}
-                animate={{ x: 200 }}
-                transition={{ duration: 1.5, ease: "easeInOut" }}
-                className="absolute top-0 left-0 w-10 h-[1px] bg-white shadow-[0_0_10px_white]"
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 1 }}
-              className="mt-8 font-mono text-[10px] text-[#a1a1aa] tracking-[0.3em] uppercase"
-            >
-              Establishing secure environment
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Neural Handshake — opening sequence */}
+      <NeuralHandshake />
 
       <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
 
