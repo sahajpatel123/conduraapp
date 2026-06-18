@@ -1,22 +1,12 @@
 import type { Metadata } from "next";
-import PageChrome from "@/components/shell/PageChrome";
-import DownloadExperience from "@/components/download/DownloadExperience";
+import DownloadPageView from "@/components/download/DownloadPageView";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: `Download · ${SITE.name}`,
-  description: `Download ${SITE.name} for macOS, Windows, and Linux.`,
+  description: `Download ${SITE.name} for macOS, Windows, and Linux. Free forever. Local-first. No account required.`,
 };
 
 export default function DownloadPage() {
-  return (
-    <PageChrome
-      eyebrow="Download"
-      title="Install Condura on your machine"
-      description={SITE.description}
-      badge="v0.1.0"
-    >
-      <DownloadExperience />
-    </PageChrome>
-  );
+  return <DownloadPageView />;
 }

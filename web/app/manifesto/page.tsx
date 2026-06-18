@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "motion/react";
+import { motion, useScroll, useTransform, useSpring } from "motion/react";
 import { useRef, useState, useEffect } from "react";
 import AnimatedBadge from "@/components/motion/AnimatedBadge";
 import { INVARIANTS } from "@/lib/site";
