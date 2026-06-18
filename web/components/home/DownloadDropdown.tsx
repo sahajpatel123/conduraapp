@@ -5,34 +5,31 @@ import { motion, AnimatePresence } from "motion/react";
 import { usePlatform } from "@/hooks/usePlatform";
 import { DOWNLOADS } from "@/lib/downloads";
 import { PLATFORMS, type PlatformKey } from "@/lib/site";
-import { Icon, type IconKey } from "@/components/motion/Icon";
+import { Icon } from "@/components/motion/Icon";
 import { EASE_OUT } from "@/lib/motion";
 
 /**
  * DownloadDropdown — the hero's commit surface.
  *
  * A split button. The primary action auto-detects the visitor's OS and
- * reads "Download for {macOS | Windows | Linux}" — clicking it starts
- * the signed download for that platform immediately, no menu required.
- * The chevron beside it unfurls a floating glass panel of all three
- * platforms for anyone on a different machine than the one they're
- * downloading for.
+ * reads "Download for {macOS | Windows | Linux}" in plain text — no
+ * platform logos, which read as unpolished at small sizes. Clicking it
+ * starts the signed download for that platform immediately.
+ *
+ * The chevron beside it unfurls a floating glass panel laid out as a
+ * single horizontal row of three platform cards — macOS, Windows,
+ * Linux side by side. Each card is a direct download. The detected
+ * platform's card is tagged "Yours". Outside-click, Escape, or card
+ * selection closes the panel.
  *
  * Detection happens client-side via usePlatform (navigator.userAgent).
  * The panel is positioned absolutely so the hero copy never reflows.
- * Outside-click, Escape, or lane selection closes it.
  */
 
-const PLATFORM_ICON: Record<PlatformKey, IconKey> = {
-  mac: "mac",
-  windows: "windows",
-  linux: "linux",
-};
-
 const PLATFORM_SUBTITLE: Record<PlatformKey, string> = {
-  mac: "macOS 13+ · Apple silicon & Intel",
-  windows: "Windows 10+ · x64",
-  linux: "glibc 2.31+ · x64",
+  mac: "macOS 13+",
+  windows: "Windows 10+",
+  linux: "glibc 2.31+",
 };
 
 const PLATFORM_LABEL: Record<PlatformKey, string> = {
@@ -84,13 +81,12 @@ export default function DownloadDropdown() {
     <div ref={wrapRef} className="relative w-full sm:w-auto">
       {/* ── Split trigger: primary download + chevron toggle ── */}
       <div className="glass-download relative w-full sm:w-auto p-0 flex items-stretch">
-        {/* Primary — direct download for the detected OS */}
+        {/* Primary — direct download for the detected OS, text only */}
         <button
           type="button"
           onClick={() => triggerDownload(detected)}
           className="flex-1 px-7 py-3.5 font-body-mature text-[14px] font-semibold inline-flex items-center justify-center gap-2.5 text-left"
         >
-          <Icon name={PLATFORM_ICON[detected]} size={16} className="shrink-0 text-white/85" />
           <span>Download for {osLabel}</span>
         </button>
 
@@ -128,7 +124,7 @@ export default function DownloadDropdown() {
         </button>
       </div>
 
-      {/* ── Floating panel ── */}
+      {/* ── Floating panel — horizontal row of platform cards ── */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -138,7 +134,7 @@ export default function DownloadDropdown() {
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.22, ease: EASE_OUT }}
             role="menu"
-            className="absolute left-0 right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 top-[calc(100%+12px)] z-50 w-full sm:w-[380px] origin-top"
+            className="absolute left-0 right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 top-[calc(100%+12px)] z-50 w-[min(640px,calc(100vw-2rem))] origin-top"
           >
             {/* Glass shell */}
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/95 backdrop-blur-xl shadow-[0_30px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)]">
@@ -149,15 +145,15 @@ export default function DownloadDropdown() {
               <div className="px-5 pt-5 pb-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
-                    Other platforms
+                    All platforms
                   </span>
                   <span className="h-px flex-1 bg-white/[0.06]" />
                   <span className="font-mono text-[10px] text-white/25">v0.1.0</span>
                 </div>
               </div>
 
-              {/* Platform lanes */}
-              <div className="p-2">
+              {/* Horizontal row of platform cards */}
+              <div className="grid grid-cols-3 gap-2 p-3">
                 {PLATFORMS.map((p, i) => {
                   const isDetected = detected === p.key;
                   const download = DOWNLOADS[p.key];
@@ -167,79 +163,62 @@ export default function DownloadDropdown() {
                       type="button"
                       role="menuitem"
                       onClick={() => triggerDownload(p.key)}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.04 * i + 0.05, duration: 0.3, ease: EASE_OUT }}
-                      whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                      whileTap={{ scale: 0.985 }}
-                      className={`group relative w-full flex items-center gap-4 rounded-xl px-4 py-3.5 text-left transition-colors ${
-                        isDetected ? "bg-white/[0.04]" : ""
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * i + 0.05, duration: 0.3, ease: EASE_OUT }}
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.97 }}
+                      className={`group relative flex flex-col items-center justify-center gap-3 rounded-xl px-3 py-5 text-center border transition-colors ${
+                        isDetected
+                          ? "border-white/20 bg-white/[0.06]"
+                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
                       }`}
                     >
-                      {/* Icon tile */}
-                      <div
-                        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors ${
-                          isDetected
-                            ? "border-white/20 bg-white/[0.08]"
-                            : "border-white/10 bg-white/[0.03] group-hover:border-white/20 group-hover:bg-white/[0.06]"
+                      {/* Detected marker */}
+                      {isDetected && (
+                        <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 rounded-full border border-green-400/20 bg-green-400/10 px-2 py-0.5">
+                          <span className="h-1 w-1 rounded-full bg-green-400/80" />
+                          <span className="font-mono text-[9px] text-green-400/80 uppercase tracking-wider">
+                            Yours
+                          </span>
+                        </span>
+                      )}
+
+                      {/* Platform name — text only, no logo */}
+                      <span
+                        className={`font-body-mature text-[15px] font-semibold transition-colors ${
+                          isDetected ? "text-white" : "text-white/80 group-hover:text-white"
                         }`}
                       >
-                        <Icon
-                          name={PLATFORM_ICON[p.key]}
-                          size={22}
-                          className={isDetected ? "text-white/85" : "text-white/55 group-hover:text-white/80"}
-                        />
-                        {/* Detected pulse */}
-                        {isDetected && (
-                          <motion.span
-                            animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
-                            transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }}
-                            className="absolute inset-0 rounded-xl border border-green-400/30"
-                          />
-                        )}
-                      </div>
+                        {p.name}
+                      </span>
 
-                      {/* Label */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-body-mature text-[14px] font-semibold text-white">
-                            {p.name}
-                          </span>
-                          {isDetected && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-green-400/20 bg-green-400/10 px-2 py-0.5">
-                              <span className="h-1 w-1 rounded-full bg-green-400/80" />
-                              <span className="font-mono text-[9px] text-green-400/80 uppercase tracking-wider">
-                                Yours
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-2 font-mono text-[10.5px] text-white/35">
-                          <span className="truncate">{PLATFORM_SUBTITLE[p.key]}</span>
-                          <span className="text-white/15">·</span>
-                          <span className="text-white/45">{download.primary.label}</span>
-                        </div>
-                      </div>
+                      {/* OS requirement */}
+                      <span className="font-mono text-[10.5px] text-white/35">
+                        {PLATFORM_SUBTITLE[p.key]}
+                      </span>
 
-                      {/* Download glyph */}
-                      <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-white/40 transition-all group-hover:border-white/20 group-hover:text-white/85 group-hover:bg-white/[0.06]"
-                        aria-hidden
-                      >
+                      {/* Divider */}
+                      <span className="my-0.5 h-px w-8 bg-white/[0.08]" />
+
+                      {/* Artifact + download glyph */}
+                      <span className="flex items-center gap-1.5 font-mono text-[10.5px] text-white/45">
                         <svg
-                          width="14"
-                          height="14"
+                          width="12"
+                          height="12"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
+                          className="text-white/50 group-hover:text-white/85 transition-colors"
                         >
                           <path d="M12 3v12" />
                           <path d="M7 10l5 5 5-5" />
                           <path d="M5 21h14" />
                         </svg>
+                        {download.primary.label}
                       </span>
                     </motion.button>
                   );
