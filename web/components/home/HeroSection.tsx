@@ -26,11 +26,11 @@ export default function HeroSection() {
       <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
 
         {/* ── LEFT: Copy ── */}
-        <div className="w-full lg:w-1/2 h-full flex flex-col justify-between px-8 lg:px-16 pt-32 pb-12 relative z-20 items-center lg:items-start">
-          <div className="flex-1 flex flex-col justify-center w-full max-w-lg">
+        <div className="w-full lg:w-1/2 h-full flex flex-col justify-between px-8 lg:pl-32 xl:pl-48 lg:pr-16 pt-32 pb-12 relative z-20">
+          <div className="flex-1 flex flex-col justify-center max-w-[540px]">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 30 }}
               transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="font-mono text-[10px] text-[#71717a] tracking-[0.2em] uppercase mb-10 flex items-center gap-4">

@@ -393,11 +393,11 @@ function SetupSection({ selected }: { selected: PlatformKey }) {
           </a>
 
           <div className="mt-9 grid grid-cols-3 gap-3 border-t border-white/[0.08] pt-6">
-            {[
+            {([
               ["shield" as IconKey, "Gatekeeper"],
               ["lock" as IconKey, "Local data"],
               ["check" as IconKey, "Signed updates"],
-            ].map(([icon, label]) => (
+            ] satisfies [IconKey, string][]).map(([icon, label]) => (
               <div key={label} className="text-[10px] text-white/36">
                 <Icon name={icon} size={15} className="mb-2 text-[#D97757]" />
                 {label}
