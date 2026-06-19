@@ -2,9 +2,8 @@
 
 import GlobalNav from "@/components/shell/GlobalNav";
 import HeroSection from "@/components/home/HeroSection";
-import ProviderMarquee from "@/components/home/ProviderMarquee";
-import OrchestrationTile from "@/components/home/OrchestrationTile";
-import MarqueeTile from "@/components/home/MarqueeTile";
+import ProviderBanner from "@/components/home/ProviderBanner";
+import BringYourOwnAI from "@/components/home/BringYourOwnAI";
 import SafetyTile from "@/components/home/SafetyTile";
 import DownloadTile from "@/components/home/DownloadTile";
 import Footer from "@/components/home/Footer";
@@ -18,9 +17,8 @@ export default function Home() {
       {/* Main stacked sections */}
       <main id="main" className="bg-canvas">
         <HeroSection />
-        <ProviderMarquee />
-        <OrchestrationTile />
-        <MarqueeTile />
+        <ProviderBanner />
+        <BringYourOwnAI />
         <SafetyTile />
         <DownloadTile />
       </main>
