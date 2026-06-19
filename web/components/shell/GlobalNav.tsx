@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { SITE } from "@/lib/site";
 
 const NAV_ITEMS = [
@@ -14,6 +15,40 @@ const NAV_ITEMS = [
 
 export default function GlobalNav() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [hidden, setHidden] = useState(false);
+  const reduced = useReducedMotion();
+
+  // Hide on scroll-down, reveal on scroll-up. The nav slides up
+  // out of view and fades; on scroll-up it slides back in. The
+  // site dock is a separate fixed element and is never affected.
+  useEffect(() => {
+    if (reduced) return;
+    let lastY = window.scrollY;
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        // Always show at the very top of the page.
+        if (y < 80) {
+          setHidden(false);
+        } else if (y > lastY + 6) {
+          // Scrolling down → hide.
+          setHidden(true);
+        } else if (y < lastY - 6) {
+          // Scrolling up → reveal.
+          setHidden(false);
+        }
+        lastY = y;
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [reduced]);
 
   const handleScrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -21,12 +56,19 @@ export default function GlobalNav() {
   };
 
   return (
-    <motion.nav 
+    <motion.nav
       initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
+      animate={{
+        y: hidden ? -110 : 0,
+        opacity: hidden ? 0 : 1,
+      }}
+      transition={{
+        y: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+        opacity: { duration: 0.3 },
+      }}
       className="fixed left-1/2 top-4 z-[90] w-[calc(100%-24px)] max-w-6xl -translate-x-1/2 sm:w-[calc(100%-40px)]"
       aria-label="Primary"
+      aria-hidden={hidden}
     >
       <div className="liquid-glass relative grid h-[60px] w-full grid-cols-[1fr_auto_1fr] items-center overflow-hidden rounded-[28px] px-3 sm:px-4 lg:h-[64px]">
         <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[linear-gradient(116deg,rgba(255,255,255,0.13),rgba(255,255,255,0.035)_32%,rgba(255,255,255,0.075)_64%,rgba(255,255,255,0.03)),radial-gradient(circle_at_18%_0%,rgba(255,255,255,0.13),transparent_34%),radial-gradient(circle_at_84%_100%,rgba(255,255,255,0.06),transparent_36%)]" />
