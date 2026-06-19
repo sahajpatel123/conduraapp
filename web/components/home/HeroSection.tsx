@@ -4,7 +4,7 @@ import { useState, useEffect, MouseEvent } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import DownloadDropdown from "./DownloadDropdown";
 import NeuralHandshake from "./NeuralHandshake";
-import RoutingDemo from "./RoutingDemo";
+import ProductTour from "./ProductTour";
 
 /**
  * DESIGN PHILOSOPHY — FINAL VERSION
@@ -127,8 +127,8 @@ export default function HeroSection() {
                     <span className="text-white/70 text-[11px] font-semibold">C</span>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-white/70 leading-none">Orchestrator Engine</p>
-                    <p className="text-[9px] text-white/25 font-mono mt-[2px] leading-none">condura-core v0.1.0</p>
+                    <p className="text-[11px] font-medium text-white/70 leading-none">Condura — what it does</p>
+                    <p className="text-[9px] text-white/25 font-mono mt-[2px] leading-none">a 24-second tour</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -136,19 +136,19 @@ export default function HeroSection() {
                 </div>
               </div>
 
-              {/* Terminal Body — live routing demo */}
+              {/* Terminal Body — the product tour */}
               <div className="bg-[#0e0e0e] p-6 min-h-[280px] flex flex-col justify-between">
-                <RoutingDemo active={introFinished} />
+                <ProductTour active={introFinished} />
               </div>
 
               {/* Status Bar */}
               <div className="h-[28px] bg-[#151515] border-t border-white/[0.04] flex items-center justify-between px-5">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-[10px] text-white/25 font-mono">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                    3 agents active
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400/60" />
+                    local-first
                   </span>
-                  <span className="text-[10px] text-white/15 font-mono">sqlite: locked</span>
+                  <span className="text-[10px] text-white/15 font-mono">free forever</span>
                 </div>
                 <span className="text-[10px] text-white/15 font-mono">gatekeeper: sealed</span>
               </div>
