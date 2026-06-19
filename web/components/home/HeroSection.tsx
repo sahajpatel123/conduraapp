@@ -1,16 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useState, useEffect, MouseEvent } from "react";
+import { MouseEvent } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import HeroDownload from "./HeroDownload";
 import OverlayPreview from "./OverlayPreview";
 
-const NeuralHandshake = dynamic(() => import("./NeuralHandshake"), { ssr: false });
-
 export default function HeroSection() {
-  const [introFinished, setIntroFinished] = useState(false);
-
   // Subtle 3D tilt on hover
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
@@ -26,16 +21,8 @@ export default function HeroSection() {
   };
   const handleMouseLeave = () => { mx.set(0); my.set(0); };
 
-  useEffect(() => {
-    const t = setTimeout(() => setIntroFinished(true), 1700);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <>
-      {/* Neural Handshake — opening sequence */}
-      <NeuralHandshake />
-
       <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
 
         {/* ── LEFT: Copy ── */}
@@ -43,7 +30,7 @@ export default function HeroSection() {
           <div className="flex-1 flex flex-col justify-center">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="font-mono text-[10px] text-[#71717a] tracking-[0.2em] uppercase mb-10 flex items-center gap-4">
@@ -86,14 +73,14 @@ export default function HeroSection() {
           {/* The overlay preview — the actual product UI */}
           <motion.div
             initial={{ scale: 1.04, opacity: 0, y: 16 }}
-            animate={{ scale: introFinished ? 1 : 1.04, opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 16 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ duration: 1.6, delay: 0.4, ease: "easeOut" }}
             className="relative z-10 w-[88%] max-w-[520px]"
           >
             <motion.div
               style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
             >
-              <OverlayPreview active={introFinished} />
+              <OverlayPreview active={true} />
             </motion.div>
           </motion.div>
         </div>
