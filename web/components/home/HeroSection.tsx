@@ -1,21 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, MouseEvent } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
-import DownloadDropdown from "./DownloadDropdown";
-import NeuralHandshake from "./NeuralHandshake";
+import HeroDownload from "./HeroDownload";
 import OverlayPreview from "./OverlayPreview";
 
-/**
- * DESIGN PHILOSOPHY — FINAL VERSION
- *
- * The right side shows the actual product UI a user will see — a floating
- * chat overlay with a real conversation cycling through relatable examples —
- * so a first-time visitor instantly understands: press a hotkey, this window
- * appears, ask anything, it uses the AI you already have, and it's safe.
- * Below the chat, four plain-word badges state what makes it different.
- * Minimal. Honest. No glow, no aurora — just the product, shown clearly.
- */
+const NeuralHandshake = dynamic(() => import("./NeuralHandshake"), { ssr: false });
 
 export default function HeroSection() {
   const [introFinished, setIntroFinished] = useState(false);
@@ -55,25 +46,22 @@ export default function HeroSection() {
               animate={{ opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 30 }}
               transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="font-mono text-[11px] text-[#a1a1aa] tracking-widest uppercase mb-8 flex items-center gap-3">
-                <span className="w-8 h-[1px] bg-white/20" />
-                V0.1.0 Open Alpha
+              <div className="font-mono text-[10px] text-[#71717a] tracking-[0.2em] uppercase mb-10 flex items-center gap-4">
+                <span className="w-8 h-[2px] bg-[#D97757]" />
+                RELEASE 0.1.0 · OPEN ALPHA
               </div>
 
-              <h1 className="text-[56px] lg:text-[72px] font-medium leading-[0.95] tracking-[-0.03em] text-[#fff] mb-6">
-                Your OS, now <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-[#71717a]">
-                  autonomous.
-                </span>
+              <h1 className="text-[64px] lg:text-[84px] font-semibold leading-[0.95] tracking-tight mb-8">
+                <div className="text-white">Condura,</div>
+                <div className="text-[#71717a]">on your</div>
+                <div className="text-[#71717a]">machine.</div>
               </h1>
 
-              <p className="font-body-mature text-[#a1a1aa] text-[16px] leading-[1.6] mb-12 max-w-md">
-                Stop pasting code into a browser tab. Condura orchestrates massive parallel AI workflows directly on your machine. Secure, local, and incredibly fast.
+              <p className="font-body-mature text-[#a1a1aa] text-[18px] leading-[1.6] mb-12 max-w-md">
+                A local-first intelligence layer for your OS. No account, no subscription, and no new workflow to learn.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                <DownloadDropdown />
-              </div>
+              <HeroDownload />
             </motion.div>
           </div>
 

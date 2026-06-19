@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { SITE, NAV_LINKS } from "@/lib/site";
 import { springSoft } from "@/lib/motion";
@@ -19,6 +20,8 @@ const ITEMS: Item[] = [
 ];
 
 export default function CommandPalette() {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -60,14 +63,19 @@ export default function CommandPalette() {
     };
   }, [open]);
 
-  const navigate = useCallback((href: string) => {
-    setOpen(false);
-    if (href.startsWith("http")) {
-      window.open(href, "_blank", "noopener,noreferrer");
-    } else {
-      window.location.href = href;
-    }
-  }, []);
+  const navigate = useCallback(
+    (href: string) => {
+      setOpen(false);
+      if (href.startsWith("http")) {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      startTransition(() => {
+        router.push(href);
+      });
+    },
+    [router]
+  );
 
   const onInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {

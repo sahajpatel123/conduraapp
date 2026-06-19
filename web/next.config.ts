@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/** Absolute path to web/ — never infer from the monorepo root lockfile. */
+const webRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   turbopack: {
-    // Keep manifests scoped to web/ when the monorepo has other lockfiles.
-    root: path.resolve(process.cwd()),
+    root: webRoot,
   },
 };
 

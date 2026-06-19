@@ -42,6 +42,22 @@ body {
   overflow-x: hidden;
 }
 
+@keyframes page-load-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[page-load-pulse_0\.9s_ease-in-out_infinite\] {
+    animation: none;
+  }
+}
+
 /* ── Minimalist & Mature Typography ──────────────────────── */
 
 .font-hero-display {
