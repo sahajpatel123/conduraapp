@@ -26,7 +26,7 @@ export default function HeroSection() {
       <section className="relative w-full h-screen min-h-[800px] bg-[#000] flex flex-col lg:flex-row overflow-hidden">
 
         {/* ── LEFT: Copy ── */}
-        <div className="w-full lg:w-1/2 h-full flex flex-col justify-between px-8 lg:pl-28 lg:pr-16 pt-32 pb-12 relative z-20">
+        <div className="w-full lg:w-1/2 h-full flex flex-col justify-between px-8 lg:pl-20 lg:pr-16 pt-32 pb-12 relative z-20">
           <div className="flex-1 flex flex-col justify-center">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
