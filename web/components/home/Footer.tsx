@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { SITE, NAV_LINKS, TOOL_ROSTER } from "@/lib/site";
 
+// Split the reference links into two readable columns.
+const EXPLORE_LINKS = NAV_LINKS.filter((l) =>
+  ["/orchestration", "/security", "/manifesto"].includes(l.href)
+);
+const RESOURCE_LINKS = NAV_LINKS.filter((l) =>
+  ["/changelog", "/download", "/legal"].includes(l.href)
+);
+
 export default function Footer() {
   return (
     <footer className="w-full bg-[#000000] py-16 px-6 border-t border-white/[0.08] relative z-10 select-none">
@@ -36,10 +44,25 @@ export default function Footer() {
 
           <div>
             <h4 className="font-body-mature font-medium text-[#ffffff] text-[14px] mb-4">
-              Project
+              Explore
             </h4>
             <ul className="flex flex-col gap-2 font-body-mature text-[13px] text-[#a1a1aa]">
-              {NAV_LINKS.map((link) => (
+              {EXPLORE_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="hover:text-[#ffffff] transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-body-mature font-medium text-[#ffffff] text-[14px] mb-4">
+              Resources
+            </h4>
+            <ul className="flex flex-col gap-2 font-body-mature text-[13px] text-[#a1a1aa]">
+              {RESOURCE_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="hover:text-[#ffffff] transition-colors">
                     {link.label}

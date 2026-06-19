@@ -13,7 +13,11 @@ export const SITE = {
   discord: "https://discord.gg/synaptic",
 } as const;
 
+// Reference / informational destinations. These live in the footer,
+// not in the dock — they're for browsing, not quick access.
 export const NAV_LINKS = [
+  { href: "/orchestration", label: "How it works" },
+  { href: "/security", label: "Security" },
   { href: "/manifesto", label: "Mission" },
   { href: "/changelog", label: "Changelog" },
   { href: "/download", label: "Download" },
