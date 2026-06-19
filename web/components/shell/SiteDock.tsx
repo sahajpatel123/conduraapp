@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, motion, AnimatePresence } from "motion/react";
 import Tooltip from "@/components/motion/Tooltip";
 import { Icon, type IconKey } from "@/components/motion/Icon";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -132,6 +132,21 @@ export default function SiteDock() {
                 transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 30 }}
                 className="relative flex h-11 w-11 items-center justify-center"
               >
+                {/* Liquid-glass hover pill — glides between items */}
+                <AnimatePresence>
+                  {hovered === index && !active && (
+                    <motion.span
+                      layoutId="dock-hover"
+                      initial={{ opacity: 0, scale: 0.88 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={reduced ? { duration: 0 } : { type: "spring", bounce: 0.2, duration: 0.6 }}
+                      className="absolute inset-0 rounded-2xl border border-white/[0.12] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Active pill — stays for the current route */}
                 {active && (
                   <motion.span
                     layoutId="dock-active"
