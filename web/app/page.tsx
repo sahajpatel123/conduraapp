@@ -1,6 +1,5 @@
 "use client";
 
-import GlobalNav from "@/components/shell/GlobalNav";
 import HeroSection from "@/components/home/HeroSection";
 import ProviderMarquee from "@/components/home/ProviderMarquee";
 import OrchestrationTile from "@/components/home/OrchestrationTile";
@@ -12,10 +11,7 @@ import Footer from "@/components/home/Footer";
 export default function Home() {
   return (
     <>
-      {/* Floating Pill Navigation */}
-      <GlobalNav />
-
-      {/* Main stacked sections */}
+      {/* Main stacked sections — navigation is handled globally by SiteDock */}
       <main id="main" className="bg-canvas">
         <HeroSection />
         <ProviderMarquee />
