@@ -129,7 +129,12 @@ export default function DownloadPageView() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   1. HERO — One headline, one button, one detail row.
+   1. HERO — Split layout: copy on the left, an animated
+   "download core" on the right. The core is a central download
+   glyph with three orbiting platform icons. Selecting a platform
+   from the cards below shifts the orbit — but on first view the
+   detected platform is highlighted. The core breathes; it's the
+   focal point that makes the first view memorable.
    ════════════════════════════════════════════════════════════ */
 
 function Hero({
@@ -150,31 +155,37 @@ function Hero({
   const isDetected = selected === detected;
 
   return (
-    <section className="relative min-h-[85vh] flex flex-col items-center justify-center px-6 overflow-hidden">
+    <section className="relative min-h-[88vh] flex items-center overflow-hidden">
+      {/* Ambient background */}
       <div className="absolute inset-0 bg-grid-dark opacity-15" />
-      {/* Soft ambient glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <motion.div
-          animate={{ scale: [1, 1.1, 1], opacity: [0.03, 0.07, 0.03] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className="w-[500px] h-[400px] rounded-full bg-white blur-[160px]"
+          animate={{ scale: [1, 1.08, 1], opacity: [0.03, 0.06, 0.03] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          className="w-[600px] h-[500px] rounded-full bg-white blur-[180px]"
         />
       </div>
 
-      <div className="relative z-10 max-w-2xl text-center">
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl grid-cols-1 gap-12 px-6 py-20 lg:grid-cols-2 lg:items-center lg:gap-16">
+        {/* ── LEFT: Copy + CTA ── */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 24 }}
           transition={{ duration: 0.9, ease: EASE_OUT }}
         >
-          <div className="mb-6 flex justify-center">
+          <div className="mb-6">
             <AnimatedBadge tone="neutral" pulse>v0.1.0 Open Alpha</AnimatedBadge>
           </div>
 
-          <h1 className="font-display text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[1.05] tracking-[-0.04em]">
+          <h1 className="font-display text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.04em]">
             Get Condura.
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/25">
+              Free. Forever.
+            </span>
           </h1>
-          <p className="mt-6 font-lead-airy max-w-lg mx-auto">
+
+          <p className="mt-7 font-lead-airy max-w-md">
             One download. Three platforms. No account required. Runs entirely on your machine —
             your keys, your models, your data.
           </p>
@@ -184,11 +195,11 @@ function Hero({
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 16 }}
             transition={{ delay: 0.3, duration: 0.7 }}
-            className="mt-10 flex flex-col items-center gap-5"
+            className="mt-10 flex flex-col items-start gap-5"
           >
             <button
               onClick={() => onDownload(current.primary.href, current.primary.label)}
-              className="mature-button group inline-flex items-center gap-3 px-10 py-5 text-[16px] font-semibold transition-transform"
+              className="mature-button group inline-flex items-center gap-3 px-9 py-5 text-[16px] font-semibold transition-transform"
             >
               <motion.span
                 animate={downloading ? { rotate: 360 } : { rotate: 0 }}
@@ -200,7 +211,7 @@ function Hero({
             </button>
 
             {/* Detail row */}
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-mono text-[11px] text-white/30">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] text-white/30">
               {isDetected && (
                 <span className="flex items-center gap-1.5 text-green-400/60">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-400/60" />
@@ -221,15 +232,119 @@ function Hero({
             </div>
           </motion.div>
         </motion.div>
+
+        {/* ── RIGHT: The Download Core ── */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: mounted ? 1 : 0, scale: mounted ? 1 : 0.9 }}
+          transition={{ delay: 0.2, duration: 1.1, ease: EASE_OUT }}
+          className="relative flex h-[340px] items-center justify-center lg:h-[440px]"
+        >
+          <DownloadCore selected={selected} downloading={downloading} />
+        </motion.div>
       </div>
     </section>
   );
 }
 
+/* The animated download core — a central hub with three orbiting
+   platform icons. The selected platform's icon brightens and its
+   orbit dot glows. The whole structure breathes slowly. */
+function DownloadCore({ selected, downloading }: { selected: PlatformKey; downloading: boolean }) {
+  return (
+    <div className="relative flex h-full w-full items-center justify-center" style={{ perspective: "800px" }}>
+      {/* Outer rotating ring */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+        className="absolute h-[280px] w-[280px] rounded-full border border-white/[0.06] lg:h-[360px] lg:w-[360px]"
+      >
+        {/* Orbiting platform icons */}
+        {PLATFORMS.map((p, i) => {
+          const angle = (i / PLATFORMS.length) * 360;
+          const isActive = selected === p.key;
+          return (
+            <div
+              key={p.key}
+              style={{ transform: `rotate(${angle}deg) translateY(-140px) lg:translateY(-180px)` }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            >
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+                style={{ transform: `rotate(-${angle}deg)` }}
+              >
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl border backdrop-blur-md transition-all duration-500 lg:h-14 lg:w-14 ${
+                    isActive
+                      ? "border-white/25 bg-white/[0.10] shadow-[0_0_30px_rgba(255,255,255,0.08)]"
+                      : "border-white/[0.08] bg-white/[0.02]"
+                  }`}
+                >
+                  <Icon
+                    name={PLATFORM_ICON[p.key]}
+                    size={22}
+                    className={isActive ? "text-white" : "text-white/40"}
+                  />
+                </div>
+              </motion.div>
+            </div>
+          );
+        })}
+      </motion.div>
+
+      {/* Inner counter-rotating dashed ring */}
+      <motion.div
+        animate={{ rotate: -360 }}
+        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+        className="absolute h-[200px] w-[200px] rounded-full border border-dashed border-white/[0.08] lg:h-[260px] lg:w-[260px]"
+      />
+
+      {/* Center glow */}
+      <motion.div
+        animate={{ scale: [1, 1.15, 1], opacity: [0.04, 0.1, 0.04] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute h-32 w-32 rounded-full bg-white blur-[60px] lg:h-40 lg:w-40"
+      />
+
+      {/* Central hub — the download glyph */}
+      <motion.div
+        animate={{ scale: [1, 1.04, 1] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-white/15 bg-white/[0.04] backdrop-blur-xl shadow-[0_0_60px_rgba(255,255,255,0.06)] lg:h-28 lg:w-28"
+      >
+        <motion.div
+          animate={downloading ? { y: [0, 3, 0] } : { y: [0, -2, 0] }}
+          transition={{ duration: downloading ? 0.6 : 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Icon
+            name={downloading ? "command" : "download"}
+            size={32}
+            className={downloading ? "text-white/90" : "text-white/70"}
+          />
+        </motion.div>
+
+        {/* Active platform label below the hub */}
+        <motion.span
+          key={selected}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute -bottom-9 font-mono text-[11px] uppercase tracking-widest text-white/40"
+        >
+          {PLATFORMS.find((p) => p.key === selected)!.name}
+        </motion.span>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════
-   2. PLATFORM CARDS — Selecting updates everything below.
-   Each card is a complete unit: icon, name, requirements,
-   download buttons, all in one place.
+   2. PLATFORM CARDS — Sculptural cards with a clear active
+   state. The selected card gets a top accent bar, a brighter
+   surface, and a shared-layout glow that glides between cards.
+   Each card shows file type, requirements, and both download
+   links as a clean action list.
    ════════════════════════════════════════════════════════════ */
 
 function PlatformCards({
@@ -244,7 +359,7 @@ function PlatformCards({
   onDownload: (href: string, label: string) => void;
 }) {
   return (
-    <section className="relative w-full py-24 px-6 border-t border-white/[0.08]">
+    <section className="relative w-full py-28 px-6 border-t border-white/[0.08]">
       <div className="mx-auto max-w-5xl">
         <SectionHeader eyebrow="All platforms" title="Choose your build." />
 
@@ -256,25 +371,46 @@ function PlatformCards({
 
             return (
               <TiltCard key={p.key} maxRotate={4} className="h-full">
-                <motion.div
-                  whileHover={{ y: -4 }}
-                  className={`relative h-full overflow-hidden rounded-2xl border p-6 transition-colors ${
-                    isActive ? "border-white/25 bg-white/[0.05]" : "border-white/[0.08] bg-white/[0.02]"
+                <motion.button
+                  onClick={() => onSelect(p.key)}
+                  whileHover={{ y: -6 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative h-full w-full overflow-hidden rounded-2xl border p-7 text-left transition-colors duration-300 ${
+                    isActive
+                      ? "border-white/25 bg-white/[0.06]"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
                   }`}
                 >
+                  {/* Active accent bar on top */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="platform-accent-bar"
+                      className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                    />
+                  )}
+                  {/* Active glow wash */}
                   {isActive && (
                     <motion.div
                       layoutId="platform-glow"
-                      className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none"
+                      className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none"
                     />
                   )}
 
                   <div className="relative z-10 flex h-full flex-col">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-5">
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl border ${isActive ? "border-white/20 bg-white/[0.08]" : "border-white/10 bg-white/[0.03]"}`}>
-                        <Icon name={PLATFORM_ICON[p.key]} size={22} className={isActive ? "text-white/85" : "text-white/50"} />
-                      </div>
+                    {/* Header: icon + detected badge */}
+                    <div className="mb-6 flex items-start justify-between">
+                      <motion.div
+                        animate={isActive ? { scale: 1 } : { scale: 0.95 }}
+                        className={`flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors ${
+                          isActive ? "border-white/20 bg-white/[0.08]" : "border-white/10 bg-white/[0.03]"
+                        }`}
+                      >
+                        <Icon
+                          name={PLATFORM_ICON[p.key]}
+                          size={26}
+                          className={isActive ? "text-white/90" : "text-white/45"}
+                        />
+                      </motion.div>
                       {isDetected && (
                         <span className="flex items-center gap-1.5 rounded-full border border-green-400/20 bg-green-400/10 px-2.5 py-0.5 font-mono text-[10px] text-green-400/70">
                           <span className="h-1.5 w-1.5 rounded-full bg-green-400/60" />
@@ -284,20 +420,24 @@ function PlatformCards({
                     </div>
 
                     {/* Name + requirements */}
-                    <h3 className="font-body-mature text-[18px] font-semibold text-white">{p.name}</h3>
-                    <p className="mt-1 font-mono text-[12px] text-white/35">{p.requirement}</p>
+                    <h3 className="font-body-mature text-[19px] font-semibold text-white">{p.name}</h3>
+                    <p className="mt-1.5 font-mono text-[12px] leading-relaxed text-white/35">{p.requirement}</p>
 
-                    {/* Downloads */}
-                    <div className="mt-6 space-y-2.5 border-t border-white/[0.06] pt-5 flex-1">
-                      <button
-                        onClick={() => {
+                    {/* Download actions */}
+                    <div className="mt-7 space-y-2.5 border-t border-white/[0.06] pt-5">
+                      {/* Primary download */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           onSelect(p.key);
                           onDownload(downloads.primary.href, downloads.primary.label);
                         }}
                         className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[13px] font-medium transition-colors ${
                           isActive
-                            ? "bg-white/[0.10] text-white"
-                            : "bg-white/[0.03] text-white/60 hover:bg-white/[0.06] hover:text-white"
+                            ? "bg-white/[0.12] text-white"
+                            : "bg-white/[0.03] text-white/55 hover:bg-white/[0.07] hover:text-white"
                         }`}
                       >
                         <span className="flex items-center gap-2">
@@ -305,19 +445,24 @@ function PlatformCards({
                           {downloads.primary.label}
                         </span>
                         <Icon name="arrowRight" size={14} className="opacity-40" />
-                      </button>
+                      </div>
+
+                      {/* Secondary download */}
                       <a
                         href={downloads.secondary.href}
                         download
-                        onClick={() => onSelect(p.key)}
-                        className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[13px] text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(p.key);
+                        }}
+                        className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[13px] text-white/45 transition-colors hover:bg-white/[0.04] hover:text-white/80"
                       >
                         <span>{downloads.secondary.label}</span>
                         <Icon name="arrowRight" size={14} className="opacity-30" />
                       </a>
                     </div>
                   </div>
-                </motion.div>
+                </motion.button>
               </TiltCard>
             );
           })}
