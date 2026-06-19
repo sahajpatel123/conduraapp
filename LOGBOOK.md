@@ -6,6 +6,44 @@
 
 ---
 
+## [2026-06-19 13:05 IST] AI Model: Codex
+**Session ID:** tier-3-backend-workspace-analysis
+**Branch:** main
+**Task:** Perform a Tier 3 workspace analysis before beginning backend implementation.
+
+### Files created
+- `docs/analysis/tier-3-workspace-analysis-2026-06-19.md` — Evidence-based architecture, runtime wiring, safety, verification, and backend-priority assessment.
+
+### Files modified
+- `LOGBOOK.md` — Recorded the analysis session and its verification results.
+
+### Decisions made
+- Treat the repository as strong subsystem implementation with incomplete product integration, not as an end-to-end finished agent.
+- Make the first backend milestone a vertical `agent.ask` to gated computer-use path instead of adding more disconnected subsystem breadth.
+- Keep the user's active frontend edit in `web/components/home/SafetyTile.tsx` untouched.
+
+### Bugs / issues encountered
+- Production `GatedAgentExecutor` still wraps a no-op executor.
+- Delegation output action requests are parsed by a helper but never consumed by daemon runtime.
+- Delegation command templates and default policy contradict advertised agent support.
+- GUI kill-switch hotkey and voice capture are not wired into the Wails presence path.
+- CI coverage and integration jobs can report green without enforcing stated gates.
+
+### Verification
+- `go test ./...` — passed.
+- `go test -race -count=1 -timeout=300s ./...` — passed with macOS deprecation warnings.
+- `go vet ./...` — passed.
+- `golangci-lint run --timeout=5m` — passed, 0 issues.
+- Go command builds and both production frontend builds — passed.
+- Wails frontend tests — failed because no test files exist.
+- Next.js lint — failed with 9 errors and 5 warnings.
+
+### Open questions for next session
+- Should the first implementation milestone target only macOS ORAX/mac-cua, or define a cross-platform executor contract while delivering macOS first?
+- Which delegation CLIs are genuinely supported for v0.1, and what process sandbox boundary is acceptable?
+
+---
+
 ## [2026-06-18 03:54 IST] AI Model: Codex
 **Session ID:** web-hero-live-mac-demo
 **Task:** Replace the abstract right-side hero panels with a live-feeling Mac desktop demo using the supplied background screenshot.
@@ -2413,3 +2451,45 @@ Deleted the entire first build and rebuilt the landing page from scratch per the
 **Next steps:**
 - KIMI K2.6's website reset is in progress; the new `/ecosystem` page should be the source of truth for the canonical model list. After it lands, run `TestMarketingModels_AllRegistered` against the new file to catch any drift.
 - Phase 15 verification: spin up a clean macOS box, install condurad, configure an OpenAI key, confirm `gpt-5.5` is selectable in the model picker (will fail at runtime if the model ID isn't real — that's the actual contract test).
+
+---
+
+## [2026-06-19 13:30 IST] AI Model: minimax-m3 (opencode)
+**Session ID:** download-proxy-api
+**Branch:** main
+**Task:** Fix the download button on the website — it was redirecting users to the GitHub release page instead of directly downloading the DMG/EXE. Implemented a Next.js API route proxy that streams downloads from GitHub Releases with proper `Content-Disposition: attachment` headers.
+
+### Files created
+- `web/app/api/download/[platform]/route.ts` — Next.js API route that proxies downloads from GitHub Releases. Supports 15 platform/artifact combinations (mac, mac-intel, windows, windows-portable, linux, linux-rpm, linux-appimage, daemon variants, CLI variants). Streams the file with `Content-Disposition: attachment` to force browser download. Uses `GITHUB_TOKEN` env var if available to avoid rate limits. Returns helpful JSON error messages for unknown platforms.
+
+### Files modified
+- `web/lib/downloads.ts` — Updated all download hrefs from `https://github.com/.../releases/latest/download/...` to local `/api/download/...` URLs. Added documentation comments.
+- `web/components/download/DownloadPageView.tsx` — Updated the verification section's curl/PowerShell examples to use the new `/api/download/...` URLs.
+
+### Decisions made
+- **API route proxy over Next.js rewrites**: The API route approach gives us full control over response headers (specifically `Content-Disposition: attachment`), the ability to add analytics later, and doesn't depend on GitHub's redirect behavior.
+- **Node.js runtime**: The route uses `runtime = "nodejs"` because we need to stream large binary files (DMGs can be 10-20MB).
+- **Next.js 15+ Promise params**: The route handles `params` as a Promise (Next.js 15+ change) by `await`ing it.
+- **Graceful error handling**: Unknown platforms return a 404 with a list of available platforms. GitHub fetch failures return the original status code with a helpful error message.
+- **Optional GITHUB_TOKEN**: The route works without a token (just using GitHub's anonymous access) but supports a `GITHUB_TOKEN` env var for higher rate limits. This will be configured in Vercel environment variables when deployed.
+- **15 artifact combinations**: Added support for Intel mac, RPM, AppImage, daemon-only, and CLI-only builds even though the main UI only uses the primary 6. This makes the API future-proof for other download contexts.
+
+### Bugs / issues encountered
+- Initial implementation had a TypeScript error because Next.js 15+ changed `params` from a synchronous object to a `Promise<{...}>`. Fixed by adding `async/await` on the params destructuring.
+
+### Verification
+- `npx tsc --noEmit` — clean (0 errors).
+- `npx next build` — success. The `/api/download/[platform]` route is registered as a dynamic API route.
+- Manual test with `npx next start -p 3099`:
+  - `GET /api/download/unknown` returns `{"error":"Unknown platform","message":"Platform \"unknown\" is not supported.","availablePlatforms":[...]}` with 404 status.
+  - `GET /api/download/mac` returns `{"error":"Download failed","message":"Could not fetch the mac installer from GitHub.","status":404}` because the GitHub release artifacts don't exist yet (this is expected and correct behavior — the API correctly proxies whatever status GitHub returns).
+  - The download page HTML now contains `api/download/...` URLs instead of GitHub URLs.
+
+### Open questions for next session
+- When actual release artifacts are published to GitHub, the API route will serve them directly. No code changes needed.
+- Consider adding download analytics (count downloads per platform) in a future iteration.
+
+### Next steps
+1. Push this commit to `origin/main`.
+2. Monitor CI to ensure the new API route passes the build/lint checks.
+3. When v0.1.0 artifacts are published, verify end-to-end download flow.

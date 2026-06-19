@@ -558,16 +558,16 @@ function VerificationSection() {
 
         <div className="grid md:grid-cols-2 gap-6">
           <CodeBlock title="macOS / Linux" code={`# Download the archive
-curl -LO condura.app/dl/mac
+curl -LO condura.app/api/download/mac
 
 # Verify the hash
-shasum -a 256 condura.dmg
+shasum -a 256 condura-installer-mac.dmg
 
 # Compare with the GitHub release page
 # github.com/sahajpatel123/conduraapp
 #   /releases/tag/v0.1.0`} />
           <CodeBlock title="Windows (PowerShell)" code={`# Download the installer
-Invoke-WebRequest condura.app/dl/win
+Invoke-WebRequest condura.app/api/download/windows -OutFile condura-setup.exe
 
 # Verify the hash
 Get-FileHash condura-setup.exe -Algorithm SHA256
