@@ -60,6 +60,11 @@ func NewOpenAICompat(name, baseURL, apiKey string) *OpenAICompat {
 // Name returns the canonical provider name.
 func (p *OpenAICompat) Name() string { return p.NameVal }
 
+// GetHTTPClient returns the provider's underlying HTTP client.
+// Used by the daemon to wrap the client's transport with the
+// network guard (Layer 3 of the kill switch).
+func (p *OpenAICompat) GetHTTPClient() *http.Client { return p.HTTPClient }
+
 // Models returns the list of model IDs this provider can serve.
 func (p *OpenAICompat) Models() []ModelInfo { return p.ModelsList }
 

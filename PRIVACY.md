@@ -58,7 +58,7 @@ This helps us prioritize features and fix bugs. You can opt in or out at any tim
 | Screenshots (replay) | `~/.synaptic/replay/` | ✅ at rest |
 | Crash reports | sent to our error tracking service | ⚠️ if opted in |
 
-**Backup location** (on uninstall): `~/Documents/synaptic-backups/`
+**Backup location** (on uninstall): `~/Documents/condura-backups/`
 
 **P2P sync** (if enabled): your other devices, via E2E encrypted protocol. We never see the contents.
 
@@ -164,7 +164,7 @@ Material changes will be announced at least 30 days in advance, during which you
 
 ## Data Retention
 
-- **Local data**: as long as you keep Condura installed. Deleted when you uninstall (with auto-backup to `~/Documents/synaptic-backups/` for 30 days, then permanently deleted).
+- **Local data**: as long as you keep Condura installed. Deleted when you uninstall (with auto-backup to `~/Documents/condura-backups/` for 30 days, then permanently deleted).
 - **Opt-in telemetry**: 90 days, then aggregated (anonymized).
 - **Cloud backups** (if you use them): as long as you keep the account. Delete your account to delete all backups.
 - **OAuth tokens**: rotated automatically. Revoked when you log out or uninstall.

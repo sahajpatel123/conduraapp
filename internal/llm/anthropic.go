@@ -45,6 +45,11 @@ func NewAnthropic(apiKey string, models []ModelInfo) *Anthropic {
 // Name returns the canonical provider name.
 func (a *Anthropic) Name() string { return "anthropic" }
 
+// GetHTTPClient returns the Anthropic provider's underlying HTTP
+// client. Used by the daemon to wrap the transport with the
+// network guard.
+func (a *Anthropic) GetHTTPClient() *http.Client { return a.HTTPClient }
+
 // Models returns the list of model IDs this provider can serve.
 func (a *Anthropic) Models() []ModelInfo { return a.ModelsList }
 

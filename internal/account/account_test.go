@@ -341,7 +341,7 @@ func TestValidEmail(t *testing.T) {
 
 func TestGenerateAuthURL_UnknownProvider(t *testing.T) {
 	m, _ := newTestManager(t)
-	_, _, err := m.GenerateAuthURL("unknown", "synaptic://auth/callback")
+	_, _, err := m.GenerateAuthURL("unknown", "condura://auth/callback")
 	if err == nil {
 		t.Fatal("should reject unknown provider")
 	}
@@ -349,7 +349,7 @@ func TestGenerateAuthURL_UnknownProvider(t *testing.T) {
 
 func TestGenerateAuthURL_EmptyClientID(t *testing.T) {
 	m, _ := newTestManager(t)
-	_, _, err := m.GenerateAuthURL("google", "synaptic://auth/callback")
+	_, _, err := m.GenerateAuthURL("google", "condura://auth/callback")
 	if err == nil {
 		t.Fatal("should reject provider with empty ClientID")
 	}

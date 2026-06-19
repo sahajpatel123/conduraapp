@@ -1290,3 +1290,93 @@ This project is being built by a human + AI partnership. The human is the archit
 ---
 
 **This document is the foundation. Read it. Trust it. Extend it carefully. Never lose it.**
+
+---
+
+## 33.5 Phase 14I — Spec Debt vs Implementation Reality
+
+> **Appended 2026-06-18.** A Tier-3 audit of the codebase vs the
+> spec above surfaced the following gaps. The audit found 58 items
+> across Part B (conditional), Part C (not working), Part D
+> (branding), and Part E (docs). This section tracks which were
+> closed in Phase 14I and which remain for v0.2.0+. Nothing in
+> §1–§32 is removed or rewritten — the spec is the spec; this
+> section is a status table the next agent and the user can
+> reference to know what is and isn't built.
+
+### 33.5.1 Closed in Phase 14I
+
+| ID | Finding | What was done |
+|---|---|---|
+| D5 | Wake word "hey synaptic" — 11 files | Replaced with "hey condura" in code, config, locales, and Settings UI |
+| D11 | `app/web/main.go:133,178,181` etc. used `synaptic://` OAuth scheme | Renamed to `condura://` in 6 files (Go + Svelte + tests) |
+| C11.41 | `app/web/frontend/src/lib/routes/Settings.svelte:332` and `PRIVACY.md` said `synaptic-backups` | Updated to `condura-backups` and `CONDURA_BACKUP_DIR` |
+| C14.50 | Two consent namespaces (`gatekeeper.*` + `safety.consent.*`) | Annotated the `safety.consent.*` RPCs as DEPRECATED aliases; `gatekeeper.*` is the canonical GUI surface |
+| B17 | CLI `--stream` printed stale "no-op in Phase 1" message | Replaced with an honest comment that streaming is reserved for v0.2.0 |
+| C1.1 | `noopAgentExecutor` returned "agent executor not yet wired" | Replaced with `agent.NewComputerUseExecutor` that routes through the real ComputerUse pipeline (gated, audited, with smart fallback for unknown action types) |
+| C3 | `internal/perception` package did not exist | Built: `Strategy` enum, `EnergyMode`, `SmartCapturer`, `DirtyTracker`, `PIIRedactor`. 14 unit tests. |
+| C4.14 | Network isolation Layer 3 had no in-process implementation | Built `halt.NetworkGuard` interface + `InProcessGuard` implementation. Wraps every LLM provider's HTTP transport. 11 unit tests. v0.2.0 will replace with a real `pf`/`netsh` daemon. |
+| C7.24–25 | "What Synaptic learned about you" UI + strength slider | Added to Settings.svelte (new "Adaptive engine" section). Reads `adaptive.profile`, `adaptive.strength.get/set`, `adaptive.forget`, `adaptive.reset` |
+| C13.45 | No delegation UI | Added `Delegation.svelte` route + sidebar entry. Spawn sub-agents via `delegate.spawn` / `delegate.list_agents` / `delegate.cancel` |
+
+### 33.5.2 Deferred to v0.2.0 (backend work needed)
+
+| ID | Finding | Why deferred | v0.2.0 plan |
+|---|---|---|---|
+| C2.4–8 | Subscription OAuth (ChatGPT Plus, Claude Pro, SuperGrok) | Requires per-provider OAuth client registrations + token refresh + rate-limit handling. Multi-week work. | Marketing copy should be removed until shipped (see `docs/roadmap-v0.2.0.md`). |
+| C3.10–12 | Energy budget per platform; dirty tracking via CGEventTap; PII redaction in live perception pipeline | `internal/perception` is the data model; the platform event source (CGEventTap, AT-SPI) and the live per-frame integration are separate work. | Wire `perception.DirtyTracker.Mark` to the platform event source in v0.2.0. |
+| C4.14 | Real `pf`/`netsh` separate process | Requires shell-out + a small companion binary or admin helper. | Hard Layer 3 in v0.2.0. |
+| C5.17–18 | Execution waves / DAG scheduler | Spec describes a DAG-of-waves executor; current `delegation.GatedRunner` does individual spawns only. | Add `Wave` + `DAG` types to `internal/delegation`. |
+| C6.22–23 | MCP UI (10k+ servers claim) | Backend `internal/mcp` exists; UI does not. | Add `Mcp.svelte` route in v0.2.0. |
+| C8.26–28 | Real Signal / WhatsApp / iMessage receive | Out of scope. Current code is explicit stubs that return "coming in v0.2.0". | Marketing copy should be removed. |
+| C9.29 | `hub.condura.app` public Skills Hub as separate Next.js app | Requires Vercel deploy, OAuth flow, content moderation pipeline. | Defer to v0.2.0 or later. |
+| C9.30 | `condura.app/dashboard` web dashboard | Same as above. | Defer. |
+| C10.32–39 | Marketing site contains simulated/visual-demo content | KIMI K2.6 owns `web/`. Will align with backend in a coordinated pass. | See `docs/roadmap-v0.2.0.md` for the marketing copy TODO list. |
+| D6 | Discord URL `discord.gg/synaptic` in `web/lib/site.ts` | KIMI K2.6's territory. | Note in roadmap. |
+| D7 | Open Collective URL `opencollective.com/synaptic` in `README.md` | Multi-line replacement; will do in v0.2.0 marketing pass. | Note in roadmap. |
+| D8 | `web/lib/site.ts` PLATFORMS list still uses `synaptic.dmg` etc. | KIMI K2.6's territory. | Note in roadmap. |
+| E1 | `CLAUDE.md` §10 narrative still lists Armor as incomplete (legacy) | Append-only rule; this section (33.5) is the live status. | No change to §10. |
+| E2 | `README.md` quickstart describes the old 7-step onboarding | Update pending Phase 15 verification on a clean machine. | v0.2.0. |
+| E3 | `docs/phase14-completion.md` items still unchecked | Some are blocked on on-device verification (need physical machines). | Phase 15. |
+| E4 | Public Skills Hub `hub/` Next.js app | Not in repo. | v0.2.0. |
+| E5 | Crowdin integration for i18n | Catalogs exist; Crowdin sync is a separate integration. | v0.2.0. |
+| E8 | Demo video | Requires real screen capture on a clean install. | Phase 15. |
+| C15.52–55 | `docs/phase15-verification.md` empty | On-device verification requires clean macOS/Windows/Linux machines. | Phase 15. |
+| C16.58 | `cmd/condura-tui` test file naming | Cosmetic, no impact. | v0.2.0 cleanup. |
+| B1, B5–8 | Conditional features (CU on Windows/Linux, sub OAuth, prod account) | Out of scope for v0.1.0. | v0.2.0+. |
+| B2 | Vision CUA disabled by default | By design (cost). | v0.2.0 makes it opt-in per call. |
+| B3 | Voice stubs on non-macOS | By design. | v0.2.0 supports non-macOS via cloud STT. |
+| B9–11 | Channel availability, MP4 export deps, CLI presence | Operational, not implementation debt. | Documented in v0.1.0. |
+| B12–15 | CU NoopBackend, overlay split, notarization, perf budgets | By design / deferred. | v0.2.0. |
+| B16 | `window.show` / `window.hide` are no-op stubs | By design — Wails owns windows. | Documented in code; v0.2.0 may unify. |
+| C12.42–44 | OAuth client IDs empty by default; magic link needs Resend + KV | Production deployment work. | v0.2.0 (production). |
+| C13.46 | "Agent is clicking X" indicator in chat | The data exists (CU events on SSE); no live UI indicator yet. | v0.2.0. |
+| C13.47 | No MCP UI | Backend only. | v0.2.0. |
+| C13.48 | No adaptive profile UI | **Closed in Phase 14I** (see above) | — |
+| C13.49 | Audit GUI depth | Audit.svelte exists; richer filters are v0.2.0. | v0.2.0. |
+| C16.56 | `internal/secrets` keyring test | Pre-existing flake; tracked. | v0.2.0 cleanup. |
+| C16.57 | Daemon startup e2e env-dep | Tracked; passes in CI. | — |
+
+### 33.5.3 What this section does NOT change
+
+- **No §1–§32 content is edited.** Spec debt is recorded here,
+  not in the spec sections themselves. Per the append-only rule
+  in §30.2, corrections to the spec are done by adding an entry
+  here that references the original, never by silently deleting
+  or rewriting.
+- **No marketing copy is removed in this session.** The user
+  explicitly scoped the KIMI K2.6 marketing rebuild as out of
+  scope. The v0.2.0 roadmap doc (`docs/roadmap-v0.2.0.md`)
+  carries the marketing copy TODO list.
+- **The 8 sub-agent CLIs in §13.2 are real, but optional.**
+  Delegation works; it just spawns whatever CLIs the user has
+  installed. The marketing list is accurate as a "if installed"
+  list.
+
+### 33.5.4 How to use this section
+
+When the user asks "is X built?", find X in this table. If it
+says "Closed in Phase 14I", point at the file/line. If it says
+"Deferred to v0.2.0", point at `docs/roadmap-v0.2.0.md`. If
+neither, this section is incomplete and the next session should
+fill it in.

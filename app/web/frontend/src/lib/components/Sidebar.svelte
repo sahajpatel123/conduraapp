@@ -102,6 +102,15 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
       </a>
       <a
+        href="#/delegation"
+        class="rail-icon"
+        class:active={currentHash === '#/delegation'}
+        title="Sub-agents"
+      >
+        <span class="active-indicator"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
+      </a>
+      <a
         href="#/settings"
         class="rail-icon"
         class:active={currentHash === '#/settings'}

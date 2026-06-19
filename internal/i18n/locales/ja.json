@@ -135,7 +135,7 @@
   "channels.config_saved": "チャンネル設定を保存しました",
   "channels.required_field": "このフィールドは必須です",
   "voice.wake_word.title": "ウェイクワード",
-  "voice.wake_word.default": "デフォルト: \"hey synaptic\"",
+  "voice.wake_word.default": "デフォルト: \"hey condura\"",
   "voice.wake_word.custom": "カスタムウェイクワード",
   "voice.wake_word.training": "ウェイクワードをトレーニング",
   "voice.wake_word.trained": "ウェイクワードがトレーニングされました",

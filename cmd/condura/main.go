@@ -392,9 +392,12 @@ If <message> is "-" or omitted, the prompt is read from stdin.`)
 		return err
 	}
 	if *stream {
-		// Phase 1: stream is a placeholder. The daemon's chat endpoint
-		// is non-streaming. We just call it and print at the end.
-		fmt.Fprintln(os.Stderr, "note: --stream is a no-op in Phase 1 (daemon uses non-streaming chat)")
+		// --stream requests token-by-token output. The daemon supports
+		// streaming via the llm.stream RPC + SSE broker at /events, but
+		// the CLI uses the simpler non-streaming llm.chat path. This
+		// flag is reserved for v0.2.0 when the CLI will subscribe to
+		// stream.* events. Until then we silently fall back.
+		_ = stream
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

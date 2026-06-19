@@ -485,6 +485,6 @@ type WakeConfig struct {
 	// Sensitivity controls detection threshold (0.0–1.0).
 	// Higher = more sensitive. Default: 0.5.
 	Sensitivity float64 `yaml:"sensitivity"`
-	// Hotword is the wake phrase (default: "hey synaptic").
+	// Hotword is the wake phrase (default: "hey condura").
 	Hotword string `yaml:"hotword"`
 }

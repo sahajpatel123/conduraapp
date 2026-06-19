@@ -135,7 +135,7 @@
   "channels.config_saved": "Configuration du canal enregistrée",
   "channels.required_field": "Ce champ est obligatoire",
   "voice.wake_word.title": "Mot de réveil",
-  "voice.wake_word.default": "Par défaut : \"hey synaptic\"",
+  "voice.wake_word.default": "Par défaut : \"hey condura\"",
   "voice.wake_word.custom": "Mot de réveil personnalisé",
   "voice.wake_word.training": "Entraîner le mot de réveil",
   "voice.wake_word.trained": "Mot de réveil entraîné",

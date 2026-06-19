@@ -13,12 +13,23 @@ import (
 const errUnknownConsentTicket = "unknown or expired consent ticket"
 
 // registerSafetyMethods registers safety/consent RPC methods.
+//
+// These methods are the legacy surface; the canonical GUI-facing
+// surface is the gatekeeper.* namespace (see methods_gatekeeper.go).
+// The safety.consent.* registrations remain as DEPRECATED aliases
+// for backward compatibility with external test scripts and any
+// third-party callers, but new code must use gatekeeper.pending_consent /
+// gatekeeper.approve / gatekeeper.deny.
+//
+// safety.policy.reload and safety.halt are NOT aliased — they are
+// distinct concepts (policy refresh and kill switch) that the
+// safety namespace owns.
 func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Safety == nil {
 		return
 	}
 
-	// safety.consent.approve: the GUI approves a pending consent ticket.
+	// safety.consent.approve (DEPRECATED alias for gatekeeper.approve).
 	srv.Register("safety.consent.approve", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Nonce string `json:"nonce"`
@@ -32,7 +43,7 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		return auditOK(), nil
 	})
 
-	// safety.consent.deny: the GUI denies a pending consent ticket.
+	// safety.consent.deny (DEPRECATED alias for gatekeeper.deny).
 	srv.Register("safety.consent.deny", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Nonce string `json:"nonce"`
@@ -46,7 +57,7 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		return auditOK(), nil
 	})
 
-	// safety.consent.pending: list pending consent tickets for GUI enumeration.
+	// safety.consent.pending (DEPRECATED alias for gatekeeper.pending_consent).
 	srv.Register("safety.consent.pending", func(_ context.Context, _ json.RawMessage) (any, error) {
 		tickets := subs.Safety.Engine.Pending()
 		return map[string]any{"tickets": tickets}, nil

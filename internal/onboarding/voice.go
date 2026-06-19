@@ -29,7 +29,7 @@ type VoiceProbe struct {
 }
 
 // DefaultWakeWord is shown when no hotword is configured yet.
-const DefaultWakeWord = "hey synaptic"
+const DefaultWakeWord = "hey condura"
 
 // ProbeVoice returns the current voice readiness snapshot.
 func ProbeVoice() *VoiceProbe {

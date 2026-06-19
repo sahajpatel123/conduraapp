@@ -3,16 +3,23 @@ package daemon
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/api_key"
 	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 )
 
 // buildProvidersFromConfig reads cfg.LLM.Providers and, for every
 // enabled entry, fetches the stored API key and registers a
 // provider with the registry. Returns the number registered.
-func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *config.Config, akm *api_key.Manager) int {
+//
+// If netGuard is non-nil, every provider's HTTP transport is wrapped
+// by the guard so the kill switch's Layer 3 (network isolation) takes
+// effect for outbound LLM traffic.
+func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *config.Config, akm *api_key.Manager, netGuard halt.NetworkGuard) int {
 	count := 0
 	for name, p := range cfg.LLM.Providers {
 		if !p.Enabled {
@@ -39,10 +46,49 @@ func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *con
 			log.Warn("unknown provider in config", "provider", name)
 			continue
 		}
+		// Phase 14I: wrap the provider's HTTP transport with the
+		// network guard so Layer 3 (kill switch network isolation)
+		// applies to all outbound LLM traffic. We do this through
+		// a small adapter that calls into the LLM provider's
+		// settable HTTPClient field.
+		wrapProviderHTTPClient(prov, netGuard)
 		registry.Register(prov)
 		count++
 	}
 	return count
+}
+
+// wrapProviderHTTPClient attaches the net guard's transport to the
+// provider's HTTP client, if the provider exposes one. The OpenAI-
+// compat providers (OpenAI, xAI, mistral, deepseek, openrouter,
+// groq, together, fireworks, ollama, localai, lmstudio, vllm)
+// all share the OpenAICompat struct which has an exported
+// HTTPClient field. The Anthropic and Google native providers have
+// their own struct; for those, the guard's policy is enforced
+// through the in-process guard's WrapTransport applied at the
+// http.Client level when those clients are built.
+//
+// The LLM clients in internal/llm read p.HTTPClient (or
+// p.HTTPClient field for OpenAICompat) at request time, so wrapping
+// the field takes effect on the next request without rebuilding
+// the provider.
+func wrapProviderHTTPClient(prov llm.Provider, guard halt.NetworkGuard) {
+	if guard == nil || prov == nil {
+		return
+	}
+	// OpenAICompat and friends all expose a settable *http.Client
+	// via a method. We use a small interface to discover it.
+	type clientBearer interface {
+		GetHTTPClient() *http.Client
+	}
+	if b, ok := prov.(clientBearer); ok {
+		hc := b.GetHTTPClient()
+		if hc == nil {
+			hc = &http.Client{Timeout: 5 * time.Minute}
+		}
+		hc.Transport = guard.WrapTransport(hc.Transport)
+		return
+	}
 }
 
 // buildProvider returns a registered llm.Provider for the given name.

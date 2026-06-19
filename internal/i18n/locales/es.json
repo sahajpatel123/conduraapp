@@ -135,7 +135,7 @@
   "channels.config_saved": "Configuración del canal guardada",
   "channels.required_field": "Este campo es obligatorio",
   "voice.wake_word.title": "Palabra de activación",
-  "voice.wake_word.default": "Predeterminada: \"hey synaptic\"",
+  "voice.wake_word.default": "Predeterminada: \"hey condura\"",
   "voice.wake_word.custom": "Palabra de activación personalizada",
   "voice.wake_word.training": "Entrenar palabra de activación",
   "voice.wake_word.trained": "Palabra de activación entrenada",

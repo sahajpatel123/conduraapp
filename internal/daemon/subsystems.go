@@ -89,6 +89,7 @@ type Subsystems struct {
 	Conversations *conversation.Store
 	Audit         *audit.Log
 	Halt          *halt.Flag
+	NetGuard      halt.NetworkGuard
 	Telemetry     *telemetry.Reporter
 	Updater       *updater.Updater
 	Window        *window.Manager
@@ -463,7 +464,10 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 
 	akm := api_key.New(db, sm)
 	registry := llm.NewRegistry()
-	registered := buildProvidersFromConfig(log, registry, cfg, akm)
+	// netGuard is declared later (alongside haltFlag) so it's
+	// available to all subsystem wiring. Until then, pass nil
+	// to the provider build; we'll re-wrap transports below.
+	registered := buildProvidersFromConfig(log, registry, cfg, akm, nil)
 	log.Info("llm registry ready", "registered_providers", registered)
 
 	mon := failover.NewSpendMonitor(failover.SpendCap{USDPerDay: cfg.Security.SpendLimitUSDPerDay})
@@ -492,6 +496,11 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	auditLog := audit.New(db.SQL(), db.MasterKey())
 	haltFlag := halt.New(db.SQL())
 	_ = haltFlag.Refresh(context.Background())
+	// Phase 14I: Layer 3 of the kill switch — network guard.
+	// The in-process guard wraps the LLM HTTP transports below;
+	// when Halt is called, all outbound HTTP is denied except to
+	// allow-listed providers. See internal/halt/network.go.
+	netGuard := halt.NewInProcessGuard()
 	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)
 	tel.SetEnabled(cfg.Telemetry.Enabled)
 	upd := updater.New(db.SQL(), resolveUpdateManifestURL(cfg))
@@ -554,17 +563,41 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// embedded.
 	ovl := overlay.NewNoopController()
 
-	// GatedAgentExecutor wraps the agent loop's executor with
-	// the Gatekeeper. The agent loop's Executor interface is
-	// unchanged; wrapping is done at the composition site so
-	// the loop remains testable with a plain Executor.
-	gatedAgentExec := agent.NewGatedExecutor(noopAgentExecutor{}, gate, auditLog)
-
 	// GatedComputerUseExecutor is the parallel wrapper for the
 	// computer-use backends. It uses the ORAX backend if available;
 	// falls back to a noop if no real backend exists. The gatekeeper
 	// always applies; decisions are audited.
+	//
+	// Computed BEFORE the agent leaf executor so the agent loop can
+	// wrap the same CU pipeline through agent.NewComputerUseExecutor
+	// (Phase 14I: real agent actions on the user's machine).
 	cuComps := buildCUComponents(gate, haltFlag, &registryPlannerAdapter{r: registry, name: primaryName}, primaryModel)
+
+	// GatedAgentExecutor wraps the agent loop's executor with
+	// the Gatekeeper. The agent loop's Executor interface is
+	// unchanged; wrapping is done at the composition site so
+	// the loop remains testable with a plain Executor.
+	//
+	// Phase 14I: when the computer-use pipeline is wired (real or
+	// noop backend), we wrap it through agent.NewComputerUseExecutor
+	// so chat messages can drive real actions on the user's machine.
+	// If no CU pipeline is available (defensive), we keep the
+	// historical noopAgentExecutor that returns a clear "not wired"
+	// error to the loop.
+	var agentLeaf agent.Executor = noopAgentExecutor{}
+	if cuComps != nil && cuComps.gated != nil {
+		// cuComps.gated is *computeruse.GatedExecutor; it already wraps
+		// the real computer-use backends. We use the inner ComputerUse
+		// (cuComps.gated.CU()) via a translator so the agent.Actions
+		// the loop emits flow into the gated pipeline.
+		agentLeaf = agent.NewComputerUseExecutor(cuComps.gated.CU())
+	}
+	gatedAgentExec := agent.NewGatedExecutor(agentLeaf, gate, auditLog)
+
+	// cuComps was computed above (line ~565) for the agent leaf. Now
+	// use it to set up the GatedCUExecutor + CULoop for direct CU
+	// action invocations from the GUI / API. Falls back to a noop
+	// backend if no LLM provider is configured.
 	var gatedCUExec *computeruse.GatedExecutor
 	var cuLoop *agent.CULoop
 	if cuComps != nil {
@@ -670,6 +703,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
 		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
+		NetGuard:  netGuard,
 		Telemetry: tel, Updater: upd, Window: winMgr,
 		Broker: broker, Streams: streamMgr,
 		Gatekeeper:               gate,
@@ -899,7 +933,7 @@ func (s *Subsystems) RebuildProviders() int {
 	if s.LLM == nil || s.cfg == nil {
 		return 0
 	}
-	registered := buildProvidersFromConfig(slog.Default(), s.LLM, s.cfg, s.APIKeys)
+	registered := buildProvidersFromConfig(slog.Default(), s.LLM, s.cfg, s.APIKeys, s.NetGuard)
 	s.rebuildSessionFactory()
 	return registered
 }

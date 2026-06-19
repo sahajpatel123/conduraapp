@@ -135,7 +135,7 @@
   "channels.config_saved": "Channel configuration saved",
   "channels.required_field": "This field is required",
   "voice.wake_word.title": "Wake word",
-  "voice.wake_word.default": "Default: \"hey synaptic\"",
+  "voice.wake_word.default": "Default: \"hey condura\"",
   "voice.wake_word.custom": "Custom wake word",
   "voice.wake_word.training": "Train wake word",
   "voice.wake_word.trained": "Wake word trained",

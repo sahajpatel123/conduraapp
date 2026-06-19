@@ -11,7 +11,7 @@
   let { onClose }: Props = $props()
 
   // Desktop deep-link the daemon registers for the OAuth redirect.
-  const OAUTH_REDIRECT = 'synaptic://auth/callback'
+  const OAUTH_REDIRECT = 'condura://auth/callback'
   // Where the magic link lands the user back.
   const MAGIC_REDIRECT = 'https://condura.app/auth/verify'
 

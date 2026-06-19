@@ -126,11 +126,11 @@ func main() {
 	}
 }
 
-// handleOpenURL is called by the OS when a synaptic:// URL is
+// handleOpenURL is called by the OS when a condura:// URL is
 // opened. On macOS this fires via the OnUrlOpen callback. We queue
 // the URL for processing once the daemon is ready.
 func handleOpenURL(rawURL string) {
-	if rawURL == "" || !strings.HasPrefix(rawURL, "synaptic://") {
+	if rawURL == "" || !strings.HasPrefix(rawURL, "condura://") {
 		return
 	}
 	pendingOAuthMu.Lock()
@@ -152,7 +152,7 @@ func processPendingOAuth() {
 	}
 }
 
-// processOAuthCallback parses a synaptic://auth/callback URL and
+// processOAuthCallback parses a condura://auth/callback URL and
 // calls the daemon's account.oauth_callback RPC. On success, it
 // emits a frontend event so the UI can refresh its signed-in state.
 func processOAuthCallback(rawURL string) {
@@ -175,10 +175,10 @@ func processOAuthCallback(rawURL string) {
 		return
 	}
 	ctx := context.Background()
-	sess, err := embeddedDaemon.Account.ExchangeCode(ctx, "google", code, state, "synaptic://auth/callback")
+	sess, err := embeddedDaemon.Account.ExchangeCode(ctx, "google", code, state, "condura://auth/callback")
 	if err != nil {
 		// Try GitHub as fallback.
-		sess, err = embeddedDaemon.Account.ExchangeCode(ctx, "github", code, state, "synaptic://auth/callback")
+		sess, err = embeddedDaemon.Account.ExchangeCode(ctx, "github", code, state, "condura://auth/callback")
 	}
 	if err != nil || sess == nil {
 		slog.Error("condura-gui: oauth token exchange failed", "err", err)
@@ -187,7 +187,7 @@ func processOAuthCallback(rawURL string) {
 	slog.Info("condura-gui: oauth callback processed", "email", sess.Email, "provider", sess.Provider)
 	// Emit event to frontend so the UI can refresh signed-in state.
 	if appInstance != nil && appInstance.ctx != nil {
-		wailsruntime.EventsEmit(appInstance.ctx, "synaptic:oauth-callback",
+		wailsruntime.EventsEmit(appInstance.ctx, "condura:oauth-callback",
 			map[string]interface{}{
 				"signed_in": true,
 				"email":     sess.Email,

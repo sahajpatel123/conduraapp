@@ -38,6 +38,11 @@ func NewGoogle(apiKey string, models []ModelInfo) *Google {
 // Name returns the canonical provider name.
 func (g *Google) Name() string { return "google" }
 
+// GetHTTPClient returns the Google provider's underlying HTTP
+// client. Used by the daemon to wrap the transport with the
+// network guard.
+func (g *Google) GetHTTPClient() *http.Client { return g.HTTPClient }
+
 // Models returns the list of model IDs this provider can serve.
 func (g *Google) Models() []ModelInfo { return g.ModelsList }
 

@@ -135,7 +135,7 @@
   "channels.config_saved": "Kanal-Konfiguration gespeichert",
   "channels.required_field": "Dieses Feld ist erforderlich",
   "voice.wake_word.title": "Aufwachwort",
-  "voice.wake_word.default": "Standard: \"hey synaptic\"",
+  "voice.wake_word.default": "Standard: \"hey condura\"",
   "voice.wake_word.custom": "Benutzerdefiniertes Aufwachwort",
   "voice.wake_word.training": "Aufwachwort trainieren",
   "voice.wake_word.trained": "Aufwachwort trainiert",

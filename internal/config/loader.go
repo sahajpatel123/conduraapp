@@ -225,7 +225,7 @@ func Default() *Config {
 				Enabled:     false,
 				ModelPath:   "",
 				Sensitivity: 0.5,
-				Hotword:     "hey synaptic",
+				Hotword:     "hey condura",
 			},
 		},
 	}

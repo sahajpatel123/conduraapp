@@ -1,6 +1,6 @@
 // Package voice — wake word / hotword detection (Phase 14E).
 //
-// WakeWordDetector listens for a specific phrase ("hey synaptic")
+// WakeWordDetector listens for a specific phrase ("hey condura")
 // on the microphone stream. When detected, it signals the voice
 // pipeline to begin active listening.
 //

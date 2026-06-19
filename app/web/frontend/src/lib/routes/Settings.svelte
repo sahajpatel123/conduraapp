@@ -23,6 +23,25 @@
   let eulaText = $state('')
   let eulaTitle = $state('')
   let eulaVersion = $state('')
+  // Adaptive engine (Phase 14I)
+  let adaptiveStrength = $state<'off' | 'cautious' | 'balanced' | 'aggressive'>('balanced')
+  let adaptiveProfile = $state<{
+    identity?: Record<string, string>
+    preferences?: Record<string, string>
+    style?: Record<string, string>
+    workflows?: string[]
+    expertise?: Record<string, number>
+    pet_peeves?: string[]
+    time_patterns?: Record<string, string>
+    tools_habits?: Record<string, number>
+    model_prefs?: Record<string, string>
+    risk_tolerance?: string
+    communication?: Record<string, string>
+    last_updated?: string
+    version?: number
+  } | null>(null)
+  let adaptiveLoading = $state(false)
+  let adaptiveError = $state<string | null>(null)
   let rerunning = $state(false)
 
   // Account (14B)
@@ -31,7 +50,7 @@
   // Voice (14H) — read/written via generic config RPCs because the
   // typed AppConfig doesn't model the voice subtree.
   interface WakeCfg { enabled: boolean; sensitivity: number; hotword: string }
-  let wake = $state<WakeCfg>({ enabled: false, sensitivity: 0.5, hotword: 'hey synaptic' })
+  let wake = $state<WakeCfg>({ enabled: false, sensitivity: 0.5, hotword: 'hey condura' })
   let micTestResult = $state('')
 
   async function loadVoice(): Promise<void> {
@@ -42,7 +61,7 @@
         wake = {
           enabled: w.enabled ?? false,
           sensitivity: w.sensitivity ?? 0.5,
-          hotword: w.hotword ?? 'hey synaptic',
+          hotword: w.hotword ?? 'hey condura',
         }
       }
     } catch {
@@ -79,7 +98,57 @@
   onMount(() => {
     void account.checkStatus()
     void loadVoice()
+    void loadAdaptive()
   })
+
+  async function loadAdaptive(): Promise<void> {
+    adaptiveLoading = true
+    adaptiveError = null
+    try {
+      // Read the engine strength.
+      const strengthResp = await ipc.call<{ strength: string }>('adaptive.strength.get', {})
+      const s = (strengthResp?.strength ?? 'balanced') as typeof adaptiveStrength
+      if (s === 'off' || s === 'cautious' || s === 'balanced' || s === 'aggressive') {
+        adaptiveStrength = s
+      }
+      // Read the user model.
+      const profile = await ipc.call<typeof adaptiveProfile>('adaptive.profile', {})
+      adaptiveProfile = profile ?? null
+    } catch (e) {
+      adaptiveError = String(e)
+    } finally {
+      adaptiveLoading = false
+    }
+  }
+
+  async function setAdaptiveStrength(s: typeof adaptiveStrength): Promise<void> {
+    adaptiveStrength = s
+    try {
+      await ipc.call('adaptive.strength.set', { strength: s })
+    } catch (e) {
+      adaptiveError = String(e)
+    }
+  }
+
+  async function forgetAdaptiveField(field: string, value: string): Promise<void> {
+    if (!confirm(`Forget that you ${field === 'pet_peeves' ? 'dislike' : 'have'} "${value}"?`)) return
+    try {
+      await ipc.call('adaptive.forget', { field, value })
+      void loadAdaptive()
+    } catch (e) {
+      adaptiveError = String(e)
+    }
+  }
+
+  async function resetAdaptive(): Promise<void> {
+    if (!confirm('Delete all learned inferences and start fresh? This cannot be undone.')) return
+    try {
+      await ipc.call('adaptive.reset', {})
+      void loadAdaptive()
+    } catch (e) {
+      adaptiveError = String(e)
+    }
+  }
 
   function providerLabel(p: string): string {
     switch (p) {
@@ -263,7 +332,7 @@
         type="text"
         class="input"
         bind:value={wake.hotword}
-        placeholder="hey synaptic"
+        placeholder="hey condura"
         disabled={!wake.enabled}
       />
       <button class="btn btn-ghost" onclick={saveVoice} disabled={!wake.enabled}>Save phrase</button>
@@ -329,7 +398,7 @@
 
   <section class="card">
     <h3>Backups</h3>
-    <p class="muted">Encrypted archives are stored in <code>~/Documents/synaptic-backups</code> (or <code>SYNAPTIC_BACKUP_DIR</code>).</p>
+    <p class="muted">Encrypted archives are stored in <code>~/Documents/condura-backups</code> (or set <code>CONDURA_BACKUP_DIR</code> to override).</p>
     <div class="row">
       <button class="btn btn-primary" onclick={createBackup} disabled={creatingBackup}>
         {creatingBackup ? 'Creating…' : 'Create backup now'}
@@ -381,6 +450,80 @@
         </ol>
         <button class="btn btn-ghost" onclick={() => { permissionGuide = null }}>Close</button>
       </div>
+    {/if}
+  </section>
+
+  <section class="card">
+    <h3>Adaptive engine</h3>
+    <p class="muted">
+      Condura learns your preferences over time — your writing style, your tool habits, the kinds of
+      tasks you do at what time of day. It is local: nothing about you leaves this machine.
+    </p>
+    {#if adaptiveError}
+      <p class="error">{adaptiveError}</p>
+    {/if}
+    <div class="strength">
+      <span class="label">Strength</span>
+      <select
+        value={adaptiveStrength}
+        onchange={(e) => setAdaptiveStrength((e.target as HTMLSelectElement).value as typeof adaptiveStrength)}
+        disabled={adaptiveLoading}
+      >
+        <option value="off">Off — observe nothing, apply nothing</option>
+        <option value="cautious">Cautious — observe, never apply automatically</option>
+        <option value="balanced">Balanced — apply safe categories (verbosity, time patterns)</option>
+        <option value="aggressive">Aggressive — apply everything learned</option>
+      </select>
+    </div>
+    {#if adaptiveProfile}
+      <h4 class="sub">What Condura has learned about you</h4>
+      {#if adaptiveProfile.preferences && Object.keys(adaptiveProfile.preferences).length > 0}
+        <div class="profile-group">
+          <span class="profile-label">Preferences</span>
+          {#each Object.entries(adaptiveProfile.preferences) as [k, v]}
+            <div class="profile-row">
+              <span class="k">{k}</span>
+              <span class="v">{v}</span>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('preferences', k)}>Forget</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#if adaptiveProfile.style && Object.keys(adaptiveProfile.style).length > 0}
+        <div class="profile-group">
+          <span class="profile-label">Style</span>
+          {#each Object.entries(adaptiveProfile.style) as [k, v]}
+            <div class="profile-row">
+              <span class="k">{k}</span>
+              <span class="v">{v}</span>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('style', k)}>Forget</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#if adaptiveProfile.pet_peeves && adaptiveProfile.pet_peeves.length > 0}
+        <div class="profile-group">
+          <span class="profile-label">Pet peeves</span>
+          {#each adaptiveProfile.pet_peeves as p}
+            <div class="profile-row">
+              <span class="v">{p}</span>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('pet_peeves', p)}>Forget</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#if (!adaptiveProfile.preferences || Object.keys(adaptiveProfile.preferences).length === 0) &&
+        (!adaptiveProfile.style || Object.keys(adaptiveProfile.style).length === 0) &&
+        (!adaptiveProfile.pet_peeves || adaptiveProfile.pet_peeves.length === 0)}
+        <p class="muted">
+          Nothing learned yet. Use Condura for a while — preferences will appear here as the
+          dialectic settles on confident inferences.
+        </p>
+      {/if}
+      {#if adaptiveProfile.last_updated}
+        <p class="muted small">Last updated: {new Date(adaptiveProfile.last_updated).toLocaleString()}</p>
+      {/if}
+      <button class="btn btn-ghost" onclick={resetAdaptive}>Reset everything</button>
     {/if}
   </section>
 
@@ -722,4 +865,16 @@
   .slider-label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
   .slider-row input[type='range'] { flex: 1; accent-color: var(--color-accent); }
   .slider-val { font-family: var(--font-mono); font-size: var(--size-sm); min-width: 44px; text-align: right; }
+  .strength { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0 var(--space-4); }
+  .strength .label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
+  .strength select { flex: 1; padding: 6px 10px; background: var(--color-bg-elev, rgba(255,255,255,0.04)); color: var(--color-text); border: 1px solid var(--glass-border); border-radius: var(--radius-md, 6px); }
+  .sub { margin-top: var(--space-3); font-size: var(--size-sm); font-weight: 600; }
+  .profile-group { margin: var(--space-2) 0; }
+  .profile-label { display: block; color: var(--color-text-muted); font-size: var(--size-xs); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .profile-row { display: flex; align-items: center; gap: var(--space-2); padding: 4px 0; font-size: var(--size-sm); }
+  .profile-row .k { color: var(--color-text-muted); min-width: 100px; }
+  .profile-row .v { flex: 1; }
+  .btn-xs { padding: 2px 8px; font-size: var(--size-xs); }
+  .small { font-size: var(--size-xs); }
+  .error { color: var(--color-error, #f87171); margin: var(--space-2) 0; }
 </style>

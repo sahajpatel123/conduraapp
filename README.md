@@ -40,12 +40,18 @@ make build
    - **Windows:** `condura-gui-windows-amd64.exe` (or `-setup.exe` when present)
    - **Linux:** `condura-gui-linux-amd64` or `condurad_*_linux_amd64.deb`
 2. **Install** — drag to Applications (mac), run installer/portable exe (win), or `chmod +x` the binary (linux).
-3. **Launch** Condura and complete the first-run onboarding:
+3. **Launch** Condura and complete the first-run onboarding (4 screens):
    - Accept the EULA
-   - Connect a subscription (ChatGPT Plus, Claude Pro, Gemini AI Pro, SuperGrok) **or** paste an API key **or** use a local model (Ollama)
-   - Grant OS permissions (Accessibility, Microphone, Screen Recording)
-   - Pick a hotkey
+   - Grant OS permissions (Accessibility + Screen Recording). Microphone is requested later from Settings when you enable voice.
+   - Pick a global hotkey (no default per locked decision #8)
+   - Optionally connect a provider in Settings, or use the local Ollama instance if it's already running
 4. **Tap your hotkey** → overlay appears. Type or speak a task. Done.
+
+> **Note on providers in v0.1.0:** Condura accepts API keys for 12+ LLM
+> providers (Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, OpenRouter,
+> Groq, Together, Fireworks, plus local Ollama / LocalAI / LM Studio / vLLM).
+> Subscription OAuth (ChatGPT Plus, Claude Pro, SuperGrok) is on the
+> v0.2.0 roadmap — see `docs/roadmap-v0.2.0.md`.
 
 ---
 

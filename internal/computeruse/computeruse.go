@@ -224,6 +224,19 @@ func NewGatedExecutor(cu *ComputerUse, gate gatekeeper.Gatekeeper) *GatedExecuto
 	return &GatedExecutor{cu: cu, gate: gate}
 }
 
+// CU returns the underlying ComputerUse pipeline. Used by the
+// agent loop in subsystems.go to wrap a real CU pipeline through
+// agent.NewComputerUseExecutor so agent.Actions flow into the
+// same gated backends. The GatedExecutor's own gate still applies
+// via computeruse.Execute → ge.cu.Execute; the agent executor
+// calls CU() to skip the GatedExecutor's redundant gate check.
+func (ge *GatedExecutor) CU() *ComputerUse {
+	if ge == nil {
+		return nil
+	}
+	return ge.cu
+}
+
 // New creates a new ComputerUse instance with the given backends.
 func New(backends ...Backend) *ComputerUse {
 	return &ComputerUse{

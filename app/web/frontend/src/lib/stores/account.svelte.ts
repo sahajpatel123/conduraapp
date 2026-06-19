@@ -10,7 +10,7 @@
 //   1. Google / GitHub / Apple OAuth:
 //      - call accountOAuthURL(provider) → open returned URL
 //      - user consents at the provider
-//      - provider redirects to synaptic://oauth-callback?code=...&state=...
+//      - provider redirects to condura://oauth-callback?code=...&state=...
 //      - the GUI's handleCallback(code, state) calls
 //        accountOAuthCallback() and stores the result.
 //   2. Magic link (no third-party OAuth):

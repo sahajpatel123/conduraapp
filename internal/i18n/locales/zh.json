@@ -135,7 +135,7 @@
   "channels.config_saved": "频道配置已保存",
   "channels.required_field": "此字段为必填项",
   "voice.wake_word.title": "唤醒词",
-  "voice.wake_word.default": "默认: \"hey synaptic\"",
+  "voice.wake_word.default": "默认: \"hey condura\"",
   "voice.wake_word.custom": "自定义唤醒词",
   "voice.wake_word.training": "训练唤醒词",
   "voice.wake_word.trained": "唤醒词已训练",

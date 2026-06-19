@@ -40,7 +40,7 @@ func registerAccountMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
-		url, state, err := subs.Account.GenerateAuthURL(p.Provider, "synaptic://auth/callback")
+		url, state, err := subs.Account.GenerateAuthURL(p.Provider, "condura://auth/callback")
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
@@ -61,7 +61,7 @@ func registerAccountMethods(srv *ipc.Server, subs *Subsystems) {
 		var sess *account.Session
 		var lastErr error
 		for _, prov := range providers {
-			sess, lastErr = subs.Account.ExchangeCode(ctx, prov, p.Code, p.State, "synaptic://auth/callback")
+			sess, lastErr = subs.Account.ExchangeCode(ctx, prov, p.Code, p.State, "condura://auth/callback")
 			if lastErr == nil {
 				break
 			}
