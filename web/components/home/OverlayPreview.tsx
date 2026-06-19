@@ -5,20 +5,24 @@ import { motion, AnimatePresence } from "motion/react";
 import { EASE_OUT } from "@/lib/motion";
 
 /**
- * OverlayPreview — the hero's right side, finally understandable.
+ * OverlayPreview — the hero's right side: the product, shown honestly.
  *
- * Not a terminal. The actual product UI a user will see: a floating chat
- * overlay with a real conversation cycling through relatable examples.
- * Each example shows a user message, which agent Condura routed it to,
- * and the response — so a first-time visitor instantly gets it:
+ * Two layers, both auto-running, both useful:
  *
- *   "Oh. I press a hotkey. This window appears. I ask anything. It uses
- *    the AI I already have. And it's safe."
+ *   1. The chat overlay — the actual product UI a user sees. A real
+ *      conversation cycles through relatable day-to-day examples, each
+ *      showing the user message, which agent it routed to, and the
+ *      response. A visitor instantly gets it: press a hotkey, this
+ *      window appears, ask anything, it uses the AI you already have,
+ *      and it's safe.
  *
- * Below the chat, four clear badges state what makes it different:
- * Free · Runs on your machine · Uses your AI subscriptions · Every action safety-checked
+ *   2. "Your first 60 seconds" — an auto-stepping timeline beneath the
+ *      chat showing the real onboarding journey: Install → Set hotkey →
+ *      Grant access → First task → Done. Each step has a tiny visual.
+ *      This closes the gap between "I see what it does" and "I can
+ *      picture myself doing it" — the last mile before download.
  *
- * Minimal. No glow, no aurora. Just the product, shown honestly.
+ * Minimal. No glow, no aurora. Just the product and the path to it.
  */
 
 type Conv = {
@@ -57,19 +61,29 @@ const CONVERSATIONS: Conv[] = [
   },
 ];
 
-const BADGES = [
-  { label: "Free forever" },
-  { label: "Runs on your machine" },
-  { label: "Uses your AI subscriptions" },
-  { label: "Every action safety-checked" },
+const FIRST_60: { step: string; title: string; sub: string }[] = [
+  { step: "00s", title: "Install", sub: "Drag to Applications. 11 MB." },
+  { step: "15s", title: "Set hotkey", sub: "Press any combo. It's yours." },
+  { step: "25s", title: "Grant access", sub: "Accessibility + screen. Reversible." },
+  { step: "35s", title: "First task", sub: "Press your hotkey. Ask anything." },
+  { step: "60s", title: "Done", sub: "It's running. Your keys. Your machine." },
 ];
 
 export default function OverlayPreview({ active }: { active: boolean }) {
   const [idx, setIdx] = useState(0);
+  const [step, setStep] = useState(0);
 
+  // Cycle chat examples
   useEffect(() => {
     if (!active) return;
     const timer = setInterval(() => setIdx((p) => (p + 1) % CONVERSATIONS.length), 5500);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  // Cycle first-60 steps (slightly slower, independent of chat)
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setStep((p) => (p + 1) % FIRST_60.length), 2600);
     return () => clearInterval(timer);
   }, [active]);
 
@@ -83,7 +97,7 @@ export default function OverlayPreview({ active }: { active: boolean }) {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
         {/* Title bar */}
-        <div className="h-9 border-b border-white/[0.06] flex items-center px-4 bg-[#161616]">
+        <div className="h-9 border-b border-white/[0.06] flex items-center px-4 bg-[#161616] relative">
           <div className="flex gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
             <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
@@ -167,25 +181,123 @@ export default function OverlayPreview({ active }: { active: boolean }) {
         </div>
       </div>
 
-      {/* ── Feature badges — what makes it different, in plain words ── */}
-      <div className="grid grid-cols-2 gap-2">
-        {BADGES.map((b, i) => (
-          <motion.div
-            key={b.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 * i + 0.2, duration: 0.4, ease: EASE_OUT }}
-            className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.015] px-3 py-2.5"
-          >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.03]">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/55">
-                <path d="M5 12l5 5 9-10" />
-              </svg>
-            </span>
-            <span className="font-body-mature text-[11.5px] text-white/65 leading-tight">{b.label}</span>
-          </motion.div>
-        ))}
+      {/* ── "Your first 60 seconds" — the onboarding journey, auto-stepping ── */}
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4">
+        <div className="flex items-center justify-between mb-3.5 px-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+            Your first 60 seconds
+          </span>
+          <span className="font-mono text-[10px] text-white/25">
+            {FIRST_60[step].step}
+          </span>
+        </div>
+
+        {/* Step rail — 5 connected segments */}
+        <div className="flex items-center gap-1.5 mb-4 px-1">
+          {FIRST_60.map((s, i) => {
+            const isActive = i === step;
+            const isDone = i < step;
+            return (
+              <div
+                key={s.step}
+                className="relative h-1 flex-1 rounded-full overflow-hidden bg-white/[0.06]"
+              >
+                <motion.div
+                  initial={false}
+                  animate={{ width: isDone ? "100%" : isActive ? "100%" : "0%" }}
+                  transition={{ duration: isActive ? 2.6 : 0.3, ease: "linear" }}
+                  className={`absolute inset-y-0 left-0 rounded-full ${isDone ? "bg-white/35" : "bg-white/55"}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Active step content — tiny visual + title + sub */}
+        <div className="px-1 min-h-[58px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`step-${step}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.35, ease: EASE_OUT }}
+              className="flex items-center gap-3.5"
+            >
+              <StepVisual step={step} />
+              <div className="flex flex-col">
+                <span className="font-body-mature text-[13px] font-semibold text-white leading-tight">
+                  {FIRST_60[step].title}
+                </span>
+                <span className="font-body-mature text-[11.5px] text-white/45 leading-tight mt-0.5">
+                  {FIRST_60[step].sub}
+                </span>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Per-step minimal visuals ── */
+
+function StepVisual({ step }: { step: number }) {
+  const cls = "shrink-0 flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/60";
+
+  if (step === 0) {
+    // Install — a download arrow into a tray
+    return (
+      <div className={cls}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3v12" />
+          <path d="M7 10l5 5 5-5" />
+          <path d="M5 21h14" />
+        </svg>
+      </div>
+    );
+  }
+  if (step === 1) {
+    // Set hotkey — a key cap
+    return (
+      <div className={cls}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="7" width="18" height="11" rx="2.5" />
+          <path d="M7 11h2M11 11h2M15 11h2" />
+        </svg>
+      </div>
+    );
+  }
+  if (step === 2) {
+    // Grant access — a shield with a check
+    return (
+      <div className={cls}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      </div>
+    );
+  }
+  if (step === 3) {
+    // First task — a chat bubble
+    return (
+      <div className={cls}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z" />
+          <path d="M8 11h8M8 14h5" />
+        </svg>
+      </div>
+    );
+  }
+  // Done — a circle with a check
+  return (
+    <div className={cls}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12l3 3 5-5" />
+      </svg>
     </div>
   );
 }
