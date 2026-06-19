@@ -78,6 +78,7 @@ export default function GlobalNav() {
         
         <Link
           href="/"
+          prefetch
           aria-label={`${SITE.name} home`}
           className="group relative z-10 col-start-1 flex min-w-0 items-center justify-self-start rounded-full px-4 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/45"
         >
@@ -96,6 +97,7 @@ export default function GlobalNav() {
           {NAV_ITEMS.map((item, i) => (
             <Link
               href={item.href}
+              prefetch
               key={item.label}
               className="relative h-10 rounded-[14px] px-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40 flex items-center"
               onMouseEnter={() => setHoveredIndex(i)}

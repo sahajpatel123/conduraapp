@@ -171,6 +171,7 @@ export default function SiteDock() {
                 ) : (
                   <Link
                     href={entry.href}
+                    prefetch
                     aria-label={entry.label}
                     aria-current={active ? "page" : undefined}
                     onClick={handleClick}

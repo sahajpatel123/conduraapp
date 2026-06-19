@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import SiteDock from "@/components/shell/SiteDock";
+import RouteProgress from "@/components/shell/RouteProgress";
 import CommandPalette from "@/components/shell/CommandPalette";
 import DynamicIsland from "@/components/motion/DynamicIsland";
 import ToastStack from "@/components/motion/ToastStack";
@@ -15,6 +16,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
+      <RouteProgress />
       <DynamicIsland />
       <CommandPalette />
       <ToastStack />
