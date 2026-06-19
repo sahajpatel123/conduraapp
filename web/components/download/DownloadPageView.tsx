@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import ActionSwap from "@/components/motion/ActionSwap";
 import BouncyAccordion from "@/components/motion/BouncyAccordion";
 import { Icon, type IconKey } from "@/components/motion/Icon";
-import OverlayPreview from "@/components/home/OverlayPreview";
+
 import { useToast } from "@/context/ToastContext";
 import { useIsland } from "@/context/IslandContext";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -111,35 +111,41 @@ function Hero({
 }) {
   const reduceMotion = useReducedMotion();
   const platform = PLATFORMS.find((item) => item.key === selected)!;
-  const current = DOWNLOADS[selected];
+
+  const VERSIONS = [
+    { version: "v0.1.0", badge: "Latest", date: "June 19, 2026", desc: "Local orchestration, deterministic gatekeeper, and core integrations." },
+    { version: "v0.0.9", badge: "Preview", date: "May 28, 2026", desc: "Initial beta tester rollout. Improved model context parsing." },
+    { version: "v0.0.8", badge: "Internal", date: "May 10, 2026", desc: "First successful parallel orchestration and local sandbox." },
+  ];
 
   return (
-    <section className="relative border-b border-white/[0.08] px-5 pb-16 pt-28 sm:px-8 sm:pt-32 lg:min-h-[860px] lg:px-10 lg:pb-24 lg:pt-36">
+    <section className="relative border-b border-white/[0.08] px-5 pb-20 pt-28 sm:px-8 sm:pt-32 lg:px-10 lg:pb-32 lg:pt-36">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[#D97757]/50" />
-      <div className="mx-auto grid w-full max-w-[1240px] items-center gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-16">
+      
+      <div className="mx-auto w-full max-w-[1000px] flex flex-col items-center text-center">
         <motion.div
           initial={{ opacity: 0, y: reduceMotion ? 0 : 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE_OUT }}
-          className="relative z-10"
+          className="relative z-10 w-full"
         >
-          <div className="mb-7 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+          <div className="mb-7 inline-flex items-center justify-center gap-4 font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
             <span className="h-px w-8 bg-[#D97757]" />
-            Release 0.1.0 · Open alpha
+            Release History
+            <span className="h-px w-8 bg-[#D97757]" />
           </div>
 
-          <h1 className="max-w-[620px] font-display text-[clamp(3rem,6.4vw,5.8rem)] font-medium leading-[0.94] tracking-[-0.045em]">
-            Condura,
-            <br />
+          <h1 className="font-display text-[clamp(3rem,6vw,5.5rem)] font-medium leading-[0.94] tracking-[-0.045em] mx-auto">
+            Condura,<br />
             <span className="text-white/42">on your machine.</span>
           </h1>
 
-          <p className="mt-7 max-w-[520px] text-[16px] leading-7 text-white/55 sm:text-[18px]">
-            A local-first intelligence layer for your OS. No account, no subscription, and no new workflow to learn.
+          <p className="mt-8 max-w-[560px] mx-auto text-[16px] leading-7 text-white/55 sm:text-[18px]">
+            A local-first intelligence layer for your OS. Access current and previous builds across all supported architectures.
           </p>
 
-          <div className="mt-9" aria-label="Choose operating system">
-            <div className="inline-flex max-w-full rounded-lg border border-white/[0.10] bg-white/[0.035] p-1">
+          <div className="mt-12 flex justify-center" aria-label="Choose operating system">
+            <div className="inline-flex max-w-full rounded-xl border border-white/[0.10] bg-white/[0.02] p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
               {PLATFORMS.map((item) => {
                 const active = item.key === selected;
                 return (
@@ -148,16 +154,16 @@ function Hero({
                     type="button"
                     onClick={() => onSelect(item.key)}
                     aria-pressed={active}
-                    className={`relative flex min-h-11 items-center gap-2 rounded-md px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97757]/70 sm:px-4 ${active ? "text-white" : "text-white/42 hover:text-white/75"}`}
+                    className={`relative flex min-h-12 items-center gap-2.5 rounded-lg px-5 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97757]/70 ${active ? "text-white" : "text-white/42 hover:text-white/75"}`}
                   >
                     {active && (
                       <motion.span
-                        layoutId="download-platform-selector"
-                        className="absolute inset-0 rounded-md border border-white/[0.10] bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        layoutId="download-platform-selector-hero"
+                        className="absolute inset-0 rounded-lg border border-white/[0.10] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                         transition={{ type: "spring", stiffness: 420, damping: 34 }}
                       />
                     )}
-                    <Icon name={PLATFORM_ICON[item.key]} size={15} className="relative" />
+                    <Icon name={PLATFORM_ICON[item.key]} size={16} className="relative" />
                     <span className="relative">{item.name}</span>
                   </button>
                 );
@@ -165,86 +171,70 @@ function Hero({
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={() => onDownload(current.primary.href, current.primary.label)}
-              className="group inline-flex min-h-14 items-center justify-center gap-3 rounded-lg bg-[#D97757] px-6 text-[14px] font-semibold text-[#190c08] shadow-[0_16px_44px_rgba(217,119,87,0.18)] transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#e18465] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black active:translate-y-0"
-            >
-              <motion.span
-                animate={downloading && !reduceMotion ? { y: [0, 2, 0] } : { y: 0 }}
-                transition={{ duration: 0.55, repeat: downloading ? Infinity : 0 }}
-              >
-                <Icon name="download" size={18} />
-              </motion.span>
-              {downloading ? "Preparing download" : `Download for ${platform.name}`}
-            </button>
-            <a
-              href={RELEASE_TAG}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-lg border border-white/[0.11] px-5 text-[13px] font-medium text-white/62 transition-colors hover:border-white/20 hover:bg-white/[0.04] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              Release notes
-              <Icon name="arrowRight" size={14} />
-            </a>
-          </div>
-
-          <div className="mt-6 grid max-w-[520px] grid-cols-3 border-y border-white/[0.08] py-4">
-            {[
-              ["Account", "Not required"],
-              ["License", "Free"],
-              ["Build", current.primary.label],
-            ].map(([label, value]) => (
-              <div key={label} className="border-l border-white/[0.08] px-3 first:border-l-0 first:pl-0">
-                <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/28">{label}</div>
-                <div className="mt-1 truncate text-[12px] text-white/62">{value}</div>
-              </div>
-            ))}
-          </div>
+          {/* Horizontal Version Table */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.8, ease: EASE_OUT }}
+            className="mt-12 w-full rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-md overflow-hidden text-left shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.02)]"
+          >
+            <div className="hidden sm:grid grid-cols-[1.2fr_1.2fr_2fr_auto] gap-4 px-6 py-4 border-b border-white/[0.06] bg-white/[0.02] font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
+              <div>Version</div>
+              <div>Release Date</div>
+              <div>Highlights</div>
+              <div className="w-32 text-right">Download</div>
+            </div>
+            
+            <div className="divide-y divide-white/[0.04]">
+              {VERSIONS.map((v, i) => (
+                <div key={v.version} className="grid sm:grid-cols-[1.2fr_1.2fr_2fr_auto] gap-y-3 gap-x-4 p-5 sm:px-6 sm:py-5 items-center hover:bg-white/[0.015] transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[15px] font-semibold text-white/90">{v.version}</span>
+                    {v.badge && (
+                      <span className="px-2 py-0.5 rounded-full border border-[#D97757]/30 bg-[#D97757]/10 text-[#D97757] font-mono text-[9.5px] uppercase tracking-wider">
+                        {v.badge}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-[14px] text-white/40 font-medium">
+                    {v.date}
+                  </div>
+                  
+                  <div className="text-[14px] text-white/50 leading-relaxed pr-4">
+                    {v.desc}
+                  </div>
+                  
+                  <div className="sm:w-32 flex sm:justify-end mt-2 sm:mt-0">
+                    <button 
+                      onClick={() => onDownload(DOWNLOADS[selected].primary.href, `${v.version} for ${platform.name}`)}
+                      className={`min-h-10 px-5 rounded-lg border text-[13px] font-medium transition-all flex items-center justify-center gap-2 w-full sm:w-auto
+                        ${i === 0 
+                          ? "bg-[#D97757] border-transparent text-[#190c08] hover:bg-[#e18465] shadow-[0_0_20px_rgba(217,119,87,0.15)]" 
+                          : "bg-white/[0.03] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                        }
+                      `}
+                    >
+                      <motion.span
+                        animate={downloading && i === 0 && !reduceMotion ? { y: [0, 2, 0] } : { y: 0 }}
+                        transition={{ duration: 0.55, repeat: downloading ? Infinity : 0 }}
+                      >
+                        <Icon name="download" size={15} />
+                      </motion.span>
+                      {downloading && i === 0 ? "Starting" : "Get"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+          
         </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: reduceMotion ? 0 : 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.12, duration: 0.85, ease: EASE_OUT }}
-          className="relative min-w-0"
-        >
-          <DesktopPreview active />
-          <div className="mt-4 flex items-center justify-between px-1 text-[10px] text-white/30">
-            <span className="font-mono uppercase tracking-[0.15em]">Product preview</span>
-            <span>Press a hotkey. Condura appears.</span>
-          </div>
-        </motion.div>
-      </div>
-
-      <div className="mx-auto mt-14 flex w-full max-w-[1240px] flex-wrap items-center gap-x-7 gap-y-3 border-t border-white/[0.08] pt-6 text-[12px] text-white/42 lg:mt-20">
-        <span className="flex items-center gap-2"><Icon name="shield" size={14} /> Permission-gated actions</span>
-        <span className="flex items-center gap-2"><Icon name="lock" size={14} /> Local-first storage</span>
-        <span className="flex items-center gap-2"><Icon name="check" size={14} /> {selected === detected ? `${platform.name} detected` : `${platform.name} selected`}</span>
       </div>
     </section>
   );
 }
 
-function DesktopPreview({ active }: { active: boolean }) {
-  return (
-    <div className="relative aspect-[16/10] min-h-[410px] overflow-hidden rounded-lg border border-white/[0.14] bg-[#111] shadow-[0_36px_100px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.03)] sm:min-h-0">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/macbook-desktop-background.png')" }}
-      />
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/45 to-transparent" />
-      <div className="absolute inset-x-[9%] bottom-[8%] top-[10%] flex items-center justify-center">
-        <div className="w-full max-w-[470px] origin-center scale-[0.72] sm:scale-[0.82] lg:scale-[0.72] xl:scale-[0.86]">
-          <OverlayPreview active={active} />
-        </div>
-      </div>
-      <div className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_-60px_100px_rgba(0,0,0,0.15)]" />
-    </div>
-  );
-}
 
 function BuildChooser({
   selected,
