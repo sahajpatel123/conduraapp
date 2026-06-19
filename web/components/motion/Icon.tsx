@@ -352,6 +352,7 @@ export const ICONS = {
   compass: IconCompass,
   command: IconCommand,
   arrowUp: IconArrowUp,
+  arrowRight: IconArrowRight,
   download: IconDownload,
 } as const;
 
