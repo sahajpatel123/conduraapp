@@ -30,7 +30,7 @@ export default function HeroSection() {
           <div className="flex-1 flex flex-col justify-center max-w-[540px]">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: introFinished ? 1 : 0, y: introFinished ? 0 : 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="font-mono text-[10px] text-[#71717a] tracking-[0.2em] uppercase mb-10 flex items-center gap-4">
