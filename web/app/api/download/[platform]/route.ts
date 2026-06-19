@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const GITHUB_REPO = "sahajpatel123/conduraapp";
 const RELEASE_BASE = `https://github.com/${GITHUB_REPO}/releases/latest/download`;
+const RELEASE_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
 
 // Map of platform keys to GitHub artifact filenames
 const ARTIFACTS: Record<string, string> = {
@@ -115,13 +116,18 @@ export async function GET(
       console.error(
         `GitHub fetch failed for ${platform}: ${response.status} ${response.statusText}`
       );
+      // If artifact not found, redirect to the GitHub release page
+      // so the user can still download from GitHub directly
+      if (response.status === 404) {
+        return NextResponse.redirect(RELEASE_PAGE, { status: 302 });
+      }
       return NextResponse.json(
         {
           error: "Download failed",
           message: `Could not fetch the ${platform} installer from GitHub.`,
           status: response.status,
         },
-        { status: response.status === 404 ? 404 : 502 }
+        { status: 502 }
       );
     }
 
