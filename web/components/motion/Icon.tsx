@@ -25,41 +25,40 @@ function base({ size = 20, strokeWidth = 1.5, ...rest }: IconProps) {
   };
 }
 
-/* ── Platform / OS ── */
+/* ── Platform / OS ──
+   Real, recognizable brand marks rendered as filled vector glyphs so they
+   pick up currentColor and stay crisp at any size. No external image
+   assets, no background, no licensing ambiguity — pure SVG paths. */
 
 /**
- * macOS — the Command glyph (⌘). A geometric looped square, instantly
- * recognizable to the target audience without leaning on Apple's
- * corporate trademark. Elegant on dark glass.
+ * macOS — the Apple logo. The canonical silhouette.
  */
 export function IconMac(props: IconProps) {
+  const { fill, stroke, ...rest } = props;
   return (
-    <svg {...base(props)}>
-      <path d="M8 5c-1.5 0-2.5 1-2.5 2.5 0 1 .4 1.9 1 3.5l-1.8 3.2C4.3 15.2 4 16 4 16.8c0 1.4 1 2.2 2.3 2.2 1.4 0 2.6-1 3.7-3.2 1.1 2.2 2.3 3.2 3.7 3.2 1.3 0 2.3-.8 2.3-2.2 0-.8-.3-1.6-.7-2.6L13.5 11c.6-1.6 1-2.5 1-3.5C14.5 6 13.5 5 12 5c-1 0-1.8.5-2.4 1.5h-1.2C8.8 5.5 9 5 8 5z" />
-      <path d="M9.5 7.5c.4-.6.9-1 1.5-1.3" opacity={0.5} />
-      <path d="M13 7.5c-.4-.6-.9-1-1.5-1.3" opacity={0.5} />
+    <svg {...base(rest)} fill={fill ?? "currentColor"} stroke={stroke ?? "none"}>
+      <path d="M17.05 12.04c-.02-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.09-2.01-3.76-2.04-1.6-.16-3.12.94-3.93.94-.81 0-2.06-.92-3.39-.89-1.74.03-3.35 1.01-4.25 2.57-1.81 3.14-.46 7.79 1.3 10.34.86 1.25 1.89 2.65 3.23 2.6 1.3-.05 1.79-.84 3.36-.84 1.57 0 2.02.84 3.41.81 1.41-.02 2.3-1.27 3.16-2.53 1-1.45 1.41-2.86 1.43-2.93-.03-.01-2.74-1.05-2.77-4.17M14.6 4.59c.72-.87 1.21-2.08 1.07-3.29-1.04.04-2.31.7-3.05 1.57-.67.77-1.26 2.01-1.1 3.2 1.16.09 2.35-.59 3.08-1.48" />
     </svg>
   );
 }
 
 /**
- * Windows — a refined four-pane mark, balanced and geometric. Not the
- * corporate logo; a clean window abstraction that reads at small sizes.
+ * Windows — the four-pane flag mark.
  */
 export function IconWindows(props: IconProps) {
+  const { fill, stroke, ...rest } = props;
   return (
-    <svg {...base(props)}>
-      <path d="M4 6.2l6-0.9v6.2H4V6.2z" />
-      <path d="M11 5.1l9-1.3v6.7h-9V5.1z" />
-      <path d="M4 13.3h6v6.2l-6-0.9V13.3z" />
-      <path d="M11 13.3h9v6.7l-9-1.3V13.3z" />
+    <svg {...base(rest)} fill={fill ?? "currentColor"} stroke={stroke ?? "none"}>
+      <path d="M3 5.5L10.4 4.5V11.4H3V5.5Z" />
+      <path d="M11.4 4.35L21 3V11.4H11.4V4.35Z" />
+      <path d="M3 12.6H10.4V19.5L3 18.5V12.6Z" />
+      <path d="M11.4 12.6H21V21L11.4 19.65V12.6Z" />
     </svg>
   );
 }
 
 /**
- * Linux — the official Tux silhouette (simple-icons path). A single
- * filled shape; stroke is removed so the penguin reads as a solid glyph.
+ * Linux — Tux, the official penguin mascot. A single filled silhouette.
  */
 export function IconLinux(props: IconProps) {
   const { fill, stroke, ...rest } = props;

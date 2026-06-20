@@ -184,7 +184,16 @@ export default function DownloadDropdown() {
                         </span>
                       )}
 
-                      {/* Platform name — text only, no logo */}
+                      {/* Platform brand mark */}
+                      <Icon
+                        name={p.key}
+                        size={26}
+                        className={`transition-colors ${
+                          isDetected ? "text-white" : "text-white/70 group-hover:text-white"
+                        }`}
+                      />
+
+                      {/* Platform name */}
                       <span
                         className={`font-body-mature text-[15px] font-semibold transition-colors ${
                           isDetected ? "text-white" : "text-white/80 group-hover:text-white"
