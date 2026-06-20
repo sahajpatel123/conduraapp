@@ -35,17 +35,17 @@ export default function HeroSection() {
             >
               <div className="font-mono text-[10px] text-[#71717a] tracking-[0.2em] uppercase mb-10 flex items-center gap-4">
                 <span className="w-8 h-[2px] bg-[#D97757]" />
-                RELEASE 0.1.0 · OPEN ALPHA
+                RELEASE 0.1.0 · PUBLIC ALPHA
               </div>
 
               <h1 className="text-[64px] lg:text-[84px] font-semibold leading-[0.95] tracking-tight mb-8">
-                <div className="text-white">Condura,</div>
-                <div className="text-[#71717a]">on your</div>
-                <div className="text-[#71717a]">machine.</div>
+                <div className="text-white">One hotkey.</div>
+                <div className="text-[#71717a]">Every AI</div>
+                <div className="text-[#71717a]">you own.</div>
               </h1>
 
               <p className="font-body-mature text-[#a1a1aa] text-[18px] leading-[1.6] mb-12 max-w-md">
-                A local-first intelligence layer for your OS. No account, no subscription, and no new workflow to learn.
+                A free desktop app that summons every AI tool on your machine with one hotkey. No account, no subscription, no data leaves your computer.
               </p>
 
               <HeroDownload />

@@ -5,23 +5,25 @@
 
 export const SITE = {
   name: "Condura",
-  tagline: "A permissioned intelligence layer for your OS.",
+  tagline: "Your AI tools, one hotkey. Free. Local. Private.",
   description:
-    "Condura is a free, local-first desktop AI agent that appears from the operating system, routes work through your own models, and stops at deterministic safety boundaries before acting.",
+    "A free desktop app that summons every AI tool on your computer with one hotkey. No account needed, no data leaves your machine.",
   url: "https://condura.app",
   github: "https://github.com/sahajpatel123/conduraapp",
-  discord: "https://discord.gg/synaptic",
+  discord: "https://discord.gg/condura",
 } as const;
 
 // Reference / informational destinations. These live in the footer,
 // not in the dock — they're for browsing, not quick access.
 export const NAV_LINKS = [
   { href: "/orchestration", label: "How it works" },
+  { href: "/ecosystem", label: "Integrations" },
   { href: "/security", label: "Security" },
   { href: "/manifesto", label: "Mission" },
   { href: "/changelog", label: "Changelog" },
   { href: "/download", label: "Download" },
   { href: "/legal", label: "Legal" },
+  { href: "/privacy", label: "Privacy" },
 ] as const;
 
 /** The local/model delegates Condura can route through. */
@@ -41,19 +43,19 @@ export const PLATFORMS = [
     key: "mac",
     name: "macOS",
     requirement: "macOS 13+, Apple silicon & Intel",
-    artifact: "synaptic.dmg",
+    artifact: "condura.dmg",
   },
   {
     key: "windows",
     name: "Windows",
     requirement: "Windows 10+, x64",
-    artifact: "synaptic-setup.exe",
+    artifact: "condura-setup.exe",
   },
   {
     key: "linux",
     name: "Linux",
     requirement: "glibc 2.31+, x64",
-    artifact: "synaptic.AppImage",
+    artifact: "condura.AppImage",
   },
 ] as const;
 

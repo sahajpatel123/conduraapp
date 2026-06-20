@@ -9,12 +9,12 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 
 export const metadata: Metadata = {
-  title: `${SITE.name} — AI on your computer. Free.`,
+  title: `${SITE.name} — One hotkey. Every AI you own. Free.`,
   description:
-    "A local-first desktop agent that appears from your OS, orchestrates every AI tool you own, and stops at deterministic safety gates.",
+    "A free desktop app that summons every AI tool on your computer with one hotkey. No account, no data leaves your machine.",
   openGraph: {
     title: SITE.name,
-    description: "AI on your computer. Free.",
+    description: "Your AI tools, one hotkey. Free. Local. Private.",
     url: SITE.url,
     siteName: SITE.name,
     locale: "en_US",

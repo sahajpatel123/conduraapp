@@ -5,10 +5,10 @@ import { NAV_LINKS, TOOL_ROSTER } from "@/lib/site";
 
 // Split the reference links into two readable columns.
 const EXPLORE_LINKS = NAV_LINKS.filter((l) =>
-  ["/orchestration", "/security", "/manifesto"].includes(l.href)
+  ["/orchestration", "/ecosystem", "/security", "/manifesto"].includes(l.href)
 );
 const RESOURCE_LINKS = NAV_LINKS.filter((l) =>
-  ["/changelog", "/download", "/legal"].includes(l.href)
+  ["/changelog", "/download", "/legal", "/privacy"].includes(l.href)
 );
 
 export default function Footer() {
