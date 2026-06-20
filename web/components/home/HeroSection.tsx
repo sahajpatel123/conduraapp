@@ -66,6 +66,7 @@ export default function HeroSection() {
                 <span className="w-px h-3 bg-white/[0.12]" />
                 <span>No account</span>
               </div>
+            </motion.div>
           </div>
 
         </div>
