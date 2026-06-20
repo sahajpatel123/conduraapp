@@ -29,6 +29,7 @@
 
 import { ipc } from '../ipc/client'
 import type {
+  AccountProvider,
   AccountStatus,
   OAuthURLParams,
   OAuthURLResult,
@@ -80,6 +81,9 @@ export class AccountStore {
   /** Cached PKCE verifier from a pending sign-in. */
   pendingPKCEVerifier = $state<string | null>(null)
 
+  /** Provider the user is currently signing in with (cached at start). */
+  pendingOAuthProvider = $state<AccountProvider | null>(null)
+
   /** True when the user is signed in. False on first load. */
   get isSignedIn(): boolean {
     return this.status?.signed_in ?? false
@@ -91,7 +95,7 @@ export class AccountStore {
   }
 
   /** The provider the user signed in with. */
-  get provider(): AccountStatus['provider'] {
+  get provider(): AccountProvider | '' {
     return this.status?.provider ?? ''
   }
 
@@ -114,6 +118,15 @@ export class AccountStore {
   }
 
   /**
+   * List of OAuth providers the daemon reports as configured.
+   * Empty when none — the SignInPanel should hide OAuth buttons
+   * and surface a setup hint in that case.
+   */
+  get configuredProviders(): AccountProvider[] {
+    return this.status?.providers ?? []
+  }
+
+  /**
    * Fetches the current account status from the daemon.
    * Called on app start. Idempotent.
    */
@@ -133,6 +146,7 @@ export class AccountStore {
         display_name: '',
         tier: '',
         created_at: '',
+        providers: [],
       }
       this.error = String(e)
     } finally {
@@ -143,8 +157,8 @@ export class AccountStore {
   /**
    * Starts an OAuth sign-in flow with the given provider.
    * Returns the authorization URL the GUI should open in
-   * a browser. The state + PKCE verifier are cached so
-   * handleCallback() can verify them.
+   * a browser. The state + PKCE verifier + provider name
+   * are cached so handleCallback() can verify them.
    */
   async signInWithProvider(
     params: OAuthURLParams
@@ -155,6 +169,7 @@ export class AccountStore {
       const result = await ipc.accountOAuthURL(params)
       this.pendingOAuthState = result.state
       this.pendingPKCEVerifier = result.code_verifier
+      this.pendingOAuthProvider = params.provider
       return result
     } catch (e) {
       this.error = String(e)
@@ -183,6 +198,17 @@ export class AccountStore {
       provider: 'github',
       redirect_uri: redirectURI,
       scopes: ['read:user', 'user:email'],
+    })
+  }
+
+  /**
+   * Convenience: Apple sign-in.
+   */
+  async signInWithApple(redirectURI: string): Promise<OAuthURLResult | null> {
+    return this.signInWithProvider({
+      provider: 'apple',
+      redirect_uri: redirectURI,
+      scopes: ['name', 'email'],
     })
   }
 
@@ -219,13 +245,14 @@ export class AccountStore {
    * URL. The GUI extracts those and calls this method.
    *
    * Verifies the state matches the one we cached (CSRF
-   * defense) and exchanges the code for tokens.
+   * defense) and exchanges the code for tokens via the
+   * daemon. The provider is the one we cached when
+   * signInWithProvider() was called.
    */
   async handleCallback(
     code: string,
     state: string,
-    redirectURI: string,
-    provider: 'google' | 'github' | 'apple'
+    redirectURI: string
   ): Promise<boolean> {
     this.loading = true
     this.error = null
@@ -235,22 +262,30 @@ export class AccountStore {
       return false
     }
     const codeVerifier = this.pendingPKCEVerifier
+    const provider = this.pendingOAuthProvider
     if (!codeVerifier) {
       this.error = 'Missing PKCE verifier (lost between sign-in and callback?)'
       this.loading = false
       return false
     }
+    if (!provider) {
+      this.error = 'Missing provider (lost between sign-in and callback?)'
+      this.loading = false
+      return false
+    }
     try {
-      const status = await ipc.accountOAuthCallback({
+      const params: OAuthCallbackParams = {
         provider,
         code,
         state,
         code_verifier: codeVerifier,
         redirect_uri: redirectURI,
-      })
+      }
+      const status = await ipc.accountOAuthCallback(params)
       this.status = status
       this.pendingOAuthState = null
       this.pendingPKCEVerifier = null
+      this.pendingOAuthProvider = null
       return status.signed_in
     } catch (e) {
       this.error = String(e)
@@ -277,9 +312,11 @@ export class AccountStore {
         display_name: '',
         tier: '',
         created_at: '',
+        providers: this.status?.providers ?? [],
       }
       this.pendingOAuthState = null
       this.pendingPKCEVerifier = null
+      this.pendingOAuthProvider = null
     } catch (e) {
       this.error = String(e)
     } finally {

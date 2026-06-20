@@ -3,7 +3,10 @@ package account
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -359,9 +362,10 @@ func TestCleanupExpiredStates(t *testing.T) {
 	m, _ := newTestManager(t)
 	// Inject an expired state.
 	m.oauthStates.Store("expired-state", oauthStateEntry{
-		verifier:  "v",
-		provider:  "google",
-		expiresAt: time.Now().Add(-1 * time.Minute),
+		verifier:    "v",
+		provider:    "google",
+		redirectURI: "condura://auth/callback",
+		expiresAt:   time.Now().Add(-1 * time.Minute),
 	})
 	m.CleanupExpiredStates()
 	if _, ok := m.oauthStates.Load("expired-state"); ok {
@@ -505,5 +509,291 @@ func TestKeyringAdapter_RoundTrip(t *testing.T) {
 	}
 	if err := km.Delete("k"); err != nil {
 		t.Fatalf("Delete: %v", err)
+	}
+}
+
+// --- ProviderRegistry tests ---
+
+func TestProviderRegistry_DefaultsLoaded(t *testing.T) {
+	r := NewProviderRegistry(nil)
+	for _, want := range []string{"google", "github", "apple"} {
+		if r.Get(want) == nil {
+			t.Errorf("default provider %q missing", want)
+		}
+	}
+}
+
+func TestProviderRegistry_UserOverridesClientID(t *testing.T) {
+	r := NewProviderRegistry(map[string]ProviderConfig{
+		"google": {ClientID: "user-cid"},
+	})
+	g := r.Get("google")
+	if g == nil {
+		t.Fatal("google missing")
+	}
+	if g.ClientID != "user-cid" {
+		t.Fatalf("ClientID: got %q", g.ClientID)
+	}
+	// Endpoint URL must still come from defaults.
+	if g.AuthURL != "https://accounts.google.com/o/oauth2/v2/auth" {
+		t.Fatalf("AuthURL: got %q", g.AuthURL)
+	}
+}
+
+func TestProviderRegistry_UserOverridesEndpoint(t *testing.T) {
+	r := NewProviderRegistry(map[string]ProviderConfig{
+		"google": {
+			ClientID: "x",
+			AuthURL:  "https://custom.example.com/auth",
+		},
+	})
+	g := r.Get("google")
+	if g == nil || g.AuthURL != "https://custom.example.com/auth" {
+		t.Fatalf("custom endpoint not applied: %+v", g)
+	}
+}
+
+func TestProviderRegistry_CustomProviderAdded(t *testing.T) {
+	r := NewProviderRegistry(map[string]ProviderConfig{
+		"custom": {
+			ClientID:     "cid",
+			ClientSecret: "sec",
+			AuthURL:      "https://custom/auth",
+			TokenURL:     "https://custom/token",
+			Scopes:       []string{"openid"},
+		},
+	})
+	c := r.Get("custom")
+	if c == nil {
+		t.Fatal("custom provider missing")
+	}
+	if c.ClientID != "cid" || c.ClientSecret != "sec" {
+		t.Fatalf("custom provider config lost: %+v", c)
+	}
+}
+
+func TestProviderRegistry_ConfiguredFiltersUnset(t *testing.T) {
+	r := NewProviderRegistry(map[string]ProviderConfig{
+		"google": {ClientID: "google-cid"},
+		"github": {}, // intentionally empty
+	})
+	configured := r.Configured()
+	if len(configured) != 1 || configured[0] != "google" {
+		t.Fatalf("Configured(): got %v, want [google]", configured)
+	}
+}
+
+func TestProviderRegistry_AvailableIncludesAll(t *testing.T) {
+	r := NewProviderRegistry(map[string]ProviderConfig{
+		"google": {ClientID: "google-cid"},
+	})
+	avail := r.Available()
+	// google + github + apple should all be listed, even unconfigured ones.
+	have := make(map[string]bool)
+	for _, n := range avail {
+		have[n] = true
+	}
+	for _, want := range []string{"google", "github", "apple"} {
+		if !have[want] {
+			t.Errorf("Available missing %q", want)
+		}
+	}
+}
+
+func TestProviderRegistry_GetUnknownReturnsNil(t *testing.T) {
+	r := NewProviderRegistry(nil)
+	if r.Get("not-a-provider") != nil {
+		t.Fatal("Get on unknown should return nil")
+	}
+}
+
+func TestProviderRegistry_NilSafe(t *testing.T) {
+	var r *ProviderRegistry
+	if r.Get("x") != nil {
+		t.Fatal("nil registry Get should return nil")
+	}
+	if r.Configured() != nil {
+		t.Fatal("nil registry Configured should return nil")
+	}
+	if r.Available() != nil {
+		t.Fatal("nil registry Available should return nil")
+	}
+}
+
+// --- Manager OAuth integration with provider registry ---
+
+func newTestManagerWithProviders(t *testing.T, providers map[string]ProviderConfig) *Manager {
+	t.Helper()
+	s := newTestStore(t)
+	tm := &fakeTokenManager{data: make(map[string]string)}
+	r := NewProviderRegistry(providers)
+	m, err := NewManagerWithProviders(s, tm, []byte("test-master-key-0123456789abcdef"), 1*time.Hour, r)
+	if err != nil {
+		t.Fatalf("NewManagerWithProviders: %v", err)
+	}
+	return m
+}
+
+func TestGenerateAuthURL_ConfiguredProvider(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		"google": {ClientID: "test-cid"},
+	})
+	url, state, err := m.GenerateAuthURL("google", "condura://auth/callback")
+	if err != nil {
+		t.Fatalf("GenerateAuthURL: %v", err)
+	}
+	if url == "" || state == "" {
+		t.Fatal("empty url/state")
+	}
+	if !strings.Contains(url, "client_id=test-cid") {
+		t.Fatalf("url missing client_id: %s", url)
+	}
+	if !strings.Contains(url, "code_challenge_method=S256") {
+		t.Fatalf("url missing PKCE: %s", url)
+	}
+	if _, ok := m.oauthStates.Load(state); !ok {
+		t.Fatal("state not stored")
+	}
+}
+
+func TestGenerateAuthURL_ProviderNotConfigured(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		// google present but empty ClientID
+	})
+	_, _, err := m.GenerateAuthURL("google", "condura://auth/callback")
+	if err == nil {
+		t.Fatal("should reject unconfigured provider")
+	}
+	if !errors.Is(err, ErrProviderNotConfigured) {
+		t.Fatalf("err: got %v, want ErrProviderNotConfigured", err)
+	}
+}
+
+func TestGenerateAuthURL_UnknownProviderWithRegistry(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		"google": {ClientID: "cid"},
+	})
+	_, _, err := m.GenerateAuthURL("not-a-provider", "condura://auth/callback")
+	if err == nil {
+		t.Fatal("should reject unknown provider")
+	}
+}
+
+func TestExchangeCode_WrongProvider(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		"google": {ClientID: "cid"},
+	})
+	_, state, err := m.GenerateAuthURL("google", "condura://auth/callback")
+	if err != nil {
+		t.Fatalf("GenerateAuthURL: %v", err)
+	}
+	// Try to exchange with a wrong provider name.
+	_, err = m.ExchangeCode(context.Background(), "github", "the-code", state, "condura://auth/callback")
+	if err == nil {
+		t.Fatal("should reject provider mismatch")
+	}
+}
+
+func TestExchangeCode_UnknownState(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		"google": {ClientID: "cid"},
+	})
+	_, err := m.ExchangeCode(context.Background(), "google", "code", "never-issued-state", "condura://auth/callback")
+	if err == nil {
+		t.Fatal("should reject unknown state")
+	}
+}
+
+func TestExchangeCode_EmptyCodeOrState(t *testing.T) {
+	m := newTestManagerWithProviders(t, map[string]ProviderConfig{
+		"google": {ClientID: "cid"},
+	})
+	if _, err := m.ExchangeCode(context.Background(), "google", "", "x", "cb"); err == nil {
+		t.Fatal("should reject empty code")
+	}
+	if _, err := m.ExchangeCode(context.Background(), "google", "x", "", "cb"); err == nil {
+		t.Fatal("should reject empty state")
+	}
+}
+
+// --- decodeIDToken tests ---
+
+func TestDecodeIDToken_ValidJWT(t *testing.T) {
+	// Build a fake JWT: header.payload.sig (header and sig ignored).
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"RS256"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"email":"u@example.com","picture":"https://x/p.png","email_verified":true}`))
+	sig := "sig"
+	email, avatar, err := decodeIDToken(header + "." + payload + "." + sig)
+	if err != nil {
+		t.Fatalf("decodeIDToken: %v", err)
+	}
+	if email != "u@example.com" {
+		t.Fatalf("email: got %q", email)
+	}
+	if avatar != "https://x/p.png" {
+		t.Fatalf("avatar: got %q", avatar)
+	}
+}
+
+func TestDecodeIDToken_MalformedJWT(t *testing.T) {
+	if _, _, err := decodeIDToken("not.a.jwt.with.five.parts"); err == nil {
+		t.Fatal("should reject malformed JWT")
+	}
+	if _, _, err := decodeIDToken("only.two"); err == nil {
+		t.Fatal("should reject 2-segment JWT")
+	}
+	if _, _, err := decodeIDToken("only_one_segment"); err == nil {
+		t.Fatal("should reject 1-segment JWT")
+	}
+}
+
+func TestDecodeIDToken_BadPayload(t *testing.T) {
+	// Valid base64 but not valid JSON.
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"RS256"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`not json`))
+	if _, _, err := decodeIDToken(header + "." + payload + ".sig"); err == nil {
+		t.Fatal("should reject non-JSON payload")
+	}
+}
+
+// --- SetMagicLinkURL ---
+
+func TestSetMagicLinkURL(t *testing.T) {
+	SetMagicLinkURL("https://custom.example/magic", "https://custom.example/verify")
+	if magicLinkURL != "https://custom.example/magic" {
+		t.Fatalf("issue URL not set: %s", magicLinkURL)
+	}
+	if magicVerifyURL != "https://custom.example/verify" {
+		t.Fatalf("verify URL not set: %s", magicVerifyURL)
+	}
+	// Resetting with empty strings restores defaults.
+	SetMagicLinkURL("", "")
+	if magicLinkURL != DefaultMagicLinkURL {
+		t.Fatalf("issue URL not reset: %s", magicLinkURL)
+	}
+	if magicVerifyURL != DefaultMagicVerifyURL {
+		t.Fatalf("verify URL not reset: %s", magicVerifyURL)
+	}
+}
+
+func TestDefaultMagicLinkURL_IsCondura(t *testing.T) {
+	if !strings.Contains(DefaultMagicLinkURL, "condura.app") {
+		t.Fatalf("DefaultMagicLinkURL still has old domain: %s", DefaultMagicLinkURL)
+	}
+	if !strings.Contains(DefaultMagicVerifyURL, "condura.app") {
+		t.Fatalf("DefaultMagicVerifyURL still has old domain: %s", DefaultMagicVerifyURL)
+	}
+}
+
+func TestDefaultProviderConfigs_NoEmptyClientIDs(t *testing.T) {
+	// None of the default provider configs should have a ClientID set.
+	// (That comes from the user's config or env.) This catches the
+	// regression where DefaultOAuthProviders() was hardcoded with
+	// empty strings that propagated into the runtime registry.
+	d := DefaultProviderConfigs()
+	for name, p := range d {
+		if p.ClientID != "" {
+			t.Errorf("default provider %q has ClientID set: %q", name, p.ClientID)
+		}
 	}
 }

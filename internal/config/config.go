@@ -467,6 +467,28 @@ type AccountConfig struct {
 	// SessionTTL is how long a local session lasts before expiry.
 	// Default: 720h (30 days).
 	SessionTTL time.Duration `yaml:"session_ttl"`
+	// OAuth is keyed by provider name (google / github / apple / custom).
+	// ClientID and ClientSecret MUST be supplied either here or via
+	// env vars (CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_ID).
+	// Without credentials, that provider's button is hidden from the UI.
+	OAuth map[string]AccountOAuthConfig `yaml:"oauth"`
+	// MagicURL is the Condura server endpoint that issues magic-link
+	// emails (POST). Default: https://condura.app/api/auth/magic.
+	MagicURL string `yaml:"magic_url"`
+	// MagicVerifyURL is the Condura server endpoint that verifies
+	// magic-link tokens (GET). Default: derived from MagicURL.
+	MagicVerifyURL string `yaml:"magic_verify_url"`
+}
+
+// AccountOAuthConfig holds one OAuth provider's config. Empty ClientID
+// means "not configured" — the GUI hides that provider's button.
+type AccountOAuthConfig struct {
+	ClientID     string   `yaml:"client_id"`
+	ClientSecret string   `yaml:"client_secret"`
+	AuthURL      string   `yaml:"auth_url"`
+	TokenURL     string   `yaml:"token_url"`
+	UserInfoURL  string   `yaml:"user_info_url"`
+	Scopes       []string `yaml:"scopes"`
 }
 
 // ReachConfig controls messaging channel integration (Phase 14C).

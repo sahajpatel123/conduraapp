@@ -399,6 +399,9 @@ class IPCClient {
   accountStatus(): Promise<import('./types').AccountStatus> {
     return this.call('account.status', {})
   }
+  accountProviders(): Promise<import('./types').ProvidersResult> {
+    return this.call('account.providers', {})
+  }
   accountOAuthURL(
     p: import('./types').OAuthURLParams
   ): Promise<import('./types').OAuthURLResult> {

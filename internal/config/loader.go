@@ -199,6 +199,15 @@ func Default() *Config {
 		Account: AccountConfig{
 			Enabled:    true,
 			SessionTTL: 720 * time.Hour, // 30 days
+			// OAuth is empty by default — the user must set
+			// account.oauth.google.client_id (or CONDURA_ACCOUNT_OAUTH_GOOGLE_CLIENT_ID)
+			// for each provider they want to enable. The package
+			// defaults in account.DefaultProviderConfigs provide the
+			// endpoint URLs, so only credentials are user-supplied.
+			OAuth: map[string]AccountOAuthConfig{},
+			// MagicURL / MagicVerifyURL default to https://condura.app/api/auth/magic
+			// and .../verify at runtime; the daemon's buildAccount reads
+			// these from config or falls back to account.DefaultMagicLinkURL.
 		},
 		Reach: ReachConfig{
 			Enabled: true,

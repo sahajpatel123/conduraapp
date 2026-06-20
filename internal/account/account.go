@@ -52,9 +52,10 @@ type TokenManager interface {
 // oauthStateEntry tracks an in-flight OAuth authorization (PKCE
 // verifier + provider) keyed by the random state value.
 type oauthStateEntry struct {
-	verifier  string
-	provider  string
-	expiresAt time.Time
+	verifier    string
+	provider    string
+	redirectURI string
+	expiresAt   time.Time
 }
 
 // Manager owns sessions, OAuth state, and token storage.
@@ -63,14 +64,30 @@ type Manager struct {
 	tokenManager TokenManager
 	masterKey    []byte
 	sessionTTL   time.Duration
+	providers    *ProviderRegistry
 
 	// oauthStates maps an OAuth state value → oauthStateEntry.
 	// Entries expire after 5 minutes (see oauth.go).
 	oauthStates sync.Map
 }
 
-// NewManager constructs a Manager. store and tm are required.
+// NewManager constructs a Manager with no OAuth providers configured.
+// Use NewManagerWithProviders to attach a ProviderRegistry. store and
+// tm are required.
 func NewManager(store *Store, tm TokenManager, masterKey []byte, ttl time.Duration) (*Manager, error) {
+	return NewManagerWithProviders(store, tm, masterKey, ttl, nil)
+}
+
+// NewManagerWithProviders constructs a Manager with the given OAuth
+// providers. store and tm are required. providers may be nil; in that
+// case all account.oauth_url calls return ErrProviderNotConfigured.
+func NewManagerWithProviders(
+	store *Store,
+	tm TokenManager,
+	masterKey []byte,
+	ttl time.Duration,
+	providers *ProviderRegistry,
+) (*Manager, error) {
 	if store == nil {
 		return nil, errors.New("account: nil store")
 	}
@@ -85,7 +102,13 @@ func NewManager(store *Store, tm TokenManager, masterKey []byte, ttl time.Durati
 		tokenManager: tm,
 		masterKey:    masterKey,
 		sessionTTL:   ttl,
+		providers:    providers,
 	}, nil
+}
+
+// Providers returns the OAuth provider registry (for the GUI to enumerate).
+func (m *Manager) Providers() *ProviderRegistry {
+	return m.providers
 }
 
 // NewSession creates, persists, and returns a session for the given

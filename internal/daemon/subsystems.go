@@ -1281,6 +1281,12 @@ func resolveUpdateManifestURL(cfg *config.Config) string {
 
 // buildAccount constructs the account manager (Phase 14B).
 // Returns nil when disabled or construction fails.
+//
+// The provider registry is built by layering:
+//  1. The user's config.yaml account.oauth.<provider> values
+//  2. Environment variables CONDURA_ACCOUNT_OAUTH_<UPPER>_CLIENT_ID / _CLIENT_SECRET
+//
+// over the package defaults (which only define endpoints, never credentials).
 func buildAccount(cfg *config.Config, db *storage.DB, sm secrets.Manager, log *slog.Logger) *account.Manager {
 	if cfg == nil || !cfg.Account.Enabled {
 		log.Info("account subsystem disabled")
@@ -1302,13 +1308,94 @@ func buildAccount(cfg *config.Config, db *storage.DB, sm secrets.Manager, log *s
 		tm = account.NewFallbackTokenManager(cfg.General.DataDir, masterKey)
 		log.Info("account: using file-backed token storage (keychain unavailable)")
 	}
-	mgr, err := account.NewManager(store, tm, masterKey, cfg.Account.SessionTTL)
+
+	// Resolve OAuth provider configuration.
+	userProviders := oauthProvidersFromConfig(cfg)
+	overrideWithEnv(userProviders)
+	registry := account.NewProviderRegistry(userProviders)
+
+	if r := registry.Configured(); len(r) > 0 {
+		log.Info("account: OAuth providers configured", "providers", r)
+	} else {
+		log.Info("account: no OAuth providers configured (set CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_ID or config.yaml account.oauth.* to enable)")
+	}
+
+	mgr, err := account.NewManagerWithProviders(store, tm, masterKey, cfg.Account.SessionTTL, registry)
 	if err != nil {
 		log.Warn("account: manager creation failed, sign-in disabled", "err", err)
 		return nil
 	}
+
+	// Wire magic-link endpoint URL from config (with env override).
+	if cfg.Account.MagicURL != "" {
+		verifyURL := deriveMagicVerifyURL(cfg.Account.MagicURL, cfg.Account.MagicVerifyURL)
+		account.SetMagicLinkURL(cfg.Account.MagicURL, verifyURL)
+	}
+
 	log.Info("account subsystem ready")
 	return mgr
+}
+
+// deriveMagicVerifyURL picks the verify URL from explicit override, then
+// from a /magic -> /verify substitution at the path tail, then falls
+// back to "<issue>/verify". Exposed so tests can exercise it directly.
+func deriveMagicVerifyURL(issueURL, explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	v := strings.TrimSuffix(issueURL, "/")
+	// Common case: swap a trailing "magic" segment for "verify". This
+	// covers the canonical Next.js route names (.../api/auth/magic ->
+	// .../api/auth/verify) without producing ".../magic/verify/verify"
+	// when the issue URL already ends in "magic".
+	if strings.HasSuffix(v, "/magic") {
+		return strings.TrimSuffix(v, "/magic") + "/verify"
+	}
+	return v + "/verify"
+}
+
+// oauthProvidersFromConfig translates config.AccountConfig.OAuth into the
+// shape account.NewProviderRegistry expects. We only forward ClientID,
+// ClientSecret, AuthURL, TokenURL, UserInfoURL, and Scopes — endpoint
+// URLs are only forwarded when the user overrides them, so the package
+// defaults stay authoritative.
+func oauthProvidersFromConfig(cfg *config.Config) map[string]account.ProviderConfig {
+	if cfg == nil {
+		return nil
+	}
+	out := make(map[string]account.ProviderConfig, len(cfg.Account.OAuth))
+	for name, p := range cfg.Account.OAuth {
+		out[name] = account.ProviderConfig{
+			ClientID:     p.ClientID,
+			ClientSecret: p.ClientSecret,
+			AuthURL:      p.AuthURL,
+			TokenURL:     p.TokenURL,
+			UserInfoURL:  p.UserInfoURL,
+			Scopes:       p.Scopes,
+		}
+	}
+	return out
+}
+
+// overrideWithEnv applies env-var overrides on top of the user's
+// config. The naming convention is:
+//
+//	CONDURA_ACCOUNT_OAUTH_<UPPER>_{CLIENT_ID,CLIENT_SECRET}
+//
+// where <UPPER> is the provider name uppercased. Env vars always win
+// over config so users can keep secrets out of disk.
+func overrideWithEnv(providers map[string]account.ProviderConfig) {
+	for name := range providers {
+		p := providers[name]
+		upper := strings.ToUpper(name)
+		if v := os.Getenv("CONDURA_ACCOUNT_OAUTH_" + upper + "_CLIENT_ID"); v != "" {
+			p.ClientID = v
+		}
+		if v := os.Getenv("CONDURA_ACCOUNT_OAUTH_" + upper + "_CLIENT_SECRET"); v != "" {
+			p.ClientSecret = v
+		}
+		providers[name] = p
+	}
 }
 
 // buildReach constructs the channels manager (Phase 14C).

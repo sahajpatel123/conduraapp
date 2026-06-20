@@ -1,9 +1,15 @@
 <script lang="ts">
   // SignInPanel (Phase 14B). Shown when a signed-out user clicks
-  // "Sign in" in the sidebar. Offers OAuth (Google / GitHub) and
-  // email magic-link sign-in. The account store orchestrates the
+  // "Sign in" in the sidebar. Offers OAuth (Google / GitHub / Apple)
+  // and email magic-link sign-in. The account store orchestrates the
   // flows; this component is presentational + wiring.
+  //
+  // Provider buttons are rendered dynamically based on
+  // account.configuredProviders — the daemon returns only those
+  // providers that have a ClientID configured. When the list is
+  // empty, we show a setup hint instead of dead buttons.
   import { account } from '../stores/account.svelte'
+  import type { AccountProvider } from '../ipc/types'
 
   interface Props {
     onClose?: () => void
@@ -27,19 +33,36 @@
     }
   }
 
-  async function withGoogle(): Promise<void> {
-    magicSent = false
-    const res = await account.signInWithGoogle(OAUTH_REDIRECT)
-    if (res?.url) openExternal(res.url)
+  function providerLabel(p: AccountProvider): string {
+    switch (p) {
+      case 'google': return 'Google'
+      case 'github': return 'GitHub'
+      case 'apple': return 'Apple'
+      case 'magic': return 'Email'
+      default: return p
+    }
   }
 
-  async function withGitHub(): Promise<void> {
+  function providerClass(p: AccountProvider): string {
+    return 'provider provider-' + p
+  }
+
+  async function signInWith(p: AccountProvider): Promise<void> {
     magicSent = false
-    const res = await account.signInWithGitHub(OAUTH_REDIRECT)
-    if (res?.url) openExternal(res.url)
+    if (p === 'google') {
+      const res = await account.signInWithGoogle(OAUTH_REDIRECT)
+      if (res?.url) openExternal(res.url)
+    } else if (p === 'github') {
+      const res = await account.signInWithGitHub(OAUTH_REDIRECT)
+      if (res?.url) openExternal(res.url)
+    } else if (p === 'apple') {
+      const res = await account.signInWithApple(OAUTH_REDIRECT)
+      if (res?.url) openExternal(res.url)
+    }
   }
 
   const emailValid = $derived(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+  const hasProviders = $derived((account.configuredProviders ?? []).length > 0)
 
   async function withEmail(): Promise<void> {
     if (!emailValid) return
@@ -69,18 +92,29 @@
       devices, publish skills, and back up encrypted to the cloud.
     </p>
 
-    <div class="providers">
-      <button class="provider" onclick={withGoogle} disabled={account.loading}>
-        <span class="g-icon" aria-hidden="true">G</span>
-        Continue with Google
-      </button>
-      <button class="provider" onclick={withGitHub} disabled={account.loading}>
-        <span class="gh-icon" aria-hidden="true">⌥</span>
-        Continue with GitHub
-      </button>
-    </div>
-
-    <div class="divider"><span>or</span></div>
+    {#if hasProviders}
+      <div class="providers">
+        {#each account.configuredProviders as p (p)}
+          <button
+            class={providerClass(p)}
+            onclick={() => signInWith(p)}
+            disabled={account.loading}
+          >
+            <span class="p-icon" aria-hidden="true">{providerLabel(p).charAt(0)}</span>
+            Continue with {providerLabel(p)}
+          </button>
+        {/each}
+      </div>
+      <div class="divider"><span>or</span></div>
+    {:else}
+      <p class="setup-hint">
+        Sign in with OAuth isn't configured on this machine. Either enter your
+        email below for a magic link, or ask your admin to set
+        <code>CONDURA_ACCOUNT_OAUTH_GOOGLE_CLIENT_ID</code> (and/or
+        <code>…_GITHUB_CLIENT_ID</code>, <code>…_APPLE_CLIENT_ID</code>) and
+        restart Condura.
+      </p>
+    {/if}
 
     <div class="magic">
       <label for="signin-email">Email magic link</label>
@@ -184,7 +218,7 @@
     transform: translateY(-1px);
   }
   .provider:disabled { opacity: 0.5; cursor: not-allowed; }
-  .g-icon, .gh-icon {
+  .p-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -195,6 +229,23 @@
     background: var(--color-bg);
     border: 1px solid var(--glass-border);
     font-size: 13px;
+  }
+  .setup-hint {
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    line-height: 1.5;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  .setup-hint code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 1px 5px;
+    border-radius: 4px;
   }
   .divider {
     display: flex;

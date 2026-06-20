@@ -607,6 +607,19 @@ export interface AccountStatus {
   // created_at is the user's account-creation timestamp
   // (RFC 3339). Empty when signed out.
   created_at: string
+  // providers is the list of OAuth providers the user can
+  // sign in with RIGHT NOW (those whose ClientID is configured).
+  // The SignInPanel uses this to decide which buttons to render.
+  // Empty array means "sign in is disabled or unconfigured";
+  // the GUI should surface a setup hint rather than dead buttons.
+  providers: AccountProvider[]
+}
+
+// ProvidersResult is the response to account.providers (used
+// to refresh the configured-provider list without re-fetching
+// the full account status).
+export interface ProvidersResult {
+  providers: AccountProvider[]
 }
 
 // OAuthURLParams asks the daemon to start an OAuth flow

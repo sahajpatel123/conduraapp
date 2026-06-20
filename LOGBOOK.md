@@ -6,6 +6,31 @@
 
 ---
 
+## [2026-06-19 14:28 IST] AI Model: Codex
+**Session ID:** footer-condura-product-signature
+**Branch:** main
+**Task:** Give the Condura footer section stronger product identity while preserving the remaining footer columns.
+
+### Files modified
+- `web/components/home/Footer.tsx` — Expanded the brand column, added a linked wordmark with a restrained terracotta signature mark, introduced the headline “Intelligence that answers to you,” refined the supporting copy, and added concise local/permission trust signals.
+- `LOGBOOK.md` — Recorded the design and QA pass.
+
+### Decisions made
+- Use open typography and spacing instead of placing the brand in a decorative card.
+- Give Condura five of twelve desktop grid columns while leaving Integrations, Explore, and Resources unchanged.
+- Keep the only accent tied to the existing terracotta brand color.
+
+### Verification
+- `npx eslint components/home/Footer.tsx` — passed.
+- `npm run build` — passed; existing optional dependency warnings remain for `@vercel/kv` and `resend`.
+- Playwright screenshots at `1440x1000` and `390x844` — verified hierarchy, wrapping, column balance, and mobile fit against the live site.
+- Condura wordmark links semantically to `/`; Support remains absent.
+
+### Open questions for next session
+- None for this footer treatment.
+
+---
+
 ## [2026-06-19 14:02 IST] AI Model: Codex
 **Session ID:** footer-support-removal-qa
 **Branch:** main
@@ -2593,3 +2618,29 @@ Deleted the entire first build and rebuilt the landing page from scratch per the
 - KIMI K2.6's `web/` rebuild continues. Their next move should be the marketing-copy TODO list in `docs/roadmap-v0.2.0.md`.
 - Phase 15 verification needs physical machines (macOS, Windows 11, Ubuntu 22.04). 2-3 days of human time per OS.
 - v0.2.0 work begins per the roadmap doc: hard Layer 3 first (highest safety value), then platform event source for perception, then subscription OAuth (longest lead time).
+
+---
+
+## [2026-06-20 18:00 IST] AI Model: glm-5p2 (opencode)
+**Session ID:** prelaunch-film-condura
+**Task:** Create a brand-new ~40s pre-launch video as a self-contained HTML file (3-4 segments, premium/viral, no inspiration from the existing `condura_ad_video.html` / `condura_pre_launch.html`). Increase hype for developers + normal users ahead of the v0.1.0 launch.
+**Files created:**
+- `condura_prelaunch_film.html` — A self-contained, autoplaying 40-second "film" in 4 segments, built from scratch with my own creative direction (no reuse of the two existing HTML videos).
+**Decisions made (creative):**
+- Concept: **"The Conductor"** — turns the chaos of a dozen disconnected AI tools into one orchestrated whole, matching the product's conductor/orchestration identity (`SITE.tagline`: "A permissioned intelligence layer for your OS").
+- 4 segments / 40s timeline: (1) *The Chaos* 0-9s — "You have a dozen AI tools / None of them talk to each other / None of them touch your screen"; (2) *The Conductor* 9-19s — canvas particle network of 12 tools connecting to a center, the Condura mark materializes, name + "The conductor for your computer."; (3) *The Power* 19-32s — four device demos: hotkey→overlay, voice orb + "hey condura", computer-use window with a green Gatekeeper verify-ring before the click (shows the deterministic-safety differentiator without words), delegation waves (Claude Code/Codex/Ollama → OpenCode/Gemini); (4) *The Promise* 32-40s — "Free. Local. Yours." → "One hotkey. Every AI. Zero cost." → "Coming soon" + condura.app.
+- Visual language aligned with the marketing site: Action Blue (#0a84ff/#0066cc) + green live node (#30d158), Inter Tight display type with negative tracking, film grain + vignette, near-black #07080c background, ease `cubic-bezier(.22,1,.36,1)`. Word-by-word reveals with translateY + blur.
+- Tech: single HTML file, canvas conductor network (12 nodes lerping scattered→ring, connection lines with outward-traveling pulses = "conducting"), JS timeline controller with cue points, progress bar + time readout, Replay button + Space-to-replay, `prefers-reduced-motion` respected, DPR-aware canvas, responsive `clamp()` typography.
+- Branding: uses **Condura** (the actual product name), wake word "hey condura", tool roster from `web/lib/site.ts` TOOL_ROSTER + 4 extras to reach "a dozen". Does NOT touch the two existing HTML files (per user instruction).
+**Verification:**
+- File opens and autoplays in the default browser on macOS (`open condura_prelaunch_film.html`).
+- No build step — pure static HTML/CSS/JS + Google Fonts CDN. Not part of `make verify` (marketing asset, not Go/TS code).
+**Open questions for next session:**
+- If the user wants audio/music: an `<audio>` bed or Web Audio synth synced to the 40s timeline can be added; currently silent (browsers block autoplay-with-sound anyway, so visuals are designed to carry the full story).
+- If a screen-capture to MP4 is needed for social posting: record a 1920x1080 browser window playback (the canvas + DOM animations are all real-time, no video element). The `docs/roadmap-v0.2.0.md` marketing TODO lists a 60s demo video as a separate v0.1.0 launch asset — this 40s film is a pre-launch teaser, distinct from that product demo.
+- Color/wording tweaks: happy to tune pacing, copy, or accent color to match a final brand decision.
+**Next steps:**
+- User review of the film; iterate on copy/pacing if desired.
+- Optionally wire this into `web/` as a teaser page or embed for the Product Hunt / HN launch.
+---
+

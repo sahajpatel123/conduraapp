@@ -9,12 +9,36 @@ import (
 	"strings"
 )
 
-// MagicLinkURL is the Synaptic server endpoint for magic-link auth.
-const MagicLinkURL = "https://synaptic.app/api/auth/magic"
+// DefaultMagicLinkURL is the Condura server endpoint that issues magic-link emails.
+// Resolved by SetMagicLinkURL on startup; this constant is the fallback for
+// development and tests.
+const DefaultMagicLinkURL = "https://condura.app/api/auth/magic"
 
-// MagicVerifyURL is the Synaptic server endpoint for verifying
-// one-time magic-link tokens.
-const MagicVerifyURL = "https://synaptic.app/api/auth/verify"
+// DefaultMagicVerifyURL is the Condura server endpoint that verifies one-time
+// magic-link tokens. Resolved by SetMagicLinkURL on startup; this constant is
+// the fallback for development and tests.
+const DefaultMagicVerifyURL = "https://condura.app/api/auth/verify"
+
+var (
+	magicLinkURL   = DefaultMagicLinkURL
+	magicVerifyURL = DefaultMagicVerifyURL
+)
+
+// SetMagicLinkURL overrides the magic-link endpoint URLs at runtime. Called
+// from buildAccount using the user's account.magic_url config value when set.
+// Resets to defaults when called with empty strings.
+func SetMagicLinkURL(issue, verify string) {
+	if issue == "" {
+		magicLinkURL = DefaultMagicLinkURL
+	} else {
+		magicLinkURL = issue
+	}
+	if verify == "" {
+		magicVerifyURL = DefaultMagicVerifyURL
+	} else {
+		magicVerifyURL = verify
+	}
+}
 
 // RequestMagicLink sends a one-time sign-in link to the user's email.
 func (m *Manager) RequestMagicLink(ctx context.Context, email string) error {
@@ -22,7 +46,7 @@ func (m *Manager) RequestMagicLink(ctx context.Context, email string) error {
 		return fmt.Errorf("account: invalid email %q", email)
 	}
 	body := fmt.Sprintf(`{"email":%q}`, email)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, MagicLinkURL,
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, magicLinkURL,
 		strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("account: magic link request: %w", err)
@@ -47,7 +71,7 @@ func (m *Manager) VerifyMagicToken(ctx context.Context, token string) (*Session,
 		return nil, fmt.Errorf("account: empty token")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		MagicVerifyURL+"?token="+token, nil)
+		magicVerifyURL+"?token="+token, nil)
 	if err != nil {
 		return nil, fmt.Errorf("account: verify request: %w", err)
 	}
