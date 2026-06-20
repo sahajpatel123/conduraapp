@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { SITE } from "@/lib/site";
@@ -16,11 +16,11 @@ const NAV_ITEMS = [
 export default function GlobalNav() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const reduced = useReducedMotion();
 
   // Hide on scroll-down, reveal on scroll-up. The nav slides up
-  // out of view and fades; on scroll-up it slides back in. The
-  // site dock is a separate fixed element and is never affected.
+  // out of view and fades; on scroll-up it slides back in.
   useEffect(() => {
     if (reduced) return;
     let lastY = window.scrollY;
@@ -31,14 +31,11 @@ export default function GlobalNav() {
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        // Always show at the very top of the page.
         if (y < 80) {
           setHidden(false);
         } else if (y > lastY + 6) {
-          // Scrolling down → hide.
           setHidden(true);
         } else if (y < lastY - 6) {
-          // Scrolling up → reveal.
           setHidden(false);
         }
         lastY = y;
@@ -54,6 +51,8 @@ export default function GlobalNav() {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
     <motion.nav
@@ -90,6 +89,7 @@ export default function GlobalNav() {
           </span>
         </Link>
 
+        {/* ─── Desktop nav links ─── */}
         <div 
           className="relative z-10 col-start-2 hidden items-center gap-1 justify-self-center rounded-[18px] border border-white/[0.075] bg-black/20 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl md:flex"
           onMouseLeave={() => setHoveredIndex(null)}
@@ -125,6 +125,7 @@ export default function GlobalNav() {
           ))}
         </div>
 
+        {/* ─── Right side: GitHub + Download + Mobile hamburger ─── */}
         <div className="z-10 col-start-3 flex items-center gap-2 justify-self-end sm:gap-3">
           <a
             href={SITE.github}
@@ -142,9 +143,68 @@ export default function GlobalNav() {
             <span className="relative z-10 hidden sm:inline">Download v0.1.0</span>
             <span className="relative z-10 sm:hidden">Download</span>
           </button>
-        </div>
 
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileOpen}
+            className="flex md:hidden items-center justify-center w-10 h-10 rounded-full text-white/60 hover:text-white transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {mobileOpen ? (
+                <path d="M18 6L6 18M6 6l12 12" />
+              ) : (
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* ─── Mobile dropdown panel ─── */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+              onClick={closeMobile}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="absolute left-0 right-0 top-[68px] z-50 rounded-2xl border border-white/[0.08] bg-[#111113]/98 backdrop-blur-xl p-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:hidden"
+            >
+              {NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  prefetch
+                  onClick={closeMobile}
+                  className="block rounded-xl px-4 py-3 font-body-mature text-[15px] text-[#a1a1aa] transition-colors hover:text-white hover:bg-white/[0.06]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <hr className="my-2 border-white/[0.06]" />
+              <a
+                href={SITE.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="block rounded-xl px-4 py-3 font-body-mature text-[15px] text-[#a1a1aa] transition-colors hover:text-white hover:bg-white/[0.06]"
+              >
+                GitHub
+              </a>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }
