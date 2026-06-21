@@ -16,8 +16,6 @@ rules:
   # Class-based defaults.
   - match: { class: read }
     decide: allow
-  - match: { class: write, target_app: ["Code", "VS Code", "Cursor", "Terminal", "Finder"] }
-    decide: allow
   - match: { class: write }
     decide: require_consent
     consent: { type: native_dialog, timeout_seconds: 300, on_timeout: queue }

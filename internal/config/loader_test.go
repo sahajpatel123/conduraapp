@@ -237,11 +237,23 @@ func TestErrInvalidConfig_MultipleErrors(t *testing.T) {
 
 func TestLoader_Load_DefaultsWhenNoFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	loader := NewLoader(filepath.Join(tmpDir, "nonexistent.yaml"))
+	cfgPath := filepath.Join(tmpDir, "nonexistent.yaml")
+	loader := NewLoader(cfgPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	assert.Equal(t, ConfigSchemaVersion, cfg.Version)
+	// Phase 17, Fix #9 (R1): Load() must write the default config
+	// to disk when the file is missing, so the user has a target
+	// they can edit and so subsequent in-process Save() calls
+	// (e.g. apikeys.set auto-enable) have a stable file.
+	_, statErr := os.Stat(cfgPath)
+	assert.NoError(t, statErr, "Load() should write defaults to %s", cfgPath)
+	// And the written file should be parseable YAML we can re-load.
+	loader2 := NewLoader(cfgPath)
+	cfg2, err := loader2.Load()
+	require.NoError(t, err)
+	assert.Equal(t, ConfigSchemaVersion, cfg2.Version)
 }
 
 func TestLoader_Load_FromFile(t *testing.T) {

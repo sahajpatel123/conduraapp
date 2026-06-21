@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 )
@@ -319,4 +321,144 @@ type testConsent struct {
 func (c *testConsent) IsAvailable() bool { return c.available }
 func (c *testConsent) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
 	return c.approved, nil
+}
+
+// Phase 17, Fix #2 (A6): ApproveTicket / DenyTicket must reject
+// expired nonces. We seed the engine's pending list with a ticket
+// whose ExpiresAt is in the past and verify both methods return
+// false. We also seed a fresh ticket and verify both methods
+// succeed.
+func TestEngine_TicketExpiry_ApproveAndDenyRejectExpired(t *testing.T) {
+	p := DefaultPolicy()
+	e := NewEngine(p, nil, &testHalt{})
+
+	expired := &ConsentTicket{
+		ActionKind: "shell.exec",
+		Nonce:      "expired-nonce",
+		ExpiresAt:  time.Now().Add(-1 * time.Minute),
+		Result:     make(chan bool, 1),
+	}
+	fresh := &ConsentTicket{
+		ActionKind: "shell.exec",
+		Nonce:      "fresh-nonce",
+		ExpiresAt:  time.Now().Add(1 * time.Minute),
+		Result:     make(chan bool, 1),
+	}
+	e.pendingMu.Lock()
+	e.pending = append(e.pending, expired, fresh)
+	e.pendingMu.Unlock()
+
+	if e.ApproveTicket("expired-nonce") {
+		t.Error("ApproveTicket should reject expired nonces")
+	}
+	if e.ApproveTicket("nonexistent-nonce") {
+		t.Error("ApproveTicket should reject unknown nonces")
+	}
+	if !e.ApproveTicket("fresh-nonce") {
+		t.Error("ApproveTicket should accept fresh nonces")
+	}
+
+	if e.DenyTicket("expired-nonce") {
+		t.Error("DenyTicket should reject expired nonces")
+	}
+	if !e.DenyTicket("fresh-nonce") {
+		t.Error("DenyTicket should accept fresh nonces")
+	}
+}
+
+// Phase 17, Fix #5 (A7): the on_timeout=queue policy field must
+// suppress the engine-side timeout so the GUI's own dialog has time
+// to gather a real answer. We assert:
+//   - With queue, the engine does NOT return Deny after TimeoutSecs.
+//   - The ticket remains in Pending() across the wait.
+//   - When the caller's context is canceled, the engine returns Deny
+//     and the ticket is STILL in Pending() so the GUI can resolve it.
+//   - With default (queue not set), the engine returns Deny after
+//     TimeoutSecs.
+func TestEngine_OnTimeoutQueue_SuppressesEngineTimeout(t *testing.T) {
+	// Test consent provider that blocks on a channel until the
+	// test signals it. We use this to simulate a slow GUI dialog.
+	block := make(chan struct{})
+	defer close(block)
+	slowProvider := &slowConsent{block: block}
+
+	t.Run("queue_blocks_until_cancel", func(t *testing.T) {
+		p := DefaultPolicy()
+		// Force every consent-required rule to use on_timeout=queue
+		// with a 1-second engine timeout that we'd otherwise hit.
+		for i := range p.rules {
+			if p.rules[i].Consent.OnTimeout != "" || p.rules[i].Consent.TimeoutSeconds == 0 {
+				continue
+			}
+			p.rules[i].Consent.OnTimeout = "queue"
+			p.rules[i].Consent.TimeoutSeconds = 1
+		}
+		e := NewEngine(p, slowProvider, &testHalt{})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		// Cancel after 200ms — before the 1s engine timeout.
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cancel()
+		}()
+		// Trigger consent-required action.
+		d, reason := e.Evaluate(ctx, blastradius.Action{Kind: "shell.exec"})
+		if d != Deny {
+			t.Errorf("expected Deny after ctx cancel, got %v (%s)", d, reason)
+		}
+		if !strings.Contains(reason, "canceled") {
+			t.Errorf("expected 'canceled' reason, got %q", reason)
+		}
+		// Ticket must still be in pending so the GUI can resolve it.
+		pending := e.Pending()
+		if len(pending) != 1 {
+			t.Errorf("expected 1 pending ticket (queue preserves), got %d", len(pending))
+		}
+	})
+
+	t.Run("default_times_out", func(t *testing.T) {
+		p := DefaultPolicy()
+		// Force every consent-required rule to use the default
+		// timeout (empty on_timeout = deny on timeout) with a 1s
+		// engine timeout.
+		for i := range p.rules {
+			if p.rules[i].Consent.OnTimeout != "" || p.rules[i].Consent.TimeoutSeconds == 0 {
+				continue
+			}
+			p.rules[i].Consent.OnTimeout = ""
+			p.rules[i].Consent.TimeoutSeconds = 1
+		}
+		e := NewEngine(p, slowProvider, &testHalt{})
+		// Give the engine a fresh context that we DON'T cancel.
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		start := time.Now()
+		d, reason := e.Evaluate(ctx, blastradius.Action{Kind: "shell.exec"})
+		elapsed := time.Since(start)
+		if d != Deny {
+			t.Errorf("expected Deny on timeout, got %v (%s)", d, reason)
+		}
+		if !strings.Contains(reason, "timeout") {
+			t.Errorf("expected 'timeout' in reason, got %q", reason)
+		}
+		if elapsed > 3*time.Second {
+			t.Errorf("engine-side timeout took too long: %v", elapsed)
+		}
+		// Default timeout removes the ticket.
+		if got := len(e.Pending()); got != 0 {
+			t.Errorf("expected 0 pending tickets after default-timeout deny, got %d", got)
+		}
+	})
+}
+
+// slowConsent blocks in Show until the test releases the channel.
+// Used to simulate a slow GUI dialog in Fix #5 tests.
+type slowConsent struct {
+	block chan struct{}
+}
+
+func (s *slowConsent) IsAvailable() bool { return true }
+func (s *slowConsent) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
+	<-s.block
+	return false, nil
 }

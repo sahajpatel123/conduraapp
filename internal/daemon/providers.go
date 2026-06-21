@@ -19,7 +19,32 @@ import (
 // If netGuard is non-nil, every provider's HTTP transport is wrapped
 // by the guard so the kill switch's Layer 3 (network isolation) takes
 // effect for outbound LLM traffic.
+//
+// Phase 17, Fix #4 (B1): we ALSO auto-enable any provider that has a
+// stored API key in the api_key.Manager but is disabled in the YAML
+// map. This makes `apikeys.set` self-sufficient — the user adds a key
+// via the GUI, and the provider becomes routable without requiring
+// them to also edit config.yaml. cfg.LLM.Providers is treated as a
+// defaults source, not a hard allowlist. The canonical provider name
+// list is iterated so we pick up keys for any provider we know how
+// to build, regardless of whether the user explicitly added it to
+// the YAML map.
 func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *config.Config, akm *api_key.Manager, netGuard halt.NetworkGuard) int {
+	if cfg.LLM.Providers == nil {
+		cfg.LLM.Providers = map[string]config.ProviderConfig{}
+	}
+	for _, name := range knownProviders() {
+		keys, err := akm.ListByProvider(context.Background(), name)
+		if err != nil || len(keys) == 0 {
+			continue
+		}
+		entry, ok := cfg.LLM.Providers[name]
+		if !ok || !entry.Enabled {
+			entry.Enabled = true
+			cfg.LLM.Providers[name] = entry
+			log.Info("auto-enabled provider from stored api key", "provider", name)
+		}
+	}
 	count := 0
 	for name, p := range cfg.LLM.Providers {
 		if !p.Enabled {
@@ -56,6 +81,30 @@ func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *con
 		count++
 	}
 	return count
+}
+
+// knownProviders returns the canonical list of provider names this
+// daemon can register. Mirrors the cases in buildProvider(). Used
+// by buildProvidersFromConfig to discover which providers have
+// stored API keys without requiring the user to enumerate them in
+// config.yaml first.
+func knownProviders() []string {
+	return []string{
+		config.ProviderAnthropic,
+		config.ProviderOpenAI,
+		config.ProviderGoogle,
+		config.ProviderXAI,
+		config.ProviderMistral,
+		config.ProviderDeepSeek,
+		config.ProviderOpenRouter,
+		config.ProviderGroq,
+		config.ProviderTogether,
+		config.ProviderFireworks,
+		config.ProviderOllama,
+		config.ProviderLocalAI,
+		config.ProviderLMStudio,
+		config.ProviderVLLM,
+	}
 }
 
 // wrapProviderHTTPClient attaches the net guard's transport to the

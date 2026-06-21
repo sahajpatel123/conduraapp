@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
@@ -185,4 +186,131 @@ type allowAllGatekeeper struct{}
 
 func (a allowAllGatekeeper) Evaluate(_ context.Context, _ blastradius.Action) (gatekeeper.Decision, string) {
 	return gatekeeper.Allow, ""
+}
+
+// Phase 17, Fix #6 (B4): the resolver must perform a twin-snapshot
+// verification around every gated execution. When the AX tree changes
+// between the pre and post snapshot in a way that indicates stale
+// state (window focus changed, target node removed), the action must
+// be aborted and ErrStaleState returned.
+//
+// This test exercises the happy path (identical pre/post trees) AND
+// the abort path (pre-tree has the target button; post-tree has it
+// removed because the user closed the dialog during the action).
+func TestCUResolver_TwinSnapshotVerification(t *testing.T) {
+	t.Run("identical_trees_no_abort", func(t *testing.T) {
+		cu, _ := resolverMocks()
+		gexec := computeruse.NewGatedExecutor(cu, allowAllGatekeeper{})
+		r := NewCUResolver(cu, gexec)
+		act := &agent.Action{Type: "click", Target: "OK button"}
+		res, err := r.Execute(context.Background(), act)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !res.Success {
+			t.Errorf("expected success with identical pre/post trees, got %+v", res)
+		}
+	})
+
+	t.Run("node_removed_aborts_with_ErrStaleState", func(t *testing.T) {
+		// Build a custom mock backend whose AX tree is
+		// non-deterministic: returns the full tree the first
+		// time, then a stripped tree thereafter (target node
+		// removed = user closed the dialog mid-click).
+		preTree := &computeruse.AXTree{
+			Root: &computeruse.AXNode{
+				Role: "AXApplication", Title: "TestApp",
+				Children: []*computeruse.AXNode{{
+					Role: "AXWindow", Title: "MainWindow",
+					Children: []*computeruse.AXNode{{
+						Role: "AXButton", Title: "OK",
+						Bounds: &computeruse.Rect{X: 10, Y: 10, Width: 50, Height: 20},
+					}},
+				}},
+			},
+		}
+		postTree := &computeruse.AXTree{
+			Root: &computeruse.AXNode{
+				Role: "AXApplication", Title: "TestApp",
+				Children: []*computeruse.AXNode{{
+					Role: "AXWindow", Title: "MainWindow",
+					// Note: OK button is GONE.
+				}},
+			},
+		}
+		// Sequence: return preTree for the first GetAXTree call,
+		// then postTree for subsequent calls.
+		callCount := 0
+		backend := &sequencedAXBackend{
+			treeAt: func(n int) *computeruse.AXTree {
+				if n == 0 {
+					return preTree
+				}
+				return postTree
+			},
+			counter: &callCount,
+		}
+		cu := computeruse.New(backend)
+		gexec := computeruse.NewGatedExecutor(cu, allowAllGatekeeper{})
+		r := NewCUResolver(cu, gexec)
+
+		act := &agent.Action{Type: "click", Target: "OK button"}
+		res, err := r.Execute(context.Background(), act)
+		// We expect ErrStaleState. The mock backend still records
+		// the Execute call (the gate passes it; verify aborts
+		// AFTER).
+		if err == nil {
+			t.Fatal("expected ErrStaleState, got nil")
+		}
+		if !errorsIs(err, computeruse.ErrStaleState) {
+			t.Errorf("expected ErrStaleState, got %v", err)
+		}
+		if res != nil && res.Success {
+			t.Error("expected Success=false when verify aborts")
+		}
+		if callCount < 2 {
+			t.Errorf("expected at least 2 AX tree reads (pre+post), got %d", callCount)
+		}
+	})
+}
+
+// errorsIs is a tiny local helper to avoid an import cycle with the
+// top-level errors package in this test file's helper section.
+func errorsIs(err, target error) bool {
+	for err != nil {
+		if err == target {
+			return true
+		}
+		type unwrapper interface{ Unwrap() error }
+		if u, ok := err.(unwrapper); ok {
+			err = u.Unwrap()
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+// sequencedAXBackend returns a different AX tree on each call so
+// tests can simulate state changing during an action.
+type sequencedAXBackend struct {
+	treeAt  func(n int) *computeruse.AXTree
+	counter *int
+}
+
+func (s *sequencedAXBackend) Name() string { return "sequenced" }
+func (s *sequencedAXBackend) Capabilities() []computeruse.Capability {
+	return []computeruse.Capability{computeruse.CapAXTree, computeruse.CapClick}
+}
+func (s *sequencedAXBackend) IsAvailable(_ context.Context) bool { return true }
+func (s *sequencedAXBackend) CaptureScreen(_ context.Context) (*computeruse.Screenshot, error) {
+	return &computeruse.Screenshot{Width: 100, Height: 100, Image: []byte("x")}, nil
+}
+func (s *sequencedAXBackend) GetAXTree(_ context.Context) (*computeruse.AXTree, error) {
+	n := *s.counter
+	*s.counter = n + 1
+	return s.treeAt(n), nil
+}
+func (s *sequencedAXBackend) Execute(_ context.Context, a *computeruse.Action) (*computeruse.ActionResult, error) {
+	return &computeruse.ActionResult{Success: true, Action: a, Duration: time.Millisecond}, nil
 }

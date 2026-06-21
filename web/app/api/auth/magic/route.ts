@@ -64,13 +64,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 }
     )
   }
-  if (typeof redirect_url !== 'string' || !redirect_url.startsWith('https://')) {
-    // Only https:// redirects are accepted to prevent
-    // open-redirect attacks. The desktop app uses
-    // synaptic://oauth-callback which is handled
-    // separately by the daemon's account.magic_link RPC.
+  if (typeof redirect_url !== 'string') {
     return NextResponse.json(
-      { error: 'redirect_url must be an https:// URL' },
+      { error: 'redirect_url is required' },
+      { status: 400 }
+    )
+  }
+  // Phase 17, Fix #8 (R3): the previous check only verified
+  // the scheme (https://). That allowed https://evil.com/...
+  // which an attacker can phish with — they put the link in
+  // an email "sign in to condura" and the user lands on a
+  // convincing clone. We now require the host to be on our
+  // allowlist (condura.app or localhost for dev).
+  //
+  // We parse the URL with the WHATWG URL API. Parsing failure
+  // OR a non-https protocol OR a host that's not in the
+  // allowlist all reject with 400.
+  let parsedHost = ''
+  try {
+    const u = new URL(redirect_url)
+    if (u.protocol !== 'https:') {
+      return NextResponse.json(
+        { error: 'redirect_url must use https://' },
+        { status: 400 }
+      )
+    }
+    parsedHost = u.hostname.toLowerCase()
+  } catch {
+    return NextResponse.json(
+      { error: 'redirect_url is not a valid URL' },
+      { status: 400 }
+    )
+  }
+  const allowedHosts = new Set([
+    'condura.app',
+    'www.condura.app',
+    'localhost',
+    '127.0.0.1',
+  ])
+  if (!allowedHosts.has(parsedHost)) {
+    return NextResponse.json(
+      { error: 'redirect_url host is not allowed' },
       { status: 400 }
     )
   }

@@ -130,6 +130,31 @@ func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil {
 			return nil, err
 		}
+		// Phase 17, Fix #4 (B1): mark the provider as enabled in
+		// the in-memory config and persist it so the choice
+		// survives a daemon restart. Without this, the user adds a
+		// key via the GUI but the daemon's LLM registry never
+		// picks up the provider on the next boot because
+		// cfg.LLM.Providers stays disabled. Rebind is best-effort;
+		// we always call RebuildProviders so the current process
+		// picks the new key up via buildProvidersFromConfig's
+		// "auto-enable from api_keys" path.
+		if subs != nil && subs.cfg != nil && subs.Loader != nil {
+			entry, ok := subs.cfg.LLM.Providers[p.Provider]
+			if !ok {
+				entry = config.ProviderConfig{}
+			}
+			if !entry.Enabled {
+				entry.Enabled = true
+				if subs.cfg.LLM.Providers == nil {
+					subs.cfg.LLM.Providers = map[string]config.ProviderConfig{}
+				}
+				subs.cfg.LLM.Providers[p.Provider] = entry
+				if err := subs.Loader.Save(subs.cfg); err != nil {
+					slog.Warn("persist provider enable failed", "provider", p.Provider, "err", err)
+				}
+			}
+		}
 		subs.RebuildProviders()
 		return map[string]any{"id": id}, nil
 	})

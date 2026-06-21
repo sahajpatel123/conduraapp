@@ -6,6 +6,13 @@
 // inactivity timer. If `timeout` elapses without a Touch, the
 // watchdog auto-halt's the daemon via a HaltFlag.
 //
+// Every halt MUST be forensically recorded per CLAUDE.md §5.4
+// ("HMAC-chained, append-only, never deleted"). The watchdog's
+// Halt() call goes straight to the HaltFlag — bypassing any RPC
+// handler that would normally write the audit row. So we accept
+// an optional Auditor and write the audit row **before** the
+// Halt(), so even a slow Halt() still leaves a trace.
+//
 // Why a separate package:
 //   - Layer 2 must be implemented in code the agent cannot disable.
 //     Putting it in its own package (with no imports of the agent
@@ -46,6 +53,25 @@ type HaltFlag interface {
 	IsHalted() bool
 }
 
+// AuditEvent mirrors audit.Event's subset we need. Declared as
+// an interface here so the watchdog package doesn't import
+// internal/audit (avoiding a possible future cycle if the audit
+// package ever depends on halt). The production wiring passes a
+// thin closure that fills the field from the real audit.Event.
+type AuditEvent struct {
+	Actor  string
+	Action string
+	Level  string
+	Result string
+	Detail string
+}
+
+// Auditor is the optional audit hook. nil = skip audit (NOT
+// recommended — every halt should be forensically traceable).
+type Auditor interface {
+	RecordHalt(ctx context.Context, e AuditEvent)
+}
+
 // Watchdog auto-halt's the daemon after `timeout` of inactivity.
 // "Inactivity" is the time since the last Touch().
 type Watchdog struct {
@@ -54,6 +80,7 @@ type Watchdog struct {
 	timeout   time.Duration
 	interval  time.Duration
 	halt      HaltFlag
+	auditor   Auditor
 	log       *slog.Logger
 
 	// onTrip fires when the watchdog fires. nil = use the default
@@ -67,7 +94,9 @@ type Watchdog struct {
 //
 // log may be nil; a nil logger is replaced with slog.Default() so
 // callers don't have to nil-check on every path.
-func New(timeout time.Duration, interval time.Duration, haltFlag HaltFlag, log *slog.Logger) *Watchdog {
+// auditor may be nil, but that means halts won't be forensically
+// recorded — the production wiring always passes a real auditor.
+func New(timeout time.Duration, interval time.Duration, haltFlag HaltFlag, auditor Auditor, log *slog.Logger) *Watchdog {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -82,6 +111,7 @@ func New(timeout time.Duration, interval time.Duration, haltFlag HaltFlag, log *
 		timeout:   timeout,
 		interval:  interval,
 		halt:      haltFlag,
+		auditor:   auditor,
 		log:       log,
 	}
 }
@@ -121,6 +151,13 @@ func (w *Watchdog) IdleDuration() time.Duration {
 // The watchdog does NOT call os.Exit or panic on trip; it delegates
 // to haltFlag.Halt() so the rest of the daemon can shut down
 // cleanly (audit log write, broker close, file flush).
+//
+// On trip we:
+//  1. Write an audit row BEFORE Halt() — even a slow Halt()
+//     still leaves a trace. This satisfies CLAUDE.md §5.4's
+//     "every halt must be forensically recorded."
+//  2. Call Halt() with the same reason.
+//  3. Log the trip at WARN level.
 func (w *Watchdog) Run(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -142,6 +179,19 @@ func (w *Watchdog) Run(ctx context.Context) {
 			if w.onTrip != nil {
 				w.onTrip(reason)
 				return
+			}
+			// Phase 17, Fix #1 (B3): write the audit row BEFORE
+			// calling Halt() so a slow halt doesn't lose the
+			// trace. The auditor may be nil in tests; production
+			// always wires one.
+			if w.auditor != nil {
+				w.auditor.RecordHalt(ctx, AuditEvent{
+					Actor:  "watchdog",
+					Action: "daemon.halt",
+					Level:  "warn",
+					Result: "watchdog_timeout",
+					Detail: reason,
+				})
 			}
 			if w.halt != nil {
 				if _, err := w.halt.Halt(ctx, reason); err != nil {

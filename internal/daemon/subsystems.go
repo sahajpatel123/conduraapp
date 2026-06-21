@@ -730,10 +730,15 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// configured inactivity timeout.
 	var wdog *watchdog.Watchdog
 	if cfg.Daemon.Watchdog.Enabled && cfg.Daemon.Watchdog.Timeout > 0 {
+		// Phase 17, Fix #1 (B3): wire the audit log into the watchdog
+		// so every auto-halt leaves a forensic trail. The watchdog
+		// package only sees an Auditor interface; the concrete
+		// *audit.Log is wrapped in an inline adapter here.
 		wdog = watchdog.New(
 			cfg.Daemon.Watchdog.Timeout,
 			cfg.Daemon.Watchdog.CheckInterval,
 			haltFlag,
+			watchdogAuditAdapter{log: auditLog, appName: appCondurad},
 			log,
 		)
 		log.Info("watchdog armed", "timeout", cfg.Daemon.Watchdog.Timeout.String())
@@ -1452,4 +1457,33 @@ func buildReach(db *storage.DB, log *slog.Logger) *reach.Manager {
 	mgr := reach.NewManager(store)
 	log.Info("reach subsystem ready", "channels", "telegram")
 	return mgr
+}
+
+// watchdogAuditAdapter bridges internal/audit.Log to the
+// watchdog.Auditor interface. It is a thin closure so the
+// watchdog package never has to import internal/audit (which
+// would create a cycle risk if audit ever grew to depend on
+// other daemon internals).
+//
+// Phase 17, Fix #1 (B3): writes an audit row at WARN level
+// before the watchdog halts the daemon, so the halt is
+// forensically traceable per CLAUDE.md §5.4.
+type watchdogAuditAdapter struct {
+	log     *audit.Log
+	appName string
+}
+
+// RecordHalt implements watchdog.Auditor.
+func (a watchdogAuditAdapter) RecordHalt(ctx context.Context, e watchdog.AuditEvent) {
+	if a.log == nil {
+		return
+	}
+	_ = a.log.Append(ctx, audit.Event{
+		Actor:   e.Actor,
+		Action:  e.Action,
+		App:     a.appName,
+		Level:   e.Level,
+		Result:  e.Result,
+		Message: e.Detail,
+	})
 }

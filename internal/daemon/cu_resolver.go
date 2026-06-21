@@ -80,9 +80,43 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 		return &agent.StepResult{Success: false, Error: err}, err
 	}
 
+	// Phase 17, Fix #6 (B4): twin-snapshot verification. The
+	// pre/post AX tree comparison is the anti-staleness mechanism
+	// from CLAUDE.md §5.2 / Survival Rule §2.1.2. Without it,
+	// the agent plays darts with the OS — by the time the click
+	// fires, the screen has changed and we hit the wrong target.
+	//
+	// We take the pre-snapshot, run the gated action, take the
+	// post-snapshot, compare; if the diff is critical (window
+	// focus changed, target node removed) we ABORT the action
+	// and return ErrStaleState so the planner can retry with a
+	// fresh AX tree.
+	pre := r.captureAXSnapshot(ctx)
+
 	ssBeforeRef := r.captureScreenshot(ctx, "before")
 	result, err := r.gate.Execute(ctx, cuAction)
 	ssAfterRef := r.captureScreenshot(ctx, "after")
+
+	// Post-action snapshot + verify. We do this even if Execute
+	// returned an error because the action may have partially
+	// succeeded (e.g. click registered, but result errored).
+	if pre != nil && r.cu != nil {
+		postTree, perr := r.cu.GetAXTree(ctx)
+		if perr == nil && postTree != nil {
+			post := computeruse.NewSnapshot(postTree, 0)
+			vres := computeruse.VerifySnapshots(pre, post, cuAction)
+			if vres != nil && !vres.Valid && vres.Aborted {
+				return &agent.StepResult{
+					Success:     false,
+					Error:       computeruse.ErrStaleState,
+					Output:      "twin-snapshot verification aborted: " + vres.Reason,
+					Duration:    durationSeconds(result),
+					SSBeforeRef: ssBeforeRef,
+					SSAfterRef:  ssAfterRef,
+				}, computeruse.ErrStaleState
+			}
+		}
+	}
 
 	// Anomaly recording: real coordinates from CU action.
 	if r.onCUStep != nil && result != nil {
@@ -111,6 +145,21 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 		SSBeforeRef: ssBeforeRef,
 		SSAfterRef:  ssAfterRef,
 	}, nil
+}
+
+// captureAXSnapshot takes a pre/post AX tree for twin-snapshot
+// verification. Best-effort: returns nil if the AX backend is
+// unavailable or the tree is empty, in which case the verifier
+// is skipped (the action still runs).
+func (r *CUResolver) captureAXSnapshot(ctx context.Context) *computeruse.Snapshot {
+	if r.cu == nil {
+		return nil
+	}
+	tree, err := r.cu.GetAXTree(ctx)
+	if err != nil || tree == nil {
+		return nil
+	}
+	return computeruse.NewSnapshot(tree, 0)
 }
 
 // captureScreenshot takes a screenshot via the CU backend and stores

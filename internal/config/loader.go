@@ -433,7 +433,8 @@ func NewLoader(path string) *Loader {
 
 // Load reads the config file (if it exists), merges with defaults, applies
 // env overrides, and validates the result. If the file does not exist, the
-// defaults are returned and an empty file is written (so the user can edit).
+// defaults are returned AND written to disk (so the user can edit it
+// later — Phase 17 Fix #9 R1). Existing files are never overwritten.
 func (l *Loader) Load() (*Config, error) {
 	if l.Path == "" {
 		l.Path = filepath.Join(defaultDataDir(), DefaultConfigFileName)
@@ -455,6 +456,20 @@ func (l *Loader) Load() (*Config, error) {
 		}
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("stat config file %s: %w", l.Path, err)
+	} else {
+		// Phase 17, Fix #9 (R1): the file is missing. Write
+		// defaults to disk so the user can edit it AND so
+		// subsequent in-process Save() calls (e.g. apikeys.set
+		// auto-enable, hotkey.overlay change) have a stable
+		// target. Best-effort: if MkdirAll / WriteFile fails,
+		// we still return cfg so the daemon runs with in-memory
+		// defaults — but we log so the operator can intervene.
+		if saveErr := l.Save(cfg); saveErr != nil {
+			// Don't fail Load() on a Save error; the daemon
+			// works without a config file (in-memory defaults).
+			// We log via stderr since slog isn't imported here.
+			fmt.Fprintf(os.Stderr, "config: write default to %s failed: %v\n", l.Path, saveErr)
+		}
 	}
 
 	// Apply env overrides.

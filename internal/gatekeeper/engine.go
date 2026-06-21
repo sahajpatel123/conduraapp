@@ -176,14 +176,64 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 	e.pendingMu.Lock()
 	e.pending = append(e.pending, ticket)
 	e.pendingMu.Unlock()
-	defer func() {
-		e.pendingMu.Lock()
-		e.pending = removeTicket(e.pending, ticket)
-		e.pendingMu.Unlock()
-	}()
 
-	// Block on consent.
-	approved, err := e.consent.Show(ctx, ticket)
+	// Phase 17, Fix #5 (A7): when the policy says OnTimeout=queue,
+	// the engine-side timeout is suppressed so the consent dialog
+	// has time to gather a real answer (especially useful for
+	// DESTRUCTIVE actions where "user walked away" should NOT auto-
+	// deny). The caller's context is the only thing that cancels
+	// the wait. The ticket also stays in `pending` across the
+	// wait so the GUI can surface it and let the user approve or
+	// deny it manually if the dialog itself times out.
+	queueOnTimeout := v.OnTimeout == "queue"
+	if !queueOnTimeout {
+		defer func() {
+			e.pendingMu.Lock()
+			e.pending = removeTicket(e.pending, ticket)
+			e.pendingMu.Unlock()
+		}()
+	}
+
+	// Block on consent. Run the provider in a goroutine so we
+	// can enforce the engine-side timeout here (the provider may
+	// return early on its own clock, but if it doesn't, we
+	// honor OnTimeout here).
+	type providerResult struct {
+		approved bool
+		err      error
+	}
+	done := make(chan providerResult, 1)
+	go func() {
+		ap, err := e.consent.Show(ctx, ticket)
+		done <- providerResult{approved: ap, err: err}
+	}()
+	var (
+		approved bool
+		err      error
+	)
+	if v.OnTimeout == "queue" {
+		// Block until provider returns, OR caller context is canceled.
+		select {
+		case res := <-done:
+			approved, err = res.approved, res.err
+		case <-ctx.Done():
+			// Leave the ticket in pending so the GUI can resolve
+			// it later via ApproveTicket/DenyTicket.
+			return Deny, "queued: waiting for user response (ctx canceled)"
+		}
+	} else {
+		// Default: race provider against engine-side timeout.
+		t := time.NewTimer(time.Duration(v.TimeoutSecs) * time.Second)
+		defer t.Stop()
+		select {
+		case res := <-done:
+			approved, err = res.approved, res.err
+		case <-t.C:
+			return Deny, fmt.Sprintf("consent timeout after %ds", v.TimeoutSecs)
+		case <-ctx.Done():
+			return Deny, "consent canceled"
+		}
+	}
 	if err != nil {
 		return Deny, fmt.Sprintf("consent error: %v", err)
 	}
@@ -204,12 +254,19 @@ func (e *Engine) Pending() []*ConsentTicket {
 	return out
 }
 
-// ApproveTicket approves a pending consent by nonce.
+// ApproveTicket approves a pending consent by nonce. Returns
+// false if the nonce is unknown OR if the ticket has already
+// expired (ExpiresAt is in the past). Phase 17, Fix #2 (A6):
+// expired nonces can no longer be replayed.
 func (e *Engine) ApproveTicket(nonce string) bool {
 	e.pendingMu.Lock()
 	var ticket *ConsentTicket
 	for _, t := range e.pending {
 		if t.Nonce == nonce {
+			if !t.ExpiresAt.IsZero() && time.Now().After(t.ExpiresAt) {
+				e.pendingMu.Unlock()
+				return false
+			}
 			t.Approved = true
 			ticket = t
 			break
@@ -228,12 +285,18 @@ func (e *Engine) ApproveTicket(nonce string) bool {
 	return true
 }
 
-// DenyTicket denies a pending consent by nonce.
+// DenyTicket denies a pending consent by nonce. Returns false if
+// the nonce is unknown OR if the ticket has already expired
+// (matching ApproveTicket's expiry check, Phase 17 Fix #2).
 func (e *Engine) DenyTicket(nonce string) bool {
 	e.pendingMu.Lock()
 	var ticket *ConsentTicket
 	for _, t := range e.pending {
 		if t.Nonce == nonce {
+			if !t.ExpiresAt.IsZero() && time.Now().After(t.ExpiresAt) {
+				e.pendingMu.Unlock()
+				return false
+			}
 			t.Approved = false
 			ticket = t
 			break
