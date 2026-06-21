@@ -2644,3 +2644,63 @@ Deleted the entire first build and rebuilt the landing page from scratch per the
 - Optionally wire this into `web/` as a teaser page or embed for the Product Hunt / HN launch.
 ---
 
+
+---
+
+## [2026-06-21 21:30 IST] AI Model: opencode-go/minimax-m3
+**Session ID:** phase-16-spec-impl-gap
+**Branch:** main
+**Task:** Implement the 6 user-directed recommendations from the Tier-3 audit follow-up. Each was scoped, verified end-to-end against the real binary, and committed as a logical unit.
+**Files created:**
+- `internal/watchdog/` — New package. `Watchdog` type with New/Touch/LastTouch/IdleDuration/Run/OnTrip override; HaltFlag interface mirroring `*halt.Flag`; sandbox-safe `setupRepoWithGit`-style helpers in the test file.
+- `internal/watchdog/watchdog_test.go` — 9 tests: NewSetsInitialTouch, TouchUpdatesLastTouch, IdleDurationCountsSinceLastTouch, Run_HaltsAfterTimeout, Run_NoHaltWhenActive, Run_AlreadyHaltedIsNoOp, Run_CtxCancelStopsLoop, Defaults, OnTripOverride.
+- `internal/trust/trust.go` — New package. `Entry`, `AppScope`, `Store` with Grant/Lookup/Revoke/List; `WorkspaceIDFor(path)` walks up to find `.git/`; hand-rolled YAML parser keeps the package free of `yaml.v3`.
+- `internal/trust/trust_test.go` — 17 tests: NewStore_EmptyFile, GrantLookupRevoke, AppScopeFiltering, Revoke, Persistence, GrantEmptyID, LastUsedAtUpdated, ListSortedByRecency, RevokeNonexistent, WorkspaceIDFor_GitRoot/NoGitRoot/EmptyInput/FilesystemRoot, ParseTrustYAML_RoundTrip/IgnoresComments/EmptyString/RoundTrip_Honest, SaveRoundTrip.
+- `internal/daemon/methods_trust.go` — 4 new RPCs: trust.list / grant / revoke / workspace_id_for.
+- `internal/daemon/methods_trust_test.go` — End-to-end RPC test driving a real ipc.Server.
+- `internal/daemon/methods_watchdog.go` — 4 new RPCs: watchdog.status / touch / enable / disable (enable/disable are deferred to v0.2.0).
+- `internal/sync/crdt_test.go` — 3 new tests: Merge_RecordsConflict, Merge_NoConflictOnCausalOrder, ConflictsClear.
+
+**Files modified (highlights):**
+- `internal/account/oauth.go` — `magic.go` — `internal/llm/openai_compat.go` — `internal/onboarding/eula.go` — `internal/updater/defaults.go` — `internal/hub/{client,server}.go` — `internal/skills/skill.go` — `internal/config/{config,loader}.go` — `internal/halt/network.go` — Rec 1: hub URL `hub.synaptic.app` → `hub.condura.app` across the daemon, network guard, config defaults, hub docs, and the OAuth HTTP-Referer header. Dropped the legacy `hub.synaptic.app` allowlist entry.
+- `internal/config/config.go` — `loader.go` — Added `DaemonConfig.Watchdog` (Enabled, Timeout, CheckInterval). Default is opt-in.
+- `internal/daemon/daemon.go` — `subsystems.go` — Wired `internal/watchdog` into `Subsystems.Watchdog`; started it in `startBackgroundServices`. `startBackgroundServices` also starts `runAnomalyIdleWatcher` (Rec 6) that calls `Detector.Reset()` after 30m idle.
+- `internal/anomaly/detector.go` — `detector_test.go` — Added `IdleReset(idle)` and `LastActivity()`; track `lastActivity` on every record. 5 new tests.
+- `internal/daemon/methods_phase2.go` — Wired `det.Reset()` into `conversations.create` (Rec 6: per-session reset). Wired `wdog.Touch()` into `conversations.append` (Rec 2: every user message counts as a watchdog verification).
+- `internal/gatekeeper/engine.go` — `e2e_test.go` — New `TrustHook` field on Engine. New `applyWorkspaceTrust` helper (extracted to keep Evaluate under the cyclomatic-complexity cap). `Evaluate` consults the trust hook for WRITE actions in trusted workspaces; DESTRUCTIVE always requires fresh consent (Survival Rule §2). `workspaceIDFor` inlined here (avoids gatekeeper→trust import cycle). 2 new tests + Windows path-separator fix.
+- `internal/storage/{db,migrations}.go` — `db_test.go` — Rec 3: new storage API `EncryptStringWithAAD` / `DecryptStringWithAAD` with envelope format `nonce | sealed | aad` (all base64url, `|`-separated). New `ErrInvalidEnvelope` error. Migration v5 adds `secret_aad` + `refresh_aad` columns to `api_keys`. `api_key.Manager.Set` now generates a fresh UUID per column (RFC 4122 v4, version/variant bits set per spec) and stores it alongside the ciphertext. `scanKey` reads either the new AAD envelope or falls back to the legacy row-id AAD for forward compat. 4 new storage tests + UUID-AAD round-trip + rotation + refresh-token tests.
+- `internal/sync/crdt.go` — Rec 4: documented LWW-with-vector-clock-pre-check policy in the package doc. Added `Conflict` struct, `Store.conflicts[]`, `recordConflict`/`Conflicts`/`ConflictsClear`. Conflict log records every tie-break so dropped edits are visible to the user/audit.
+- `internal/daemon/safety_wiring.go` — `subsystems.go` — Trust store loaded from `<data-dir>/trusted_workspaces.yaml`. `Engine.TrustHook` wired to `trustStore.Lookup(workspaceID, app)`. `buildSafetyLayer` signature now takes `*trust.Store`.
+- `internal/daemon/methods.go` — Registered `registerWatchdogMethods` and `registerTrustMethods`. Updated `registerConversationMethods` signature for the new `*anomaly.Detector` + `*watchdog.Watchdog` parameters (Rec 6 wiring).
+
+**Decisions made:**
+- **Per-workspace trust (Rec 5)** implemented at the gatekeeper level (after Autonomy, before Direct decisions). Returns Allow with reason `"workspace trust: always-allow in this folder"`. DESTRUCTIVE bypasses trust entirely. WorkspaceID derived from `.git/` walk-up, falling back to absolute path.
+- **Watchdog (Rec 2)** is opt-in. Default `watchdog.enabled: false`. Reasoning: a too-short Timeout can interrupt long-running unattended jobs (backup, restore, sync). Users who want a hard inactivity timeout must enable it explicitly. v0.2.0 will harden into a separate watcher process.
+- **UUID-AAD (Rec 3)** is the only new path. Legacy row-id AAD still works (forward compat for v1→v5 migration). Migration v5 adds the columns; existing rows get NULL AADs and fall back to the row-id path until they're backfilled (a future maintenance task).
+- **CRDT conflict log (Rec 4)** is in-memory only (rebuilt on daemon restart). On conflict, append to `Store.conflicts[]`; UI exposes list + clear. v0.2.0 will promote to durable storage in the audit log.
+- **Anomaly reset (Rec 6)** fires on `conversations.create` (natural session break) AND after 30m idle (handles "left it running, came back" case). Both reset the cross-session noise accumulator. Per-request reset was rejected — too narrow (misses cross-request loops). Never-reset was rejected — accumulates forever, false positives.
+- **Hub URL switch (Rec 1)** kept `hub.synaptic.app` out of the network guard allowlist (your recommendation). Daemon defaults + hub package docs + HTTP-Referer header all point at `hub.condura.app`.
+
+**Tier 3 verification (real condurad binary on /tmp):**
+- Boot with `watchdog.enabled: true, timeout: 5s` → daemon log shows `watchdog armed timeout=5s` and `kill-switch layer 2 (watchdog) started`.
+- `watchdog.status` returns `enabled: true, idle_seconds: 0, last_touch: <RFC3339>, timeout_seconds: 5`.
+- After 7s of no Touch: `halt.state` reports `halted: true, reason: "watchdog: no user verification for 5s"`.
+- `trust.workspace_id_for` with a real repo path (`/tmp/.../repo/.git` + `src/lib/foo.go`) returns the git-root path (`/tmp/.../repo`).
+- `trust.grant` writes a properly-formatted YAML to `<data-dir>/trusted_workspaces.yaml`; `trust.list` round-trips through it.
+- `apikeys.set` creates a row with `secret_aad` populated (32-char hex UUID); the ciphertext envelope decrypts correctly.
+
+**CI verification (final state):**
+- All 13 jobs green: Security Scan, Lint, Test×5 (linux/macOS×2/windows + ubuntu-arm), Build×6.
+- Lint clean: 0 issues across the entire codebase (`golangci-lint run ./...`).
+- All 60 Go packages pass `go test -count=1 -timeout 300s ./...`.
+
+**Open questions for next session:**
+- The pre-existing `secrets.TestNew_NoFilePath_Auto` flake still fails 1/3 times on macOS (CLAUDE.md §33.5.2 C16.56). Not introduced by my work, but worth a follow-up.
+- The `gatekeeper/engine.go` gocyclo refactor is at the limit (16, was 19). Adding any more policy branches will need another helper extraction.
+- `account.providers` RPC is registered but `account.oauth_callback` still has the old code-style "for-providers" loop in case the new provider-aware path missed anything. Worth a code review.
+- The watch `Run` loop calls `Halt()` and then returns. If the daemon's main Run loop hasn't fully torn down yet (e.g. SSE broker still draining), there could be a small race window. v0.2.0 should add explicit "post-halt" settling.
+
+**Next steps:**
+- Phase 16 is complete. Recommend shipping v0.1.0 RC-1 to internal testers (per CLAUDE.md §26 and the Phase 15 verification checklist).
+- On-device verification on at least one fresh macOS machine before public launch.
+- Phase 16 backlog items: (a) backfill UUID-AADs for legacy api_keys rows; (b) promote conflict log to durable storage; (c) LWW → OR-Set upgrade per Rec 4.
