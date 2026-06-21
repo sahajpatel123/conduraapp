@@ -2,11 +2,15 @@ package daemon
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/delegation"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/synapticapp/internal/pending"
+	"github.com/sahajpatel123/synapticapp/internal/storage"
 )
 
 // fakeGatekeeper is a deterministic gatekeeper for tests. Returns
@@ -27,36 +31,34 @@ func (noopGatekeeper) Evaluate(_ context.Context, _ blastradius.Action) (gatekee
 	return gatekeeper.Allow, "noop test"
 }
 
-// TestGateAndAuditParsedActions_ReadsRequestsAndGates pins the
-// Phase 17 Fix #7 (B5) behavior:
+// TestGateAndPersistParsedActions_ReadsRequestsAndGates pins the
+// Phase 17 Fix #7 (B5) + Phase 18 (v0.2.0) behavior:
 //   - ActionRequests with non-empty Kind are gated.
-//   - Each decision is mapped to the right tag (allow / deny / etc).
+//   - Each decision is persisted to the pending_actions queue.
+//   - Rows the gate denied get auto-denied in the row, not left
+//     pending.
 //   - The returned slice mirrors request order.
 //   - A request with empty Kind is skipped (defensive).
-func TestGateAndAuditParsedActions_ReadsRequestsAndGates(t *testing.T) {
+func TestGateAndPersistParsedActions_ReadsRequestsAndGates(t *testing.T) {
 	cases := []struct {
-		name        string
-		gate        gatekeeper.Gatekeeper
-		wantDec     string
-		wantAllowed bool
+		name             string
+		gate             gatekeeper.Gatekeeper
+		wantDec          string
+		wantFinalStatus  pending.Status
 	}{
-		{"allow", noopGatekeeper{}, "allow", true},
-		{"deny", fakeGatekeeper{decision: gatekeeper.Deny, reason: "test deny"}, "deny", false},
-		{"require_consent", fakeGatekeeper{decision: gatekeeper.RequireConsent, reason: "needs user"}, "require_consent", false},
+		{"allow", noopGatekeeper{}, "allow", pending.StatusPending},
+		{"deny", fakeGatekeeper{decision: gatekeeper.Deny, reason: "test deny"}, "deny", pending.StatusDenied},
+		{"require_consent", fakeGatekeeper{decision: gatekeeper.RequireConsent, reason: "needs user"}, "require_consent", pending.StatusPending},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			store := newPendingStore(t)
 			subs := &Subsystems{
 				Gatekeeper: tc.gate,
-				Delegation: nil, // not used; tests below will construct a real one
+				Delegation: delegation.NewGatedRunner(delegation.Config{}, fakeGatekeeper{gatekeeper.Allow, "x"}, nil),
+				Pending:    store,
 				Audit:      nil, // audit is best-effort; nil skips audit silently
 			}
-			// We can't directly call gateAndAuditParsedActions with
-			// nil Delegation because ActionRequests lives on the
-			// runner. Construct a minimal GatedRunner via the
-			// factory and use it to parse our fixture output.
-			runner := delegation.NewGatedRunner(delegation.Config{}, fakeGatekeeper{gatekeeper.Allow, "x"}, nil)
-			subs.Delegation = runner
 
 			result := &delegation.SpawnResult{
 				AgentName: "test-agent",
@@ -66,38 +68,58 @@ trailing text
 {"agent_name":"test-agent","kind":"","command":""}
 `,
 			}
-			decisions := gateAndAuditParsedActions(context.Background(), subs, result)
-			if len(decisions) != 1 {
-				t.Fatalf("expected 1 decision (empty Kind skipped), got %d", len(decisions))
+			rows := gateAndPersistParsedActions(context.Background(), subs, result)
+			if len(rows) != 1 {
+				t.Fatalf("expected 1 row (empty Kind skipped), got %d", len(rows))
 			}
-			if decisions[0].Kind != "shell.exec" {
-				t.Errorf("expected kind shell.exec, got %q", decisions[0].Kind)
+			if rows[0].Kind != "shell.exec" {
+				t.Errorf("expected kind shell.exec, got %q", rows[0].Kind)
 			}
-			if decisions[0].Decision != tc.wantDec {
-				t.Errorf("expected decision %q, got %q", tc.wantDec, decisions[0].Decision)
+			if rows[0].GateDecision != tc.wantDec {
+				t.Errorf("expected gate_decision %q, got %q", tc.wantDec, rows[0].GateDecision)
 			}
-			if decisions[0].Allowed != tc.wantAllowed {
-				t.Errorf("expected allowed=%v, got %v", tc.wantAllowed, decisions[0].Allowed)
+			if rows[0].Status != tc.wantFinalStatus {
+				t.Errorf("expected status %s (denied rows auto-denied), got %s", tc.wantFinalStatus, rows[0].Status)
 			}
 		})
 	}
 }
 
-// TestGateAndAuditParsedActions_NoRequestsReturnsEmpty ensures
+// TestGateAndPersistParsedActions_NoRequestsReturnsEmpty ensures
 // empty/missing sub-agent requests produce a nil result, not an
 // empty slice. The GUI renders "no sub-agent actions" when the
 // field is absent.
-func TestGateAndAuditParsedActions_NoRequestsReturnsEmpty(t *testing.T) {
+func TestGateAndPersistParsedActions_NoRequestsReturnsEmpty(t *testing.T) {
+	store := newPendingStore(t)
 	subs := &Subsystems{
 		Gatekeeper: noopGatekeeper{},
 		Delegation: delegation.NewGatedRunner(delegation.Config{}, noopGatekeeper{}, nil),
+		Pending:    store,
 	}
 	result := &delegation.SpawnResult{
 		AgentName: "test-agent",
 		Output:    "no JSON here at all",
 	}
-	decisions := gateAndAuditParsedActions(context.Background(), subs, result)
-	if decisions != nil {
-		t.Errorf("expected nil for no requests, got %v", decisions)
+	rows := gateAndPersistParsedActions(context.Background(), subs, result)
+	if rows != nil {
+		t.Errorf("expected nil for no requests, got %v", rows)
 	}
 }
+
+// newPendingStore builds a fresh pending.Store backed by an
+// ephemeral SQLite DB. Used by the wiring tests in this file.
+func newPendingStore(t *testing.T) *pending.Store {
+	t.Helper()
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{
+		Path: filepath.Join(dir, "synaptic.db"),
+	})
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	return pending.New(db)
+}
+
+// Compile-time guard: ensure the tests below import strings.
+var _ = strings.TrimSpace

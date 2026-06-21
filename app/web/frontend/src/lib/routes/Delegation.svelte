@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
+  import PendingActions from '../components/PendingActions.svelte'
 
   type Agent = {
     name: string
@@ -17,6 +18,7 @@
     cost: number
     started: string
     finished: string
+    pending_actions?: unknown[]
   }
 
   let agents = $state<Agent[]>([])
@@ -179,11 +181,15 @@
           <pre>{lastSpawn.output}</pre>
         </details>
       {/if}
-      {#if lastSpawn && lastSpawn.state === 'running'}
-        <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>Cancel</button>
-      {/if}
+  {#if lastSpawn && lastSpawn.state === 'running'}
+    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>Cancel</button>
+  {/if}
     </section>
   {/if}
+
+  <section class="card">
+    <PendingActions />
+  </section>
 </div>
 
 <style>

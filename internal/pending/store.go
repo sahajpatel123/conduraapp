@@ -117,6 +117,12 @@ func New(db *storage.DB) *Store {
 	}
 }
 
+// DB returns the underlying storage handle. Exposed so callers
+// (e.g. the daemon's e2e tests, the backup subsystem) can run
+// ad-hoc SQL against pending_actions without going through the
+// typed Store API. Prefer the typed methods when possible.
+func (s *Store) DB() *storage.DB { return s.db }
+
 // Start launches the background sweeper that auto-denies stale
 // pending actions. Cancel ctx (or call Stop) to terminate it.
 func (s *Store) Start(ctx context.Context) {

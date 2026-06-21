@@ -215,6 +215,15 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 		go subs.Watchdog.Run(ctx)
 		log.Info("kill-switch layer 2 (watchdog) started")
 	}
+	// Phase 18 (v0.2.0): sub-agent ActionRequest queue.
+	// Background sweeper marks stale pending actions as
+	// StatusExpired so they don't accumulate forever when the
+	// user walks away mid-decision. Runs on the same ctx as
+	// the watchdog.
+	if subs.Pending != nil {
+		subs.Pending.Start(ctx)
+		log.Info("pending-actions sweeper started")
+	}
 }
 
 // runAnomalyIdleWatcher polls the anomaly detector every minute and
@@ -242,6 +251,9 @@ func shutdownDaemon(subs *Subsystems) {
 	}
 	if subs.Phase12 != nil && subs.Phase12.SyncEngine != nil {
 		subs.Phase12.SyncEngine.Stop()
+	}
+	if subs.Pending != nil {
+		subs.Pending.Stop()
 	}
 	if subs.Storage != nil {
 		_, _ = subs.Storage.SQL().ExecContext(context.Background(), "PRAGMA wal_checkpoint(TRUNCATE)")

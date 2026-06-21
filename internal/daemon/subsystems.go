@@ -26,6 +26,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
 	"github.com/sahajpatel123/synapticapp/internal/delegation"
+	"github.com/sahajpatel123/synapticapp/internal/executor"
 	"github.com/sahajpatel123/synapticapp/internal/failover"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
@@ -37,6 +38,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
 	"github.com/sahajpatel123/synapticapp/internal/memory"
 	"github.com/sahajpatel123/synapticapp/internal/onboarding"
+	"github.com/sahajpatel123/synapticapp/internal/pending"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/permissions"
 	"github.com/sahajpatel123/synapticapp/internal/reach"
@@ -149,6 +151,15 @@ type Subsystems struct {
 
 	// Phase 10: delegation bus.
 	Delegation *delegation.GatedRunner
+
+	// Phase 18 (v0.2.0): pending-actions queue + executor.
+	// Persisted queue of sub-agent ActionRequests awaiting
+	// user decision. Survives daemon restarts. The Executor
+	// dispatches approved rows to the appropriate backend
+	// (shell.exec → exec.CommandContext; computeruse.* →
+	// GatedComputerUseExecutor).
+	Pending  *pending.Store
+	Executor *executor.Executor
 
 	// Phase 12: reach & ecosystem.
 	Phase12 *Phase12Components
@@ -803,6 +814,16 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		db:              db,
 		cfg:             cfg,
 		Loader:          loader,
+	}
+
+	// Phase 18 (v0.2.0): sub-agent ActionRequest queue +
+	// executor. The Pending store is SQLite-backed so rows
+	// survive daemon restart. The Executor dispatches approved
+	// rows; cuComps.resolver satisfies executor.Resolver via
+	// its *agent.Action-shaped Execute method.
+	subs.Pending = pending.New(db)
+	if cuComps != nil {
+		subs.Executor = executor.New(gate, cuComps.resolver)
 	}
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.
