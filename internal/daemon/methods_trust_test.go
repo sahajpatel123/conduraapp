@@ -164,12 +164,16 @@ func trustRPCCall(t *testing.T, srv *ipc.Server, method string, params json.RawM
 }
 
 // setupTrustRepo creates a real git-rooted directory at
-// repoDir/.git and returns the absolute path. Mirrors the sandbox
+// repoDir/.git and returns its absolute path (filepath.Abs so the
+// path uses the platform-canonical separator). Mirrors the sandbox
 // workaround in gatekeeper/e2e_test.go.
 func setupTrustRepo(t *testing.T) string {
 	t.Helper()
 	for _, base := range []string{t.TempDir(), trustMustGetCwd(t)} {
-		repoDir := filepath.Join(base, "trust-test-"+trustRandSuffix()+"-repo")
+		repoDir, err := filepath.Abs(filepath.Join(base, "trust-test-"+trustRandSuffix()+"-repo"))
+		if err != nil {
+			continue
+		}
 		if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755); err != nil {
 			continue
 		}

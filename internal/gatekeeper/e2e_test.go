@@ -247,27 +247,29 @@ func TestEngine_WorkspaceTrustHeuristicFindsGitRoot(t *testing.T) {
 // its absolute path. The repo lives under t.TempDir() so it's
 // auto-cleaned.
 //
-// Some test environments (macOS sandbox-exec'd runs) put TempDir
-// under a path where the test process can't write inside the
-// directory it just created — a sandbox quirk. We detect that and
-// fall back to <cwd>/<uniq>, which is always writable.
+// Returns the path through filepath.Abs so callers get the
+// platform-canonical separator (`/` on POSIX, `\` on Windows).
+// Without this, the production code's filepath.Abs would
+// return a different path than the test's string concatenation,
+// and the equality comparison would fail on Windows.
 func setupRepoWithGit(t *testing.T) string {
 	t.Helper()
 	for _, base := range []string{t.TempDir(), mustCwd(t)} {
-		repoDir := base + "/condura-test-" + t.Name() + "-" + randSuffix()
-		if err := os.MkdirAll(repoDir+"/.git", 0o755); err != nil {
+		repoDir, err := filepath.Abs(base + "/condura-test-" + t.Name() + "-" + randSuffix())
+		if err != nil {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755); err != nil {
 			continue
 		}
 		// Sandbox-detect: try writing a file inside the new dir.
-		if err := os.WriteFile(repoDir+"/probe.txt", nil, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(repoDir, "probe.txt"), nil, 0o644); err != nil {
 			continue
 		}
-		// Also probe the nested src/ dir — some sandboxes block writes
-		// to *new* subdirectories of a sandbox-allowed dir.
-		if err := os.MkdirAll(repoDir+"/src", 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(repoDir, "src"), 0o755); err != nil {
 			continue
 		}
-		if err := os.WriteFile(repoDir+"/src/probe.txt", nil, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(repoDir, "src", "probe.txt"), nil, 0o644); err != nil {
 			continue
 		}
 		return repoDir
