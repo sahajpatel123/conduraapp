@@ -39,7 +39,7 @@ func ReadEULA(dataDir string) (*EULADocument, error) {
 		// found.
 		return &EULADocument{
 			Version:   CurrentEULAVersion,
-			Text:      "By using Synaptic, you agree to the Condura Freeware EULA v1. The full terms are available at synaptic.app/legal.",
+			Text:      "By using Condura, you agree to the Condura Freeware EULA v1. The full terms are available at condura.app/legal.",
 			UpdatedAt: "2026-06-06",
 		}, nil
 	}

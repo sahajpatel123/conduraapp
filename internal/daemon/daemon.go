@@ -25,7 +25,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/anomaly"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/crash"
 	"github.com/sahajpatel123/synapticapp/internal/lockfile"
@@ -197,6 +199,40 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 	if subs.Updater != nil {
 		go subs.Updater.RunPoller(ctx)
 		log.Info("auto-update poller started")
+	}
+	// Anomaly-detector idle reset (Phase 16, Rec 6). Periodically
+	// checks whether the detector has been quiet longer than the
+	// idle threshold and resets its counters. Prevents stale
+	// cross-session noise from triggering false positives.
+	if subs.Anomaly != nil {
+		go runAnomalyIdleWatcher(ctx, subs.Anomaly, 30*time.Minute, log)
+	}
+	// Kill-switch Layer 2 (Phase 16, Rec 2). When the watchdog is
+	// armed and the user hasn't verified the agent's actions in
+	// `timeout`, auto-halt the daemon. Runs in its own goroutine
+	// on the daemon's main ctx; the agent cannot disable it.
+	if subs.Watchdog != nil {
+		go subs.Watchdog.Run(ctx)
+		log.Info("kill-switch layer 2 (watchdog) started")
+	}
+}
+
+// runAnomalyIdleWatcher polls the anomaly detector every minute and
+// calls Reset() once it has been idle longer than `idle`. Stops when
+// ctx is canceled.
+func runAnomalyIdleWatcher(ctx context.Context, det *anomaly.Detector, idle time.Duration, log *slog.Logger) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if det.IdleReset(idle) {
+				det.Reset()
+				log.Info("anomaly detector idle-reset", "idle", idle.String())
+			}
+		}
 	}
 }
 

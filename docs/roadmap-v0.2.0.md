@@ -102,7 +102,7 @@ subscription maps to which models.
 | "12+ LLM providers, including ChatGPT Plus / Claude Pro / SuperGrok" | `web/app/ecosystem/page.tsx:30-42` | After v0.2.0 OAuth ships, restore. Until then, remove the subscription column or label as "v0.2.0". |
 | "A model. Fallible. A gatekeeper. Deterministic." — the security page shows 4 kill layers | `web/app/security/page.tsx` | Layer 3 description should say "in-process network guard" not "separate OS process" until v0.2.0 ships the real guard. |
 | Ecosystem detection: hardcoded `/usr/local/bin/claude` etc. | `web/app/ecosystem/page.tsx:45-53` | Replace with `onboarding.probe_power` data once the dashboard is wired in v0.2.0. |
-| Hub download CTA at `hub.synaptic.app` / `hub.condura.app` | `web/lib/site.ts` | The 404 should be replaced with "coming v0.2.0 — see on-device Skills" until the Hub ships. |
+| Hub download CTA at `hub.synaptic.app` / `hub.condura.app` | `web/lib/site.ts` | The 404 should be replaced with "coming v0.2.0 — see on-device Skills" until the Hub ships. **Resolved in Phase 16**: daemon + network guard + config defaults now point to `hub.condura.app`. Web marketing text remains for KIMI K2.6 to update. |
 | Demo video | — | Required for v0.1.0 public launch per CLAUDE.md §26. 60-second screen capture, no script. |
 | Discord URL `discord.gg/synaptic` | `web/lib/site.ts:13` | Rename to `discord.gg/condura` (or whatever the actual channel is). |
 | Open Collective URL `opencollective.com/synaptic` | `README.md` | Same. |

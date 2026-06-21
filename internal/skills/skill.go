@@ -38,7 +38,7 @@ type Skill struct {
 	AuthorKey   string     `json:"author_key,omitempty"` // hex Ed25519 public key
 	License     string     `json:"license,omitempty"`
 	Source      string     `json:"source,omitempty"`   // "hub", "local", "url"
-	HubID       string     `json:"hub_id,omitempty"`   // ID on hub.synaptic.app
+	HubID       string     `json:"hub_id,omitempty"`   // ID on hub.condura.app
 	Checksum    string     `json:"checksum,omitempty"` // SHA-256 of archive
 	PublishedAt *time.Time `json:"published_at,omitempty"`
 }

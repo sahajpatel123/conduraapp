@@ -1,3 +1,27 @@
+// Package sync implements device-to-device encrypted sync (Phase 12).
+//
+// CRDT model (Phase 16, Rec 4: documented):
+//   - Each key has a VectorClock. Causally-ordered writes merge
+//     automatically: remote.HappensBefore(local) → keep local;
+//     local.HappensBefore(remote) → apply remote.
+//   - Concurrent writes (neither clock happens-before the other)
+//     fall back to Last-Writer-Wins: the entry with the higher
+//     Timestamp wins; ties break by lexicographic DeviceID. This is
+//     NOT a true CRDT — it's LWW with vector-clock pre-check.
+//   - Conflicts are logged to the per-store Conflicts slice so
+//     the user / audit system can review them.
+//
+// Why LWW (not OR-Set) for v0.1.0:
+//   - The common case is one active device per user. LWW is
+//     simple, deterministic, and gives the user a clear mental
+//     model ("the most recent edit wins").
+//   - OR-Set would require tombstones for deletes, complicating
+//     the on-disk format. Out of scope for v0.1.0; tracked for
+//     v0.2.0+ as a CRDT upgrade.
+//
+// Trade-off acknowledged: LWW can drop concurrent edits silently.
+// The Conflict log + the audit log are the user's primary
+// visibility into dropped edits.
 package sync
 
 import (
@@ -77,9 +101,31 @@ func (vc VectorClock) Equal(other VectorClock) bool {
 // Store is a thread-safe CRDT store of entries. It supports merge
 // (for sync), get, put, and delete. Conflict resolution uses
 // last-writer-wins with vector clock ordering.
+// Conflict records a single LWW tie-break. Phase 16, Rec 4: every
+// concurrent merge that falls back to LWW is recorded so the
+// user can review dropped edits in the audit log.
+type Conflict struct {
+	// Key is the entry key the conflict was about.
+	Key string
+	// WinnerDeviceID is the device whose edit won the LWW.
+	WinnerDeviceID string
+	// LoserDeviceID is the device whose edit was overwritten.
+	LoserDeviceID string
+	// WinnerTimestamp is the timestamp of the winning edit.
+	WinnerTimestamp time.Time
+	// LoserTimestamp is the timestamp of the dropped edit.
+	LoserTimestamp time.Time
+	// ResolvedAt is when the conflict was recorded (local clock).
+	ResolvedAt time.Time
+}
+
 type Store struct {
 	mu      sync.RWMutex
 	entries map[string]*Entry
+	// conflicts is an append-only log of LWW tie-breaks. Reads
+	// return a copy so callers can iterate without holding the
+	// lock. Cleared on ConflictsClear (UI provides a button).
+	conflicts []Conflict
 }
 
 // NewStore returns an empty CRDT store.
@@ -144,7 +190,13 @@ func (s *Store) Get(key string) *Entry {
 }
 
 // Merge incorporates a remote entry using last-writer-wins with
-// vector clock ordering. Returns true if the entry was applied.
+// vector-clock pre-check (Phase 16, Rec 4: documented policy).
+//
+// Returns true if remote was applied (newer or won the tie-break),
+// false if local is kept (newer or won the tie-break).
+//
+// On a tie-break, the conflict is appended to Store.conflicts so
+// the user / audit system can review dropped edits.
 func (s *Store) Merge(remote *Entry) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -164,12 +216,49 @@ func (s *Store) Merge(remote *Entry) bool {
 		return true
 	}
 	// Concurrent writes — tie-break by timestamp, then device ID.
-	if remote.Timestamp.After(local.Timestamp) ||
-		(remote.Timestamp.Equal(local.Timestamp) && remote.DeviceID > local.DeviceID) {
+	remoteWins := remote.Timestamp.After(local.Timestamp) ||
+		(remote.Timestamp.Equal(local.Timestamp) && remote.DeviceID > local.DeviceID)
+
+	// Phase 16, Rec 4: log the tie-break so dropped edits are
+	// visible. Either winner is recorded.
+	if remoteWins {
+		s.recordConflict(local, remote)
 		s.entries[remote.Key] = remote
-		return true
+	} else {
+		s.recordConflict(remote, local)
 	}
-	return false
+	return remoteWins
+}
+
+// recordConflict appends a Conflict entry to the in-memory log.
+// Caller must hold s.mu (write lock).
+func (s *Store) recordConflict(loser, winner *Entry) {
+	s.conflicts = append(s.conflicts, Conflict{
+		Key:             winner.Key,
+		WinnerDeviceID:  winner.DeviceID,
+		LoserDeviceID:   loser.DeviceID,
+		WinnerTimestamp: winner.Timestamp,
+		LoserTimestamp:  loser.Timestamp,
+		ResolvedAt:      time.Now().UTC(),
+	})
+}
+
+// Conflicts returns a snapshot of all logged conflicts. The slice
+// is in append order (oldest first).
+func (s *Store) Conflicts() []Conflict {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Conflict, len(s.conflicts))
+	copy(out, s.conflicts)
+	return out
+}
+
+// ConflictsClear empties the conflict log. The UI exposes a
+// "Clear" button on the Settings → Sync page.
+func (s *Store) ConflictsClear() {
+	s.mu.Lock()
+	s.conflicts = nil
+	s.mu.Unlock()
 }
 
 // Entries returns all non-deleted entries sorted by key.

@@ -50,9 +50,11 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/stream"
 	"github.com/sahajpatel123/synapticapp/internal/sync"
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
+	"github.com/sahajpatel123/synapticapp/internal/trust"
 	"github.com/sahajpatel123/synapticapp/internal/uninstall"
 	"github.com/sahajpatel123/synapticapp/internal/updater"
 	"github.com/sahajpatel123/synapticapp/internal/voice"
+	"github.com/sahajpatel123/synapticapp/internal/watchdog"
 	"github.com/sahajpatel123/synapticapp/internal/window"
 )
 
@@ -136,6 +138,13 @@ type Subsystems struct {
 	// Phase 9: safety layer.
 	Safety  *SafetyComponents
 	Anomaly *anomaly.Detector
+
+	// Watchdog is Layer 2 of the kill switch (CLAUDE.md §5.3).
+	// Phase 16, Rec 2: a simple in-process inactivity timer.
+	// Auto-halt's the daemon if the user hasn't verified the
+	// agent's actions within WatchdogConfig.Timeout. Nil when
+	// watchdog is disabled in config.
+	Watchdog *watchdog.Watchdog
 
 	// Phase 10: delegation bus.
 	Delegation *delegation.GatedRunner
@@ -520,7 +529,22 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// Gatekeeper is the deterministic rules engine. Built once
 	// and shared by every gated executor in the daemon so the
 	// safety layer is the single source of truth.
-	safety := buildSafetyLayer(haltFlag, broker, log)
+	// Phase 16, Rec 5: load the per-workspace trust store. The
+	// store lives in <data-dir>/trusted_workspaces.yaml. A nil
+	// store disables workspace trust (all WRITE actions go
+	// through the normal consent path).
+	var trustStore *trust.Store
+	if trustPath := filepath.Join(cfg.General.DataDir, "trusted_workspaces.yaml"); trustPath != "" {
+		ts, err := trust.NewStore(trustPath)
+		if err != nil {
+			log.Warn("trust store: failed to load, trust disabled", "err", err, "path", trustPath)
+		} else {
+			trustStore = ts
+			log.Info("trust store ready", "path", trustPath)
+		}
+	}
+
+	safety := buildSafetyLayer(haltFlag, broker, trustStore, log)
 	gate := safety.Engine
 	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 
@@ -699,6 +723,24 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// is the only way to keep those in sync.
 	backupMgr := buildBackupMgr(db, cfg, log)
 
+	// Phase 16, Rec 2: kill-switch Layer 2 (watchdog). Opt-in via
+	// config — enabled = false by default because a too-short
+	// timeout can interrupt long-running unattended jobs. When
+	// enabled, the watchdog auto-halt's the daemon after the
+	// configured inactivity timeout.
+	var wdog *watchdog.Watchdog
+	if cfg.Daemon.Watchdog.Enabled && cfg.Daemon.Watchdog.Timeout > 0 {
+		wdog = watchdog.New(
+			cfg.Daemon.Watchdog.Timeout,
+			cfg.Daemon.Watchdog.CheckInterval,
+			haltFlag,
+			log,
+		)
+		log.Info("watchdog armed", "timeout", cfg.Daemon.Watchdog.Timeout.String())
+	} else {
+		log.Info("watchdog disabled (Layer 2 off)")
+	}
+
 	subs := &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
 		Failover: fo, Spend: mon, Health: hr,
@@ -719,6 +761,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		MCP:                      mcp.NewManager(gate),
 		Safety:                   safety,
 		Anomaly:                  safety.Anomaly,
+		Watchdog:                 wdog,
 		Delegation:               buildDelegationBus(gate, mon),
 		Phase12:                  buildPhase12(cfg, log),
 		// Phase 11: trust & recovery. See methods_phase11.go
@@ -814,7 +857,7 @@ func buildHubClient(log *slog.Logger, cfg *config.Config) *hub.Client {
 	}
 	baseURL := cfg.Hub.BaseURL
 	if baseURL == "" {
-		baseURL = "https://hub.synaptic.app"
+		baseURL = "https://hub.condura.app"
 	}
 	opts := []hub.ClientOption{}
 	if cfg.Hub.Token != "" {

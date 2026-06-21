@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/sahajpatel123/synapticapp/internal/watchdog"
 )
 
 // Common YAML field names used across multiple config sections.
@@ -88,6 +90,16 @@ func Default() *Config {
 			AutoStart:          true,
 			IdleTimeoutMinutes: 15,
 			DefaultAutonomy:    AutonomyWarn,
+			// Watchdog defaults to opt-in (Enabled=false). Users
+			// who want a hard inactivity timeout must enable it
+			// explicitly in config.yaml because a too-short
+			// Timeout can interrupt long-running unattended jobs
+			// (backup, restore, sync).
+			Watchdog: WatchdogConfig{
+				Enabled:       false,
+				Timeout:       watchdog.DefaultTimeout,
+				CheckInterval: watchdog.DefaultCheckInterval,
+			},
 		},
 		Logging: LoggingConfig{
 			Level:     LogLevelInfo,
@@ -181,7 +193,7 @@ func Default() *Config {
 		},
 		Hub: HubConfig{
 			Enabled:        true,
-			BaseURL:        "https://hub.synaptic.app",
+			BaseURL:        "https://hub.condura.app",
 			AutoUpdate:     false,
 			Token:          "",
 			PublishKeyPath: "",

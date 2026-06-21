@@ -9,17 +9,30 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sahajpatel123/synapticapp/internal/anomaly"
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/stream"
+	"github.com/sahajpatel123/synapticapp/internal/watchdog"
 )
 
 // registerConversationMethods wires conversations.* + llm.stream +
-// llm.cancel.
-func registerConversationMethods(srv *ipc.Server, store *conversation.Store, auditLog *audit.Log, haltFlag *halt.Flag, sm *stream.Manager, reg *llm.Registry) {
+// llm.cancel. The anomaly detector, if non-nil, is Reset() at the
+// start of each new conversation so cross-session loop accumulation
+// can't trip false positives (Phase 16, Rec 6).
+func registerConversationMethods(
+	srv *ipc.Server,
+	store *conversation.Store,
+	auditLog *audit.Log,
+	haltFlag *halt.Flag,
+	sm *stream.Manager,
+	reg *llm.Registry,
+	det *anomaly.Detector,
+	wdog *watchdog.Watchdog,
+) {
 	srv.Register("conversations.list", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return store.List(ctx)
 	})
@@ -46,6 +59,13 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 		m, err := store.Create(ctx, p.Title)
 		if err != nil {
 			return nil, err
+		}
+		// Rec 6: each new conversation is a fresh context for
+		// anomaly detection. Reset here so a user who opens a new
+		// chat after a long session doesn't immediately trip a
+		// stale rate/loop threshold.
+		if det != nil {
+			det.Reset()
 		}
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorDaemon, Action: "conversations.create", App: appCondurad,
@@ -98,6 +118,13 @@ func registerConversationMethods(srv *ipc.Server, store *conversation.Store, aud
 		}
 		if err := store.Append(ctx, p.ID, p.Message); err != nil {
 			return nil, err
+		}
+		// Phase 16, Rec 2: every user message counts as a watchdog
+		// "verification". Without this the watchdog would only
+		// reset on GUI-side calls (which the agent loop running
+		// unattended would never make).
+		if wdog != nil {
+			wdog.Touch()
 		}
 		return auditOK(), nil
 	})

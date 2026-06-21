@@ -12,6 +12,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/sanitize"
 	"github.com/sahajpatel123/synapticapp/internal/sensitive"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/synapticapp/internal/trust"
 )
 
 // SafetyComponents bundles the real safety layer.
@@ -20,12 +21,14 @@ type SafetyComponents struct {
 	Anomaly   *anomaly.Detector
 	Consent   gatekeeper.ConsentProvider
 	Sanitizer []sanitize.Sanitizer
+	Trust     *trust.Store // Phase 16, Rec 5: per-workspace trust
 }
 
 // buildSafetyLayer constructs the real safety components and wires all
-// safety hooks (Anomaly, Autonomy, Sanitize) into the gatekeeper engine
-// so that every action flows through the full safety pipeline.
-func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger) *SafetyComponents {
+// safety hooks (Anomaly, Autonomy, Sanitize, Trust) into the
+// gatekeeper engine so that every action flows through the full
+// safety pipeline.
+func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
 	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
@@ -85,11 +88,27 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, log *slog.Logger)
 		return sensitiveDetector.Match(url, ctx)
 	}
 
+	// Phase 16, Rec 5: per-workspace trust hook. The trust store
+	// is consulted by the gatekeeper before evaluating the WRITE
+	// branch: a hit short-circuits to Allow with reason
+	// "workspace trust: always-allow in this folder". The
+	// store may be nil if trust is disabled or failed to load.
+	if trustStore != nil {
+		engine.TrustHook = func(workspaceID, app string) (any, bool) {
+			entry := trustStore.Lookup(workspaceID, app)
+			if entry == nil {
+				return nil, false
+			}
+			return entry, true
+		}
+	}
+
 	return &SafetyComponents{
 		Engine:    engine,
 		Anomaly:   detector,
 		Consent:   consent,
 		Sanitizer: sanitize.DefaultChain(),
+		Trust:     trustStore,
 	}
 }
 

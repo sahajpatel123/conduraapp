@@ -72,10 +72,9 @@ func DefaultProviderAllowList() []string {
 		"api.groq.com",
 		"api.together.xyz",
 		"api.fireworks.ai",
-		"huggingface.co",   // for openWakeWord model downloads
-		"hub.condura.app",  // Skills Hub (locked decision #18)
-		"hub.synaptic.app", // Skills Hub legacy URL (transitional)
-		"127.0.0.1",        // local providers (Ollama, LocalAI, LM Studio, vLLM)
+		"huggingface.co",  // for openWakeWord model downloads
+		"hub.condura.app", // Skills Hub canonical (Phase 16)
+		"127.0.0.1",       // local providers (Ollama, LocalAI, LM Studio, vLLM)
 		"localhost",
 	}
 }

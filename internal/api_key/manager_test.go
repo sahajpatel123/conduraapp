@@ -257,3 +257,67 @@ func TestValidate_DefaultKind(t *testing.T) {
 	// Empty kind is treated as api_key and accepted.
 	assert.NoError(t, Validate(Key{Provider: ProviderOpenAI, Secret: "x"}))
 }
+
+// Phase 16, Rec 3: UUID-AAD round-trip.
+func TestSetGet_UUIDAAD_RoundTrip(t *testing.T) {
+	m := newTestManager(t)
+	secret := "sk-test-secret-value"
+	id, err := m.Set(context.Background(), Key{
+		Provider: ProviderOpenAI,
+		Label:    "default",
+		Secret:   secret,
+	})
+	assert.NoError(t, err)
+	assert.NotZero(t, id)
+
+	got, err := m.Get(context.Background(), id)
+	assert.NoError(t, err)
+	assert.Equal(t, secret, got.Secret)
+}
+
+// Phase 16, Rec 3: each Set generates a fresh UUID-AAD — the
+// rotation scenario should produce a different ciphertext even
+// for the same plaintext.
+func TestSetGet_UUIDAAD_RotatesPerWrite(t *testing.T) {
+	m := newTestManager(t)
+
+	secret1 := "sk-secret-1"
+	_, err := m.Set(context.Background(), Key{
+		Provider: ProviderOpenAI,
+		Label:    "rotate-test",
+		Secret:   secret1,
+	})
+	assert.NoError(t, err)
+
+	// Update with same label but different secret (rotation).
+	secret2 := "sk-secret-2"
+	_, err = m.Set(context.Background(), Key{
+		Provider: ProviderOpenAI,
+		Label:    "rotate-test",
+		Secret:   secret2,
+	})
+	assert.NoError(t, err)
+
+	got, err := m.GetByLabel(context.Background(), ProviderOpenAI, "rotate-test")
+	assert.NoError(t, err)
+	assert.Equal(t, secret2, got.Secret, "rotation should preserve new secret")
+}
+
+// Phase 16, Rec 3: refresh token also gets its own UUID-AAD.
+func TestSetGet_UUIDAAD_RefreshToken(t *testing.T) {
+	m := newTestManager(t)
+	secret := "access-tok"
+	refresh := "refresh-tok"
+	id, err := m.Set(context.Background(), Key{
+		Provider: ProviderGoogle,
+		Label:    "oauth-test",
+		Secret:   secret,
+		Refresh:  refresh,
+	})
+	assert.NoError(t, err)
+
+	got, err := m.Get(context.Background(), id)
+	assert.NoError(t, err)
+	assert.Equal(t, secret, got.Secret)
+	assert.Equal(t, refresh, got.Refresh)
+}

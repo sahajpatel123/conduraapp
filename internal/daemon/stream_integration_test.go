@@ -115,7 +115,7 @@ func bringUpPipeline(t *testing.T, providers ...llm.Provider) (addr string, mgr 
 	_ = haltFlag.Refresh(context.Background())
 
 	srv := ipc.NewServer()
-	registerConversationMethods(srv, convStore, auditLog, haltFlag, mgr, registry)
+	registerConversationMethods(srv, convStore, auditLog, haltFlag, mgr, registry, nil, nil)
 
 	transport := &ipc.ServerTransport{
 		S:   srv,

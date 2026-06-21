@@ -116,6 +116,22 @@ func New(db *storage.DB, sm secrets.Manager) *Manager {
 
 // Set stores an API key. If a key with the same (provider, label) exists,
 // it is replaced.
+//
+// Phase 16, Rec 3: each ciphertext column (secret, refresh) gets
+// its own UUID stored alongside the ciphertext. The UUID is the
+// AAD (Additional Authenticated Data) for the AES-GCM seal. This
+// gives every secret its own cryptographic identity so:
+//
+//   - Rotation can re-encrypt the ciphertext in place without
+//     re-deriving the AAD from the row id (which would have
+//     forced a "decrypt-with-old-AAD, encrypt-with-new-AAD" dance
+//     on every read).
+//   - Per-secret audit / revoke is straightforward (the UUID is
+//     a stable handle).
+//   - The encrypted envelope is portable: the AAD travels with
+//     the ciphertext, so a future migration that moves the DB to
+//     a new row-id space (e.g. sharded storage) doesn't need to
+//     re-encrypt anything.
 func (m *Manager) Set(ctx context.Context, k Key) (int64, error) {
 	if err := validateSetKey(&k); err != nil {
 		return 0, err
@@ -126,23 +142,22 @@ func (m *Manager) Set(ctx context.Context, k Key) (int64, error) {
 	if k.UpdatedAt.IsZero() {
 		k.UpdatedAt = time.Now().UTC()
 	}
-	// Encrypt the secret for storage in api_keys.secret_ciphertext.
-	// We use a sentinel row ID of 0 because the row doesn't exist yet;
-	// the actual ID isn't known until insert. To keep AAD stable for
-	// re-reads, we update the column with the correct row ID after insert.
-	// Simpler approach: do a two-step insert + update.
-	placeholderCT, err := m.db.EncryptString(k.Secret, 0, "secret_ciphertext")
+	// Generate a UUID-AAD per column. Each column gets its own
+	// UUID so a leak of one doesn't cascade.
+	secretAAD := newUUID()
+	secretCT, err := m.db.EncryptStringWithAAD(k.Secret, secretAAD)
 	if err != nil {
 		return 0, fmt.Errorf("api_key: encrypt secret: %w", err)
 	}
 
-	var refreshCT sql.NullString
+	var refreshAAD []byte
+	var refreshCT string
 	if k.Refresh != "" {
-		s, err := m.db.EncryptString(k.Refresh, 0, "refresh_token_ciphertext")
+		refreshAAD = newUUID()
+		refreshCT, err = m.db.EncryptStringWithAAD(k.Refresh, refreshAAD)
 		if err != nil {
 			return 0, fmt.Errorf("api_key: encrypt refresh: %w", err)
 		}
-		refreshCT = sql.NullString{String: s, Valid: true}
 	}
 
 	var expiresAt sql.NullString
@@ -151,8 +166,10 @@ func (m *Manager) Set(ctx context.Context, k Key) (int64, error) {
 	}
 
 	res, err := m.db.SQL().ExecContext(ctx, `
-INSERT INTO api_keys (provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext, scopes, metadata_json, expires_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO api_keys (provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext,
+                      scopes, metadata_json, expires_at, updated_at,
+                      secret_aad, refresh_aad)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(provider, label) DO UPDATE SET
     auth_kind = excluded.auth_kind,
     secret_ciphertext = excluded.secret_ciphertext,
@@ -160,11 +177,14 @@ ON CONFLICT(provider, label) DO UPDATE SET
     scopes = excluded.scopes,
     metadata_json = excluded.metadata_json,
     expires_at = excluded.expires_at,
-    updated_at = excluded.updated_at
+    updated_at = excluded.updated_at,
+    secret_aad = excluded.secret_aad,
+    refresh_aad = excluded.refresh_aad
 `,
-		k.Provider, k.Label, string(k.AuthKind), placeholderCT, refreshCT,
+		k.Provider, k.Label, string(k.AuthKind), secretCT, nullString(refreshCT),
 		nullString(k.Scopes), nullString(k.Metadata), expiresAt,
 		k.UpdatedAt.UTC().Format(time.RFC3339),
+		hex.EncodeToString(secretAAD), hex.EncodeToString(refreshAAD),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("api_key: insert: %w", err)
@@ -173,23 +193,25 @@ ON CONFLICT(provider, label) DO UPDATE SET
 	if err != nil {
 		return 0, fmt.Errorf("api_key: last insert id: %w", err)
 	}
-	// Re-encrypt with the real row ID and update.
-	realCT, err := m.db.EncryptString(k.Secret, id, "secret_ciphertext")
-	if err != nil {
-		return id, fmt.Errorf("api_key: re-encrypt: %w", err)
-	}
-	if _, err := m.db.SQL().ExecContext(ctx,
-		`UPDATE api_keys SET secret_ciphertext = ? WHERE id = ?`, realCT, id); err != nil {
-		return id, fmt.Errorf("api_key: update ciphertext: %w", err)
-	}
-	if k.Refresh != "" {
-		realRefresh, err := m.db.EncryptString(k.Refresh, id, "refresh_token_ciphertext")
-		if err == nil {
-			_, _ = m.db.SQL().ExecContext(ctx,
-				`UPDATE api_keys SET refresh_token_ciphertext = ? WHERE id = ?`, realRefresh, id)
-		}
-	}
 	return id, nil
+}
+
+// newUUID returns a 16-byte v4 UUID. We use crypto/rand directly
+// instead of importing github.com/google/uuid to keep this
+// package's dependency footprint minimal.
+func newUUID() []byte {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	// Set version (4) and variant (10xx) per RFC 4122.
+	const (
+		uuidVersion4Mask = 0x0f // clear version nibble
+		uuidVersion4     = 0x40 // set version 4
+		uuidVariantMask  = 0x3f // clear variant bits
+		uuidVariant10xx  = 0x80 // set variant 10xx (RFC 4122)
+	)
+	b[6] = (b[6] & uuidVersion4Mask) | uuidVersion4
+	b[8] = (b[8] & uuidVariantMask) | uuidVariant10xx
+	return b[:]
 }
 
 // validateSetKey enforces the per-field invariants on a key to be stored
@@ -217,7 +239,8 @@ func validateSetKey(k *Key) error {
 func (m *Manager) Get(ctx context.Context, id int64) (Key, error) {
 	row := m.db.SQL().QueryRowContext(ctx, `
 SELECT id, provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext,
-       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at
+       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at,
+       secret_aad, refresh_aad
 FROM api_keys WHERE id = ?`, id)
 	return m.scanKey(row)
 }
@@ -226,7 +249,8 @@ FROM api_keys WHERE id = ?`, id)
 func (m *Manager) GetByLabel(ctx context.Context, provider, label string) (Key, error) {
 	row := m.db.SQL().QueryRowContext(ctx, `
 SELECT id, provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext,
-       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at
+       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at,
+       secret_aad, refresh_aad
 FROM api_keys WHERE provider = ? AND label = ?`, provider, label)
 	return m.scanKey(row)
 }
@@ -235,7 +259,8 @@ FROM api_keys WHERE provider = ? AND label = ?`, provider, label)
 func (m *Manager) List(ctx context.Context) ([]Key, error) {
 	rows, err := m.db.SQL().QueryContext(ctx, `
 SELECT id, provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext,
-       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at
+       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at,
+       secret_aad, refresh_aad
 FROM api_keys ORDER BY provider, label`)
 	if err != nil {
 		return nil, fmt.Errorf("api_key: list: %w", err)
@@ -256,7 +281,8 @@ FROM api_keys ORDER BY provider, label`)
 func (m *Manager) ListByProvider(ctx context.Context, provider string) ([]Key, error) {
 	rows, err := m.db.SQL().QueryContext(ctx, `
 SELECT id, provider, label, auth_kind, secret_ciphertext, refresh_token_ciphertext,
-       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at
+       scopes, metadata_json, expires_at, last_used_at, created_at, updated_at,
+       secret_aad, refresh_aad
 FROM api_keys WHERE provider = ? ORDER BY label`, provider)
 	if err != nil {
 		return nil, fmt.Errorf("api_key: list: %w", err)
@@ -311,10 +337,13 @@ func (m *Manager) scanKey(s scanner) (Key, error) {
 		lastUsedAt sql.NullString
 		createdAt  string
 		updatedAt  string
+		secretAAD  sql.NullString
+		refreshAAD sql.NullString
 	)
 	if err := s.Scan(
 		&k.ID, &k.Provider, &k.Label, &authKind, &secretCT, &refreshCT,
 		&scopes, &metadata, &expiresAt, &lastUsedAt, &createdAt, &updatedAt,
+		&secretAAD, &refreshAAD,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Key{}, ErrNotFound
@@ -323,14 +352,19 @@ func (m *Manager) scanKey(s scanner) (Key, error) {
 	}
 	k.AuthKind = AuthKind(authKind)
 
-	plain, err := m.db.DecryptString(secretCT, k.ID, "secret_ciphertext")
+	// Phase 16, Rec 3: prefer the UUID-AAD path when the row has
+	// stored AADs (new rows). Fall back to the row-id path for
+	// legacy rows (migrated v1->v5 will get AADs backfilled on
+	// first read by a future maintenance task; for v0.1.0 we
+	// ship the dual-read path).
+	plain, err := m.decryptSecret(secretCT, secretAAD, k.ID, "secret_ciphertext")
 	if err != nil {
 		return Key{}, fmt.Errorf("api_key: decrypt secret: %w", err)
 	}
 	k.Secret = plain
 
 	if refreshCT.Valid {
-		rt, err := m.db.DecryptString(refreshCT.String, k.ID, "refresh_token_ciphertext")
+		rt, err := m.decryptSecret(refreshCT.String, refreshAAD, k.ID, "refresh_token_ciphertext")
 		if err != nil {
 			return Key{}, fmt.Errorf("api_key: decrypt refresh: %w", err)
 		}
@@ -445,3 +479,22 @@ var _ Authenticator = (*Manager)(nil)
 // Compile-time: ensure http.Client is referenced so we don't drop the import
 // (used by OAuth).
 var _ = http.Client{}
+
+// decryptSecret picks the right decryption path based on whether
+// the row carries a UUID-AAD (Phase 16, Rec 3) or is a legacy
+// row that uses the row-id AAD.
+//
+// aadHex is the stored AAD as a hex string (UUID is 16 bytes
+// = 32 hex chars). rowID + column are used only as a fallback AAD
+// for legacy rows that pre-date the v5 migration.
+func (m *Manager) decryptSecret(ciphertext string, aadHex sql.NullString, rowID int64, column string) (string, error) {
+	if aadHex.Valid && aadHex.String != "" {
+		// New path: UUID-AAD envelope. The AAD is carried inside
+		// the ciphertext envelope itself (we also store it
+		// redundantly in the row for indexability / debugging).
+		return m.db.DecryptStringWithAAD(ciphertext)
+	}
+	// Legacy path: row-id AAD. Only legacy rows (encrypted before
+	// the v5 migration) hit this branch.
+	return m.db.DecryptString(ciphertext, rowID, column)
+}

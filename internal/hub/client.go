@@ -1,4 +1,4 @@
-// Package hub talks to the Skills Hub (hub.synaptic.app).
+// Package hub talks to the Skills Hub (hub.condura.app).
 //
 // Two modes:
 //
@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-// Client talks to the Skills Hub (hub.synaptic.app by default).
+// Client talks to the Skills Hub (hub.condura.app by default).
 type Client struct {
 	baseURL    string
 	httpClient *http.Client

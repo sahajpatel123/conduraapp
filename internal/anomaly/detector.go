@@ -43,10 +43,11 @@ type actionRecord struct {
 }
 
 type detectorState struct {
-	count       int
-	failures    int
-	startTime   time.Time
-	coordWindow [][2]float64
+	count        int
+	failures     int
+	startTime    time.Time
+	lastActivity time.Time // time of most recent Record(); used by IdleReset
+	coordWindow  [][2]float64
 }
 
 // NewDetector creates an anomaly detector with the given thresholds.
@@ -80,6 +81,45 @@ func (d *Detector) Reset() {
 	d.state.coordWindow = make([][2]float64, 0, 5)
 }
 
+// IdleReset returns true if the detector has been inactive longer
+// than the idle threshold. Used by the daemon's idle-watcher to
+// automatically call Reset() so cross-session noise doesn't
+// accumulate (Phase 16, Rec 6).
+//
+// "Inactive" means: no Record() call in the last `idle` duration.
+// The check is approximate (sampled on each Record call), so a
+// session that's truly idle is detected at the next Record()
+// OR at the next watcher tick, whichever fires first.
+//
+// `lastActivity` is tracked separately from `startTime` because
+// startTime is reset every time Reset() is called.
+func (d *Detector) IdleReset(idle time.Duration) bool {
+	if idle <= 0 {
+		return false
+	}
+	d.mu.Lock()
+	last := d.state.lastActivity
+	count := d.state.count
+	failures := d.state.failures
+	d.mu.Unlock()
+	if count == 0 && failures == 0 {
+		return false // nothing to reset
+	}
+	if last.IsZero() {
+		return false
+	}
+	return time.Since(last) > idle
+}
+
+// LastActivity returns the time of the most recent Record() call,
+// or the zero time if the detector has never been used. Callers
+// (e.g. the idle-watcher) use this to decide when to Reset().
+func (d *Detector) LastActivity() time.Time {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.state.lastActivity
+}
+
 // Close stops the background goroutine.
 func (d *Detector) Close() {
 	close(d.stop)
@@ -105,6 +145,7 @@ func (d *Detector) process(a actionRecord) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.state.count++
+	d.state.lastActivity = a.time
 	if !a.success {
 		d.state.failures++
 	} else {

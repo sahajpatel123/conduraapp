@@ -3,6 +3,8 @@ package gatekeeper
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -42,6 +44,16 @@ type Engine struct {
 	// sensitive site (banking, health, government). If true, the
 	// decision is escalated to RequirePresenceAndConsent.
 	SensitiveHook func(url, context string) bool
+	// TrustHook (Phase 16, Rec 5): if the action targets a
+	// workspace the user has marked as "always allow in this
+	// folder", returns Allow. Only consulted for WRITE-class
+	// actions in non-DESTRUCTIVE context — DESTRUCTIVE always
+	// requires fresh consent per Survival Rule §2.
+	//
+	// Signature: (workspaceID, app) → trusted? The hook is also
+	// given a "first-encounter" flag so the engine can build the
+	// consent ticket that lets the user pick "Always allow".
+	TrustHook func(workspaceID, app string) (entry any, ok bool)
 }
 
 // NewEngine creates the real Gatekeeper engine.
@@ -92,6 +104,22 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 			if class != blastradius.DESTRUCTIVE &&
 				(v.Decision == RequireConsent || v.Decision == RequirePresenceAndConsent) {
 				return Allow, "autonomous: auto-allowed (non-destructive consent-required)"
+			}
+		}
+	}
+
+	// Phase 16, Rec 5: per-workspace trust. If the user has marked
+	// the target workspace as "always allow in this folder", we
+	// skip the consent dialog for WRITE actions. DESTRUCTIVE
+	// always requires fresh consent.
+	if e.TrustHook != nil {
+		class := blastradius.Classify(a)
+		if class == blastradius.WRITE && a.Path != "" {
+			wsID := workspaceIDFor(a.Path)
+			if wsID != "" {
+				if _, ok := e.TrustHook(wsID, a.TargetApp); ok {
+					return Allow, "workspace trust: always-allow in this folder"
+				}
 			}
 		}
 	}
@@ -217,6 +245,40 @@ func (e *Engine) ReloadPolicy(p *Policy) {
 // SetConsentProvider swaps the consent provider (for testing).
 func (e *Engine) SetConsentProvider(c ConsentProvider) {
 	e.consent = c
+}
+
+// workspaceIDFor returns the canonical workspace ID for a path.
+// Walks up from path looking for a .git/ directory; if found,
+// returns its absolute path. Otherwise returns the absolute path
+// of the input (most conservative).
+//
+// Phase 16, Rec 5: matches the heuristic in internal/trust so
+// the gatekeeper's lookup key is consistent with what the trust
+// store was populated with. Inlined here to avoid an import
+// cycle (trust → safety → gatekeeper; gatekeeper cannot import
+// trust without going through safety, which we want to keep
+// optional).
+func workspaceIDFor(path string) string {
+	if path == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	cur := abs
+	for {
+		gitPath := filepath.Join(cur, ".git")
+		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+			return cur
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+		cur = parent
+	}
+	return abs
 }
 
 // ConsentTicket represents an in-flight consent request.

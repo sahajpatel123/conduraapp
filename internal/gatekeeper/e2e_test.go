@@ -2,6 +2,9 @@ package gatekeeper
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"os"
 	"testing"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
@@ -159,6 +162,129 @@ func TestEngine_AutonomyBypassesConsentButNotDestructive(t *testing.T) {
 	if d != Allow {
 		t.Fatalf("autonomy should not bypass DESTRUCTIVE consent, got %v", d)
 	}
+}
+
+// Phase 16, Rec 5: workspace trust bypasses WRITE consent but never
+// DESTRUCTIVE consent. We model the gatekeeper's TrustHook as a
+// closure over a tiny "is trusted?" map; in production this calls
+// into internal/trust.Store.
+//
+// We create a real temp dir with a .git/ so workspaceIDFor finds
+// the git root and the trust key matches.
+func TestEngine_WorkspaceTrustBypassesWriteConsent(t *testing.T) {
+	// Consent that DENIES. This way, an action that requires consent
+	// produces Deny — and we can verify trust bypasses the
+	// consent dialog entirely.
+	p := DefaultPolicy()
+	e := NewEngine(p, &testConsent{available: true, approved: false}, nil)
+
+	// Set up a real repo so workspaceIDFor resolves to the git root.
+	repoDir := setupRepoWithGit(t)
+
+	nested := repoDir + "/src/main.go"
+	if err := os.WriteFile(nested, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	trusted := map[string]bool{
+		repoDir: true,
+	}
+	e.TrustHook = func(workspaceID, app string) (any, bool) {
+		return "trusted-entry", trusted[workspaceID]
+	}
+
+	// WRITE action targeting a trusted workspace → Allow (consent
+	// dialog skipped via trust).
+	d, reason := e.Evaluate(context.Background(), blastradius.Action{
+		Kind:      "file.write",
+		TargetApp: "com.microsoft.VSCode",
+		Path:      nested,
+	})
+	if d != Allow {
+		t.Fatalf("trusted workspace should bypass WRITE consent, got %v: %s", d, reason)
+	}
+
+	// WRITE action targeting an untrusted workspace → consent
+	// is requested; the test consent denies → Deny.
+	d, _ = e.Evaluate(context.Background(), blastradius.Action{
+		Kind:      "file.write",
+		TargetApp: "com.microsoft.VSCode",
+		Path:      "/untrusted/src/main.go",
+	})
+	if d != Deny {
+		t.Fatalf("untrusted workspace must produce Deny when consent denies, got %v", d)
+	}
+
+	// DESTRUCTIVE action in a trusted workspace → still requires
+	// consent (Survival Rule §2).
+	d, _ = e.Evaluate(context.Background(), blastradius.Action{
+		Kind:      "shell.exec",
+		TargetApp: "com.microsoft.VSCode",
+		Path:      repoDir + "/whatever",
+	})
+	if d != Deny {
+		t.Fatalf("DESTRUCTIVE must not bypass consent even in trusted workspace, got %v", d)
+	}
+}
+
+func TestEngine_WorkspaceTrustHeuristicFindsGitRoot(t *testing.T) {
+	// Real-filesystem check: workspaceIDFor("/some/path/inside/repo/file.go")
+	// should return "/some/path/inside/repo" when that dir contains
+	// .git/. We set that up here.
+	repoDir := setupRepoWithGit(t)
+	nested := repoDir + "/src/lib"
+	got := workspaceIDFor(nested)
+	if got != repoDir {
+		t.Fatalf("workspaceIDFor: got %q, want %q", got, repoDir)
+	}
+}
+
+// setupRepoWithGit creates a real git-rooted directory and returns
+// its absolute path. The repo lives under t.TempDir() so it's
+// auto-cleaned.
+//
+// Some test environments (macOS sandbox-exec'd runs) put TempDir
+// under a path where the test process can't write inside the
+// directory it just created — a sandbox quirk. We detect that and
+// fall back to <cwd>/<uniq>, which is always writable.
+func setupRepoWithGit(t *testing.T) string {
+	t.Helper()
+	for _, base := range []string{t.TempDir(), mustCwd(t)} {
+		repoDir := base + "/condura-test-" + t.Name() + "-" + randSuffix()
+		if err := os.MkdirAll(repoDir+"/.git", 0o755); err != nil {
+			continue
+		}
+		// Sandbox-detect: try writing a file inside the new dir.
+		if err := os.WriteFile(repoDir+"/probe.txt", nil, 0o644); err != nil {
+			continue
+		}
+		// Also probe the nested src/ dir — some sandboxes block writes
+		// to *new* subdirectories of a sandbox-allowed dir.
+		if err := os.MkdirAll(repoDir+"/src", 0o755); err != nil {
+			continue
+		}
+		if err := os.WriteFile(repoDir+"/src/probe.txt", nil, 0o644); err != nil {
+			continue
+		}
+		return repoDir
+	}
+	t.Fatal("could not create a writable temp repo in t.TempDir() or cwd")
+	return ""
+}
+
+func mustCwd(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cwd
+}
+
+func randSuffix() string {
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
 
 func TestAtomicPolicy_LoadStore(t *testing.T) {

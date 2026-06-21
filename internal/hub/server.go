@@ -18,7 +18,7 @@ import (
 // Server is a small in-process Skills Hub. It serves skills from
 // a local directory tree, with no network calls. This is the
 // "local-first" fallback for users who don't want to depend on
-// hub.synaptic.app.
+// hub.condura.app.
 //
 // Directory layout:
 //

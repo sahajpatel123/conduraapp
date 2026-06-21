@@ -59,7 +59,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerAPIKeyMethods(srv, subs)
 	registerLLMMethods(srv, subs.LLM, subs.Spend, subs.Halt, subs.Audit)
 	registerSpendMethods(srv, subs.Spend)
-	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM)
+	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM, subs.Anomaly, subs.Watchdog)
 	registerAuditMethods(srv, subs.Audit)
 	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams)
 	registerControlMethods(srv, cfg, subs)
@@ -82,6 +82,8 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerOnboardingMethods(srv, subs)
 	registerAccountMethods(srv, subs)
 	registerReachMethods(srv, subs)
+	registerWatchdogMethods(srv, subs)
+	registerTrustMethods(srv, subs)
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.

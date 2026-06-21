@@ -31,6 +31,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,15 @@ type Config struct {
 // File mode for the SQLite database file. Owner-only because the
 // database contains API keys (encrypted), audit logs, and memory.
 const dbDirPerm = 0o700
+
+// ErrInvalidEnvelope is returned by DecryptStringWithAAD when the
+// envelope string is malformed (missing `|` separator, bad
+// base64, etc.).
+//
+// Phase 16, Rec 3: this is part of the UUID-AAD path; legacy rows
+// encrypted with the row-id AAD use the row-id decrypt path and
+// never produce this error.
+var ErrInvalidEnvelope = errors.New("storage: invalid ciphertext envelope")
 
 // Open opens (or creates) the SQLite database, applies migrations, and
 // returns a handle. The caller must call Close.
@@ -234,6 +244,75 @@ func (d *DB) EncryptString(plaintext string, rowID int64, column string) (string
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(ct), nil
+}
+
+// EncryptStringWithAAD encrypts plaintext using a caller-supplied
+// opaque AAD (Phase 16, Rec 3: UUID-based AAD). The AAD replaces
+// the row-ID-based AAD so a single secret can be rotated /
+// re-encrypted without re-deriving the AAD from a row id. The AAD
+// is base64url-encoded into the ciphertext envelope so decrypt
+// can recover it without a separate lookup.
+//
+// Wire format (all base64, joined by `|`):
+//
+//	nonce(12) | sealed_ciphertext | aad
+//
+// The receiver splits on `|` and uses the supplied AAD for
+// decryption. The nonce is the first 12 bytes of the sealed box.
+func (d *DB) EncryptStringWithAAD(plaintext string, aad []byte) (string, error) {
+	nonce, err := d.newNonce()
+	if err != nil {
+		return "", err
+	}
+	sealed := d.gcm.Seal(nonce, nonce, []byte(plaintext), aad)
+	return encodeEnvelope(sealed, aad), nil
+}
+
+// DecryptStringWithAAD decrypts a ciphertext produced by
+// EncryptStringWithAAD. Returns ErrInvalidEnvelope if the envelope
+// is malformed.
+func (d *DB) DecryptStringWithAAD(envelope string) (string, error) {
+	sealed, aad, err := decodeEnvelope(envelope)
+	if err != nil {
+		return "", err
+	}
+	if len(sealed) < d.gcm.NonceSize() {
+		return "", errors.New("storage: ciphertext too short")
+	}
+	nonce := sealed[:d.gcm.NonceSize()]
+	body := sealed[d.gcm.NonceSize():]
+	plain, err := d.gcm.Open(nil, nonce, body, aad)
+	if err != nil {
+		return "", fmt.Errorf("storage: decrypt: %w", err)
+	}
+	return string(plain), nil
+}
+
+// encodeEnvelope packages (sealed_ciphertext, aad) for storage.
+// Both are base64url-encoded (no padding) and joined by '|'. The
+// envelope length is therefore (b64u(sealed) + 1 + b64u(aad)).
+func encodeEnvelope(sealed, aad []byte) string {
+	sEnc := base64.RawURLEncoding.EncodeToString(sealed)
+	aEnc := base64.RawURLEncoding.EncodeToString(aad)
+	return sEnc + "|" + aEnc
+}
+
+// decodeEnvelope parses a string produced by encodeEnvelope.
+// Returns ErrInvalidEnvelope on malformed input.
+func decodeEnvelope(s string) (sealed, aad []byte, err error) {
+	idx := strings.LastIndex(s, "|")
+	if idx < 0 {
+		return nil, nil, ErrInvalidEnvelope
+	}
+	sealed, err = base64.RawURLEncoding.DecodeString(s[:idx])
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: sealed body: %v", ErrInvalidEnvelope, err)
+	}
+	aad, err = base64.RawURLEncoding.DecodeString(s[idx+1:])
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: aad: %v", ErrInvalidEnvelope, err)
+	}
+	return sealed, aad, nil
 }
 
 // DecryptString is a convenience wrapper. Returns the empty string on a

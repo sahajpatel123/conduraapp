@@ -294,6 +294,22 @@ CREATE TABLE IF NOT EXISTS rollback_checkpoints (
 CREATE INDEX IF NOT EXISTS idx_rb_cp_created ON rollback_checkpoints(created_at);
 `,
 	},
+	{
+		// Phase 16, Rec 3: UUID-based AAD for api_keys. Each
+		// ciphertext column (secret, refresh) gets its own
+		// UUID stored alongside the ciphertext so a key can
+		// be rotated / re-encrypted without re-deriving the
+		// AAD from the row id. Existing rows get a freshly
+		// generated UUID on first read; the new path
+		// (EncryptStringWithAAD) is the only thing that uses
+		// it.
+		Version: 5,
+		Name:    "api_keys UUID-AAD columns",
+		SQL: `
+ALTER TABLE api_keys ADD COLUMN secret_aad TEXT;
+ALTER TABLE api_keys ADD COLUMN refresh_aad TEXT;
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

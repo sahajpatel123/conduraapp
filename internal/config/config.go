@@ -117,6 +117,27 @@ type DaemonConfig struct {
 	IdleTimeoutMinutes int `yaml:"idle_timeout_minutes"`
 	// DefaultAutonomy is the default autonomy level (supervised, warn, autonomous).
 	DefaultAutonomy string `yaml:"default_autonomy"`
+	// Watchdog is Layer 2 of the kill switch (CLAUDE.md §5.3).
+	// Phase 16, Rec 2: ships a simple in-process timer. v0.2.0
+	// will harden into a separate watcher process the agent
+	// cannot disable. Empty Timeout keeps the watchdog disabled
+	// (opt-in).
+	Watchdog WatchdogConfig `yaml:"watchdog"`
+}
+
+// WatchdogConfig controls the kill-switch Layer 2 watchdog.
+type WatchdogConfig struct {
+	// Enabled turns the watchdog on. Default: false (opt-in
+	// because a too-short timeout will interrupt long-running
+	// unattended jobs like backup creation).
+	Enabled bool `yaml:"enabled"`
+	// Timeout is the inactivity threshold before auto-halt.
+	// Format: Go duration string ("30m", "1h", "0"). 0 disables
+	// the watchdog regardless of Enabled.
+	Timeout time.Duration `yaml:"timeout"`
+	// CheckInterval is how often the watchdog polls the clock.
+	// Defaults to 1 minute. Should be << Timeout.
+	CheckInterval time.Duration `yaml:"check_interval"`
 }
 
 // LoggingConfig controls logging.
@@ -434,7 +455,7 @@ type UpdateConfig struct {
 type HubConfig struct {
 	// Enabled toggles hub connectivity. Default: true.
 	Enabled bool `yaml:"enabled"`
-	// BaseURL is the hub server URL. Default: "https://hub.synaptic.app".
+	// BaseURL is the hub server URL. Default: "https://hub.condura.app".
 	BaseURL string `yaml:"base_url"`
 	// AutoUpdate enables automatic skill updates. Default: false.
 	AutoUpdate bool `yaml:"auto_update"`

@@ -16,7 +16,7 @@ func realEngine(t *testing.T) *gatekeeper.Engine {
 	t.Helper()
 	hf := halt.New(testDB(t))
 	broker := sse.NewBroker()
-	safety := buildSafetyLayer(hf, broker, nil)
+	safety := buildSafetyLayer(hf, broker, nil, nil)
 	return safety.Engine
 }
 
@@ -92,7 +92,7 @@ func TestDelegation_RecursionBlocked(t *testing.T) {
 func TestDelegation_HaltInterrupts(t *testing.T) {
 	hf := halt.New(testDB(t))
 	broker := sse.NewBroker()
-	safety := buildSafetyLayer(hf, broker, nil)
+	safety := buildSafetyLayer(hf, broker, nil, nil)
 	engine := safety.Engine
 
 	_, _ = hf.Halt(context.Background(), "test halt")
