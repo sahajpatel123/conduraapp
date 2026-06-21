@@ -123,6 +123,14 @@ type Manager struct {
 	// haltFunc reports whether new streams should be refused.
 	// Set via SetHaltChecker; if nil, halt is not checked.
 	haltFunc func() bool
+	// breakerCheck is called on Start to check if the provider's
+	// circuit breaker is open. Returns false if the breaker is
+	// open (call should be refused). Set via SetBreakerCheck.
+	breakerCheck func(provider string) bool
+	// breakerResult is called after the stream completes to
+	// record success or failure on the provider's breaker.
+	// Set via SetBreakerResult.
+	breakerResult func(provider string, success bool)
 }
 
 type activeStream struct {
@@ -134,6 +142,10 @@ type activeStream struct {
 	cancel         func()
 	state          State
 	done           chan struct{} // closed when goroutine exits
+	// breakerResult is called after the stream completes to
+	// record success/failure on the provider's circuit breaker.
+	// May be nil if no breaker is configured.
+	breakerResult func(provider string, success bool)
 }
 
 // NewManager returns a fresh Manager. The broker and registry must be
@@ -168,6 +180,27 @@ func (m *Manager) SetHaltChecker(fn func() bool) {
 	m.haltFunc = fn
 }
 
+// SetBreakerCheck registers a function called on Start to check
+// whether the provider's circuit breaker allows a new call. If the
+// function returns false, Start refuses with an error. This wires
+// the failover package's CircuitBreaker into the streaming path
+// without the stream package needing to import failover directly.
+func (m *Manager) SetBreakerCheck(fn func(provider string) bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.breakerCheck = fn
+}
+
+// SetBreakerResult registers a function called after a stream
+// completes (success or error) to update the provider's circuit
+// breaker. This wires RecordSuccess/RecordFailure into the
+// streaming path.
+func (m *Manager) SetBreakerResult(fn func(provider string, success bool)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.breakerResult = fn
+}
+
 // Start kicks off a new stream. It returns immediately with a
 // request_id; the actual tokens arrive on the SSE broker as
 // stream.delta events tagged with this request_id.
@@ -192,6 +225,15 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 		return "", ErrHalted
 	}
 
+	// Circuit breaker: fail fast if the provider is open.
+	m.mu.Lock()
+	checkFn := m.breakerCheck
+	resultFn := m.breakerResult
+	m.mu.Unlock()
+	if checkFn != nil && !checkFn(req.ProviderName) {
+		return "", fmt.Errorf("circuit breaker open for provider: %s", req.ProviderName)
+	}
+
 	// Context-window check: refuse up front rather than fail
 	// mid-stream. We compare against the model's declared window.
 	if err := m.checkContextWindow(req); err != nil {
@@ -214,6 +256,7 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 		startedAt:      m.now(),
 		state:          StateRunning,
 		done:           make(chan struct{}),
+		breakerResult:  resultFn,
 	}
 
 	// Acquire the provider's stream channel and cancel func before
@@ -375,6 +418,9 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 	for ev := range events {
 		if ev.Err != nil {
 			m.markState(s, StateError)
+			if s.breakerResult != nil {
+				s.breakerResult(s.providerName, false)
+			}
 			m.broker.PublishJSON(EventError, map[string]any{
 				fieldRequestID: requestID,
 				fieldError:     ev.Err.Error(),
@@ -383,6 +429,9 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 		}
 		if ev.Done {
 			m.markState(s, StateFinished)
+			if s.breakerResult != nil {
+				s.breakerResult(s.providerName, true)
+			}
 			m.broker.PublishJSON(EventFinished, map[string]any{
 				fieldRequestID:    requestID,
 				fieldFinishReason: string(ev.FinishReason),

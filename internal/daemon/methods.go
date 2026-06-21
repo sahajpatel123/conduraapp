@@ -57,7 +57,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	})
 
 	registerAPIKeyMethods(srv, subs)
-	registerLLMMethods(srv, subs.LLM, subs.Spend, subs.Halt, subs.Audit)
+	registerLLMMethods(srv, subs.LLM, subs.Spend, subs.Breakers, subs.Halt, subs.Audit)
 	registerSpendMethods(srv, subs.Spend)
 	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM, subs.Anomaly, subs.Watchdog)
 	registerAuditMethods(srv, subs.Audit)
@@ -170,7 +170,7 @@ func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
 }
 
 // registerLLMMethods wires the llm.* method family.
-func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.SpendMonitor, haltFlag *halt.Flag, auditLog *audit.Log) {
+func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.SpendMonitor, breakers *failover.BreakerRegistry, haltFlag *halt.Flag, auditLog *audit.Log) {
 	srv.Register("llm.chat", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if haltFlag.IsHalted() {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "daemon is halted"}
@@ -193,9 +193,38 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 		if p.Request.Model == "" {
 			p.Request.Model = prov.DefaultModel("chat")
 		}
+
+		// Circuit breaker: fail fast if the provider is open.
+		if breakers != nil {
+			b := breakers.For(p.Provider)
+			if !b.Allow() {
+				return nil, &ipc.Error{
+					Code:    ipc.CodeInternalError,
+					Message: "circuit breaker open for provider: " + p.Provider,
+				}
+			}
+		}
+
+		// Spend cap: check before the call, not just after.
+		if mon != nil {
+			estCost := llm.EstimateCost(p.Request.Model, llm.Usage{})
+			if !mon.Allow(estCost) {
+				return nil, &ipc.Error{
+					Code:    ipc.CodeInternalError,
+					Message: "daily spend cap exceeded",
+				}
+			}
+		}
+
 		resp, err := prov.Chat(ctx, p.Request)
 		if err != nil {
+			if breakers != nil {
+				breakers.For(p.Provider).RecordFailure()
+			}
 			return nil, err
+		}
+		if breakers != nil {
+			breakers.For(p.Provider).RecordSuccess()
 		}
 		cost := llm.EstimateCost(p.Request.Model, resp.Usage)
 		mon.Record(cost)

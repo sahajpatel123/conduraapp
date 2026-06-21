@@ -87,6 +87,7 @@ type Subsystems struct {
 	LLM           *llm.Registry
 	Failover      *failover.Failover
 	Spend         *failover.SpendMonitor
+	Breakers      *failover.BreakerRegistry
 	Health        *health.Register
 	Conversations *conversation.Store
 	Audit         *audit.Log
@@ -523,6 +524,20 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	broker := sse.NewBroker()
 	streamMgr := stream.NewManager(broker, registry)
 	streamMgr.SetHaltChecker(haltFlag.IsHalted)
+	// Wire the circuit breaker into the streaming path so a
+	// provider that's repeatedly failing gets fail-fast'd
+	// instead of starting a stream that immediately errors.
+	streamMgr.SetBreakerCheck(func(provider string) bool {
+		return breakers.For(provider).Allow()
+	})
+	streamMgr.SetBreakerResult(func(provider string, success bool) {
+		b := breakers.For(provider)
+		if success {
+			b.RecordSuccess()
+		} else {
+			b.RecordFailure()
+		}
+	})
 
 	// Phase 6: living presence.
 	//
@@ -748,7 +763,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 
 	subs := &Subsystems{
 		Secrets: sm, Storage: db, APIKeys: akm, LLM: registry,
-		Failover: fo, Spend: mon, Health: hr,
+		Failover: fo, Spend: mon, Breakers: breakers, Health: hr,
 		Conversations: convStore, Audit: auditLog, Halt: haltFlag,
 		NetGuard:  netGuard,
 		Telemetry: tel, Updater: upd, Window: winMgr,
