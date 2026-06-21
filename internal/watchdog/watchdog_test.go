@@ -58,20 +58,17 @@ func (a *fakeAuditor) RecordHalt(ctx context.Context, e AuditEvent) {
 }
 
 // globalSeq is a single sequence counter incremented atomically by
-// every test fake that wants to verify ordering. Production code
+// every test fake that wants to verify ordering. fakeHalt calls
+// AddUint64 (records the next slot); fakeAuditor reads the current
+// value (records the slot that was just taken). Production code
 // never touches it.
 var globalSeq = new(uint64)
 
-// nextSeq atomically bumps the global counter. Returns the value
-// AFTER the bump. Production code never calls this.
-func nextSeq() uint64 {
-	return atomic.AddUint64(globalSeq, 1)
-}
-
-// bumpSeq bumps the counter (simulating the world advancing).
-func bumpSeq() {
-	atomic.AddUint64(globalSeq, 1)
-}
+// Phase 17, Fix #1 (B3): the test fakes (fakeHalt, fakeAuditor)
+// each carry their own seqAtCall counter that captures the moment
+// they were invoked. The TestWatchdog_Run_WritesAuditBeforeHalt
+// test asserts audit.seqAtCall < halt.seqAtCall so the audit row
+// is provably written before the halt fires.
 
 func TestWatchdog_NewSetsInitialTouch(t *testing.T) {
 	w := New(time.Hour, time.Minute, nil, nil, nil)

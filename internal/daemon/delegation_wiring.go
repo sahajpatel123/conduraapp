@@ -88,12 +88,12 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 		// explicitly).
 		actionDecisions := gateAndAuditParsedActions(ctx, subs, result)
 		return map[string]any{
-			"agent_name":      result.AgentName,
-			"output":          result.Output,
-			"exit_code":       result.ExitCode,
-			"duration_ms":     result.Duration.Milliseconds(),
-			"token_count":     result.TokenCount,
-			"spawn_id":        result.SpawnID,
+			"agent_name":       result.AgentName,
+			"output":           result.Output,
+			"exit_code":        result.ExitCode,
+			"duration_ms":      result.Duration.Milliseconds(),
+			"token_count":      result.TokenCount,
+			"spawn_id":         result.SpawnID,
 			"action_decisions": actionDecisions,
 		}, nil
 	})
@@ -133,11 +133,11 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 // delegate.spawn response. Kept as a flat struct so the GUI can show
 // "sub-agent asked to <kind>; gate said <decision> because <reason>".
 type gatedActionDecision struct {
-	Kind       string `json:"kind"`
-	AgentName  string `json:"agent_name"`
-	Decision   string `json:"decision"`
-	Reason     string `json:"reason"`
-	Allowed    bool   `json:"allowed"`
+	Kind      string `json:"kind"`
+	AgentName string `json:"agent_name"`
+	Decision  string `json:"decision"`
+	Reason    string `json:"reason"`
+	Allowed   bool   `json:"allowed"`
 }
 
 // gateAndAuditParsedActions walks every ActionRequest the sub-agent
@@ -159,11 +159,11 @@ func gateAndAuditParsedActions(ctx context.Context, subs *Subsystems, result *de
 	out := make([]gatedActionDecision, 0, len(requests))
 	for _, ar := range requests {
 		ba := blastradius.Action{
-			Kind:    ar.Kind,
+			Kind:      ar.Kind,
 			TargetApp: ar.AgentName,
-			Body:    ar.Body,
-			Path:    ar.Path,
-			Command: ar.Command,
+			Body:      ar.Body,
+			Path:      ar.Path,
+			Command:   ar.Command,
 		}
 		decision, reason := subs.Gatekeeper.Evaluate(ctx, ba)
 		// Map gatekeeper.Decision to a friendly string. We use a

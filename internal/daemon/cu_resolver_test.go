@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -274,22 +275,10 @@ func TestCUResolver_TwinSnapshotVerification(t *testing.T) {
 	})
 }
 
-// errorsIs is a tiny local helper to avoid an import cycle with the
-// top-level errors package in this test file's helper section.
-func errorsIs(err, target error) bool {
-	for err != nil {
-		if err == target {
-			return true
-		}
-		type unwrapper interface{ Unwrap() error }
-		if u, ok := err.(unwrapper); ok {
-			err = u.Unwrap()
-		} else {
-			return false
-		}
-	}
-	return false
-}
+// errorsIs is a thin alias for errors.Is so the test body reads
+// like "if errorsIs(err, target)" without importing the stdlib at
+// every call site.
+func errorsIs(err, target error) bool { return errors.Is(err, target) }
 
 // sequencedAXBackend returns a different AX tree on each call so
 // tests can simulate state changing during an action.
