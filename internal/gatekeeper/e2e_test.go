@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
@@ -181,7 +182,9 @@ func TestEngine_WorkspaceTrustBypassesWriteConsent(t *testing.T) {
 	// Set up a real repo so workspaceIDFor resolves to the git root.
 	repoDir := setupRepoWithGit(t)
 
-	nested := repoDir + "/src/main.go"
+	// Use filepath.Join so the test is portable to Windows
+	// (where the path separator is `\`).
+	nested := filepath.Join(repoDir, "src", "main.go")
 	if err := os.WriteFile(nested, []byte("package main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +212,7 @@ func TestEngine_WorkspaceTrustBypassesWriteConsent(t *testing.T) {
 	d, _ = e.Evaluate(context.Background(), blastradius.Action{
 		Kind:      "file.write",
 		TargetApp: "com.microsoft.VSCode",
-		Path:      "/untrusted/src/main.go",
+		Path:      filepath.Join(os.TempDir(), "untrusted-src-main.go"),
 	})
 	if d != Deny {
 		t.Fatalf("untrusted workspace must produce Deny when consent denies, got %v", d)
@@ -220,7 +223,7 @@ func TestEngine_WorkspaceTrustBypassesWriteConsent(t *testing.T) {
 	d, _ = e.Evaluate(context.Background(), blastradius.Action{
 		Kind:      "shell.exec",
 		TargetApp: "com.microsoft.VSCode",
-		Path:      repoDir + "/whatever",
+		Path:      filepath.Join(repoDir, "whatever"),
 	})
 	if d != Deny {
 		t.Fatalf("DESTRUCTIVE must not bypass consent even in trusted workspace, got %v", d)
@@ -228,11 +231,12 @@ func TestEngine_WorkspaceTrustBypassesWriteConsent(t *testing.T) {
 }
 
 func TestEngine_WorkspaceTrustHeuristicFindsGitRoot(t *testing.T) {
-	// Real-filesystem check: workspaceIDFor("/some/path/inside/repo/file.go")
-	// should return "/some/path/inside/repo" when that dir contains
-	// .git/. We set that up here.
+	// Real-filesystem check: workspaceIDFor(".../repo/src/lib/file.go")
+	// should return ".../repo" when that dir contains .git/. We set
+	// that up here. Use filepath.Join so the test is portable to
+	// Windows (where the path separator is `\`).
 	repoDir := setupRepoWithGit(t)
-	nested := repoDir + "/src/lib"
+	nested := filepath.Join(repoDir, "src", "lib")
 	got := workspaceIDFor(nested)
 	if got != repoDir {
 		t.Fatalf("workspaceIDFor: got %q, want %q", got, repoDir)

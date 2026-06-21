@@ -306,11 +306,11 @@ func decodeEnvelope(s string) (sealed, aad []byte, err error) {
 	}
 	sealed, err = base64.RawURLEncoding.DecodeString(s[:idx])
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: sealed body: %v", ErrInvalidEnvelope, err)
+		return nil, nil, fmt.Errorf("%w: sealed body: %w", ErrInvalidEnvelope, err)
 	}
 	aad, err = base64.RawURLEncoding.DecodeString(s[idx+1:])
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: aad: %v", ErrInvalidEnvelope, err)
+		return nil, nil, fmt.Errorf("%w: aad: %w", ErrInvalidEnvelope, err)
 	}
 	return sealed, aad, nil
 }

@@ -92,9 +92,13 @@ func TestTrustMethods_EndToEnd(t *testing.T) {
 
 	// 4. workspace_id_for (real git repo)
 	repoDir := setupTrustRepo(t)
-	resp, err = trustRPCCall(t, srv, "trust.workspace_id_for", json.RawMessage(
-		`{"path":"`+repoDir+`/src/lib/foo.go"}`,
-	))
+	pathBytes, err := json.Marshal(map[string]any{
+		"path": filepath.ToSlash(filepath.Join(repoDir, "src", "lib", "foo.go")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = trustRPCCall(t, srv, "trust.workspace_id_for", pathBytes)
 	if err != nil {
 		t.Fatalf("trust.workspace_id_for: %v", err)
 	}
