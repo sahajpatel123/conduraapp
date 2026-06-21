@@ -310,6 +310,53 @@ ALTER TABLE api_keys ADD COLUMN secret_aad TEXT;
 ALTER TABLE api_keys ADD COLUMN refresh_aad TEXT;
 `,
 	},
+	{
+		// Phase 18 (v0.2.0): pending sub-agent actions queue.
+		// When a sub-agent (Claude Code, Codex, etc.) emits
+		// structured ActionRequests, the daemon persists each
+		// one here so the GUI can show a "pending actions"
+		// panel and the user can approve/deny one at a time.
+		// Each row is gated (gate_decision, gate_reason) AND
+		// timed (expires_at for auto-deny) AND audited
+		// (decided_by, decided_at, executed_at,
+		// execution_result, execution_error).
+		//
+		// Status flow:
+		//   pending -> approved  -> executed (success|error)
+		//          -> denied     (terminal)
+		//          -> expired    (terminal, swept by background goroutine)
+		//          -> superseded (terminal, replaced by a newer action of the same kind)
+		Version: 6, //nolint:mnd // migration version
+		Name:    "pending_actions for sub-agent ActionRequests",
+		SQL: `
+CREATE TABLE IF NOT EXISTS pending_actions (
+    id TEXT PRIMARY KEY,
+    spawn_id TEXT NOT NULL,
+    session_id TEXT NOT NULL DEFAULT '',
+    agent_name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    gate_decision TEXT NOT NULL,
+    gate_reason TEXT NOT NULL DEFAULT '',
+    blast_class TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK (status IN ('pending','approved','denied','executed','failed','expired','superseded')),
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    decided_at TEXT,
+    decided_by TEXT,
+    decision_note TEXT,
+    executed_at TEXT,
+    execution_exit_code INTEGER NOT NULL DEFAULT 0,
+    execution_result TEXT NOT NULL DEFAULT '',
+    execution_error TEXT NOT NULL DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_pa_status_created ON pending_actions(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_pa_session ON pending_actions(session_id) WHERE session_id != '';
+CREATE INDEX IF NOT EXISTS idx_pa_spawn ON pending_actions(spawn_id);
+CREATE INDEX IF NOT EXISTS idx_pa_expires ON pending_actions(expires_at) WHERE status = 'pending';
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

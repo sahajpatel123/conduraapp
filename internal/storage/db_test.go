@@ -295,7 +295,7 @@ func TestMigrations_OnMigrate(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	mu.Lock()
 	defer mu.Unlock()
-	assert.Equal(t, []int{1, 2, 3, 4, 5}, called)
+	assert.Equal(t, []int{1, 2, 3, 4, 5, 6}, called)
 }
 
 func TestMigrations_OnMigrateError(t *testing.T) {

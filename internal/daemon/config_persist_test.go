@@ -11,9 +11,10 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/telemetry"
 )
 
-// callRPC invokes a method on the server and returns the
-// unmarshaled result or the JSON-RPC error.
-func configPersistCallRPC(t *testing.T, srv *ipc.Server, method string, params json.RawMessage) (any, error) {
+// configPersistCallRPC invokes a method on the server and returns
+// the JSON-RPC error (if any). The result is discarded — the tests
+// only check side effects on disk.
+func configPersistCallRPC(t *testing.T, srv *ipc.Server, method string, params json.RawMessage) error {
 	t.Helper()
 	resp, err := srv.Handle(context.Background(), &ipc.Request{
 		JSONRPC: "2.0",
@@ -22,12 +23,12 @@ func configPersistCallRPC(t *testing.T, srv *ipc.Server, method string, params j
 		ID:      json.RawMessage("1"),
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if resp.Error != nil {
-		return nil, resp.Error
+		return resp.Error
 	}
-	return resp.Result, nil
+	return nil
 }
 
 // TestConfigUpdate_PersistsToDisk verifies that config.update writes
@@ -58,7 +59,7 @@ func TestConfigUpdate_PersistsToDisk(t *testing.T) {
 	}
 	params, _ := json.Marshal(patch)
 
-	_, err = configPersistCallRPC(t, srv, "config.update", params)
+	err = configPersistCallRPC(t, srv, "config.update", params)
 	if err != nil {
 		t.Fatalf("config.update call: %v", err)
 	}
@@ -96,15 +97,15 @@ func TestTelemetrySetEnabled_PersistsToDisk(t *testing.T) {
 
 	srv := ipc.NewServer()
 	subs := &Subsystems{
-		cfg:      cfg,
-		Loader:   loader,
+		cfg:       cfg,
+		Loader:    loader,
 		Telemetry: telemetry.New(nil, ""),
 	}
 
 	registerControlMethods(srv, cfg, subs)
 
 	params, _ := json.Marshal(map[string]any{"enabled": true})
-	_, err = configPersistCallRPC(t, srv, "telemetry.setEnabled", params)
+	err = configPersistCallRPC(t, srv, "telemetry.setEnabled", params)
 	if err != nil {
 		t.Fatalf("telemetry.setEnabled call: %v", err)
 	}
