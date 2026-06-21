@@ -108,20 +108,8 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 		}
 	}
 
-	// Phase 16, Rec 5: per-workspace trust. If the user has marked
-	// the target workspace as "always allow in this folder", we
-	// skip the consent dialog for WRITE actions. DESTRUCTIVE
-	// always requires fresh consent.
-	if e.TrustHook != nil {
-		class := blastradius.Classify(a)
-		if class == blastradius.WRITE && a.Path != "" {
-			wsID := workspaceIDFor(a.Path)
-			if wsID != "" {
-				if _, ok := e.TrustHook(wsID, a.TargetApp); ok {
-					return Allow, "workspace trust: always-allow in this folder"
-				}
-			}
-		}
+	if reason, ok := e.applyWorkspaceTrust(a); ok {
+		return Allow, reason
 	}
 
 	// Direct decisions.
@@ -134,6 +122,33 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 
 	// Consent-required: drive the consent provider.
 	return e.evaluateConsent(ctx, a, v)
+}
+
+// applyWorkspaceTrust is Phase 16, Rec 5: per-workspace trust.
+// If the user has marked the target workspace as "always allow in
+// this folder", we skip the consent dialog for WRITE actions.
+// DESTRUCTIVE always requires fresh consent. Extracted from
+// Evaluate to keep the parent function under the
+// cyclomatic-complexity cap.
+//
+// Returns (reason, true) if trust applies; the decision is
+// always Allow in that case (encoded in the caller).
+func (e *Engine) applyWorkspaceTrust(a blastradius.Action) (string, bool) {
+	if e.TrustHook == nil {
+		return "", false
+	}
+	class := blastradius.Classify(a)
+	if class != blastradius.WRITE || a.Path == "" {
+		return "", false
+	}
+	wsID := workspaceIDFor(a.Path)
+	if wsID == "" {
+		return "", false
+	}
+	if _, ok := e.TrustHook(wsID, a.TargetApp); !ok {
+		return "", false
+	}
+	return "workspace trust: always-allow in this folder", true
 }
 
 func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Verdict) (Decision, string) {
