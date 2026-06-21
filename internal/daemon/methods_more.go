@@ -40,6 +40,14 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		if wRaw, ok := patch["window"]; ok {
 			applyWindowPatch(cfg, wRaw)
 		}
+		// Persist the patched config so changes survive a daemon
+		// restart. Without this, hotkey/window/telemetry changes
+		// are lost on the next boot.
+		if subs.Loader != nil {
+			if err := subs.Loader.Save(cfg); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "persist config failed: " + err.Error()}
+			}
+		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
 				Actor: actorGUI, Action: "config.update", App: appConduraG,
@@ -66,6 +74,11 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		}
 		cfg.Telemetry.Enabled = p.Enabled
 		subs.Telemetry.SetEnabled(p.Enabled)
+		if subs.Loader != nil {
+			if err := subs.Loader.Save(cfg); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "persist config failed: " + err.Error()}
+			}
+		}
 		if subs.Audit != nil {
 			_ = subs.Audit.Append(ctx, audit.Event{
 				Actor: actorGUI, Action: "telemetry.setEnabled", App: appConduraG,
