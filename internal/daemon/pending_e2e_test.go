@@ -28,7 +28,6 @@ package daemon
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -101,6 +100,11 @@ func startV020Daemon(t *testing.T) (string, *Subsystems, func()) {
 // insertPending is a tiny helper that drops a pending_action row
 // into the queue the same way delegate.spawn would, but without
 // needing a real sub-agent CLI.
+//
+// v0.2.0 e2e test in this file exercises the shell path; computeruse
+// tests live in internal/executor/executor_test.go.
+//
+//nolint:unparam // kind is fixed to "shell.exec" because every
 func insertPending(t *testing.T, subs *Subsystems, kind, command string) *pending.Action {
 	t.Helper()
 	got, err := subs.Pending.Insert(context.Background(), pending.InsertInput{
@@ -176,7 +180,7 @@ func TestPendingE2E_FullPipeline(t *testing.T) {
 	// 4. Verify the audit log got the executed row. The
 	// executor writes actor=executor, action=pending.executed.
 	listAudit, err := trustCallRPC(t, addr, "audit.list", map[string]any{
-		"limit": 50,
+		"limit":  50,
 		"action": "pending.executed",
 	})
 	if err != nil {
@@ -339,7 +343,6 @@ func TestPendingE2E_SweepExpiresOldActions(t *testing.T) {
 	// would also stop the sweeper goroutine. Tests don't need
 	// explicit cleanup here.
 	_ = fresh
-	_ = fmt.Sprintf("test complete")
 }
 
 // TestPendingE2E_NonZeroExitRecorded covers the failure path:

@@ -59,7 +59,7 @@ func TestExecutor_ShellExec_Success(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, err := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
-		Payload: pending.Payload{Command: "echo hello"},
+		Payload:      pending.Payload{Command: "echo hello"},
 		GateDecision: "allow",
 	})
 	if err != nil {
@@ -90,7 +90,7 @@ func TestExecutor_ShellExec_NonZero(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
-		Payload: pending.Payload{Command: "exit 42"},
+		Payload:      pending.Payload{Command: "exit 42"},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -113,7 +113,7 @@ func TestExecutor_ShellExec_EmptyCommand(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
-		Payload: pending.Payload{Command: "   "},
+		Payload:      pending.Payload{Command: "   "},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -151,7 +151,7 @@ func TestExecutor_ComputerUse_Dispatches(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "computeruse.click",
-		Payload: pending.Payload{Target: "Submit button"},
+		Payload:      pending.Payload{Target: "Submit button"},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -198,7 +198,7 @@ func TestExecutor_ComputerUse_ResolverFails(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "computeruse.type",
-		Payload: pending.Payload{Body: "hello"},
+		Payload:      pending.Payload{Body: "hello"},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -217,7 +217,7 @@ func TestExecutor_UnsupportedKind(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "webrtc.send",
-		Payload: pending.Payload{Body: "x"},
+		Payload:      pending.Payload{Body: "x"},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -242,7 +242,7 @@ func TestExecutor_AllowVerdictBypassesReGate(t *testing.T) {
 	// actually fires when the re-gate would deny.
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "computeruse.click",
-		Payload: pending.Payload{Target: "Submit button"},
+		Payload:      pending.Payload{Target: "Submit button"},
 		GateDecision: "allow",
 	})
 	a = approveAndReload(t, store, a)
@@ -271,7 +271,7 @@ func TestExecutor_RequireConsentBypassesReGate(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
-		Payload: pending.Payload{Command: "echo consent-bypass"},
+		Payload:      pending.Payload{Command: "echo consent-bypass"},
 		GateDecision: "require_consent",
 	})
 	a = approveAndReload(t, store, a)
@@ -306,7 +306,7 @@ func TestExecutor_OriginalDenyVerdictRefusesToExecute(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))
 	a, _ := store.Insert(context.Background(), pending.InsertInput{
 		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
-		Payload: pending.Payload{Command: "echo should-not-run"},
+		Payload:      pending.Payload{Command: "echo should-not-run"},
 		GateDecision: "deny",
 	})
 	// Force-approve the row (the real RPC wouldn't allow this,

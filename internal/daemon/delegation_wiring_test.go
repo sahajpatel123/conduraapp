@@ -41,10 +41,10 @@ func (noopGatekeeper) Evaluate(_ context.Context, _ blastradius.Action) (gatekee
 //   - A request with empty Kind is skipped (defensive).
 func TestGateAndPersistParsedActions_ReadsRequestsAndGates(t *testing.T) {
 	cases := []struct {
-		name             string
-		gate             gatekeeper.Gatekeeper
-		wantDec          string
-		wantFinalStatus  pending.Status
+		name            string
+		gate            gatekeeper.Gatekeeper
+		wantDec         string
+		wantFinalStatus pending.Status
 	}{
 		{"allow", noopGatekeeper{}, "allow", pending.StatusPending},
 		{"deny", fakeGatekeeper{decision: gatekeeper.Deny, reason: "test deny"}, "deny", pending.StatusDenied},

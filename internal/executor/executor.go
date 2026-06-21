@@ -252,8 +252,6 @@ func pendingActionToBlast(a *pending.Action) blastradius.Action {
 	}
 }
 
-// Compile-time interface assertion (Resolver is satisfied by
-// *daemon.CUResolver in production; the assertion keeps the
-// import meaningful if the executor is ever exercised in
-// isolation).
-var _ Resolver = (Resolver)(nil)
+// (Compile-time interface assertion removed — *daemon.CUResolver
+// satisfies Resolver in production. The executor package has no
+// other need for the type alias.)

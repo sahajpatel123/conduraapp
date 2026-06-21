@@ -38,8 +38,8 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/mcp"
 	"github.com/sahajpatel123/synapticapp/internal/memory"
 	"github.com/sahajpatel123/synapticapp/internal/onboarding"
-	"github.com/sahajpatel123/synapticapp/internal/pending"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/synapticapp/internal/pending"
 	"github.com/sahajpatel123/synapticapp/internal/permissions"
 	"github.com/sahajpatel123/synapticapp/internal/reach"
 	"github.com/sahajpatel123/synapticapp/internal/replay"
@@ -429,7 +429,7 @@ func decisionName(d gatekeeper.Decision) string {
 	case gatekeeper.Allow:
 		return "allow"
 	case gatekeeper.Deny:
-		return "deny"
+		return auditResultDeny
 	case gatekeeper.RequireConsent:
 		return "require_consent"
 	case gatekeeper.RequirePresenceAndConsent:
