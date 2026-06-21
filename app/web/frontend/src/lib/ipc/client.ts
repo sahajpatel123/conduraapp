@@ -81,7 +81,7 @@ class IPCClient {
   async start(opts: { baseURL: string; authToken: string }): Promise<void> {
     this.baseURL = opts.baseURL.replace(/\/$/, '')
     this.authToken = opts.authToken
-    await this.openSSE()
+    await this.openSse()
   }
 
   /**
@@ -469,7 +469,7 @@ class IPCClient {
 
   // ---- SSE transport ----
 
-  private async openSSE(): Promise<void> {
+  private async openSse(): Promise<void> {
     if (this.sse) {
       this.sse.close()
       this.sse = null
@@ -478,12 +478,33 @@ class IPCClient {
     url.protocol = url.protocol === 'https:' ? 'https:' : 'http:'
     url.pathname = '/events'
     this.sseURL = url.toString()
-    // EventSource doesn't support custom headers, so the auth
-    // token (if any) is passed as a query string parameter.
-    // The Go server treats ?token= the same as Authorization: Bearer.
+
+    // EventSource can't send custom headers, so we exchange the
+    // real bearer token for a short-lived one-time ticket via
+    // POST /sse-ticket (header auth). The ticket is used as
+    // ?ticket= on the EventSource URL. This keeps the real token
+    // out of URLs, server logs, and browser history.
     if (this.authToken) {
-      url.searchParams.set('token', this.authToken)
+      try {
+        const ticketUrl = new URL(this.baseURL)
+        ticketUrl.protocol = ticketUrl.protocol === 'https:' ? 'https:' : 'http:'
+        ticketUrl.pathname = '/sse-ticket'
+        const resp = await fetch(ticketUrl.toString(), {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.authToken}` },
+        })
+        if (resp.ok) {
+          const data = await resp.json()
+          if (data.ticket) {
+            url.searchParams.set('ticket', data.ticket)
+          }
+        }
+      } catch {
+        // Token exchange failed — proceed without a ticket.
+        // The SSE connect will 401 and trigger reconnect.
+      }
     }
+
     const es = new EventSource(url.toString())
     this.sse = es
 
@@ -547,7 +568,7 @@ class IPCClient {
     this.emitter.emit('reconnecting', this.reconnectAttempt, delay)
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
-      void this.openSSE()
+      void this.openSse()
     }, delay)
   }
 }

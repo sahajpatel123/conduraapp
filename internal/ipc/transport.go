@@ -2,6 +2,9 @@ package ipc
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -61,6 +64,14 @@ type ServerTransport struct {
 	closed    bool
 	listeners []net.Listener
 	srv       *http.Server
+
+	// sseTickets holds short-lived one-time tickets that let
+	// EventSource connect to /events without putting the real
+	// bearer token in the URL query string (where it would appear
+	// in server logs, browser history, and Referer headers). Each
+	// ticket is single-use and expires 30 seconds after issue.
+	sseTickets   map[string]time.Time
+	sseTicketsMu sync.Mutex
 }
 
 // Addr returns the bound address of the first listener. Useful for
@@ -103,7 +114,8 @@ func (t *ServerTransport) serveListener(ln net.Listener) {
 
 // handleHTTP dispatches HTTP requests:
 //   - GET /healthz -> 200 OK
-//   - GET /events  -> SSE broker (if configured)
+//   - POST /sse-ticket -> exchange bearer token for one-time SSE ticket
+//   - GET /events  -> SSE broker (if configured), ticket or token auth
 //   - GET /ws      -> WebSocket upgrade
 //   - POST /       -> JSON-RPC
 func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
@@ -112,11 +124,20 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 		return
 	}
-	// SSE endpoint: mount the broker at /events. Auth (if
-	// configured) is checked first so unauthenticated callers
-	// never see stream events.
-	if r.Method == http.MethodGet && r.URL.Path == "/events" {
+	// SSE ticket exchange: the client POSTs with Authorization:
+	// Bearer <token> (header, not URL) and receives a short-lived
+	// one-time ticket. The ticket is then used as ?ticket= on the
+	// EventSource URL. This keeps the real token out of URLs/logs.
+	if r.Method == http.MethodPost && r.URL.Path == "/sse-ticket" {
 		if !t.authorize(w, r) {
+			return
+		}
+		t.handleSSETicket(w, r)
+		return
+	}
+	// SSE endpoint: mount the broker at /events.
+	if r.Method == http.MethodGet && r.URL.Path == "/events" {
+		if !t.authorizeSSE(w, r) {
 			return
 		}
 		if t.SSE == nil {
@@ -144,18 +165,92 @@ func (t *ServerTransport) authorize(w http.ResponseWriter, r *http.Request) bool
 	if t.Token == "" {
 		return true
 	}
-	// Check the Authorization header first.
+	// Check the Authorization header.
 	auth := r.Header.Get("Authorization")
 	if auth == "Bearer "+t.Token {
 		return true
 	}
-	// EventSource cannot send custom headers, so also accept
-	// the token as a query parameter for SSE endpoints.
-	if qToken := r.URL.Query().Get("token"); qToken != "" && qToken == t.Token {
+	http.Error(w, "unauthorized", http.StatusUnauthorized)
+	return false
+}
+
+// authorizeSSE is the SSE-specific auth check. It accepts either the
+// Authorization header (for non-EventSource clients) or a one-time
+// ticket from /sse-ticket. The real bearer token is never accepted
+// as a query parameter — that was the old insecure path that leaked
+// it into server logs and browser history.
+func (t *ServerTransport) authorizeSSE(w http.ResponseWriter, r *http.Request) bool {
+	if t.Token == "" {
+		return true
+	}
+	// Header auth (for non-EventSource clients like curl).
+	if auth := r.Header.Get("Authorization"); auth == "Bearer "+t.Token {
+		return true
+	}
+	// One-time ticket from /sse-ticket.
+	ticket := r.URL.Query().Get("ticket")
+	if ticket != "" && t.consumeSSETicket(ticket) {
 		return true
 	}
 	http.Error(w, "unauthorized", http.StatusUnauthorized)
 	return false
+}
+
+// handleSSETicket issues a short-lived one-time ticket for SSE auth.
+// The client must authenticate with the real bearer token (in the
+// Authorization header) to get a ticket. The ticket is then used as
+// ?ticket= on the EventSource URL.
+func (t *ServerTransport) handleSSETicket(w http.ResponseWriter, _ *http.Request) {
+	ticket, err := t.issueSSETicket()
+	if err != nil {
+		http.Error(w, "failed to generate ticket", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ticket":   ticket,
+		"expires_in": 30,
+	})
+}
+
+// issueSSETicket generates a random one-time ticket and stores it
+// with a 30-second TTL.
+func (t *ServerTransport) issueSSETicket() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	ticket := hex.EncodeToString(raw)
+
+	t.sseTicketsMu.Lock()
+	if t.sseTickets == nil {
+		t.sseTickets = make(map[string]time.Time)
+	}
+	// Garbage-collect expired tickets on every issue.
+	now := time.Now()
+	for k, exp := range t.sseTickets {
+		if now.After(exp) {
+			delete(t.sseTickets, k)
+		}
+	}
+	t.sseTickets[ticket] = now.Add(30 * time.Second)
+	t.sseTicketsMu.Unlock()
+
+	return ticket, nil
+}
+
+// consumeSSETicket validates and removes a one-time ticket. Returns
+// false if the ticket is unknown, already used, or expired.
+func (t *ServerTransport) consumeSSETicket(ticket string) bool {
+	t.sseTicketsMu.Lock()
+	defer t.sseTicketsMu.Unlock()
+	exp, ok := t.sseTickets[ticket]
+	if !ok {
+		return false
+	}
+	delete(t.sseTickets, ticket) // single-use
+	return time.Now().Before(exp)
 }
 
 // handleJSONRPC reads the body, dispatches the call, and writes the
