@@ -44,7 +44,7 @@ type Server struct {
 // NewServer creates a local Hub rooted at the given directory.
 // The directory is created if it doesn't exist.
 func NewServer(root string, token string) (*Server, error) {
-	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o700); err != nil {
 		return nil, fmt.Errorf("hub server: mkdir skills: %w", err)
 	}
 	s := &Server{
@@ -245,7 +245,7 @@ func (s *Server) LocalAdd(meta SkillMeta, archive []byte) error {
 		return fmt.Errorf("hub server: invalid skill ID %q (must match [a-zA-Z0-9._-]+)", meta.ID)
 	}
 	dir := filepath.Join(s.root, "skills", meta.ID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	// Always recompute the checksum from the actual archive bytes
@@ -260,10 +260,10 @@ func (s *Server) LocalAdd(meta SkillMeta, archive []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "meta.json"), metaData, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "meta.json"), metaData, 0o600); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "archive.zip"), archive, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "archive.zip"), archive, 0o600); err != nil {
 		return err
 	}
 	s.mu.Lock()

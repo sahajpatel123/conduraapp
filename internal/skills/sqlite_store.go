@@ -27,6 +27,13 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("skills: wal: %w", err)
 	}
+	// Busy timeout and single connection for WAL safety.
+	_ = db.PingContext(context.Background())
+	db.SetMaxOpenConns(1)
+	if _, err := db.ExecContext(context.Background(), "PRAGMA busy_timeout=5000"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("skills: busy_timeout: %w", err)
+	}
 	s := &SQLiteStore{db: db}
 	if err := s.migrate(); err != nil {
 		_ = db.Close()

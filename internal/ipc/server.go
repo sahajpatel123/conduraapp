@@ -211,6 +211,7 @@ func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
 }
 
 func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
+	const maxBatchSize = 50
 	var reqs []Request
 	if err := json.Unmarshal(raw, &reqs); err != nil {
 		// JSON-RPC parse error: same protocol-level reason as HandleRaw.
@@ -218,6 +219,9 @@ func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
 	}
 	if len(reqs) == 0 {
 		return marshalError(nil, &Error{Code: CodeInvalidRequest, Message: "empty batch"}), nil
+	}
+	if len(reqs) > maxBatchSize {
+		return marshalError(nil, &Error{Code: CodeInvalidRequest, Message: fmt.Sprintf("batch too large: %d > %d", len(reqs), maxBatchSize)}), nil
 	}
 	out := make([]json.RawMessage, 0, len(reqs))
 	for i := range reqs {

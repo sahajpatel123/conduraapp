@@ -235,7 +235,7 @@ func VerifyActionCapture(ctx context.Context, backend Backend) *Snapshot {
 	if err != nil {
 		return nil
 	}
-	return NewSnapshot(tree, 0)
+	return NewSnapshot(tree, tree.WindowID)
 }
 
 // VerifyActionVerify captures a post-action snapshot and verifies it

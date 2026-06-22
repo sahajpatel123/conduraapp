@@ -373,8 +373,9 @@ func newAnthropicStreamState() *anthropicStreamState {
 type anthStreamEvent struct {
 	Type  string `json:"type"`
 	Delta struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type       string `json:"type"`
+		Text       string `json:"text"`
+		StopReason string `json:"stop_reason"`
 	} `json:"delta"`
 	Message struct {
 		Usage struct {
@@ -406,9 +407,11 @@ func (s *anthropicStreamState) dispatch(out chan<- StreamEvent, ev anthStreamEve
 		if ev.Delta.Type == "text_delta" {
 			s.accumulated.WriteString(ev.Delta.Text)
 			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
+		} else if ev.Delta.Type == "input_json_delta" {
+			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
 		}
 	case "message_delta":
-		// Stop reason update; we capture it on message_stop.
+		s.finishReason = FinishReason(ev.Delta.StopReason)
 	case "message_start":
 		s.usage.InputTokens = ev.Message.Usage.InputTokens
 		s.usage.OutputTokens = ev.Message.Usage.OutputTokens

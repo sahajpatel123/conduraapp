@@ -203,7 +203,7 @@ func (g *Google) fromResponse(r gemResponse) (ChatResponse, error) {
 	}
 	c := r.Candidates[0]
 	resp := ChatResponse{
-		Model:        r.Candidates[0].Content.Parts[0].Text, // best-effort
+		Model:        "", // Google API doesn't return model name in response
 		FinishReason: mapGemFinishReason(c.FinishReason),
 		Usage: Usage{
 			InputTokens:  r.UsageMetadata.PromptTokenCount,

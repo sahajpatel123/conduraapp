@@ -193,7 +193,9 @@ func registerUpdateMethods(srv *ipc.Server, u *updater.Updater, auditLog *audit.
 		var input struct {
 			Result updater.Result `json:"result"`
 		}
-		_ = json.Unmarshal(params, &input)
+		if err := json.Unmarshal(params, &input); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeParseError, Message: err.Error()}
+		}
 		r, err := u.Apply(ctx, input.Result)
 		if err != nil {
 			return nil, err

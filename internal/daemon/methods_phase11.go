@@ -68,7 +68,9 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Destination string `json:"destination"`
 		}
-		_ = json.Unmarshal(params, &p)
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeParseError, Message: err.Error()}
+		}
 		if subs.Replay == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
 		}

@@ -141,6 +141,9 @@ func (s *Store) List(ctx context.Context) ([]Meta, error) {
 		m.UpdatedAt, _ = time.Parse(time.RFC3339, updated)
 		out = append(out, m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows: %w", err)
+	}
 	return out, nil
 }
 

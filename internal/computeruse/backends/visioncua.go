@@ -97,6 +97,7 @@ func (b *VisionCUABackend) doExecute(action *computeruse.Action) (*computeruse.A
 		return &computeruse.ActionResult{Success: false, Duration: time.Since(start), Action: action},
 			fmt.Errorf("vision-cua: exceeded max calls (%d)", b.cfg.MaxConsecutiveCalls)
 	}
+	b.callCount = 0 // reset on success
 
 	ctx := context.Background()
 

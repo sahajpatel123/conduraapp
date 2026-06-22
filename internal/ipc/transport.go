@@ -3,10 +3,12 @@ package ipc
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -165,9 +167,10 @@ func (t *ServerTransport) authorize(w http.ResponseWriter, r *http.Request) bool
 	if t.Token == "" {
 		return true
 	}
-	// Check the Authorization header.
+	// Check the Authorization header (constant-time comparison).
 	auth := r.Header.Get("Authorization")
-	if auth == "Bearer "+t.Token {
+	expected := "Bearer " + t.Token
+	if subtle.ConstantTimeCompare([]byte(auth), []byte(expected)) == 1 {
 		return true
 	}
 	http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -183,8 +186,8 @@ func (t *ServerTransport) authorizeSSE(w http.ResponseWriter, r *http.Request) b
 	if t.Token == "" {
 		return true
 	}
-	// Header auth (for non-EventSource clients like curl).
-	if auth := r.Header.Get("Authorization"); auth == "Bearer "+t.Token {
+	// Header auth (for non-EventSource clients like curl, constant-time comparison).
+	if auth := r.Header.Get("Authorization"); subtle.ConstantTimeCompare([]byte(auth), []byte("Bearer "+t.Token)) == 1 {
 		return true
 	}
 	// One-time ticket from /sse-ticket.
@@ -261,16 +264,15 @@ func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer func() { _ = r.Body.Close() }()
-	body := make([]byte, 0, 1024)
-	buf := make([]byte, 1024)
-	for {
-		n, err := r.Body.Read(buf)
-		if n > 0 {
-			body = append(body, buf[:n]...)
-		}
-		if err != nil {
-			break
-		}
+	const maxBodySize = 10 << 20 // 10 MB
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize+1))
+	if err != nil {
+		http.Error(w, "read error", http.StatusBadRequest)
+		return
+	}
+	if int64(len(body)) > maxBodySize {
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return
 	}
 	out, err := t.S.HandleRaw(r.Context(), body)
 	if err != nil {
@@ -297,6 +299,9 @@ func (t *ServerTransport) serveWebSocket(w http.ResponseWriter, r *http.Request)
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true, //nolint:gosec // Origin validated above
 	})
+	if err == nil {
+		c.SetReadLimit(10 << 20) // 10 MB max WebSocket message
+	}
 	if err != nil {
 		return
 	}

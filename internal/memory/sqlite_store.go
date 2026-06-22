@@ -29,6 +29,14 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("memory: failed to enable WAL mode: %w", err)
 	}
 
+	// Busy timeout and single connection for WAL safety.
+	_ = db.PingContext(context.Background())
+	db.SetMaxOpenConns(1)
+	if _, err := db.ExecContext(context.Background(), "PRAGMA busy_timeout=5000"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("memory: failed to set busy timeout: %w", err)
+	}
+
 	store := &SQLiteStore{db: db}
 	if err := store.migrate(); err != nil {
 		_ = db.Close()

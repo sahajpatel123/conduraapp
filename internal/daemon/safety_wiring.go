@@ -47,7 +47,7 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 
 	// Wire the anomaly hook so every Evaluate call feeds the detector.
 	engine.AnomalyHook = func(a blastradius.Action) {
-		detector.Record(a.Kind, 0, 0, true)
+		detector.Record(a.Kind, 0, 0, false)
 	}
 
 	// Wire the autonomy hook so every Evaluate call checks autonomy.

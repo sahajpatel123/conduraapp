@@ -129,23 +129,34 @@ func (r *Rollback) RevertToCheckpoint(ctx context.Context, cp Checkpoint) (int, 
 	total := 0
 
 	if r.mainDB != nil && hasColumn(ctx, r.mainDB, "conversation_messages", "created_at") {
-		res, err := r.mainDB.ExecContext(ctx,
+		// Check conversations column BEFORE starting the transaction to avoid SQLite deadlock.
+		hasConvCol := hasColumn(ctx, r.mainDB, "conversations", "created_at")
+		tx, err := r.mainDB.BeginTx(ctx, nil)
+		if err != nil {
+			return 0, fmt.Errorf("backup: rollback begin: %w", err)
+		}
+		res, err := tx.ExecContext(ctx,
 			`DELETE FROM conversation_messages WHERE created_at > ?`, cutoff)
 		if err != nil {
+			_ = tx.Rollback()
 			return total, fmt.Errorf("backup: rollback messages: %w", err)
 		}
 		if n, _ := res.RowsAffected(); n > 0 {
 			total += int(n)
 		}
-		if hasColumn(ctx, r.mainDB, "conversations", "created_at") {
-			res, err = r.mainDB.ExecContext(ctx,
+		if hasConvCol {
+			res, err = tx.ExecContext(ctx,
 				`DELETE FROM conversations WHERE created_at > ?`, cutoff)
 			if err != nil {
+				_ = tx.Rollback()
 				return total, fmt.Errorf("backup: rollback conversations: %w", err)
 			}
 			if n, _ := res.RowsAffected(); n > 0 {
 				total += int(n)
 			}
+		}
+		if err := tx.Commit(); err != nil {
+			return total, fmt.Errorf("backup: rollback commit: %w", err)
 		}
 	}
 
