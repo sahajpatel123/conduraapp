@@ -86,12 +86,12 @@
 
     const key = keyName(e)
     if (!key) {
-      hint = $t('hotkey.recorder.hint_modifier')
+      hint = t('hotkey.recorder.hint_modifier')
       return
     }
     const mods = modifiers(e)
     if (mods.length === 0) {
-      hint = $t('hotkey.recorder.hint_no_modifier')
+      hint = t('hotkey.recorder.hint_no_modifier')
       return
     }
     const spec = [...mods, key].join('+')
@@ -103,7 +103,7 @@
 
   function start(): void {
     recording = true
-    hint = $t('hotkey.recorder.hint_press')
+    hint = t('hotkey.recorder.hint_press')
   }
 
   function pick(s: string): void {
@@ -123,14 +123,14 @@
     class:recording
     class:filled={!!combo}
     onclick={start}
-    aria-label={$t('hotkey.recorder.aria_label')}
+    aria-label={t('hotkey.recorder.aria_label')}
   >
     {#if recording}
-      <span class="pulse">{$t('hotkey.recorder.recording')}</span>
+      <span class="pulse">{t('hotkey.recorder.recording')}</span>
     {:else if combo}
       <kbd>{combo}</kbd>
     {:else}
-      <span class="placeholder">{$t('hotkey.recorder.placeholder')}</span>
+      <span class="placeholder">{t('hotkey.recorder.placeholder')}</span>
     {/if}
   </button>
 
@@ -139,7 +139,7 @@
   {/if}
 
   <div class="suggestions">
-    <span class="sug-label">{$t('hotkey.recorder.suggestions')}</span>
+    <span class="sug-label">{t('hotkey.recorder.suggestions')}</span>
     {#each suggestions as s}
       <button type="button" class="chip" onclick={() => pick(s)}>{s}</button>
     {/each}

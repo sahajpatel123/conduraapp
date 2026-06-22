@@ -38,7 +38,7 @@
     }
     // 32 MB cap matches the daemon's hub archive limit.
     if (f.size > 32 * 1024 * 1024) {
-      fileError = $t('hub.publish.file_too_large')
+      fileError = t('hub.publish.file_too_large')
       archive = null
       fileName = ''
       return
@@ -84,55 +84,55 @@
     class="pub-modal"
     role="dialog"
     aria-modal="true"
-    aria-label={$t('hub.publish.aria_label')}
+    aria-label={t('hub.publish.aria_label')}
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') close() }}
   >
     <header>
-      <h2>{$t('hub.publish.title')}</h2>
-      <button class="close" aria-label={$t('hub.publish.close')} onclick={close}>&times;</button>
+      <h2>{t('hub.publish.title')}</h2>
+      <button class="close" aria-label={t('hub.publish.close')} onclick={close}>&times;</button>
     </header>
 
     {#if hub.publishState.kind === 'success'}
       <div class="result ok">
-        <p><strong>{$t('hub.publish.published')}</strong> {hub.publishState.result.id} v{hub.publishState.result.version}</p>
+        <p><strong>{t('hub.publish.published')}</strong> {hub.publishState.result.id} v{hub.publishState.result.version}</p>
         {#if hub.publishState.result.url}
-          <a href={hub.publishState.result.url} target="_blank" rel="noreferrer">{$t('hub.publish.view_on_hub')}</a>
+          <a href={hub.publishState.result.url} target="_blank" rel="noreferrer">{t('hub.publish.view_on_hub')}</a>
         {/if}
-        <button class="primary" onclick={close}>{$t('hub.publish.done')}</button>
+        <button class="primary" onclick={close}>{t('hub.publish.done')}</button>
       </div>
     {:else}
       <div class="form">
         <label>
-          {$t('hub.publish.name')}
-          <input type="text" bind:value={name} placeholder={$t('hub.publish.name_placeholder')} />
+          {t('hub.publish.name')}
+          <input type="text" bind:value={name} placeholder={t('hub.publish.name_placeholder')} />
         </label>
         <label>
-          {$t('hub.publish.version')}
+          {t('hub.publish.version')}
           <input type="text" bind:value={version} placeholder="1.0.0" class:invalid={version && !versionValid} />
-          {#if version && !versionValid}<span class="field-err">{$t('hub.publish.semver_hint')}</span>{/if}
+          {#if version && !versionValid}<span class="field-err">{t('hub.publish.semver_hint')}</span>{/if}
         </label>
         <label>
-          {$t('hub.publish.description')}
-          <textarea bind:value={description} rows="3" placeholder={$t('hub.publish.description_placeholder')}></textarea>
+          {t('hub.publish.description')}
+          <textarea bind:value={description} rows="3" placeholder={t('hub.publish.description_placeholder')}></textarea>
         </label>
         <div class="two">
           <label>
-            {$t('hub.publish.author')}
+            {t('hub.publish.author')}
             <input type="text" bind:value={author} placeholder="you" />
           </label>
           <label>
-            {$t('hub.publish.license')}
+            {t('hub.publish.license')}
             <input type="text" bind:value={license} placeholder="MIT" />
           </label>
         </div>
         <label>
-          {$t('hub.publish.tags')}
+          {t('hub.publish.tags')}
           <input type="text" bind:value={tagsInput} placeholder="weather, api, utility" />
         </label>
         <label class="file">
-          {$t('hub.publish.archive')}
+          {t('hub.publish.archive')}
           <input type="file" accept=".zip,application/zip" onchange={onFile} />
           {#if fileName}<span class="file-name">{fileName}</span>{/if}
           {#if fileError}<span class="field-err">{fileError}</span>{/if}
@@ -143,9 +143,9 @@
         {/if}
 
         <div class="actions">
-          <button class="ghost" onclick={close}>{$t('hub.publish.cancel')}</button>
+          <button class="ghost" onclick={close}>{t('hub.publish.cancel')}</button>
           <button class="primary" disabled={!canSubmit} onclick={submit}>
-            {hub.isPublishing ? $t('hub.publish.publishing') : $t('hub.publish.publish')}
+            {hub.isPublishing ? t('hub.publish.publishing') : t('hub.publish.publish')}
           </button>
         </div>
       </div>

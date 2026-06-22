@@ -18,35 +18,35 @@
   async function exportVideo(): Promise<void> {
     try {
       const path = await replay.exportMP4()
-      alert($t('replay.exported_alert', path))
+      alert(t('replay.exported_alert', path))
     } catch {
-      alert(replay.lastError || $t('replay.export_failed'))
+      alert(replay.lastError || t('replay.export_failed'))
     }
   }
 </script>
 
 <div class="replay-page">
   <header>
-    <h2>{$t('replay.title')}</h2>
-    <p class="muted">{$t('replay.intro')}</p>
+    <h2>{t('replay.title')}</h2>
+    <p class="muted">{t('replay.intro')}</p>
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick={() => replay.refresh()} disabled={replay.loading}>{$t('replay.refresh')}</button>
-      <button class="btn btn-ghost" onclick={() => replay.verifyIntegrity()}>{$t('replay.verify')}</button>
+      <button class="btn btn-ghost" onclick={() => replay.refresh()} disabled={replay.loading}>{t('replay.refresh')}</button>
+      <button class="btn btn-ghost" onclick={() => replay.verifyIntegrity()}>{t('replay.verify')}</button>
       <button class="btn btn-primary" onclick={exportVideo} disabled={replay.exporting || replay.frames.length === 0}>
-        {replay.exporting ? $t('replay.exporting') : $t('replay.export')}
+        {replay.exporting ? t('replay.exporting') : t('replay.export')}
       </button>
     </div>
     {#if replay.integrity}
       <p class="integrity" class:valid={replay.integrity.valid}>
-        {$t('replay.integrity', replay.integrity.valid ? $t('replay.integrity_valid') : $t('replay.integrity_invalid'), replay.integrity.rows_checked)}
+        {t('replay.integrity', replay.integrity.valid ? t('replay.integrity_valid') : t('replay.integrity_invalid'), replay.integrity.rows_checked)}
       </p>
     {/if}
   </header>
 
   {#if replay.loading}
-    <p class="muted">{$t('replay.loading')}</p>
+    <p class="muted">{t('replay.loading')}</p>
   {:else if replay.frames.length === 0}
-    <p class="muted">{$t('replay.empty')}</p>
+    <p class="muted">{t('replay.empty')}</p>
   {:else}
     <div class="scrubber">
       <input
@@ -56,7 +56,7 @@
         value={replay.selectedIndex}
         oninput={(e) => replay.selectIndex(parseInt((e.target as HTMLInputElement).value, 10))}
         class="slider"
-        aria-label={$t('replay.scrubber_aria')}
+        aria-label={t('replay.scrubber_aria')}
       />
       <span class="scrub-label">{replay.selectedIndex + 1} / {replay.frames.length}</span>
     </div>
@@ -73,18 +73,18 @@
         <div class="shots">
           {#if replay.selected.before_screenshot}
             <figure>
-              <figcaption>{$t('replay.before')}</figcaption>
-              <img src="data:{replay.selected.before_screenshot_mime || 'image/png'};base64,{replay.selected.before_screenshot}" alt={$t('replay.before_alt')} />
+              <figcaption>{t('replay.before')}</figcaption>
+              <img src="data:{replay.selected.before_screenshot_mime || 'image/png'};base64,{replay.selected.before_screenshot}" alt={t('replay.before_alt')} />
             </figure>
           {/if}
           {#if replay.selected.after_screenshot}
             <figure>
-              <figcaption>{$t('replay.after')}</figcaption>
-              <img src="data:{replay.selected.after_screenshot_mime || 'image/png'};base64,{replay.selected.after_screenshot}" alt={$t('replay.after_alt')} />
+              <figcaption>{t('replay.after')}</figcaption>
+              <img src="data:{replay.selected.after_screenshot_mime || 'image/png'};base64,{replay.selected.after_screenshot}" alt={t('replay.after_alt')} />
             </figure>
           {/if}
           {#if !replay.selected.before_screenshot && !replay.selected.after_screenshot}
-            <p class="muted">{$t('replay.no_screenshots')}</p>
+            <p class="muted">{t('replay.no_screenshots')}</p>
           {/if}
         </div>
       </div>

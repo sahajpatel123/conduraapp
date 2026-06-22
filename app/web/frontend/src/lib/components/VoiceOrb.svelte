@@ -57,7 +57,7 @@
   <div class="orb-ring ring-2"></div>
   <div class="orb-ring ring-3"></div>
   {#if state !== 'idle'}
-    <span class="orb-label">{state === 'listening' ? $t('voice.orb.listening') : $t('voice.orb.speaking')}</span>
+    <span class="orb-label">{state === 'listening' ? t('voice.orb.listening') : t('voice.orb.speaking')}</span>
   {/if}
 </div>
 

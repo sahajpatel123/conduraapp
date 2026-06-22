@@ -52,7 +52,7 @@
       const tick = (): void => {
         const ms = new Date(expiresAt).getTime() - Date.now()
         if (ms <= 0) {
-          remaining = $t('sync.pair.expired')
+          remaining = t('sync.pair.expired')
           return
         }
         const s = Math.floor(ms / 1000)
@@ -74,39 +74,39 @@
     class="pair-modal"
     role="dialog"
     aria-modal="true"
-    aria-label={$t('sync.pair.aria_label')}
+    aria-label={t('sync.pair.aria_label')}
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onCancel() }}
   >
     <header>
-      <h2>{$t('sync.pair.title', peerName)}</h2>
-      <button class="close" aria-label={$t('sync.pair.close')} onclick={onCancel}>&times;</button>
+      <h2>{t('sync.pair.title', peerName)}</h2>
+      <button class="close" aria-label={t('sync.pair.close')} onclick={onCancel}>&times;</button>
     </header>
 
     <div class="qr-area">
       {#if qrDataUrl}
-        <img class="qr" src={qrDataUrl} alt={$t('sync.pair.qr_alt')} />
+        <img class="qr" src={qrDataUrl} alt={t('sync.pair.qr_alt')} />
       {:else}
         <div class="qr placeholder">QR</div>
       {/if}
       <p class="qr-cap">
-        {$t('sync.pair.qr_cap', deviceName || $t('sync.pair.this_device'))}
+        {t('sync.pair.qr_cap', deviceName || t('sync.pair.this_device'))}
       </p>
     </div>
 
     <div class="pin-block">
-      <span class="pin-label">{$t('sync.pair.pin_label')}</span>
+      <span class="pin-label">{t('sync.pair.pin_label')}</span>
       <span class="pin">{pin}</span>
       {#if remaining}
-        <span class="ttl" class:expired={remaining === $t('sync.pair.expired')}>
-          {remaining === $t('sync.pair.expired') ? $t('sync.pair.expired') : $t('sync.pair.expires_in', remaining)}
+        <span class="ttl" class:expired={remaining === t('sync.pair.expired')}>
+          {remaining === t('sync.pair.expired') ? t('sync.pair.expired') : t('sync.pair.expires_in', remaining)}
         </span>
       {/if}
     </div>
 
     <div class="confirm">
-      <label for="pair-pin">{$t('sync.pair.confirm_label', peerName)}</label>
+      <label for="pair-pin">{t('sync.pair.confirm_label', peerName)}</label>
       <div class="confirm-row">
         <input
           id="pair-pin"
@@ -118,7 +118,7 @@
           onkeydown={(e) => { if (e.key === 'Enter' && confirmReady) onConfirm(entered.trim()) }}
         />
         <button class="confirm-btn" disabled={!confirmReady || busy} onclick={() => onConfirm(entered.trim())}>
-          {busy ? $t('sync.pair.busy') : $t('sync.pair.confirm')}
+          {busy ? t('sync.pair.busy') : t('sync.pair.confirm')}
         </button>
       </div>
     </div>

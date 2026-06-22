@@ -26,7 +26,7 @@
       ipc.on('voice.partial' as never, ((data: { recording?: boolean; samples?: number }) => {
         isRecording = data.recording ?? false
         if (isRecording && !isFinal) {
-          transcript = $t('voice.transcript.listening')
+          transcript = t('voice.transcript.listening')
         }
       }) as never),
 

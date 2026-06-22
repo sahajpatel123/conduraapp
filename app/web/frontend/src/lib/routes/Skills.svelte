@@ -22,7 +22,7 @@
   }
 
   async function remove(id: string) {
-    if (!confirm($t('skills.delete_confirm', id))) return
+    if (!confirm(t('skills.delete_confirm', id))) return
     try {
       await ipc.skillsDelete(id)
       await refresh()
@@ -36,8 +36,8 @@
 
 <div class="skills-page">
   <header>
-    <h2>{$t('skills.title')}</h2>
-    <p class="muted">{$t('skills.subtitle', skills.length)}</p>
+    <h2>{t('skills.title')}</h2>
+    <p class="muted">{t('skills.subtitle', skills.length)}</p>
   </header>
 
   {#if error}
@@ -46,7 +46,7 @@
 
   {#if skills.length === 0}
     <p class="muted">
-      {@html $t('skills.empty_html')}
+      {@html t('skills.empty_html')}
     </p>
   {:else}
     <ul>
@@ -57,9 +57,9 @@
             <strong>{s.name}</strong>
             <span class="version">v{s.version}</span>
             <span class="trust">[{s.trust}]</span>
-            {#if s.source}<span class="source">{$t('skills.from', s.source)}</span>{/if}
+            {#if s.source}<span class="source">{t('skills.from', s.source)}</span>{/if}
             <span class="spacer"></span>
-            <button class="danger" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>{$t('skills.delete')}</button>
+            <button class="danger" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>{t('skills.delete')}</button>
           </div>
           {#if s.description}
             <p class="desc">{s.description}</p>
@@ -70,7 +70,7 @@
     </ul>
   {/if}
 
-  <button onclick={refresh} disabled={loading}>{loading ? $t('skills.refreshing') : $t('skills.refresh')}</button>
+  <button onclick={refresh} disabled={loading}>{loading ? t('skills.refreshing') : t('skills.refresh')}</button>
 </div>
 
 <style>

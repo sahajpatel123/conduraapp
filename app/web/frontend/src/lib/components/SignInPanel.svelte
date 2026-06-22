@@ -78,18 +78,18 @@
     class="signin-panel"
     role="dialog"
     aria-modal="true"
-    aria-label={$t('account.signin.aria_label')}
+    aria-label={t('account.signin.aria_label')}
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
   >
     <header>
-      <h2>{$t('account.signin.title')}</h2>
-      <button class="close" aria-label={$t('account.signin.close')} onclick={() => onClose?.()}>&times;</button>
+      <h2>{t('account.signin.title')}</h2>
+      <button class="close" aria-label={t('account.signin.close')} onclick={() => onClose?.()}>&times;</button>
     </header>
 
     <p class="lead">
-      {$t('account.signin.lead')}
+      {t('account.signin.lead')}
     </p>
 
     {#if hasProviders}
@@ -101,19 +101,19 @@
             disabled={account.loading}
           >
             <span class="p-icon" aria-hidden="true">{providerLabel(p).charAt(0)}</span>
-            {$t('account.signin.continue_with', providerLabel(p))}
+            {t('account.signin.continue_with', providerLabel(p))}
           </button>
         {/each}
       </div>
-      <div class="divider"><span>{$t('account.signin.or')}</span></div>
+      <div class="divider"><span>{t('account.signin.or')}</span></div>
     {:else}
       <p class="setup-hint">
-        {$t('account.signin.setup_hint')}
+        {t('account.signin.setup_hint')}
       </p>
     {/if}
 
     <div class="magic">
-      <label for="signin-email">{$t('account.signin.magic_label')}</label>
+      <label for="signin-email">{t('account.signin.magic_label')}</label>
       <div class="magic-row">
         <input
           id="signin-email"
@@ -124,20 +124,20 @@
           onkeydown={(e) => { if (e.key === 'Enter') withEmail() }}
         />
         <button class="send" onclick={withEmail} disabled={!emailValid || account.loading}>
-          {account.loading ? $t('account.signin.sending') : $t('account.signin.send_link')}
+          {account.loading ? t('account.signin.sending') : t('account.signin.send_link')}
         </button>
       </div>
     </div>
 
     {#if magicSent}
-      <p class="ok">{$t('account.signin.check_inbox', email)}</p>
+      <p class="ok">{t('account.signin.check_inbox', email)}</p>
     {/if}
     {#if account.error}
       <p class="err">{account.error}</p>
     {/if}
 
     <p class="fineprint">
-      {$t('account.signin.fineprint')}
+      {t('account.signin.fineprint')}
     </p>
   </div>
 </div>

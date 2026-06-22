@@ -20,7 +20,7 @@
       results = r.skills || []
       cursor = 0
       if (results.length === 0) {
-        error = $t('hub.no_results', query)
+        error = t('hub.no_results', query)
       }
     } catch (e) {
       error = String(e)
@@ -30,7 +30,7 @@
   }
 
   async function install(id: string) {
-    if (!confirm($t('hub.install_confirm', id))) return
+    if (!confirm(t('hub.install_confirm', id))) return
     try {
       await ipc.hubInstall(id)
       installed.add(id)
@@ -47,24 +47,24 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="hub-page" onkeydown={onKey} role="region" aria-label={$t('hub.aria_label')}>
+<div class="hub-page" onkeydown={onKey} role="region" aria-label={t('hub.aria_label')}>
   <header class="hub-header">
     <div>
-      <h2>{$t('hub.title')}</h2>
-      <p class="muted">{$t('hub.intro')}</p>
+      <h2>{t('hub.title')}</h2>
+      <p class="muted">{t('hub.intro')}</p>
     </div>
-    <button class="publish-btn" onclick={() => (showPublish = true)}>+ {$t('hub.publish_button')}</button>
+    <button class="publish-btn" onclick={() => (showPublish = true)}>+ {t('hub.publish_button')}</button>
   </header>
 
   <div class="search-bar">
     <input
       type="text"
-      placeholder={$t('hub.search_placeholder')}
+      placeholder={t('hub.search_placeholder')}
       bind:value={query}
       onkeydown={(e) => { if (e.key === 'Enter') search() }}
     />
     <button onclick={search} disabled={loading || !query.trim()}>
-      {loading ? $t('hub.searching') : $t('hub.search')}
+      {loading ? t('hub.searching') : t('hub.search')}
     </button>
   </div>
 
@@ -83,13 +83,13 @@
             <span class="trust">[{r.trust}]</span>
             <span class="spacer"></span>
             {#if installed.has(r.id)}
-              <span class="installed">{$t('hub.installed')}</span>
+              <span class="installed">{t('hub.installed')}</span>
             {:else}
-              <button onclick={(e) => { e.stopPropagation(); install(r.id) }}>{$t('hub.install')}</button>
+              <button onclick={(e) => { e.stopPropagation(); install(r.id) }}>{t('hub.install')}</button>
             {/if}
           </div>
           <div class="meta">
-            <span class="author">{$t('hub.by', r.author)}</span>
+            <span class="author">{t('hub.by', r.author)}</span>
             <span class="id mono">{r.id}</span>
           </div>
           {#if r.description}
@@ -102,7 +102,7 @@
 
   <footer>
     <p class="muted">
-      {$t('hub.footer')}
+      {t('hub.footer')}
     </p>
   </footer>
 </div>

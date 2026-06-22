@@ -104,7 +104,7 @@
           {daemon.connected ? '' : ''}
         </span>
         <span class="conn-label" class:connected={daemon.connected}>
-          {daemon.connected ? $t('app.status.connected') : $t('app.status.disconnected')}
+          {daemon.connected ? t('app.status.connected') : t('app.status.disconnected')}
         </span>
       </div>
 

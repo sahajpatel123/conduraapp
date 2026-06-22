@@ -35,7 +35,7 @@
   async function confirmPair(pin: string): Promise<void> {
     const res = await sync.confirmPairing(pin)
     if (res) {
-      lastAction = $t('sync.last_action.paired', sync.pendingPeerId || '')
+      lastAction = t('sync.last_action.paired', sync.pendingPeerId || '')
       pairing = false
     }
   }
@@ -46,18 +46,18 @@
   }
 
   async function revoke(deviceId: string): Promise<void> {
-    if (!confirm($t('sync.revoke_confirm', deviceId))) return
-    if (await sync.revoke(deviceId)) lastAction = $t('sync.last_action.revoked', deviceId)
+    if (!confirm(t('sync.revoke_confirm', deviceId))) return
+    if (await sync.revoke(deviceId)) lastAction = t('sync.last_action.revoked', deviceId)
   }
 
   async function syncWith(deviceId: string): Promise<void> {
     try {
       const r = await ipc.syncWith(deviceId)
-      lastAction = $t('sync.last_action.merged', r.merged, deviceId)
+      lastAction = t('sync.last_action.merged', r.merged, deviceId)
       await refreshAll()
     } catch (e) {
       // surface via store-independent path
-      lastAction = $t('sync.last_action.failed', e)
+      lastAction = t('sync.last_action.failed', e)
     }
   }
 
@@ -76,9 +76,9 @@
 
 <div class="sync-page">
   <header>
-    <h2>{$t('sync.title')}</h2>
+    <h2>{t('sync.title')}</h2>
     <p class="muted">
-      {$t('sync.intro')}
+      {t('sync.intro')}
     </p>
   </header>
 
@@ -90,31 +90,31 @@
   {/if}
 
   <section class="card">
-    <h3>{$t('sync.this_device')}</h3>
+    <h3>{t('sync.this_device')}</h3>
     {#if status}
-      <div class="kv"><span class="k">{$t('sync.device_id')}</span><span class="v mono">{status.device_id || $t('sync.unset')}</span></div>
-      <div class="kv"><span class="k">{$t('sync.name')}</span><span class="v">{status.name || $t('sync.unset')}</span></div>
-      <div class="kv"><span class="k">{$t('sync.running')}</span><span class="v">{status.running ? $t('sync.yes') : $t('sync.no')}</span></div>
-      <div class="kv"><span class="k">{$t('sync.entries')}</span><span class="v">{status.entries ?? 0}</span></div>
-      <div class="kv"><span class="k">{$t('sync.paired')}</span><span class="v">{sync.pairs.length}</span></div>
+      <div class="kv"><span class="k">{t('sync.device_id')}</span><span class="v mono">{status.device_id || t('sync.unset')}</span></div>
+      <div class="kv"><span class="k">{t('sync.name')}</span><span class="v">{status.name || t('sync.unset')}</span></div>
+      <div class="kv"><span class="k">{t('sync.running')}</span><span class="v">{status.running ? t('sync.yes') : t('sync.no')}</span></div>
+      <div class="kv"><span class="k">{t('sync.entries')}</span><span class="v">{status.entries ?? 0}</span></div>
+      <div class="kv"><span class="k">{t('sync.paired')}</span><span class="v">{sync.pairs.length}</span></div>
     {:else}
-      <p class="muted">{$t('common.loading')}</p>
+      <p class="muted">{t('common.loading')}</p>
     {/if}
-    <button class="btn-ghost" onclick={refreshAll} disabled={sync.loading}>{$t('sync.refresh')}</button>
+    <button class="btn-ghost" onclick={refreshAll} disabled={sync.loading}>{t('sync.refresh')}</button>
   </section>
 
   <section class="card">
-    <h3>{$t('sync.discovered_peers', sync.peers.length)}</h3>
+    <h3>{t('sync.discovered_peers', sync.peers.length)}</h3>
     {#if sync.peers.length === 0}
-      <p class="muted">{$t('sync.no_peers')}</p>
+      <p class="muted">{t('sync.no_peers')}</p>
     {:else}
       <ul>
         {#each sync.peers as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.name}</span>
-            <button class="btn-ghost" onclick={() => startPair(p.device_id)}>{$t('sync.pair')}</button>
-            <button class="btn-ghost" onclick={() => syncWith(p.device_id)}>{$t('sync.sync_now')}</button>
+            <button class="btn-ghost" onclick={() => startPair(p.device_id)}>{t('sync.pair')}</button>
+            <button class="btn-ghost" onclick={() => syncWith(p.device_id)}>{t('sync.sync_now')}</button>
           </li>
         {/each}
       </ul>
@@ -122,17 +122,17 @@
   </section>
 
   <section class="card">
-    <h3>{$t('sync.paired_devices', sync.pairs.length)}</h3>
+    <h3>{t('sync.paired_devices', sync.pairs.length)}</h3>
     {#if sync.pairs.length === 0}
-      <p class="muted">{$t('sync.no_paired')}</p>
+      <p class="muted">{t('sync.no_paired')}</p>
     {:else}
       <ul>
         {#each sync.pairs as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.device_name}</span>
-            <span class="muted">{$t('sync.paired_at', p.paired_at)}</span>
-            <button class="danger" onclick={() => revoke(p.device_id)}>{$t('sync.revoke')}</button>
+            <span class="muted">{t('sync.paired_at', p.paired_at)}</span>
+            <button class="danger" onclick={() => revoke(p.device_id)}>{t('sync.revoke')}</button>
           </li>
         {/each}
       </ul>

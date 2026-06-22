@@ -60,7 +60,7 @@
     <input
       type="text"
       class="overlay-input"
-      placeholder={$t('overlay.placeholder')}
+      placeholder={t('overlay.placeholder')}
       bind:value={inputText}
       onkeydown={onKeydown}
       disabled={sending || !firstEnabled}
@@ -71,7 +71,7 @@
       type="button"
       onclick={() => void submit()}
       disabled={!inputText.trim() || sending || !firstEnabled}
-      aria-label={$t('overlay.send')}
+      aria-label={t('overlay.send')}
     >
       ↵
     </button>
@@ -79,16 +79,16 @@
       class="overlay-close"
       type="button"
       onclick={() => overlay.hide()}
-      aria-label={$t('overlay.close')}
+      aria-label={t('overlay.close')}
     >
       ×
     </button>
   </div>
   <div class="overlay-meta">
     {#if firstEnabled}
-      {$t('overlay.via', firstEnabled.name, firstEnabled.model)}
+      {t('overlay.via', firstEnabled.name, firstEnabled.model)}
     {:else}
-      {$t('overlay.no_provider')}
+      {t('overlay.no_provider')}
     {/if}
   </div>
 </div>

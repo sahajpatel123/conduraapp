@@ -12,15 +12,15 @@
   function formatAction(kind: string): string {
     switch (kind?.toLowerCase()) {
       case 'read':
-        return $t('consent.action.read')
+        return t('consent.action.read')
       case 'write':
-        return $t('consent.action.write')
+        return t('consent.action.write')
       case 'network':
-        return $t('consent.action.network')
+        return t('consent.action.network')
       case 'destructive':
-        return $t('consent.action.destructive')
+        return t('consent.action.destructive')
       default:
-        return $t('consent.action.default')
+        return t('consent.action.default')
     }
   }
 
@@ -48,23 +48,23 @@
         </svg>
       </div>
 
-      <h2 id="consent-title" class="consent-title">{$t('consent.title')}</h2>
+      <h2 id="consent-title" class="consent-title">{t('consent.title')}</h2>
 
       <p id="consent-body" class="consent-body">
-        <strong>Condura</strong> {$t('consent.wants_to')}
+        <strong>Condura</strong> {t('consent.wants_to')}
         <strong>{formatAction(consent.ticket.action_kind)}</strong>
         {#if consent.ticket.detail}
           {consent.ticket.detail}
         {:else}
-          {$t('consent.an_application')}
+          {t('consent.an_application')}
         {/if}
         {#if consent.ticket.actor}
-          <span class="consent-meta">{$t('consent.via', consent.ticket.actor)}</span>
+          <span class="consent-meta">{t('consent.via', consent.ticket.actor)}</span>
         {/if}
       </p>
 
       <div class="consent-countdown">
-        <span class="consent-countdown-label">{$t('consent.expires_in', formatCountdown(consent.timer))}</span>
+        <span class="consent-countdown-label">{t('consent.expires_in', formatCountdown(consent.timer))}</span>
         <div class="consent-countdown-bar">
           <div
             class="consent-countdown-fill"
@@ -79,10 +79,10 @@
 
       <div class="consent-actions">
         <button class="consent-deny" onclick={() => consent.deny()}>
-          {$t('consent.deny')}
+          {t('consent.deny')}
         </button>
         <button class="consent-allow" onclick={() => consent.approve()}>
-          {$t('consent.allow')}
+          {t('consent.allow')}
         </button>
       </div>
     </div>

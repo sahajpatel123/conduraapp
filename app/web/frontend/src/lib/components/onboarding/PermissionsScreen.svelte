@@ -14,8 +14,8 @@
     accessibility: 'Accessibility',
     screen_recording: 'Screen Recording'
   }
-  const WHY_ACCESSIBILITY = $derived($t('onboarding.permissions.why_accessibility'))
-  const WHY_SCREEN = $derived($t('onboarding.permissions.why_screen_recording'))
+  const WHY_ACCESSIBILITY = $derived(t('onboarding.permissions.why_accessibility'))
+  const WHY_SCREEN = $derived(t('onboarding.permissions.why_screen_recording'))
   function whyFor(kind: string): string {
     if (kind === 'accessibility') return WHY_ACCESSIBILITY
     if (kind === 'screen_recording') return WHY_SCREEN
@@ -65,7 +65,7 @@
       guide = {
         kind,
         platform: '',
-        title: $t('onboarding.permissions.grant_title', LABELS[kind] ?? kind),
+        title: t('onboarding.permissions.grant_title', LABELS[kind] ?? kind),
         steps: [String(err)]
       }
     }
@@ -88,9 +88,9 @@
 </script>
 
 <div class="wizard perms">
-  <h2>{$t('onboarding.permissions.title')}</h2>
+  <h2>{t('onboarding.permissions.title')}</h2>
   <p class="muted">
-    {$t('onboarding.permissions.intro')}
+    {t('onboarding.permissions.intro')}
   </p>
 
   <div class="perm-list">
@@ -102,7 +102,7 @@
         </div>
         <p class="perm-why">{whyFor(row.kind)}</p>
         {#if row.status !== 'granted'}
-          <button class="btn btn-secondary" onclick={() => openSettings(row.kind)}>{$t('onboarding.permissions.open_settings')}</button>
+          <button class="btn btn-secondary" onclick={() => openSettings(row.kind)}>{t('onboarding.permissions.open_settings')}</button>
         {/if}
       </div>
     {/each}
@@ -117,9 +117,9 @@
         {/each}
       </ol>
       {#if guide.help_url}
-        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">{$t('onboarding.permissions.more_help')}</a>
+        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">{t('onboarding.permissions.more_help')}</a>
       {/if}
-      <button class="btn btn-ghost small" onclick={() => (guide = null)}>{$t('onboarding.permissions.close')}</button>
+      <button class="btn btn-ghost small" onclick={() => (guide = null)}>{t('onboarding.permissions.close')}</button>
     </div>
   {/if}
 
@@ -128,9 +128,9 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>{$t('onboarding.permissions.skip')}</button>
+    <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>{t('onboarding.permissions.skip')}</button>
     <button class="btn btn-primary" onclick={cont} disabled={onboarding.busy}>
-      {(allGranted ? $t('onboarding.permissions.continue') : $t('onboarding.permissions.continue_anyway'))} →
+      {(allGranted ? t('onboarding.permissions.continue') : t('onboarding.permissions.continue_anyway'))} →
     </button>
   </div>
 </div>

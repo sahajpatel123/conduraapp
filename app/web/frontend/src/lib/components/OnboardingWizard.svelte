@@ -36,7 +36,7 @@
   </div>
 
   {#if onboarding.loading && !onboarding.daemon}
-    <div class="loading">{$t('onboarding.loading')}</div>
+    <div class="loading">{t('onboarding.loading')}</div>
   {:else if onboarding.currentStep === 'eula'}
     <EulaScreen />
   {:else if onboarding.currentStep === 'permissions'}

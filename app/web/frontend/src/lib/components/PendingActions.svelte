@@ -34,7 +34,7 @@
     const r = await approvePending(a.id, '', autoRun)
     setWorking(a.id, false)
     if (!r) {
-      error = $t('pending.error.approve', a.id)
+      error = t('pending.error.approve', a.id)
     }
   }
 
@@ -44,7 +44,7 @@
     const r = await denyPending(a.id, '')
     setWorking(a.id, false)
     if (!r) {
-      error = $t('pending.error.deny', a.id)
+      error = t('pending.error.deny', a.id)
     }
   }
 
@@ -54,7 +54,7 @@
     const r = await executePending(a.id)
     setWorking(a.id, false)
     if (!r) {
-      error = $t('pending.error.execute', a.id)
+      error = t('pending.error.execute', a.id)
     }
   }
 
@@ -86,18 +86,18 @@
     if (a.payload.target) return '→ ' + a.payload.target
     if (a.payload.key) return 'key: ' + a.payload.key
     if (a.payload.path) return 'path: ' + a.payload.path
-    return $t('pending.no_payload')
+    return t('pending.no_payload')
   }
 </script>
 
 <div class="pending-panel">
   <header>
     <div class="title-row">
-      <h3>{$t('pending.title')}</h3>
+      <h3>{t('pending.title')}</h3>
       <span class="badge" class:has-pending={$pendingCount > 0}>{$pendingCount}</span>
     </div>
     <p class="muted">
-      {$t('pending.description')}
+      {t('pending.description')}
     </p>
   </header>
 
@@ -106,16 +106,16 @@
   {/if}
 
   <div class="actions-row">
-    <button class="btn btn-ghost" onclick={onRefresh}>{$t('pending.refresh')}</button>
+    <button class="btn btn-ghost" onclick={onRefresh}>{t('pending.refresh')}</button>
   </div>
 
   {#if pending.length === 0 && approved.length === 0 && decided.length === 0}
-    <p class="muted">{$t('pending.empty')}</p>
+    <p class="muted">{t('pending.empty')}</p>
   {/if}
 
   {#if pending.length > 0}
     <section class="card">
-      <h4>{$t('pending.awaiting', pending.length)}</h4>
+      <h4>{t('pending.awaiting', pending.length)}</h4>
       <ul class="row-list">
         {#each pending as a (a.id)}
           <li>
@@ -123,7 +123,7 @@
               <span class="kind">{a.kind}</span>
               <span class="agent muted">{a.agent_name}</span>
               <span class="gate gate-{a.gate_decision}">{a.gate_decision}</span>
-              <span class="expires muted">{$t('pending.expires', formatTime(a.expires_at))}</span>
+              <span class="expires muted">{t('pending.expires', formatTime(a.expires_at))}</span>
             </div>
             <div class="row-payload">{describePayload(a)}</div>
             {#if a.gate_reason}
@@ -135,21 +135,21 @@
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, true)}
               >
-                {$t('pending.approve_run')}
+                {t('pending.approve_run')}
               </button>
               <button
                 class="btn btn-secondary"
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, false)}
               >
-                {$t('pending.approve_only')}
+                {t('pending.approve_only')}
               </button>
               <button
                 class="btn btn-danger"
                 disabled={working[a.id]}
                 onclick={() => onDeny(a)}
               >
-                {$t('pending.deny')}
+                {t('pending.deny')}
               </button>
             </div>
           </li>
@@ -160,7 +160,7 @@
 
   {#if approved.length > 0}
     <section class="card">
-      <h4>{$t('pending.approved', approved.length)}</h4>
+      <h4>{t('pending.approved', approved.length)}</h4>
       <ul class="row-list compact">
         {#each approved as a (a.id)}
           <li>
@@ -185,7 +185,7 @@
                   disabled={working[a.id]}
                   onclick={() => onExecute(a)}
                 >
-                  {$t('pending.run_now')}
+                  {t('pending.run_now')}
                 </button>
               </div>
             {/if}
@@ -197,7 +197,7 @@
 
   {#if decided.length > 0}
     <section class="card">
-      <h4>{$t('pending.history', decided.length)}</h4>
+      <h4>{t('pending.history', decided.length)}</h4>
       <ul class="row-list compact">
         {#each decided as a (a.id)}
           <li>

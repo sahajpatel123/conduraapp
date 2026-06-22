@@ -57,10 +57,10 @@
     <h2 class="chat-title">{conversation.currentTitle}</h2>
     {#if conversation.isStreaming}
       <div class="chat-status">
-        <span class="streaming-pill">{$t('chat.streaming')}</span>
+        <span class="streaming-pill">{t('chat.streaming')}</span>
         <button class="btn-stop" onclick={cancel}>
           <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
-          {$t('chat.stop')}
+          {t('chat.stop')}
         </button>
       </div>
     {/if}
@@ -72,17 +72,17 @@
       {#if conversation.messages.length === 0}
         <div class="empty-state">
           <div class="empty-icon">⊡</div>
-          <h3>{$t('chat.empty.title')}</h3>
+          <h3>{t('chat.empty.title')}</h3>
           <p>
             {#if !settings.config}
-              {$t('chat.empty.checking')}
+              {t('chat.empty.checking')}
             {:else if !daemon.connected}
-              {$t('chat.empty.waiting')}
+              {t('chat.empty.waiting')}
             {:else}
               {#if Object.values(settings.config.llm?.providers ?? {}).every((p: any) => !p?.enabled)}
-                {$t('chat.empty.no_provider')} <a href="#/settings">{$t('chat.empty.settings_link')}</a> {$t('chat.empty.no_provider_after')}
+                {t('chat.empty.no_provider')} <a href="#/settings">{t('chat.empty.settings_link')}</a> {t('chat.empty.no_provider_after')}
               {:else}
-                {$t('chat.empty.get_started', selectedProvider)}
+                {t('chat.empty.get_started', selectedProvider)}
               {/if}
             {/if}
           </p>
@@ -163,7 +163,7 @@
           type="text"
           bind:value={inputText}
           onkeydown={onKeydown}
-          placeholder={$t('chat.placeholder')}
+          placeholder={t('chat.placeholder')}
           class="input-message"
           disabled={conversation.isStreaming}
         />
@@ -171,17 +171,17 @@
           class="btn-send"
           onclick={send}
           disabled={!inputText.trim() || conversation.isStreaming}
-          aria-label={$t('chat.send')}
-          title={$t('chat.send')}
+          aria-label={t('chat.send')}
+          title={t('chat.send')}
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg>
         </button>
       </div>
       <p class="hint">
         {#if !daemon.connected}
-          <span class="warn">{$t('chat.not_connected')}</span>
+          <span class="warn">{t('chat.not_connected')}</span>
         {:else}
-          {$t('chat.keyhint')}
+          {t('chat.keyhint')}
         {/if}
       </p>
     </div>

@@ -25,9 +25,9 @@
 </script>
 
 <div class="wizard hotkey">
-  <h2>{$t('onboarding.hotkey.title')}</h2>
+  <h2>{t('onboarding.hotkey.title')}</h2>
   <p class="muted">
-    {$t('onboarding.hotkey.intro')}
+    {t('onboarding.hotkey.intro')}
   </p>
 
   <HotkeyRecorder value={combo} {onRecord} />
@@ -37,9 +37,9 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-ghost" onclick={back} disabled={onboarding.busy}>← {$t('onboarding.hotkey.back')}</button>
+    <button class="btn btn-ghost" onclick={back} disabled={onboarding.busy}>← {t('onboarding.hotkey.back')}</button>
     <button class="btn btn-primary" onclick={cont} disabled={!canContinue}>
-      {onboarding.busy ? $t('onboarding.hotkey.saving') : $t('onboarding.hotkey.continue')}
+      {onboarding.busy ? t('onboarding.hotkey.saving') : t('onboarding.hotkey.continue')}
     </button>
   </div>
 </div>

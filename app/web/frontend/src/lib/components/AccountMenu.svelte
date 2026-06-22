@@ -33,7 +33,7 @@
     class="account-menu"
     role="menu"
     tabindex="-1"
-    aria-label={$t('account.menu.aria_label')}
+    aria-label={t('account.menu.aria_label')}
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
   >
@@ -46,23 +46,23 @@
       <div class="who-text">
         <span class="name">{account.displayName || account.email}</span>
         <span class="email">{account.email}</span>
-        <span class="provider">{$t('account.menu.via', providerLabel(account.provider))}{account.tier ? ` · ${account.tier}` : ''}</span>
+        <span class="provider">{t('account.menu.via', providerLabel(account.provider))}{account.tier ? ` · ${account.tier}` : ''}</span>
       </div>
     </div>
 
     <div class="sep"></div>
 
     {#if confirmingSignOut}
-      <p class="confirm-q">{$t('account.menu.signout_confirm')}</p>
+      <p class="confirm-q">{t('account.menu.signout_confirm')}</p>
       <div class="confirm-actions">
-        <button class="ghost" onclick={() => (confirmingSignOut = false)}>{$t('account.menu.cancel')}</button>
+        <button class="ghost" onclick={() => (confirmingSignOut = false)}>{t('account.menu.cancel')}</button>
         <button class="danger" onclick={doSignOut} disabled={account.loading}>
-          {account.loading ? $t('account.menu.signing_out') : $t('account.menu.signout')}
+          {account.loading ? t('account.menu.signing_out') : t('account.menu.signout')}
         </button>
       </div>
     {:else}
       <button class="item" role="menuitem" onclick={() => (confirmingSignOut = true)}>
-        {$t('account.menu.signout')}
+        {t('account.menu.signout')}
       </button>
     {/if}
 

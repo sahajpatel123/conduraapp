@@ -18,8 +18,8 @@
 
 <div class="audit-page">
   <header>
-    <h2>{$t('audit.title')}</h2>
-    <p class="muted">{$t('audit.intro')}</p>
+    <h2>{t('audit.title')}</h2>
+    <p class="muted">{t('audit.intro')}</p>
   </header>
 
   <div class="filter-bar">
@@ -27,7 +27,7 @@
       <input
         type="text"
         bind:value={filterAction}
-        placeholder={$t('audit.filter_placeholder')}
+        placeholder={t('audit.filter_placeholder')}
         class="input"
         onchange={applyFilter}
       />
@@ -36,30 +36,30 @@
         class="select"
         onchange={applyFilter}
       >
-        <option value="">{$t('audit.all_levels')}</option>
+        <option value="">{t('audit.all_levels')}</option>
         <option value="info">info</option>
         <option value="warn">warn</option>
         <option value="error">error</option>
       </select>
     </div>
-    <button class="btn btn-ghost" onclick={applyFilter}>{$t('audit.apply')}</button>
+    <button class="btn btn-ghost" onclick={applyFilter}>{t('audit.apply')}</button>
   </div>
 
   {#if audit.loading}
-    <p class="muted">{$t('common.loading')}</p>
+    <p class="muted">{t('common.loading')}</p>
   {:else if audit.events.length === 0}
-    <p class="muted">{$t('audit.empty')}</p>
+    <p class="muted">{t('audit.empty')}</p>
   {:else}
     <table class="audit-table">
       <thead>
         <tr>
-          <th>{$t('audit.col.time')}</th>
-          <th>{$t('audit.col.level')}</th>
-          <th>{$t('audit.col.actor')}</th>
-          <th>{$t('audit.col.action')}</th>
-          <th>{$t('audit.col.app')}</th>
-          <th>{$t('audit.col.result')}</th>
-          <th>{$t('audit.col.message')}</th>
+          <th>{t('audit.col.time')}</th>
+          <th>{t('audit.col.level')}</th>
+          <th>{t('audit.col.actor')}</th>
+          <th>{t('audit.col.action')}</th>
+          <th>{t('audit.col.app')}</th>
+          <th>{t('audit.col.result')}</th>
+          <th>{t('audit.col.message')}</th>
         </tr>
       </thead>
       <tbody>
@@ -79,15 +79,15 @@
 
     <div class="pagination">
       <button class="btn btn-ghost" onclick={() => audit.prevPage()} disabled={audit.offset === 0}>
-        ← {$t('audit.previous')}
+        ← {t('audit.previous')}
       </button>
-      <span class="muted">{$t('audit.offset', audit.offset)}</span>
+      <span class="muted">{t('audit.offset', audit.offset)}</span>
       <button
         class="btn btn-ghost"
         onclick={() => audit.nextPage()}
         disabled={audit.events.length < audit.limit}
       >
-        {$t('audit.next')} →
+        {t('audit.next')} →
       </button>
     </div>
   {/if}

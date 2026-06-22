@@ -84,9 +84,9 @@
 
 <div class="delegation-page">
   <header>
-    <h2>{$t('delegation.title')}</h2>
+    <h2>{t('delegation.title')}</h2>
     <p class="muted">
-      {$t('delegation.intro')}
+      {t('delegation.intro')}
     </p>
   </header>
 
@@ -95,14 +95,14 @@
   {/if}
 
   <section class="card">
-    <h3>{$t('delegation.available_title')}</h3>
+    <h3>{t('delegation.available_title')}</h3>
     <p class="muted">
-      {$t('delegation.available_intro')}
+      {t('delegation.available_intro')}
     </p>
     {#if loading}
-      <p class="muted">{$t('common.loading')}</p>
+      <p class="muted">{t('common.loading')}</p>
     {:else if agents.length === 0}
-      <p class="muted">{$t('delegation.no_agents')}</p>
+      <p class="muted">{t('delegation.no_agents')}</p>
     {:else}
       <ul class="agent-list">
         {#each agents as a}
@@ -111,19 +111,19 @@
           <li class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
             <strong>{a.name}</strong>
             <span class="desc">{a.description}</span>
-            <span class="binary">{$t('delegation.binary', a.binary)}</span>
+            <span class="binary">{t('delegation.binary', a.binary)}</span>
           </li>
         {/each}
       </ul>
     {/if}
-    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{$t('delegation.refresh')}</button>
+    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{t('delegation.refresh')}</button>
   </section>
 
   <section class="card">
-    <h3>{$t('delegation.spawn_title')}</h3>
+    <h3>{t('delegation.spawn_title')}</h3>
     <form onsubmit={(e) => { e.preventDefault(); void spawn(); }}>
       <label class="field">
-        <span>{$t('delegation.agent_label')}</span>
+        <span>{t('delegation.agent_label')}</span>
         <select bind:value={selectedAgent} disabled={spawning || agents.length === 0}>
           {#each agents as a}
             <option value={a.name}>{a.name}</option>
@@ -131,59 +131,59 @@
         </select>
       </label>
       <label class="field">
-        <span>{$t('delegation.task_label')}</span>
+        <span>{t('delegation.task_label')}</span>
         <textarea
           bind:value={taskInput}
           rows="4"
-          placeholder={$t('delegation.task_placeholder')}
+          placeholder={t('delegation.task_placeholder')}
           disabled={spawning}
         ></textarea>
       </label>
       <label class="field">
-        <span>{$t('delegation.model_label')}</span>
-        <input type="text" bind:value={modelInput} placeholder={$t('delegation.model_placeholder')} disabled={spawning} />
+        <span>{t('delegation.model_label')}</span>
+        <input type="text" bind:value={modelInput} placeholder={t('delegation.model_placeholder')} disabled={spawning} />
       </label>
       <label class="field">
-        <span>{$t('delegation.budget_label')}</span>
+        <span>{t('delegation.budget_label')}</span>
         <input type="number" bind:value={budgetInput} min="0.01" step="0.10" disabled={spawning} />
       </label>
       <button type="submit" class="btn btn-primary" disabled={spawning || !selectedAgent || !taskInput.trim()}>
-        {spawning ? $t('delegation.spawning') : $t('delegation.spawn_button')}
+        {spawning ? t('delegation.spawning') : t('delegation.spawn_button')}
       </button>
     </form>
   </section>
 
   {#if lastSpawn}
     <section class="card">
-      <h3>{$t('delegation.last_spawn')}</h3>
+      <h3>{t('delegation.last_spawn')}</h3>
       <dl class="result">
-        <dt>{$t('delegation.spawn_id')}</dt>
+        <dt>{t('delegation.spawn_id')}</dt>
         <dd class="mono">{lastSpawn.spawn_id}</dd>
-        <dt>{$t('delegation.agent')}</dt>
+        <dt>{t('delegation.agent')}</dt>
         <dd>{lastSpawn.agent_name}</dd>
-        <dt>{$t('delegation.state')}</dt>
+        <dt>{t('delegation.state')}</dt>
         <dd class="state-{lastSpawn.state}">{lastSpawn.state}</dd>
-        <dt>{$t('delegation.cost')}</dt>
+        <dt>{t('delegation.cost')}</dt>
         <dd>${lastSpawn.cost?.toFixed(4) ?? '0.0000'}</dd>
-        <dt>{$t('delegation.tokens')}</dt>
+        <dt>{t('delegation.tokens')}</dt>
         <dd>{lastSpawn.tokens ?? 0}</dd>
         {#if lastSpawn.started}
-          <dt>{$t('delegation.started')}</dt>
+          <dt>{t('delegation.started')}</dt>
           <dd>{new Date(lastSpawn.started).toLocaleString()}</dd>
         {/if}
         {#if lastSpawn.finished}
-          <dt>{$t('delegation.finished')}</dt>
+          <dt>{t('delegation.finished')}</dt>
           <dd>{new Date(lastSpawn.finished).toLocaleString()}</dd>
         {/if}
       </dl>
       {#if lastSpawn.output}
         <details>
-          <summary>{$t('delegation.output')}</summary>
+          <summary>{t('delegation.output')}</summary>
           <pre>{lastSpawn.output}</pre>
         </details>
       {/if}
   {#if lastSpawn && lastSpawn.state === 'running'}
-    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{$t('delegation.cancel')}</button>
+    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{t('delegation.cancel')}</button>
   {/if}
     </section>
   {/if}
