@@ -19,6 +19,10 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/sse"
 )
 
+// maxBodySize is the maximum allowed size for an HTTP request body or
+// WebSocket message (10 MB). This prevents OOM from malicious payloads.
+const maxBodySize = 10 << 20
+
 // Conn is the abstract connection interface used by ServeConn. It is
 // satisfied by *websocket.Conn; we keep an interface so tests can inject
 // fakes.
@@ -264,7 +268,6 @@ func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer func() { _ = r.Body.Close() }()
-	const maxBodySize = 10 << 20 // 10 MB
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize+1))
 	if err != nil {
 		http.Error(w, "read error", http.StatusBadRequest)
@@ -300,7 +303,7 @@ func (t *ServerTransport) serveWebSocket(w http.ResponseWriter, r *http.Request)
 		InsecureSkipVerify: true, //nolint:gosec // Origin validated above
 	})
 	if err == nil {
-		c.SetReadLimit(10 << 20) // 10 MB max WebSocket message
+		c.SetReadLimit(maxBodySize) // 10 MB max WebSocket message
 	}
 	if err != nil {
 		return

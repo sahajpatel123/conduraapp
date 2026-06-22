@@ -404,10 +404,11 @@ func (s *anthropicStreamState) flush(out chan<- StreamEvent) {
 func (s *anthropicStreamState) dispatch(out chan<- StreamEvent, ev anthStreamEvent) {
 	switch ev.Type {
 	case "content_block_delta":
-		if ev.Delta.Type == "text_delta" {
+		switch ev.Delta.Type {
+		case "text_delta":
 			s.accumulated.WriteString(ev.Delta.Text)
 			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
-		} else if ev.Delta.Type == "input_json_delta" {
+		case "input_json_delta":
 			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
 		}
 	case "message_delta":
