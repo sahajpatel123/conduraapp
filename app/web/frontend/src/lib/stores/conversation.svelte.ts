@@ -3,7 +3,7 @@
 // conversation store (SQLite + AES-256-GCM).
 
 import { ipc } from '../ipc/client'
-import type { Conversation, ConversationMeta, Message, StreamEvent } from '../ipc/types'
+import type { Conversation, ConversationMeta, Message, StreamEvent, ToolCall } from '../ipc/types'
 
 class ConversationStore {
   // List of conversations (sidebar).
@@ -17,6 +17,12 @@ class ConversationStore {
   isStreaming = $state<boolean>(false)
   streamingDelta = $state<string>('')
   streamingError = $state<string>('')
+  // Tool calls surfaced by the assistant during the in-flight
+  // stream. Merged into the persisted assistant message on
+  // Done. Tool calls and text content arrive in separate
+  // SSE events; we accumulate the calls here so the UI can
+  // show them alongside the streamed text.
+  streamingToolCalls = $state<ToolCall[]>([])
 
   private cleanups: Array<() => void> = []
 
@@ -72,6 +78,7 @@ class ConversationStore {
 
     this.streamingDelta = ''
     this.streamingError = ''
+    this.streamingToolCalls = []
     this.isStreaming = true
 
     try {
@@ -113,7 +120,13 @@ class ConversationStore {
           // Persist the assistant message and reset streaming state.
           const assistantMsg: Message = {
             role: 'assistant',
-            content: this.streamingDelta
+            content: this.streamingDelta,
+            // Attach tool calls to the persisted message so a
+            // page reload shows them in context. Skip the
+            // field entirely when no calls were made.
+            ...(this.streamingToolCalls.length > 0
+              ? { tool_calls: this.streamingToolCalls }
+              : {})
           }
           this.messages = [...this.messages, assistantMsg]
           void ipc.conversationsAppend({
@@ -121,6 +134,7 @@ class ConversationStore {
             message: assistantMsg
           })
           this.streamingDelta = ''
+          this.streamingToolCalls = []
           this.isStreaming = false
           // Refresh sidebar so updated_at moves to the top.
           void this.refreshList()
@@ -128,6 +142,19 @@ class ConversationStore {
         }
         if (ev.delta) {
           this.streamingDelta += ev.delta
+        }
+        if (ev.tool_calls && ev.tool_calls.length > 0) {
+          // Merge new tool calls with any we already saw.
+          // The daemon streams them as complete entries (not
+          // incremental args), so a simple append-by-id is
+          // safe — same id won't appear twice in one stream.
+          const existing = new Map(
+            this.streamingToolCalls.map((tc) => [tc.id, tc])
+          )
+          for (const tc of ev.tool_calls) {
+            existing.set(tc.id, tc)
+          }
+          this.streamingToolCalls = Array.from(existing.values())
         }
       })
     )

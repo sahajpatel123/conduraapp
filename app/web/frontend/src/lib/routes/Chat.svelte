@@ -90,12 +90,35 @@
       {#each conversation.messages as msg, i (i)}
         <div class="message message-{msg.role}">
           <div class="message-content">{msg.content}</div>
+          {#if msg.tool_calls && msg.tool_calls.length > 0}
+            <div class="tool-calls" aria-label="Tool calls">
+              {#each msg.tool_calls as tc (tc.id)}
+                <details class="tool-call">
+                  <summary>
+                    <span class="tool-icon" aria-hidden="true">⚙</span>
+                    <span class="tool-name">{tc.function.name}</span>
+                  </summary>
+                  <pre class="tool-args">{tc.function.arguments}</pre>
+                </details>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/each}
 
       {#if conversation.isStreaming && conversation.streamingDelta}
         <div class="message message-assistant streaming">
           <div class="message-content">{conversation.streamingDelta}<span class="cursor">▍</span></div>
+          {#if conversation.streamingToolCalls.length > 0}
+            <div class="tool-calls" aria-label="Tool calls in flight">
+              {#each conversation.streamingToolCalls as tc (tc.id)}
+                <div class="tool-call streaming">
+                  <span class="tool-icon" aria-hidden="true">⚙</span>
+                  <span class="tool-name">{tc.function.name}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -304,6 +327,72 @@
   .streaming .cursor {
     color: var(--color-accent);
     animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  /* ── Tool calls ─────────────────────────────────────── */
+  .tool-calls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--glass-border);
+  }
+  .tool-call {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    font-size: var(--size-sm);
+    overflow: hidden;
+  }
+  .tool-call.streaming {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tool-call summary {
+    cursor: pointer;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    color: var(--color-text-muted);
+    user-select: none;
+  }
+  .tool-call summary::-webkit-details-marker {
+    display: none;
+  }
+  .tool-call summary::before {
+    content: '▸';
+    color: var(--color-text-faint);
+    transition: transform var(--transition-fast);
+  }
+  .tool-call[open] summary::before {
+    transform: rotate(90deg);
+  }
+  .tool-icon {
+    font-size: var(--size-sm);
+    color: var(--color-accent);
+  }
+  .tool-name {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-text);
+  }
+  .tool-args {
+    padding: 8px 12px;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid var(--glass-border);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
   }
 
   /* ── Input Pill ─────────────────────────────────────── */
