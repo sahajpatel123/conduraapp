@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { locale, t, SUPPORTED_LOCALES, type Locale, mergeDaemonCatalog } from '../i18n';
 	import { ipc } from '../ipc/client';
 
@@ -11,11 +12,12 @@
 		zh: '中文'
 	};
 
-	$effect(() => {
-		const loc = $locale;
-		void ipc.i18nLocale(loc).then((r) => {
-			mergeDaemonCatalog(r.locale as Locale, r.translations);
-		}).catch(() => {});
+	onMount(() => {
+		return locale.subscribe((loc) => {
+			void ipc.i18nLocale(loc).then((r) => {
+				mergeDaemonCatalog(r.locale as Locale, r.translations);
+			}).catch(() => {});
+		});
 	});
 </script>
 
