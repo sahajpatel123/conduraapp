@@ -53,66 +53,90 @@ type AskResult struct {
 func (l *Loop) Ask(ctx context.Context, req AskRequest) (AskResult, error) {
 	result := AskResult{RequestID: req.RequestID}
 
-	// Step 1: Gatekeeper check — classify the utterance as a chat action.
 	action := blastradius.Action{Kind: "chat", Body: req.Text}
 	decision, reason := l.Gatekeeper.Evaluate(ctx, action)
+	l.auditUtterance(ctx, req.Text, decision, reason)
 
-	// Audit the gatekeeper decision.
+	if blocked, ok := l.blockedResult(ctx, result, req, action, decision, reason); ok {
+		return blocked, nil
+	}
+
+	if err := l.persistUserMessage(ctx, req); err != nil {
+		return result, err
+	}
+
+	reply, requestID, err := l.streamReply(ctx, req)
+	if err != nil {
+		return result, err
+	}
+	result.RequestID = requestID
+	result.Reply = reply
+
+	if err := l.finalizeReply(ctx, req, reply); err != nil {
+		return result, err
+	}
+
+	result.Finish = "stop"
+	return result, nil
+}
+
+func (l *Loop) auditUtterance(ctx context.Context, text string, decision gatekeeper.Decision, reason string) {
+	if l.Audit == nil {
+		return
+	}
+	_ = l.Audit.Append(ctx, audit.Event{
+		Actor:   "user",
+		Action:  "utterance",
+		App:     "voice",
+		Level:   "info",
+		Result:  decision.String(),
+		Message: fmt.Sprintf("text=%q reason=%q", text, reason),
+	})
+}
+
+func (l *Loop) blockedResult(
+	ctx context.Context,
+	result AskResult,
+	req AskRequest,
+	action blastradius.Action,
+	decision gatekeeper.Decision,
+	reason string,
+) (AskResult, bool) {
+	if decision == gatekeeper.Allow {
+		return result, false
+	}
+	result.Finish = "blocked"
 	if l.Audit != nil {
 		_ = l.Audit.Append(ctx, audit.Event{
-			Actor:   "user",
-			Action:  "utterance",
+			Actor:   "agent",
+			Action:  "blocked",
 			App:     "voice",
-			Level:   "info",
-			Result:  decision.String(),
-			Message: fmt.Sprintf("text=%q reason=%q", req.Text, reason),
+			Level:   "warn",
+			Result:  "deny",
+			Message: fmt.Sprintf("text=%q reason=%q class=%s", req.Text, reason, blastradius.Classify(action)),
 		})
 	}
+	return result, true
+}
 
-	if decision != gatekeeper.Allow {
-		result.Finish = "blocked"
-		// Audit the block.
-		if l.Audit != nil {
-			_ = l.Audit.Append(ctx, audit.Event{
-				Actor:   "agent",
-				Action:  "blocked",
-				App:     "voice",
-				Level:   "warn",
-				Result:  "deny",
-				Message: fmt.Sprintf("text=%q reason=%q class=%s", req.Text, reason, blastradius.Classify(action)),
-			})
-		}
-		return result, nil
+func (l *Loop) persistUserMessage(ctx context.Context, req AskRequest) error {
+	if l.Conversations == nil {
+		return nil
 	}
+	return l.Conversations.Append(ctx, req.ConversationID, conversation.Message{
+		Role:    "user",
+		Content: req.Text,
+	})
+}
 
-	// Step 2: Append user message to conversation.
-	if l.Conversations != nil {
-		msg := conversation.Message{
-			Role:    "user",
-			Content: req.Text,
-		}
-		if err := l.Conversations.Append(ctx, req.ConversationID, msg); err != nil {
-			return result, fmt.Errorf("append user message: %w", err)
-		}
-	}
-
-	// Step 3: Stream the response via the shared stream manager.
-	if l.Stream == nil {
-		return result, errors.New("agent: stream manager not configured")
-	}
-	if l.Broker == nil {
-		return result, errors.New("agent: SSE broker not configured")
-	}
-	if l.ProviderName == "" {
-		return result, errors.New("agent: provider not configured")
-	}
-	if l.Model == "" {
-		return result, llm.ErrNoModel
+func (l *Loop) streamReply(ctx context.Context, req AskRequest) (reply, requestID string, err error) {
+	if err := l.validateStreamConfig(); err != nil {
+		return "", "", err
 	}
 
 	messages, err := l.buildMessages(ctx, req)
 	if err != nil {
-		return result, fmt.Errorf("build messages: %w", err)
+		return "", "", fmt.Errorf("build messages: %w", err)
 	}
 
 	streamReq := stream.Request{
@@ -125,52 +149,61 @@ func (l *Loop) Ask(ctx context.Context, req AskRequest) (AskResult, error) {
 		},
 	}
 
-	// Subscribe before Start so we do not miss early deltas.
 	sub := l.Broker.Subscribe()
 	defer l.Broker.Unsubscribe(sub)
 
-	requestID, err := l.Stream.Start(ctx, streamReq)
+	requestID, err = l.Stream.Start(ctx, streamReq)
 	if err != nil {
-		return result, fmt.Errorf("stream start: %w", err)
+		return "", "", fmt.Errorf("stream start: %w", err)
 	}
-	result.RequestID = requestID
 
-	full, err := l.collectStream(ctx, requestID, sub)
-	if err != nil {
-		return result, err
+	reply, err = l.collectStream(ctx, requestID, sub)
+	return reply, requestID, err
+}
+
+func (l *Loop) validateStreamConfig() error {
+	switch {
+	case l.Stream == nil:
+		return errors.New("agent: stream manager not configured")
+	case l.Broker == nil:
+		return errors.New("agent: SSE broker not configured")
+	case l.ProviderName == "":
+		return errors.New("agent: provider not configured")
+	case l.Model == "":
+		return llm.ErrNoModel
+	default:
+		return nil
 	}
-	result.Reply = full
+}
 
-	// Persist the assistant reply for multi-turn context.
-	if full != "" && l.Conversations != nil && req.ConversationID != 0 {
-		if persistErr := l.Conversations.Append(ctx, req.ConversationID, conversation.Message{
+func (l *Loop) finalizeReply(ctx context.Context, req AskRequest, reply string) error {
+	if reply == "" {
+		return nil
+	}
+	if l.Conversations != nil && req.ConversationID != 0 {
+		if err := l.Conversations.Append(ctx, req.ConversationID, conversation.Message{
 			Role:    "assistant",
-			Content: full,
-		}); persistErr != nil {
-			return result, fmt.Errorf("append assistant message: %w", persistErr)
+			Content: reply,
+		}); err != nil {
+			return fmt.Errorf("append assistant message: %w", err)
 		}
 	}
-
-	if l.Audit != nil && full != "" {
+	if l.Audit != nil {
 		_ = l.Audit.Append(ctx, audit.Event{
 			Actor:   "agent",
 			Action:  "reply",
 			App:     "voice",
 			Level:   "info",
 			Result:  "allow",
-			Message: fmt.Sprintf("conversation_id=%d reply_len=%d", req.ConversationID, len(full)),
+			Message: fmt.Sprintf("conversation_id=%d reply_len=%d", req.ConversationID, len(reply)),
 		})
 	}
-
-	// Step 4: Speak the answer if requested.
-	if req.Spoken && l.Speaker != nil && full != "" {
-		if err := l.Speaker.Speak(ctx, full); err != nil {
-			return result, fmt.Errorf("speak response: %w", err)
+	if req.Spoken && l.Speaker != nil {
+		if err := l.Speaker.Speak(ctx, reply); err != nil {
+			return fmt.Errorf("speak response: %w", err)
 		}
 	}
-
-	result.Finish = "stop"
-	return result, nil
+	return nil
 }
 
 // buildMessages assembles chat history for the LLM call. The user
