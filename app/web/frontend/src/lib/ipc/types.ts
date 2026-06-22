@@ -342,6 +342,22 @@ export interface BackupCreateResult {
   path: string
 }
 
+// BackupRestoreParams is the payload the GUI sends to
+// backup.restore. The path must point to an existing .zip
+// archive inside the backup directory (the daemon enforces
+// this — no path traversal).
+export interface BackupRestoreParams {
+  path: string
+}
+
+// BackupRestoreResult is the daemon's response. ok=true means
+// the on-disk swap completed and storage was reloaded. The
+// GUI should refresh any views that show restored data
+// (memory, skills, audit, config).
+export interface BackupRestoreResult {
+  ok: boolean
+}
+
 export interface PermissionStatus {
   kind: string
   status: 'granted' | 'denied' | 'unknown'

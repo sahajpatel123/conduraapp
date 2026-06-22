@@ -255,6 +255,14 @@ class IPCClient {
   backupCreate(destination?: string): Promise<import('./types').BackupCreateResult> {
     return this.call('backup.create', destination ? { destination } : {})
   }
+  // backupRestore reverts the daemon's data directory to the
+  // contents of a backup archive. Gated through the Gatekeeper
+  // (the daemon's defaults.yaml requires explicit user consent
+  // for "restore"); the GUI's confirmation dialog is the first
+  // line of defense.
+  backupRestore(p: import('./types').BackupRestoreParams): Promise<import('./types').BackupRestoreResult> {
+    return this.call('backup.restore', p)
+  }
   permissionsStatus(): Promise<import('./types').PermissionStatus[]> {
     return this.call('permissions.status', {})
   }

@@ -19,6 +19,8 @@
   let newSecret = $state('')
   let settingAPIKey = $state(false)
   let creatingBackup = $state(false)
+  let restoringBackup = $state<string | null>(null)
+  let restoreTarget = $state<{ name: string; path: string; size: number } | null>(null)
   let permissionGuide = $state<{ kind: string; title: string; steps: string[] } | null>(null)
   let eulaText = $state('')
   let eulaTitle = $state('')
@@ -243,6 +245,33 @@
     }
   }
 
+  function askRestore(target: { name: string; path: string; size: number }): void {
+    restoreTarget = target
+  }
+
+  function cancelRestore(): void {
+    restoreTarget = null
+  }
+
+  async function confirmRestore(): Promise<void> {
+    if (!restoreTarget) return
+    const target = restoreTarget
+    restoreTarget = null
+    restoringBackup = target.path
+    try {
+      await ipc.backupRestore({ path: target.path })
+      // The on-disk data is swapped. Refresh any views that
+      // show restored data so the user sees the new state
+      // immediately without a daemon restart.
+      await trust.refreshBackups()
+      alert(`Restored from ${target.name}.`)
+    } catch (err) {
+      alert(`Restore failed: ${err}`)
+    } finally {
+      restoringBackup = null
+    }
+  }
+
   async function showPermissionGuide(kind: string): Promise<void> {
     try {
       const g = await trust.loadGuide(kind)
@@ -415,6 +444,15 @@
           <div class="backup-row">
             <span class="backup-name">{b.name}</span>
             <span class="backup-size">{formatBytes(b.size)}</span>
+            <button
+              class="btn btn-ghost btn-xs"
+              type="button"
+              onclick={() => askRestore(b)}
+              disabled={restoringBackup !== null}
+              aria-label={`Restore from ${b.name}`}
+            >
+              {restoringBackup === b.path ? 'Restoring…' : 'Restore'}
+            </button>
           </div>
         {/each}
       </div>
@@ -617,6 +655,36 @@
 
 {#if showSignIn}
   <SignInPanel onClose={() => (showSignIn = false)} />
+{/if}
+
+{#if restoreTarget}
+  <div
+    class="modal-backdrop"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) cancelRestore()
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') cancelRestore()
+    }}
+    role="presentation"
+  >
+    <div class="modal danger" role="dialog" aria-modal="true" aria-labelledby="restore-title">
+      <h3 id="restore-title">Restore from backup?</h3>
+      <p class="muted">
+        This will replace all current data — conversations, memory, skills, settings, audit log — with the contents of
+        <code>{restoreTarget.name}</code>.
+      </p>
+      <p class="muted">
+        A pre-restore safety snapshot is taken automatically, so you can recover if the restored data is wrong.
+      </p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" onclick={cancelRestore}>Cancel</button>
+        <button class="btn btn-danger" type="button" onclick={() => void confirmRestore()}>
+          Replace all data and restart
+        </button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -877,4 +945,45 @@
   .btn-xs { padding: 2px 8px; font-size: var(--size-xs); }
   .small { font-size: var(--size-xs); }
   .error { color: var(--color-error, #f87171); margin: var(--space-2) 0; }
+  /* Restore confirmation modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .modal {
+    background: var(--color-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-5);
+    max-width: 480px;
+    width: calc(100% - 32px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  }
+  .modal.danger {
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+  .modal h3 {
+    font-size: var(--size-lg);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+  }
+  .modal code {
+    font-family: var(--font-mono);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm, 4px);
+    font-size: var(--size-sm);
+  }
+  .modal-actions {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin-top: var(--space-4);
+  }
 </style>
