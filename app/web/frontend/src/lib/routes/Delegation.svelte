@@ -2,6 +2,7 @@
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
   import PendingActions from '../components/PendingActions.svelte'
+  import { t } from '../i18n'
 
   type Agent = {
     name: string
@@ -83,10 +84,9 @@
 
 <div class="delegation-page">
   <header>
-    <h2>Sub-agent Delegation</h2>
+    <h2>{$t('delegation.title')}</h2>
     <p class="muted">
-      Condura can spawn a sub-agent to handle parts of a task. The sub-agent runs as a separate
-      subprocess and is gated by the same safety layer you trust for everything else.
+      {$t('delegation.intro')}
     </p>
   </header>
 
@@ -95,15 +95,14 @@
   {/if}
 
   <section class="card">
-    <h3>Available agents</h3>
+    <h3>{$t('delegation.available_title')}</h3>
     <p class="muted">
-      These CLIs must be installed and on your <code>$PATH</code>. Condura detects them automatically;
-      missing binaries are listed below.
+      {$t('delegation.available_intro')}
     </p>
     {#if loading}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {:else if agents.length === 0}
-      <p class="muted">No sub-agents detected. Install Claude Code, Codex, or another CLI to enable delegation.</p>
+      <p class="muted">{$t('delegation.no_agents')}</p>
     {:else}
       <ul class="agent-list">
         {#each agents as a}
@@ -112,19 +111,19 @@
           <li class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
             <strong>{a.name}</strong>
             <span class="desc">{a.description}</span>
-            <span class="binary">binary: {a.binary}</span>
+            <span class="binary">{$t('delegation.binary', a.binary)}</span>
           </li>
         {/each}
       </ul>
     {/if}
-    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>Refresh</button>
+    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{$t('delegation.refresh')}</button>
   </section>
 
   <section class="card">
-    <h3>Spawn a sub-agent</h3>
+    <h3>{$t('delegation.spawn_title')}</h3>
     <form onsubmit={(e) => { e.preventDefault(); void spawn(); }}>
       <label class="field">
-        <span>Agent</span>
+        <span>{$t('delegation.agent_label')}</span>
         <select bind:value={selectedAgent} disabled={spawning || agents.length === 0}>
           {#each agents as a}
             <option value={a.name}>{a.name}</option>
@@ -132,59 +131,59 @@
         </select>
       </label>
       <label class="field">
-        <span>Task</span>
+        <span>{$t('delegation.task_label')}</span>
         <textarea
           bind:value={taskInput}
           rows="4"
-          placeholder="What do you want the sub-agent to do?"
+          placeholder={$t('delegation.task_placeholder')}
           disabled={spawning}
         ></textarea>
       </label>
       <label class="field">
-        <span>Model (optional)</span>
-        <input type="text" bind:value={modelInput} placeholder="e.g. claude-sonnet-4-5" disabled={spawning} />
+        <span>{$t('delegation.model_label')}</span>
+        <input type="text" bind:value={modelInput} placeholder={$t('delegation.model_placeholder')} disabled={spawning} />
       </label>
       <label class="field">
-        <span>Budget (USD)</span>
+        <span>{$t('delegation.budget_label')}</span>
         <input type="number" bind:value={budgetInput} min="0.01" step="0.10" disabled={spawning} />
       </label>
       <button type="submit" class="btn btn-primary" disabled={spawning || !selectedAgent || !taskInput.trim()}>
-        {spawning ? 'Spawning…' : 'Spawn sub-agent'}
+        {spawning ? $t('delegation.spawning') : $t('delegation.spawn_button')}
       </button>
     </form>
   </section>
 
   {#if lastSpawn}
     <section class="card">
-      <h3>Last spawn result</h3>
+      <h3>{$t('delegation.last_spawn')}</h3>
       <dl class="result">
-        <dt>Spawn ID</dt>
+        <dt>{$t('delegation.spawn_id')}</dt>
         <dd class="mono">{lastSpawn.spawn_id}</dd>
-        <dt>Agent</dt>
+        <dt>{$t('delegation.agent')}</dt>
         <dd>{lastSpawn.agent_name}</dd>
-        <dt>State</dt>
+        <dt>{$t('delegation.state')}</dt>
         <dd class="state-{lastSpawn.state}">{lastSpawn.state}</dd>
-        <dt>Cost</dt>
+        <dt>{$t('delegation.cost')}</dt>
         <dd>${lastSpawn.cost?.toFixed(4) ?? '0.0000'}</dd>
-        <dt>Tokens</dt>
+        <dt>{$t('delegation.tokens')}</dt>
         <dd>{lastSpawn.tokens ?? 0}</dd>
         {#if lastSpawn.started}
-          <dt>Started</dt>
+          <dt>{$t('delegation.started')}</dt>
           <dd>{new Date(lastSpawn.started).toLocaleString()}</dd>
         {/if}
         {#if lastSpawn.finished}
-          <dt>Finished</dt>
+          <dt>{$t('delegation.finished')}</dt>
           <dd>{new Date(lastSpawn.finished).toLocaleString()}</dd>
         {/if}
       </dl>
       {#if lastSpawn.output}
         <details>
-          <summary>Output</summary>
+          <summary>{$t('delegation.output')}</summary>
           <pre>{lastSpawn.output}</pre>
         </details>
       {/if}
   {#if lastSpawn && lastSpawn.state === 'running'}
-    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>Cancel</button>
+    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{$t('delegation.cancel')}</button>
   {/if}
     </section>
   {/if}

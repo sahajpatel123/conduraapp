@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
+  import { t } from '../i18n'
 
   let skills = $state<Array<{ id: string; name: string; version: string; trust: string; source?: string; description?: string }>>([])
   let cursor = $state(0)
@@ -21,7 +22,7 @@
   }
 
   async function remove(id: string) {
-    if (!confirm(`Delete skill ${id}?`)) return
+    if (!confirm($t('skills.delete_confirm', id))) return
     try {
       await ipc.skillsDelete(id)
       await refresh()
@@ -35,8 +36,8 @@
 
 <div class="skills-page">
   <header>
-    <h2>Installed Skills</h2>
-    <p class="muted">Skills that the agent can invoke. {skills.length} installed.</p>
+    <h2>{$t('skills.title')}</h2>
+    <p class="muted">{$t('skills.subtitle', skills.length)}</p>
   </header>
 
   {#if error}
@@ -45,8 +46,7 @@
 
   {#if skills.length === 0}
     <p class="muted">
-      No skills installed yet. Use the <strong>Hub</strong> tab to search and install community skills,
-      or use <code>synaptic hub search &lt;query&gt;</code> from the command line.
+      {@html $t('skills.empty_html')}
     </p>
   {:else}
     <ul>
@@ -57,9 +57,9 @@
             <strong>{s.name}</strong>
             <span class="version">v{s.version}</span>
             <span class="trust">[{s.trust}]</span>
-            {#if s.source}<span class="source">from {s.source}</span>{/if}
+            {#if s.source}<span class="source">{$t('skills.from', s.source)}</span>{/if}
             <span class="spacer"></span>
-            <button class="danger" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>Delete</button>
+            <button class="danger" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>{$t('skills.delete')}</button>
           </div>
           {#if s.description}
             <p class="desc">{s.description}</p>
@@ -70,7 +70,7 @@
     </ul>
   {/if}
 
-  <button onclick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+  <button onclick={refresh} disabled={loading}>{loading ? $t('skills.refreshing') : $t('skills.refresh')}</button>
 </div>
 
 <style>

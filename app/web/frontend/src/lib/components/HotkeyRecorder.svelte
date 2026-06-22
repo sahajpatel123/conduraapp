@@ -9,6 +9,8 @@
   //   - keys: Space, Esc, Tab, Enter, Delete, arrows, F1-F12,
   //     or a single printable ASCII character (A-Z, 0-9, punctuation)
 
+  import { t } from '../i18n'
+
   interface Props {
     value?: string
     onRecord?: (combo: string) => void
@@ -84,12 +86,12 @@
 
     const key = keyName(e)
     if (!key) {
-      hint = 'Hold a modifier (Cmd/Ctrl/Option/Shift) and press a key…'
+      hint = $t('hotkey.recorder.hint_modifier')
       return
     }
     const mods = modifiers(e)
     if (mods.length === 0) {
-      hint = 'Add at least one modifier — e.g. Cmd or Ctrl.'
+      hint = $t('hotkey.recorder.hint_no_modifier')
       return
     }
     const spec = [...mods, key].join('+')
@@ -101,7 +103,7 @@
 
   function start(): void {
     recording = true
-    hint = 'Press your combination…'
+    hint = $t('hotkey.recorder.hint_press')
   }
 
   function pick(s: string): void {
@@ -121,14 +123,14 @@
     class:recording
     class:filled={!!combo}
     onclick={start}
-    aria-label="Record hotkey"
+    aria-label={$t('hotkey.recorder.aria_label')}
   >
     {#if recording}
-      <span class="pulse">Recording… press keys</span>
+      <span class="pulse">{$t('hotkey.recorder.recording')}</span>
     {:else if combo}
       <kbd>{combo}</kbd>
     {:else}
-      <span class="placeholder">Click, then press your keys</span>
+      <span class="placeholder">{$t('hotkey.recorder.placeholder')}</span>
     {/if}
   </button>
 
@@ -137,7 +139,7 @@
   {/if}
 
   <div class="suggestions">
-    <span class="sug-label">Suggestions:</span>
+    <span class="sug-label">{$t('hotkey.recorder.suggestions')}</span>
     {#each suggestions as s}
       <button type="button" class="chip" onclick={() => pick(s)}>{s}</button>
     {/each}

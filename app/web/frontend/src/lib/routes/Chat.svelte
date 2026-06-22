@@ -2,6 +2,7 @@
   import { conversation } from '../stores/conversation.svelte'
   import { daemon } from '../stores/daemon.svelte'
   import { settings } from '../stores/settings.svelte'
+  import { t } from '../i18n'
 
   // The chat input. v5 runes: $state is implicit, no `let` needed.
   let inputText = $state('')
@@ -56,10 +57,10 @@
     <h2 class="chat-title">{conversation.currentTitle}</h2>
     {#if conversation.isStreaming}
       <div class="chat-status">
-        <span class="streaming-pill">streaming…</span>
+        <span class="streaming-pill">{$t('chat.streaming')}</span>
         <button class="btn-stop" onclick={cancel}>
           <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
-          Stop
+          {$t('chat.stop')}
         </button>
       </div>
     {/if}
@@ -71,17 +72,17 @@
       {#if conversation.messages.length === 0}
         <div class="empty-state">
           <div class="empty-icon">⊡</div>
-          <h3>Welcome to Condura</h3>
+          <h3>{$t('chat.empty.title')}</h3>
           <p>
             {#if !settings.config}
-              Checking daemon status…
+              {$t('chat.empty.checking')}
             {:else if !daemon.connected}
-              Waiting for daemon connection…
+              {$t('chat.empty.waiting')}
             {:else}
               {#if Object.values(settings.config.llm?.providers ?? {}).every((p: any) => !p?.enabled)}
-                No provider configured. Go to <a href="#/settings">Settings</a> to add an API key or enable Ollama.
+                {$t('chat.empty.no_provider')} <a href="#/settings">{$t('chat.empty.settings_link')}</a> {$t('chat.empty.no_provider_after')}
               {:else}
-                Type a message below to get started with {selectedProvider}.
+                {$t('chat.empty.get_started', selectedProvider)}
               {/if}
             {/if}
           </p>
@@ -162,7 +163,7 @@
           type="text"
           bind:value={inputText}
           onkeydown={onKeydown}
-          placeholder="Ask anything…"
+          placeholder={$t('chat.placeholder')}
           class="input-message"
           disabled={conversation.isStreaming}
         />
@@ -170,17 +171,17 @@
           class="btn-send"
           onclick={send}
           disabled={!inputText.trim() || conversation.isStreaming}
-          aria-label="Send message"
-          title="Send message"
+          aria-label={$t('chat.send')}
+          title={$t('chat.send')}
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg>
         </button>
       </div>
       <p class="hint">
         {#if !daemon.connected}
-          <span class="warn">⚠ Not connected to the daemon.</span>
+          <span class="warn">{$t('chat.not_connected')}</span>
         {:else}
-          Enter to send · Shift+Enter for newline
+          {$t('chat.keyhint')}
         {/if}
       </p>
     </div>

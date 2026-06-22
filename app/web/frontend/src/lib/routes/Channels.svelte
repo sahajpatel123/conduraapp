@@ -6,6 +6,7 @@
   // owns its own contract.
   import { ipc } from '../ipc/client'
   import { onMount, onDestroy } from 'svelte'
+  import { t } from '../i18n'
 
   // Mirrors reach.ChannelStatus on the Go side.
   interface ChannelStatus {
@@ -52,7 +53,7 @@
   }
 
   async function disconnect(name: string): Promise<void> {
-    if (!confirm(`Disconnect ${name}? Condura will stop receiving messages from it.`)) return
+    if (!confirm($t('channels.disconnect_confirm', name))) return
     error = null
     try {
       await ipc.call('channels.disconnect', { channel: name })
@@ -79,10 +80,9 @@
 
 <div class="channels-page">
   <header>
-    <h2>Channels</h2>
+    <h2>{$t('channels.title')}</h2>
     <p class="muted">
-      Connect a messaging channel to talk to Condura from anywhere. Messages are
-      routed through the daemon on this machine — nothing runs in the cloud.
+      {$t('channels.intro')}
     </p>
   </header>
 
@@ -91,11 +91,11 @@
   {/if}
 
   <section class="card">
-    <h3>Connected channels {#if channels.length}({channels.length}){/if}</h3>
+    <h3>{$t('channels.connected', channels.length)}</h3>
     {#if loading && channels.length === 0}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {:else if channels.length === 0}
-      <p class="muted">No channels connected yet. Connect Telegram below to get started.</p>
+      <p class="muted">{$t('channels.empty')}</p>
     {:else}
       <ul class="channel-list">
         {#each channels as c (c.name)}
@@ -103,11 +103,11 @@
             <span class="dot" class:on={c.connected} class:err={!!c.error}></span>
             <span class="ch-name">{prettyName(c.name)}</span>
             <span class="ch-status">
-              {#if c.error}error{:else if c.connected}connected{:else}disconnected{/if}
+              {#if c.error}{$t('channels.status.error')}{:else if c.connected}{$t('channels.status.connected')}{:else}{$t('channels.status.disconnected')}{/if}
             </span>
             {#if c.chat_id}<span class="ch-chat mono">{c.chat_id}</span>{/if}
             <span class="spacer"></span>
-            <button class="btn-ghost" onclick={() => disconnect(c.name)}>Disconnect</button>
+            <button class="btn-ghost" onclick={() => disconnect(c.name)}>{$t('channels.disconnect')}</button>
           </li>
         {/each}
       </ul>
@@ -115,10 +115,9 @@
   </section>
 
   <section class="card">
-    <h3>Connect Telegram</h3>
+    <h3>{$t('channels.telegram_title')}</h3>
     <p class="muted">
-      Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>,
-      copy the HTTP API token it gives you, and paste it here.
+      {$t('channels.telegram_intro_html')}
     </p>
     <div class="connect-row">
       <input
@@ -130,11 +129,11 @@
         onkeydown={(e) => { if (e.key === 'Enter') connectTelegram() }}
       />
       <button class="btn-primary" onclick={connectTelegram} disabled={!tokenValid || connecting}>
-        {connecting ? 'Connecting…' : 'Connect'}
+        {connecting ? $t('channels.connecting') : $t('channels.connect')}
       </button>
     </div>
     {#if token && !tokenValid}
-      <p class="hint">That doesn't look like a Telegram bot token (expected <code>digits:secret</code>).</p>
+      <p class="hint">{$t('channels.invalid_token_html')}</p>
     {/if}
   </section>
 </div>

@@ -11,6 +11,7 @@
     stopPolling,
     type PendingAction,
   } from '../stores/pending.svelte'
+  import { t } from '../i18n'
 
   // Auto-refresh every 5s while the panel is mounted.
   onMount(() => {
@@ -33,7 +34,7 @@
     const r = await approvePending(a.id, '', autoRun)
     setWorking(a.id, false)
     if (!r) {
-      error = `approve failed for ${a.id}`
+      error = $t('pending.error.approve', a.id)
     }
   }
 
@@ -43,7 +44,7 @@
     const r = await denyPending(a.id, '')
     setWorking(a.id, false)
     if (!r) {
-      error = `deny failed for ${a.id}`
+      error = $t('pending.error.deny', a.id)
     }
   }
 
@@ -53,7 +54,7 @@
     const r = await executePending(a.id)
     setWorking(a.id, false)
     if (!r) {
-      error = `execute failed for ${a.id}`
+      error = $t('pending.error.execute', a.id)
     }
   }
 
@@ -85,20 +86,18 @@
     if (a.payload.target) return '→ ' + a.payload.target
     if (a.payload.key) return 'key: ' + a.payload.key
     if (a.payload.path) return 'path: ' + a.payload.path
-    return '(no payload)'
+    return $t('pending.no_payload')
   }
 </script>
 
 <div class="pending-panel">
   <header>
     <div class="title-row">
-      <h3>Pending sub-agent actions</h3>
+      <h3>{$t('pending.title')}</h3>
       <span class="badge" class:has-pending={$pendingCount > 0}>{$pendingCount}</span>
     </div>
     <p class="muted">
-      When a sub-agent asks to do something on your computer, the request sits here until you
-      approve or deny. Approved actions are executed through the same safety layer as everything
-      else; nothing the sub-agent says is trusted without your click.
+      {$t('pending.description')}
     </p>
   </header>
 
@@ -107,16 +106,16 @@
   {/if}
 
   <div class="actions-row">
-    <button class="btn btn-ghost" onclick={onRefresh}>Refresh</button>
+    <button class="btn btn-ghost" onclick={onRefresh}>{$t('pending.refresh')}</button>
   </div>
 
   {#if pending.length === 0 && approved.length === 0 && decided.length === 0}
-    <p class="muted">No sub-agent actions yet. Spawn a sub-agent from the Delegation page.</p>
+    <p class="muted">{$t('pending.empty')}</p>
   {/if}
 
   {#if pending.length > 0}
     <section class="card">
-      <h4>Awaiting your decision ({pending.length})</h4>
+      <h4>{$t('pending.awaiting', pending.length)}</h4>
       <ul class="row-list">
         {#each pending as a (a.id)}
           <li>
@@ -124,7 +123,7 @@
               <span class="kind">{a.kind}</span>
               <span class="agent muted">{a.agent_name}</span>
               <span class="gate gate-{a.gate_decision}">{a.gate_decision}</span>
-              <span class="expires muted">expires {formatTime(a.expires_at)}</span>
+              <span class="expires muted">{$t('pending.expires', formatTime(a.expires_at))}</span>
             </div>
             <div class="row-payload">{describePayload(a)}</div>
             {#if a.gate_reason}
@@ -136,21 +135,21 @@
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, true)}
               >
-                Approve &amp; Run
+                {$t('pending.approve_run')}
               </button>
               <button
                 class="btn btn-secondary"
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, false)}
               >
-                Approve only
+                {$t('pending.approve_only')}
               </button>
               <button
                 class="btn btn-danger"
                 disabled={working[a.id]}
                 onclick={() => onDeny(a)}
               >
-                Deny
+                {$t('pending.deny')}
               </button>
             </div>
           </li>
@@ -161,7 +160,7 @@
 
   {#if approved.length > 0}
     <section class="card">
-      <h4>Approved ({approved.length})</h4>
+      <h4>{$t('pending.approved', approved.length)}</h4>
       <ul class="row-list compact">
         {#each approved as a (a.id)}
           <li>
@@ -186,7 +185,7 @@
                   disabled={working[a.id]}
                   onclick={() => onExecute(a)}
                 >
-                  Run now
+                  {$t('pending.run_now')}
                 </button>
               </div>
             {/if}
@@ -198,7 +197,7 @@
 
   {#if decided.length > 0}
     <section class="card">
-      <h4>History ({decided.length})</h4>
+      <h4>{$t('pending.history', decided.length)}</h4>
       <ul class="row-list compact">
         {#each decided as a (a.id)}
           <li>

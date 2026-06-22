@@ -1,4 +1,5 @@
 import { writable, derived, type Readable } from 'svelte/store';
+import { ipc } from './ipc/client';
 
 type Locale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
 type Catalog = Record<string, string>;
@@ -23,19 +24,29 @@ async function loadCatalog(locale: Locale): Promise<Catalog> {
 		return localeCatalogs[locale];
 	}
 	try {
-		const response = await fetch(`/locales/${locale}.json`);
-		if (!response.ok) throw new Error(`Failed to load ${locale}`);
-		const catalog = await response.json();
-		localeCatalogs[locale] = catalog;
-		return catalog;
+		const response = await ipc.i18nLocale(locale);
+		if (response && response.translations) {
+			localeCatalogs[locale] = response.translations;
+			return response.translations;
+		}
 	} catch {
-		return {};
+		// Fall back to static fetch if IPC fails (e.g. during dev before daemon is ready)
+		try {
+			const response = await fetch('/locales/' + locale + '.json');
+			if (!response.ok) throw new Error('Failed to load ' + locale);
+			const catalog = await response.json();
+			localeCatalogs[locale] = catalog;
+			return catalog;
+		} catch {
+			// return empty catalog
+		}
 	}
+	return {};
 }
 
 function getInitialLocale(): Locale {
 	if (!isBrowser) return DEFAULT_LOCALE;
-	const saved = localStorage.getItem('synapse_locale') as Locale | null;
+	const saved = localStorage.getItem('condura_locale') as Locale | null;
 	if (saved && SUPPORTED_LOCALES.includes(saved)) return saved;
 	const navLang = navigator.language.split('-')[0] as Locale;
 	if (SUPPORTED_LOCALES.includes(navLang)) return navLang;
@@ -76,7 +87,7 @@ export const t: Readable<(key: string, ...args: unknown[]) => string> = derived(
 
 locale.subscribe((loc) => {
 	if (isBrowser) {
-		localStorage.setItem('synapse_locale', loc);
+		localStorage.setItem('condura_locale', loc);
 		document.documentElement.lang = loc;
 	}
 });

@@ -3,6 +3,7 @@
   import { ipc } from '../../ipc/client'
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { PowerProbeResult } from '../../ipc/types'
+  import { t } from '../../i18n'
 
   interface Props {
     onDone?: (route?: string) => void
@@ -48,52 +49,51 @@
 
 <div class="wizard ready">
   <div class="check">✓</div>
-  <h1>You're all set</h1>
+  <h1>{$t('onboarding.ready.title')}</h1>
 
   {#if probing}
-    <p class="muted">Checking what's available on your machine…</p>
+    <p class="muted">{$t('onboarding.ready.probing')}</p>
   {/if}
 
   <div class="setup-cards">
     <button class="setup-card primary" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">Add a provider</span>
-      <span class="card-desc">Connect OpenAI, Anthropic, Google, or another API to start chatting → Settings</span>
+      <span class="card-label">{$t('onboarding.ready.add_provider')}</span>
+      <span class="card-desc">{$t('onboarding.ready.add_provider_desc')}</span>
     </button>
 
     {#if probe?.ollama_reachable}
       <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-        <span class="card-label">Ollama detected</span>
+        <span class="card-label">{$t('onboarding.ready.ollama_detected')}</span>
         <span class="card-desc">
-          A local Ollama server is running. Enable it in Settings to use your own models for free
-          {#if probe.ollama_models.length} ({probe.ollama_models.slice(0, 2).join(', ')}){/if}
+          {$t('onboarding.ready.ollama_desc')}{#if probe.ollama_models.length} ({probe.ollama_models.slice(0, 2).join(', ')}){/if}
         </span>
       </button>
     {/if}
 
     <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">Connect messaging</span>
-      <span class="card-desc">Telegram → Settings</span>
+      <span class="card-label">{$t('onboarding.ready.connect_messaging')}</span>
+      <span class="card-desc">{$t('onboarding.ready.telegram_settings')}</span>
     </button>
 
     <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">Set up voice</span>
+      <span class="card-label">{$t('onboarding.ready.setup_voice')}</span>
       <span class="card-desc">
         {#if voice}
-          Mic {voice.mic_available ? 'ready' : 'unavailable'} · wake word {voice.wake_word_enabled ? 'on' : 'off'}
+          {$t('onboarding.ready.voice_status', voice.mic_available ? $t('onboarding.ready.mic_ready') : $t('onboarding.ready.mic_unavailable'), voice.wake_word_enabled ? $t('onboarding.ready.wake_on') : $t('onboarding.ready.wake_off'))}
         {:else}
-          Talk to Condura hands-free
+          {$t('onboarding.ready.talk_hands_free')}
         {/if}
       </span>
     </button>
   </div>
 
   {#if hotkey}
-    <p class="hotkey-note">Press <kbd>{hotkey}</kbd> anytime to summon Condura.</p>
+    <p class="hotkey-note">{$t('onboarding.ready.hotkey_note', hotkey)}</p>
   {/if}
 
   <div class="actions center">
     <button class="btn btn-primary big" onclick={() => finish()} disabled={onboarding.busy}>
-      {onboarding.busy ? 'Starting…' : 'Start using Condura'}
+      {onboarding.busy ? $t('onboarding.ready.starting') : $t('onboarding.ready.start_button')}
     </button>
   </div>
 </div>

@@ -8,6 +8,7 @@
   import { onMount, onDestroy } from 'svelte'
   import PairingModal from '../components/PairingModal.svelte'
   import type { SyncStatus } from '../ipc/types'
+  import { t } from '../i18n'
 
   let status = $state<SyncStatus | null>(null)
   let lastAction = $state('')
@@ -34,7 +35,7 @@
   async function confirmPair(pin: string): Promise<void> {
     const res = await sync.confirmPairing(pin)
     if (res) {
-      lastAction = `paired ${sync.pendingPeerId || ''}`.trim()
+      lastAction = $t('sync.last_action.paired', sync.pendingPeerId || '')
       pairing = false
     }
   }
@@ -45,18 +46,18 @@
   }
 
   async function revoke(deviceId: string): Promise<void> {
-    if (!confirm(`Revoke device ${deviceId}? Future sync attempts will be rejected.`)) return
-    if (await sync.revoke(deviceId)) lastAction = `revoked ${deviceId}`
+    if (!confirm($t('sync.revoke_confirm', deviceId))) return
+    if (await sync.revoke(deviceId)) lastAction = $t('sync.last_action.revoked', deviceId)
   }
 
   async function syncWith(deviceId: string): Promise<void> {
     try {
       const r = await ipc.syncWith(deviceId)
-      lastAction = `merged ${r.merged} entries with ${deviceId}`
+      lastAction = $t('sync.last_action.merged', r.merged, deviceId)
       await refreshAll()
     } catch (e) {
       // surface via store-independent path
-      lastAction = `sync failed: ${e}`
+      lastAction = $t('sync.last_action.failed', e)
     }
   }
 
@@ -75,10 +76,9 @@
 
 <div class="sync-page">
   <header>
-    <h2>P2P Sync</h2>
+    <h2>{$t('sync.title')}</h2>
     <p class="muted">
-      Encrypted device-to-device sync (AES-256-GCM, Ed25519 identity, no central
-      server). Devices must be explicitly paired before they can exchange data.
+      {$t('sync.intro')}
     </p>
   </header>
 
@@ -90,31 +90,31 @@
   {/if}
 
   <section class="card">
-    <h3>This device</h3>
+    <h3>{$t('sync.this_device')}</h3>
     {#if status}
-      <div class="kv"><span class="k">Device ID</span><span class="v mono">{status.device_id || '(unset)'}</span></div>
-      <div class="kv"><span class="k">Name</span><span class="v">{status.name || '(unset)'}</span></div>
-      <div class="kv"><span class="k">Running</span><span class="v">{status.running ? 'yes' : 'no'}</span></div>
-      <div class="kv"><span class="k">Entries</span><span class="v">{status.entries ?? 0}</span></div>
-      <div class="kv"><span class="k">Paired</span><span class="v">{sync.pairs.length}</span></div>
+      <div class="kv"><span class="k">{$t('sync.device_id')}</span><span class="v mono">{status.device_id || $t('sync.unset')}</span></div>
+      <div class="kv"><span class="k">{$t('sync.name')}</span><span class="v">{status.name || $t('sync.unset')}</span></div>
+      <div class="kv"><span class="k">{$t('sync.running')}</span><span class="v">{status.running ? $t('sync.yes') : $t('sync.no')}</span></div>
+      <div class="kv"><span class="k">{$t('sync.entries')}</span><span class="v">{status.entries ?? 0}</span></div>
+      <div class="kv"><span class="k">{$t('sync.paired')}</span><span class="v">{sync.pairs.length}</span></div>
     {:else}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {/if}
-    <button class="btn-ghost" onclick={refreshAll} disabled={sync.loading}>Refresh</button>
+    <button class="btn-ghost" onclick={refreshAll} disabled={sync.loading}>{$t('sync.refresh')}</button>
   </section>
 
   <section class="card">
-    <h3>Discovered peers ({sync.peers.length})</h3>
+    <h3>{$t('sync.discovered_peers', sync.peers.length)}</h3>
     {#if sync.peers.length === 0}
-      <p class="muted">No peers on the LAN. Devices announce themselves periodically via UDP broadcast. This list refreshes every 5 seconds.</p>
+      <p class="muted">{$t('sync.no_peers')}</p>
     {:else}
       <ul>
         {#each sync.peers as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.name}</span>
-            <button class="btn-ghost" onclick={() => startPair(p.device_id)}>Pair</button>
-            <button class="btn-ghost" onclick={() => syncWith(p.device_id)}>Sync now</button>
+            <button class="btn-ghost" onclick={() => startPair(p.device_id)}>{$t('sync.pair')}</button>
+            <button class="btn-ghost" onclick={() => syncWith(p.device_id)}>{$t('sync.sync_now')}</button>
           </li>
         {/each}
       </ul>
@@ -122,17 +122,17 @@
   </section>
 
   <section class="card">
-    <h3>Paired devices ({sync.pairs.length})</h3>
+    <h3>{$t('sync.paired_devices', sync.pairs.length)}</h3>
     {#if sync.pairs.length === 0}
-      <p class="muted">No paired devices. Pair a discovered peer to start syncing.</p>
+      <p class="muted">{$t('sync.no_paired')}</p>
     {:else}
       <ul>
         {#each sync.pairs as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.device_name}</span>
-            <span class="muted">paired {p.paired_at}</span>
-            <button class="danger" onclick={() => revoke(p.device_id)}>Revoke</button>
+            <span class="muted">{$t('sync.paired_at', p.paired_at)}</span>
+            <button class="danger" onclick={() => revoke(p.device_id)}>{$t('sync.revoke')}</button>
           </li>
         {/each}
       </ul>

@@ -1327,6 +1327,7 @@ This project is being built by a human + AI partnership. The human is the archit
 | C3.10–12 | Energy budget per platform; dirty tracking via CGEventTap; PII redaction in live perception pipeline | `internal/perception` is the data model; the platform event source (CGEventTap, AT-SPI) and the live per-frame integration are separate work. | Wire `perception.DirtyTracker.Mark` to the platform event source in v0.2.0. |
 | C4.14 | Real `pf`/`netsh` separate process | Requires shell-out + a small companion binary or admin helper. | Hard Layer 3 in v0.2.0. |
 | C5.17–18 | Execution waves / DAG scheduler | Spec describes a DAG-of-waves executor; current `delegation.GatedRunner` does individual spawns only. | Add `Wave` + `DAG` types to `internal/delegation`. |
+| C5.19 | Hybrid LLM router (`internal/router/`) | Package does not exist; v0.1.0 uses a single configured provider+model. Spec in `docs/architecture/01-router.md`. | Implement `internal/router/` per CLAUDE.md §12; wire into `stream.Manager` and delegation. See `docs/roadmap-v0.2.0.md` §4. |
 | C6.22–23 | MCP UI (10k+ servers claim) | Backend `internal/mcp` exists; UI does not. | Add `Mcp.svelte` route in v0.2.0. |
 | C8.26–28 | Real Signal / WhatsApp / iMessage receive | Out of scope. Current code is explicit stubs that return "coming in v0.2.0". | Marketing copy should be removed. |
 | C9.29 | `hub.condura.app` public Skills Hub as separate Next.js app | Requires Vercel deploy, OAuth flow, content moderation pipeline. | Defer to v0.2.0 or later. |

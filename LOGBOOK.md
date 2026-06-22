@@ -2987,3 +2987,21 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
   conversations.list/backup.list/delegate.list_agents/
   audit.list/delegate.pending.list all return 200 OK.
 
+---
+
+## [2026-06-17] AI Model: Composer
+**Session ID:** backend-gaps-8-9-10
+**Task:** Fix Loop.Ask streaming, document internal/router as v0.2.0, add on-device verification operator instructions
+**Files modified:**
+- `internal/agent/agent.go` — Loop.Ask now builds chat history, calls `Stream.Start()`, accumulates SSE deltas, persists assistant reply, speaks real TTS text; added Broker/ProviderName/Model fields and Reply on AskResult
+- `internal/agent/agent_test.go` — integration test with mock LLM provider + stream manager
+- `docs/roadmap-v0.2.0.md` — new §4 Hybrid LLM router (`internal/router/`); renumbered subsequent sections; added router to sequencing
+- `CLAUDE.md` — §33.5.2 row C5.19 for deferred router package
+- `docs/on-device-verification.md` — operator playbook (prerequisites, execution order, evidence, sign-off)
+- `docs/phase15-verification.md` — cross-link to operator playbook in How to Use
+**Decisions made:** Loop mirrors `session.Run` streaming pattern (subscribe-before-start, 60s budget, delta accumulation) rather than introducing a shared helper package — minimal diff, same wire format. Router documented as planned-not-built; v0.1.0 honestly uses single configured provider.
+**Bugs/issues encountered:** None; `go test ./internal/agent/...` passes.
+**Open questions for next session:** Wire `agent.Loop` in daemon for voice pipeline (currently `session.Factory` serves `agent.ask` RPC). Human must execute phase15 on clean machines.
+**Next steps:** On-device verification per operator playbook; optionally daemon-wire `agent.Loop` when voice path needs thin loop vs full session.
+---
+

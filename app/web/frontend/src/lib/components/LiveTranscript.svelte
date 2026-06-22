@@ -6,6 +6,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { ipc } from '../ipc/client'
+  import { t } from '../i18n'
 
   let transcript = $state<string>('')
   let isRecording = $state<boolean>(false)
@@ -25,7 +26,7 @@
       ipc.on('voice.partial' as never, ((data: { recording?: boolean; samples?: number }) => {
         isRecording = data.recording ?? false
         if (isRecording && !isFinal) {
-          transcript = 'Listening...'
+          transcript = $t('voice.transcript.listening')
         }
       }) as never),
 

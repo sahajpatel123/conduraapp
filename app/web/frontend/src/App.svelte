@@ -22,6 +22,7 @@
   import { overlay } from './lib/stores/overlay.svelte'
   import { ipc } from './lib/ipc/client'
   import { initStores } from './lib/stores/init'
+  import { t } from './lib/i18n'
 
   let showOnboarding = $state(false)
   let currentHash = $state('#/')
@@ -103,7 +104,7 @@
           {daemon.connected ? '' : ''}
         </span>
         <span class="conn-label" class:connected={daemon.connected}>
-          {daemon.connected ? 'connected' : 'disconnected'}
+          {daemon.connected ? $t('app.status.connected') : $t('app.status.disconnected')}
         </span>
       </div>
 

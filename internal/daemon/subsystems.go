@@ -338,6 +338,25 @@ func (s *Subsystems) MasterKey() ([]byte, error) {
 	return s.Storage.MasterKey(), nil
 }
 
+// SetOverlay swaps in a new overlay controller. Used by the
+// Wails GUI host to replace the headless noop with a real
+// Wails-backed controller once the runtime context is available.
+//
+// Pass nil to revert to noop (used in tests and shutdown paths).
+// Callers should hold no references to the previous controller
+// after calling this — concurrent calls to Show/Hide during the
+// swap may observe either controller. In practice the swap
+// happens at startup before any user-facing RPCs are wired.
+func (s *Subsystems) SetOverlay(c overlay.Controller) {
+	if s == nil {
+		return
+	}
+	if c == nil {
+		c = overlay.NewNoopController()
+	}
+	s.Overlay = c
+}
+
 // GeneralDataDir returns the on-disk data directory.
 func (s *Subsystems) GeneralDataDir() string {
 	if s == nil || s.Storage == nil {

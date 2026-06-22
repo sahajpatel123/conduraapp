@@ -11,6 +11,7 @@
   import { onMount } from 'svelte'
   import LocaleSelector from '../components/LocaleSelector.svelte'
   import SignInPanel from '../components/SignInPanel.svelte'
+  import { t } from '../i18n'
 
   let hotkeyInput = $state('')
   let telemetryInput = $state(false)
@@ -75,21 +76,21 @@
     try {
       await ipc.call('config.update', { voice: { wake: { ...wake } } })
     } catch (err) {
-      alert(`Could not save voice settings: ${err}`)
+      alert($t('settings.voice.save_error', err))
     }
   }
 
   async function micTest(): Promise<void> {
-    micTestResult = 'Checking…'
+    micTestResult = $t('settings.voice.mic_checking')
     try {
       const perms = await ipc.permissionsStatus()
       const mic = perms.find((p) => p.kind === 'microphone')
-      if (!mic) micTestResult = 'Microphone status unavailable.'
-      else if (mic.status === 'granted') micTestResult = 'Microphone access granted ✓'
-      else if (mic.status === 'denied') micTestResult = 'Microphone access denied — grant it in OS permissions above.'
-      else micTestResult = 'Microphone access not yet granted.'
+      if (!mic) micTestResult = $t('settings.voice.mic_unavailable')
+      else if (mic.status === 'granted') micTestResult = $t('settings.voice.mic_granted')
+      else if (mic.status === 'denied') micTestResult = $t('settings.voice.mic_denied')
+      else micTestResult = $t('settings.voice.mic_not_granted')
     } catch (err) {
-      micTestResult = `Mic test failed: ${err}`
+      micTestResult = $t('settings.voice.mic_test_failed', err)
     }
   }
 
@@ -133,7 +134,10 @@
   }
 
   async function forgetAdaptiveField(field: string, value: string): Promise<void> {
-    if (!confirm(`Forget that you ${field === 'pet_peeves' ? 'dislike' : 'have'} "${value}"?`)) return
+    const confirmMsg = field === 'pet_peeves'
+      ? $t('settings.adaptive.forget_dislike', value)
+      : $t('settings.adaptive.forget_have', value)
+    if (!confirm(confirmMsg)) return
     try {
       await ipc.call('adaptive.forget', { field, value })
       void loadAdaptive()
@@ -143,7 +147,7 @@
   }
 
   async function resetAdaptive(): Promise<void> {
-    if (!confirm('Delete all learned inferences and start fresh? This cannot be undone.')) return
+    if (!confirm($t('settings.adaptive.reset_confirm'))) return
     try {
       await ipc.call('adaptive.reset', {})
       void loadAdaptive()
@@ -166,21 +170,21 @@
     try {
       const doc = await ipc.onboardingEula()
       eulaText = doc.text
-      eulaTitle = 'Condura Freeware License'
+      eulaTitle = $t('onboarding.eula.title')
       eulaVersion = doc.version
     } catch (err) {
-      alert(`Could not load the EULA: ${err}`)
+      alert($t('settings.legal.eula_error', err))
     }
   }
 
   async function rerunSetup(): Promise<void> {
-    if (!confirm('Re-run the setup wizard? Your data and settings are not affected.')) return
+    if (!confirm($t('settings.setup.rerun_confirm'))) return
     rerunning = true
     try {
       await onboarding.reset()
       window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
     } catch (err) {
-      alert(`Could not reset setup: ${err}`)
+      alert($t('settings.setup.rerun_error', err))
     } finally {
       rerunning = false
     }
@@ -196,7 +200,7 @@
   async function saveHotkey(): Promise<void> {
     if (!settings.config) return
     await settings.save({ hotkey: { ...settings.config.hotkey, overlay: hotkeyInput } })
-    alert('Hotkey saved. Restart the app to apply.')
+    alert($t('settings.hotkey.saved_alert'))
   }
 
   async function saveTelemetry(): Promise<void> {
@@ -211,21 +215,21 @@
     try {
       await apiKeys.set(newProvider, newLabel, newSecret)
       newSecret = ''
-      alert('API key saved.')
+      alert($t('settings.apikeys.saved_alert'))
     } catch (err) {
-      alert(`Failed: ${err}`)
+      alert($t('settings.apikeys.failed_alert', err))
     } finally {
       settingAPIKey = false
     }
   }
 
   async function deleteKey(id: number): Promise<void> {
-    if (!confirm('Delete this API key?')) return
+    if (!confirm($t('settings.apikeys.delete_confirm'))) return
     await apiKeys.remove(id)
   }
 
   async function performHalt(): Promise<void> {
-    if (!confirm('Halt all daemon activity? Streaming responses will be cancelled.')) return
+    if (!confirm($t('settings.killswitch.halt_confirm'))) return
     await halt.halt('user requested from settings')
   }
 
@@ -237,9 +241,9 @@
     creatingBackup = true
     try {
       const path = await trust.createBackup()
-      alert(`Backup created:\n${path}`)
+      alert($t('settings.backup.created_alert', path))
     } catch (err) {
-      alert(`Backup failed: ${err}`)
+      alert($t('settings.backup.failed_alert', err))
     } finally {
       creatingBackup = false
     }
@@ -264,9 +268,9 @@
       // show restored data so the user sees the new state
       // immediately without a daemon restart.
       await trust.refreshBackups()
-      alert(`Restored from ${target.name}.`)
+      alert($t('settings.backup.restored_alert', target.name))
     } catch (err) {
-      alert(`Restore failed: ${err}`)
+      alert($t('settings.backup.restore_failed_alert', err))
     } finally {
       restoringBackup = null
     }
@@ -277,7 +281,7 @@
       const g = await trust.loadGuide(kind)
       permissionGuide = { kind: g.kind, title: g.title, steps: g.steps }
     } catch (err) {
-      alert(`Could not load guide: ${err}`)
+      alert($t('settings.permissions.guide_error', err))
     }
   }
 
@@ -290,12 +294,12 @@
 
 <div class="settings-page">
   <header>
-    <h2>Settings</h2>
-    <p class="muted">Configuration is stored in <code>~/.synaptic/config.yaml</code>. Changes here write to that file via the daemon.</p>
+    <h2>{$t('settings.title')}</h2>
+    <p class="muted">{$t('settings.subtitle')}</p>
   </header>
 
   <section class="card">
-    <h3>Account</h3>
+    <h3>{$t('settings.account.title')}</h3>
     {#if account.isSignedIn}
       <div class="account-row">
         {#if account.avatarURL}
@@ -308,44 +312,44 @@
           <span class="acc-meta">{account.email} · {providerLabel(account.provider)}{account.tier ? ` · ${account.tier}` : ''}</span>
         </div>
         <button class="btn btn-ghost" onclick={() => account.signOut()} disabled={account.loading}>
-          {account.loading ? 'Signing out…' : 'Sign out'}
+          {account.loading ? $t('settings.account.signing_out') : $t('settings.account.signout')}
         </button>
       </div>
     {:else}
-      <p class="muted">Condura works fully without an account. Sign in to:</p>
+      <p class="muted">{$t('settings.account.signed_out_intro')}</p>
       <ul class="benefits">
-        <li>Sync settings and skills across your devices</li>
-        <li>Publish skills to the Hub under your identity</li>
-        <li>Back up your encrypted data to the cloud</li>
+        <li>{$t('settings.account.benefit_1')}</li>
+        <li>{$t('settings.account.benefit_2')}</li>
+        <li>{$t('settings.account.benefit_3')}</li>
       </ul>
       <div class="row">
-        <button class="btn btn-primary" onclick={() => (showSignIn = true)}>Sign in</button>
+        <button class="btn btn-primary" onclick={() => (showSignIn = true)}>{$t('settings.account.signin')}</button>
       </div>
       {#if account.error}<p class="muted err">{account.error}</p>{/if}
     {/if}
   </section>
 
   <section class="card">
-    <h3>Channels</h3>
-    <p class="muted">Connect Telegram and other messaging channels to talk to Condura from anywhere.</p>
+    <h3>{$t('settings.channels.title')}</h3>
+    <p class="muted">{$t('settings.channels.intro')}</p>
     <div class="row">
-      <button class="btn btn-ghost" onclick={goToChannels}>Manage channels</button>
+      <button class="btn btn-ghost" onclick={goToChannels}>{$t('settings.channels.manage')}</button>
     </div>
   </section>
 
   <section class="card">
-    <h3>Voice</h3>
-    <p class="muted">Talk to Condura hands-free with a wake word. Voice runs entirely on this machine.</p>
+    <h3>{$t('settings.voice.title')}</h3>
+    <p class="muted">{$t('settings.voice.intro')}</p>
     <label class="checkbox">
       <input
         type="checkbox"
         checked={wake.enabled}
         onchange={(e) => { wake.enabled = (e.target as HTMLInputElement).checked; void saveVoice(); }}
       />
-      <span>Enable wake word</span>
+      <span>{$t('settings.voice.enable_wake')}</span>
     </label>
     <div class="row slider-row">
-      <label for="wake-sens" class="slider-label">Sensitivity</label>
+      <label for="wake-sens" class="slider-label">{$t('settings.voice.sensitivity')}</label>
       <input
         id="wake-sens"
         type="range"
@@ -364,40 +368,40 @@
         placeholder="hey condura"
         disabled={!wake.enabled}
       />
-      <button class="btn btn-ghost" onclick={saveVoice} disabled={!wake.enabled}>Save phrase</button>
-      <button class="btn btn-ghost" onclick={micTest}>Test mic</button>
+      <button class="btn btn-ghost" onclick={saveVoice} disabled={!wake.enabled}>{$t('settings.voice.save_phrase')}</button>
+      <button class="btn btn-ghost" onclick={micTest}>{$t('settings.voice.test_mic')}</button>
     </div>
     {#if micTestResult}<p class="muted">{micTestResult}</p>{/if}
   </section>
 
   <section class="card">
-    <h3>Language</h3>
-    <p class="muted">Select your preferred language. Changes apply immediately.</p>
+    <h3>{$t('settings.language.title')}</h3>
+    <p class="muted">{$t('settings.language.intro')}</p>
     <div class="row">
       <LocaleSelector />
     </div>
   </section>
 
   <section class="card">
-    <h3>Spend</h3>
+    <h3>{$t('settings.spend.title')}</h3>
     {#if spend.summary}
       <div class="kv">
-        <span class="k">Spent today</span><span class="v">${spend.summary.spent.toFixed(2)}</span>
+        <span class="k">{$t('settings.spend.spent_today')}</span><span class="v">${spend.summary.spent.toFixed(2)}</span>
       </div>
       <div class="kv">
-        <span class="k">Cap</span><span class="v">${spend.summary.cap.toFixed(2)}</span>
+        <span class="k">{$t('settings.spend.cap')}</span><span class="v">${spend.summary.cap.toFixed(2)}</span>
       </div>
       <div class="kv">
-        <span class="k">Remaining</span><span class="v">${spend.summary.remaining.toFixed(2)}</span>
+        <span class="k">{$t('settings.spend.remaining')}</span><span class="v">${spend.summary.remaining.toFixed(2)}</span>
       </div>
     {:else}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Hotkey</h3>
-    <p class="muted">Press the key combination you want to use to summon the overlay. On macOS, <code>Cmd</code> is <code>Super</code> in the underlying API.</p>
+    <h3>{$t('settings.hotkey.title')}</h3>
+    <p class="muted">{$t('settings.hotkey.intro')}</p>
     <div class="row">
       <input
         type="text"
@@ -405,39 +409,39 @@
         placeholder="Cmd+Shift+Space"
         class="input"
       />
-      <button class="btn btn-primary" onclick={saveHotkey}>Save</button>
+      <button class="btn btn-primary" onclick={saveHotkey}>{$t('settings.hotkey.save')}</button>
     </div>
   </section>
 
   <section class="card">
-    <h3>Auto-update</h3>
-    <p class="muted">Condura auto-updates by default. Disable here to opt out — but you'll need to update manually going forward.</p>
+    <h3>{$t('settings.update.title')}</h3>
+    <p class="muted">{$t('settings.update.intro')}</p>
     <label class="checkbox">
       <input
         type="checkbox"
         checked={telemetryInput}
         onchange={(e) => { telemetryInput = (e.target as HTMLInputElement).checked; void saveTelemetry(); }}
       />
-      <span>Enable auto-updates</span>
+      <span>{$t('settings.update.enable')}</span>
     </label>
     {#if updateStore.lastCheck}
-      <p class="muted">Last checked: {new Date(updateStore.lastCheck).toLocaleString()}</p>
+      <p class="muted">{$t('settings.update.last_checked', new Date(updateStore.lastCheck).toLocaleString())}</p>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Backups</h3>
-    <p class="muted">Encrypted archives are stored in <code>~/Documents/condura-backups</code> (or set <code>CONDURA_BACKUP_DIR</code> to override).</p>
+    <h3>{$t('settings.backup.title')}</h3>
+    <p class="muted">{$t('settings.backup.intro')}</p>
     <div class="row">
       <button class="btn btn-primary" onclick={createBackup} disabled={creatingBackup}>
-        {creatingBackup ? 'Creating…' : 'Create backup now'}
+        {creatingBackup ? $t('settings.backup.creating') : $t('settings.backup.create')}
       </button>
-      <button class="btn btn-ghost" onclick={() => trust.refreshBackups()}>Refresh list</button>
+      <button class="btn btn-ghost" onclick={() => trust.refreshBackups()}>{$t('settings.backup.refresh')}</button>
     </div>
     {#if trust.loadingBackups}
-      <p class="muted">Loading backups…</p>
+      <p class="muted">{$t('settings.backup.loading')}</p>
     {:else if trust.backups.length === 0}
-      <p class="muted">No backups yet.</p>
+      <p class="muted">{$t('settings.backup.empty')}</p>
     {:else}
       <div class="backup-list">
         {#each trust.backups as b (b.path)}
@@ -449,9 +453,9 @@
               type="button"
               onclick={() => askRestore(b)}
               disabled={restoringBackup !== null}
-              aria-label={`Restore from ${b.name}`}
+              aria-label={$t('settings.backup.restore_aria', b.name)}
             >
-              {restoringBackup === b.path ? 'Restoring…' : 'Restore'}
+              {restoringBackup === b.path ? $t('settings.backup.restoring') : $t('settings.backup.restore')}
             </button>
           </div>
         {/each}
@@ -460,11 +464,11 @@
   </section>
 
   <section class="card">
-    <h3>OS permissions</h3>
-    <p class="muted">Condura needs OS permissions for accessibility, screen recording, and microphone. Grant them in System Settings if status is not granted.</p>
-    <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>Refresh status</button>
+    <h3>{$t('settings.permissions.title')}</h3>
+    <p class="muted">{$t('settings.permissions.intro')}</p>
+    <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>{$t('settings.permissions.refresh')}</button>
     {#if trust.loadingPermissions}
-      <p class="muted">Checking permissions…</p>
+      <p class="muted">{$t('settings.permissions.checking')}</p>
     {:else}
       <div class="perm-list">
         {#each trust.permissions as p (p.kind)}
@@ -472,7 +476,7 @@
             <span class="perm-kind">{p.kind}</span>
             <span class="perm-status" class:granted={p.status === 'granted'} class:denied={p.status === 'denied'}>{p.status}</span>
             {#if p.status !== 'granted'}
-              <button class="btn btn-ghost" onclick={() => showPermissionGuide(p.kind)}>How to grant</button>
+              <button class="btn btn-ghost" onclick={() => showPermissionGuide(p.kind)}>{$t('settings.permissions.how_to_grant')}</button>
             {/if}
           </div>
         {/each}
@@ -486,66 +490,65 @@
             <li>{step}</li>
           {/each}
         </ol>
-        <button class="btn btn-ghost" onclick={() => { permissionGuide = null }}>Close</button>
+        <button class="btn btn-ghost" onclick={() => { permissionGuide = null }}>{$t('common.close')}</button>
       </div>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Adaptive engine</h3>
+    <h3>{$t('settings.adaptive.title')}</h3>
     <p class="muted">
-      Condura learns your preferences over time — your writing style, your tool habits, the kinds of
-      tasks you do at what time of day. It is local: nothing about you leaves this machine.
+      {$t('settings.adaptive.intro')}
     </p>
     {#if adaptiveError}
       <p class="error">{adaptiveError}</p>
     {/if}
     <div class="strength">
-      <span class="label">Strength</span>
+      <span class="label">{$t('settings.adaptive.strength')}</span>
       <select
         value={adaptiveStrength}
         onchange={(e) => setAdaptiveStrength((e.target as HTMLSelectElement).value as typeof adaptiveStrength)}
         disabled={adaptiveLoading}
       >
-        <option value="off">Off — observe nothing, apply nothing</option>
-        <option value="cautious">Cautious — observe, never apply automatically</option>
-        <option value="balanced">Balanced — apply safe categories (verbosity, time patterns)</option>
-        <option value="aggressive">Aggressive — apply everything learned</option>
+        <option value="off">{$t('settings.adaptive.off')}</option>
+        <option value="cautious">{$t('settings.adaptive.cautious')}</option>
+        <option value="balanced">{$t('settings.adaptive.balanced')}</option>
+        <option value="aggressive">{$t('settings.adaptive.aggressive')}</option>
       </select>
     </div>
     {#if adaptiveProfile}
-      <h4 class="sub">What Condura has learned about you</h4>
+      <h4 class="sub">{$t('settings.adaptive.learned_title')}</h4>
       {#if adaptiveProfile.preferences && Object.keys(adaptiveProfile.preferences).length > 0}
         <div class="profile-group">
-          <span class="profile-label">Preferences</span>
+          <span class="profile-label">{$t('settings.adaptive.preferences')}</span>
           {#each Object.entries(adaptiveProfile.preferences) as [k, v]}
             <div class="profile-row">
               <span class="k">{k}</span>
               <span class="v">{v}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('preferences', k)}>Forget</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('preferences', k)}>{$t('settings.adaptive.forget')}</button>
             </div>
           {/each}
         </div>
       {/if}
       {#if adaptiveProfile.style && Object.keys(adaptiveProfile.style).length > 0}
         <div class="profile-group">
-          <span class="profile-label">Style</span>
+          <span class="profile-label">{$t('settings.adaptive.style')}</span>
           {#each Object.entries(adaptiveProfile.style) as [k, v]}
             <div class="profile-row">
               <span class="k">{k}</span>
               <span class="v">{v}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('style', k)}>Forget</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('style', k)}>{$t('settings.adaptive.forget')}</button>
             </div>
           {/each}
         </div>
       {/if}
       {#if adaptiveProfile.pet_peeves && adaptiveProfile.pet_peeves.length > 0}
         <div class="profile-group">
-          <span class="profile-label">Pet peeves</span>
+          <span class="profile-label">{$t('settings.adaptive.pet_peeves')}</span>
           {#each adaptiveProfile.pet_peeves as p}
             <div class="profile-row">
               <span class="v">{p}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('pet_peeves', p)}>Forget</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('pet_peeves', p)}>{$t('settings.adaptive.forget')}</button>
             </div>
           {/each}
         </div>
@@ -554,48 +557,47 @@
         (!adaptiveProfile.style || Object.keys(adaptiveProfile.style).length === 0) &&
         (!adaptiveProfile.pet_peeves || adaptiveProfile.pet_peeves.length === 0)}
         <p class="muted">
-          Nothing learned yet. Use Condura for a while — preferences will appear here as the
-          dialectic settles on confident inferences.
+          {$t('settings.adaptive.empty')}
         </p>
       {/if}
       {#if adaptiveProfile.last_updated}
-        <p class="muted small">Last updated: {new Date(adaptiveProfile.last_updated).toLocaleString()}</p>
+        <p class="muted small">{$t('settings.adaptive.last_updated', new Date(adaptiveProfile.last_updated).toLocaleString())}</p>
       {/if}
-      <button class="btn btn-ghost" onclick={resetAdaptive}>Reset everything</button>
+      <button class="btn btn-ghost" onclick={resetAdaptive}>{$t('settings.adaptive.reset')}</button>
     {/if}
   </section>
 
   <section class="card danger">
-    <h3>Kill switch</h3>
-    <p class="muted">Halt every active stream and pause the daemon. Use this if an agent is doing something you don't want.</p>
+    <h3>{$t('settings.killswitch.title')}</h3>
+    <p class="muted">{$t('settings.killswitch.intro')}</p>
     {#if halt.state.halted}
-      <p class="muted">⚠ Daemon is currently halted since {halt.state.since}.</p>
-      <button class="btn btn-primary" onclick={performResume}>Resume daemon</button>
+      <p class="muted">{$t('settings.killswitch.halted_since', halt.state.since)}</p>
+      <button class="btn btn-primary" onclick={performResume}>{$t('settings.killswitch.resume')}</button>
     {:else}
-      <button class="btn btn-danger" onclick={performHalt}>HALT</button>
+      <button class="btn btn-danger" onclick={performHalt}>{$t('settings.killswitch.halt')}</button>
     {/if}
   </section>
 
   <section class="card">
-    <h3>API keys</h3>
-    <p class="muted">Stored encrypted in the OS keyring (or in <code>~/.synaptic/secrets.json</code> with 0600 perms if the keyring is unavailable).</p>
+    <h3>{$t('settings.apikeys.title')}</h3>
+    <p class="muted">{$t('settings.apikeys.intro')}</p>
 
     <div class="apikey-list">
       {#if apiKeys.list.length === 0}
-        <p class="muted">No API keys stored yet.</p>
+        <p class="muted">{$t('settings.apikeys.empty')}</p>
       {/if}
       {#each apiKeys.list as k (k.id)}
         <div class="apikey-row">
           <span class="provider">{k.provider}</span>
           <span class="label">{k.label}</span>
           <span class="auth-kind">{k.auth_kind}</span>
-          <span class="has-token">{k.has_token ? '✓ has token' : '✗ no token'}</span>
-          <button class="btn btn-ghost" onclick={() => deleteKey(k.id)}>Delete</button>
+          <span class="has-token">{k.has_token ? $t('settings.apikeys.has_token') : $t('settings.apikeys.no_token')}</span>
+          <button class="btn btn-ghost" onclick={() => deleteKey(k.id)}>{$t('settings.apikeys.delete')}</button>
         </div>
       {/each}
     </div>
 
-    <h4>Add a key</h4>
+    <h4>{$t('settings.apikeys.add_title')}</h4>
     <div class="row">
       <select bind:value={newProvider} class="input">
         <option value="openai">openai</option>
@@ -622,14 +624,14 @@
         onclick={setAPIKey}
         disabled={!newSecret || settingAPIKey}
       >
-        {settingAPIKey ? 'Saving…' : 'Save'}
+        {settingAPIKey ? $t('settings.apikeys.saving') : $t('settings.apikeys.save')}
       </button>
     </div>
   </section>
 
   <section class="card">
-    <h3>Legal</h3>
-    <p class="muted">Review the license you accepted during setup. The full text is also available online.</p>
+    <h3>{$t('settings.legal.title')}</h3>
+    <p class="muted">{$t('settings.legal.intro')}</p>
     {#if eulaText}
       <div class="eula-view">
         <div class="eula-view-head">
@@ -638,17 +640,17 @@
         </div>
         <pre>{eulaText}</pre>
       </div>
-      <button class="btn btn-ghost" onclick={() => { eulaText = '' }}>Hide</button>
+      <button class="btn btn-ghost" onclick={() => { eulaText = '' }}>{$t('settings.legal.hide')}</button>
     {:else}
-      <button class="btn btn-ghost" onclick={viewEula}>View EULA</button>
+      <button class="btn btn-ghost" onclick={viewEula}>{$t('settings.legal.view_eula')}</button>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Setup</h3>
-    <p class="muted">Run the first-time setup wizard again — EULA, permissions, and hotkey. Your data is not affected.</p>
+    <h3>{$t('settings.setup.title')}</h3>
+    <p class="muted">{$t('settings.setup.intro')}</p>
     <button class="btn btn-ghost" onclick={rerunSetup} disabled={rerunning}>
-      {rerunning ? 'Resetting…' : 'Re-run setup'}
+      {rerunning ? $t('settings.setup.resetting') : $t('settings.setup.rerun')}
     </button>
   </section>
 </div>
@@ -669,18 +671,17 @@
     role="presentation"
   >
     <div class="modal danger" role="dialog" aria-modal="true" aria-labelledby="restore-title">
-      <h3 id="restore-title">Restore from backup?</h3>
+      <h3 id="restore-title">{$t('settings.backup.restore_title')}</h3>
       <p class="muted">
-        This will replace all current data — conversations, memory, skills, settings, audit log — with the contents of
-        <code>{restoreTarget.name}</code>.
+        {$t('settings.backup.restore_warning', restoreTarget.name)}
       </p>
       <p class="muted">
-        A pre-restore safety snapshot is taken automatically, so you can recover if the restored data is wrong.
+        {$t('settings.backup.restore_safety')}
       </p>
       <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" onclick={cancelRestore}>Cancel</button>
+        <button class="btn btn-ghost" type="button" onclick={cancelRestore}>{$t('common.cancel')}</button>
         <button class="btn btn-danger" type="button" onclick={() => void confirmRestore()}>
-          Replace all data and restart
+          {$t('settings.backup.replace_all')}
         </button>
       </div>
     </div>

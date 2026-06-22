@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { replay } from '../stores/replay.svelte'
+  import { t } from '../i18n'
 
   onMount(() => {
     void replay.refresh()
@@ -17,35 +18,35 @@
   async function exportVideo(): Promise<void> {
     try {
       const path = await replay.exportMP4()
-      alert(`Replay exported to:\n${path}`)
+      alert($t('replay.exported_alert', path))
     } catch {
-      alert(replay.lastError || 'Export failed')
+      alert(replay.lastError || $t('replay.export_failed'))
     }
   }
 </script>
 
 <div class="replay-page">
   <header>
-    <h2>Action Replay</h2>
-    <p class="muted">Scrub the last 24 hours of agent activity with before/after screenshots and gatekeeper outcomes.</p>
+    <h2>{$t('replay.title')}</h2>
+    <p class="muted">{$t('replay.intro')}</p>
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick={() => replay.refresh()} disabled={replay.loading}>Refresh</button>
-      <button class="btn btn-ghost" onclick={() => replay.verifyIntegrity()}>Verify chain</button>
+      <button class="btn btn-ghost" onclick={() => replay.refresh()} disabled={replay.loading}>{$t('replay.refresh')}</button>
+      <button class="btn btn-ghost" onclick={() => replay.verifyIntegrity()}>{$t('replay.verify')}</button>
       <button class="btn btn-primary" onclick={exportVideo} disabled={replay.exporting || replay.frames.length === 0}>
-        {replay.exporting ? 'Exporting…' : 'Export MP4'}
+        {replay.exporting ? $t('replay.exporting') : $t('replay.export')}
       </button>
     </div>
     {#if replay.integrity}
       <p class="integrity" class:valid={replay.integrity.valid}>
-        Chain integrity: {replay.integrity.valid ? 'valid' : 'INVALID'} ({replay.integrity.rows_checked} events checked)
+        {$t('replay.integrity', replay.integrity.valid ? $t('replay.integrity_valid') : $t('replay.integrity_invalid'), replay.integrity.rows_checked)}
       </p>
     {/if}
   </header>
 
   {#if replay.loading}
-    <p class="muted">Loading timeline…</p>
+    <p class="muted">{$t('replay.loading')}</p>
   {:else if replay.frames.length === 0}
-    <p class="muted">No replay frames in the last 24 hours.</p>
+    <p class="muted">{$t('replay.empty')}</p>
   {:else}
     <div class="scrubber">
       <input
@@ -55,7 +56,7 @@
         value={replay.selectedIndex}
         oninput={(e) => replay.selectIndex(parseInt((e.target as HTMLInputElement).value, 10))}
         class="slider"
-        aria-label="Timeline scrubber"
+        aria-label={$t('replay.scrubber_aria')}
       />
       <span class="scrub-label">{replay.selectedIndex + 1} / {replay.frames.length}</span>
     </div>
@@ -72,18 +73,18 @@
         <div class="shots">
           {#if replay.selected.before_screenshot}
             <figure>
-              <figcaption>Before</figcaption>
-              <img src="data:{replay.selected.before_screenshot_mime || 'image/png'};base64,{replay.selected.before_screenshot}" alt="Before screenshot" />
+              <figcaption>{$t('replay.before')}</figcaption>
+              <img src="data:{replay.selected.before_screenshot_mime || 'image/png'};base64,{replay.selected.before_screenshot}" alt={$t('replay.before_alt')} />
             </figure>
           {/if}
           {#if replay.selected.after_screenshot}
             <figure>
-              <figcaption>After</figcaption>
-              <img src="data:{replay.selected.after_screenshot_mime || 'image/png'};base64,{replay.selected.after_screenshot}" alt="After screenshot" />
+              <figcaption>{$t('replay.after')}</figcaption>
+              <img src="data:{replay.selected.after_screenshot_mime || 'image/png'};base64,{replay.selected.after_screenshot}" alt={$t('replay.after_alt')} />
             </figure>
           {/if}
           {#if !replay.selected.before_screenshot && !replay.selected.after_screenshot}
-            <p class="muted">No screenshots for this frame.</p>
+            <p class="muted">{$t('replay.no_screenshots')}</p>
           {/if}
         </div>
       </div>

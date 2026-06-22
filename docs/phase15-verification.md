@@ -12,11 +12,14 @@
 
 ## How to Use This Checklist
 
-1. Run each step in order on a clean machine.
-2. For each step, record: **PASS**, **FAIL**, or **N/A**.
-3. If a step fails, stop the run, file a P0/P1 issue, and re-run the checklist after the fix.
-4. Attach logs, screenshots, or screen recordings for any failure.
-5. A completed checklist with zero failures is required before declaring v0.1.0 ship-ready.
+1. Read **`docs/on-device-verification.md`** first — it has the operator
+   playbook (clean machine setup, evidence folder, execution order).
+2. Run each step in order on a clean machine.
+3. For each step, record: **PASS**, **FAIL**, or **N/A**.
+4. If a step fails, stop the run, file a P0/P1 issue, and re-run the checklist after the fix.
+5. Attach logs, screenshots, or screen recordings for any failure.
+6. A completed checklist with zero failures is required before declaring v0.1.0 ship-ready.
+7. Complete the **Sign-off** table at the bottom of this document.
 
 ---
 

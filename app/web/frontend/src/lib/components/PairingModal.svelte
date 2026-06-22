@@ -5,6 +5,7 @@
   // confirmation input. The QR encodes a JSON identity payload.
   import { onMount } from 'svelte'
   import QRCode from 'qrcode'
+  import { t } from '../i18n'
 
   interface Props {
     // This device's identity (shown as a QR for the peer to scan).
@@ -51,7 +52,7 @@
       const tick = (): void => {
         const ms = new Date(expiresAt).getTime() - Date.now()
         if (ms <= 0) {
-          remaining = 'expired'
+          remaining = $t('sync.pair.expired')
           return
         }
         const s = Math.floor(ms / 1000)
@@ -73,40 +74,39 @@
     class="pair-modal"
     role="dialog"
     aria-modal="true"
-    aria-label="Pair device"
+    aria-label={$t('sync.pair.aria_label')}
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onCancel() }}
   >
     <header>
-      <h2>Pair with {peerName}</h2>
-      <button class="close" aria-label="Close" onclick={onCancel}>&times;</button>
+      <h2>{$t('sync.pair.title', peerName)}</h2>
+      <button class="close" aria-label={$t('sync.pair.close')} onclick={onCancel}>&times;</button>
     </header>
 
     <div class="qr-area">
       {#if qrDataUrl}
-        <img class="qr" src={qrDataUrl} alt="This device's pairing identity QR code" />
+        <img class="qr" src={qrDataUrl} alt={$t('sync.pair.qr_alt')} />
       {:else}
         <div class="qr placeholder">QR</div>
       {/if}
       <p class="qr-cap">
-        This is <strong>{deviceName || 'this device'}</strong>. Scan from the other
-        device, or compare the PIN below.
+        {$t('sync.pair.qr_cap', deviceName || $t('sync.pair.this_device'))}
       </p>
     </div>
 
     <div class="pin-block">
-      <span class="pin-label">PIN on this device</span>
+      <span class="pin-label">{$t('sync.pair.pin_label')}</span>
       <span class="pin">{pin}</span>
       {#if remaining}
-        <span class="ttl" class:expired={remaining === 'expired'}>
-          {remaining === 'expired' ? 'expired' : `expires in ${remaining}`}
+        <span class="ttl" class:expired={remaining === $t('sync.pair.expired')}>
+          {remaining === $t('sync.pair.expired') ? $t('sync.pair.expired') : $t('sync.pair.expires_in', remaining)}
         </span>
       {/if}
     </div>
 
     <div class="confirm">
-      <label for="pair-pin">Enter the PIN shown on {peerName}</label>
+      <label for="pair-pin">{$t('sync.pair.confirm_label', peerName)}</label>
       <div class="confirm-row">
         <input
           id="pair-pin"
@@ -118,7 +118,7 @@
           onkeydown={(e) => { if (e.key === 'Enter' && confirmReady) onConfirm(entered.trim()) }}
         />
         <button class="confirm-btn" disabled={!confirmReady || busy} onclick={() => onConfirm(entered.trim())}>
-          {busy ? 'Pairing…' : 'Confirm'}
+          {busy ? $t('sync.pair.busy') : $t('sync.pair.confirm')}
         </button>
       </div>
     </div>

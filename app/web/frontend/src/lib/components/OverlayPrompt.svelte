@@ -9,6 +9,7 @@
   import { conversation } from '../stores/conversation.svelte'
   import { overlay } from '../stores/overlay.svelte'
   import { settings } from '../stores/settings.svelte'
+  import { t } from '../i18n'
 
   let inputText = $state('')
   let sending = $state(false)
@@ -59,7 +60,7 @@
     <input
       type="text"
       class="overlay-input"
-      placeholder="Ask Condura..."
+      placeholder={$t('overlay.placeholder')}
       bind:value={inputText}
       onkeydown={onKeydown}
       disabled={sending || !firstEnabled}
@@ -70,7 +71,7 @@
       type="button"
       onclick={() => void submit()}
       disabled={!inputText.trim() || sending || !firstEnabled}
-      aria-label="Send"
+      aria-label={$t('overlay.send')}
     >
       ↵
     </button>
@@ -78,16 +79,16 @@
       class="overlay-close"
       type="button"
       onclick={() => overlay.hide()}
-      aria-label="Close overlay"
+      aria-label={$t('overlay.close')}
     >
       ×
     </button>
   </div>
   <div class="overlay-meta">
     {#if firstEnabled}
-      via <code>{firstEnabled.name}</code> / <code>{firstEnabled.model}</code>
+      {$t('overlay.via', firstEnabled.name, firstEnabled.model)}
     {:else}
-      No provider configured — open Settings to add one.
+      {$t('overlay.no_provider')}
     {/if}
   </div>
 </div>

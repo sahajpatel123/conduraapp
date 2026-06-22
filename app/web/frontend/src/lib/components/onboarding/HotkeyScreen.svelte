@@ -1,6 +1,7 @@
 <script lang="ts">
   import HotkeyRecorder from '../HotkeyRecorder.svelte'
   import { onboarding } from '../../stores/onboarding.svelte'
+  import { t } from '../../i18n'
 
   // Pre-fill from any previously recorded value (e.g. user went
   // back from the Ready screen). No silent default per locked
@@ -24,9 +25,9 @@
 </script>
 
 <div class="wizard hotkey">
-  <h2>Set your hotkey</h2>
+  <h2>{$t('onboarding.hotkey.title')}</h2>
   <p class="muted">
-    Press the keys you want to use to summon Condura from anywhere. You can change this later in Settings.
+    {$t('onboarding.hotkey.intro')}
   </p>
 
   <HotkeyRecorder value={combo} {onRecord} />
@@ -36,9 +37,9 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-ghost" onclick={back} disabled={onboarding.busy}>← Back</button>
+    <button class="btn btn-ghost" onclick={back} disabled={onboarding.busy}>← {$t('onboarding.hotkey.back')}</button>
     <button class="btn btn-primary" onclick={cont} disabled={!canContinue}>
-      {onboarding.busy ? 'Saving…' : 'Continue →'}
+      {onboarding.busy ? $t('onboarding.hotkey.saving') : $t('onboarding.hotkey.continue')}
     </button>
   </div>
 </div>

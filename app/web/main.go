@@ -57,12 +57,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Run the daemon in a goroutine. ctx is canceled on SIGINT/SIGTERM,
-	// which triggers a graceful shutdown inside daemon.Run.
+	// Run the daemon in a goroutine. ctx is canceled on SIGINT/SIGTERM
+	// OR when the tray's Quit menu item is picked (via
+	// appInstance.quitCancel). Either path triggers a graceful
+	// shutdown inside daemon.Run.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	appInstance = NewApp()
+	appInstance.quitCancel = cancel
 
 	go func() {
 		subs, err := daemon.Run(ctx, daemon.Options{
@@ -85,6 +88,20 @@ func main() {
 		// Process any OAuth callbacks that arrived before the
 		// daemon was ready.
 		processPendingOAuth()
+
+		// Swap the daemon's noop overlay controller for the
+		// real Wails-backed one. The conductor's onShow/onHide
+		// callbacks and any daemon-side overlay RPC (overlay.show
+		// etc.) now drive the actual Wails window instead of a
+		// headless state machine. The Wails runtime context is
+		// wired in App.startup (it doesn't exist yet here);
+		// the controller guards on a nil context until then.
+		subs.SetOverlay(appInstance.overlayCtrl)
+
+		// Start the system tray (menu-bar icon on macOS, task
+		// tray on Windows). After this point the user has both
+		// the GUI window and a tray icon to control the app.
+		appInstance.startTray(ctx, subs)
 
 		// Wire the conductor (hotkey → overlay toggle) once the
 		// daemon is ready. The conductor's onShow/onHide callbacks

@@ -3,8 +3,9 @@
   import { ipc } from '../../ipc/client'
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { EULADocument } from '../../ipc/types'
+  import { t } from '../../i18n'
 
-  const EULA_TITLE = 'Condura Freeware License'
+  const EULA_TITLE = $derived($t('onboarding.eula.title'))
 
   let doc = $state<EULADocument | null>(null)
   let loading = $state(true)
@@ -48,17 +49,17 @@
 </script>
 
 <div class="wizard eula">
-  <h1>Welcome to Condura</h1>
-  <p class="lede">A free, on-device AI agent. Before we set things up, please review and accept the license.</p>
+  <h1>{$t('onboarding.eula.welcome')}</h1>
+  <p class="lede">{$t('onboarding.eula.intro')}</p>
 
   {#if loading}
-    <p class="muted">Loading the license…</p>
+    <p class="muted">{$t('onboarding.eula.loading')}</p>
   {:else if loadError}
-    <p class="error">Could not load the EULA: {loadError}</p>
+    <p class="error">{$t('onboarding.eula.load_error', loadError)}</p>
   {:else if doc}
     <div class="eula-meta">
       <strong>{EULA_TITLE}</strong>
-      <span class="version">{doc.version}{doc.updated_at ? ` · updated ${doc.updated_at}` : ''}</span>
+      <span class="version">{doc.version}{doc.updated_at ? ` · ${$t('onboarding.eula.updated', doc.updated_at)}` : ''}</span>
     </div>
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -68,13 +69,13 @@
       onscroll={checkScroll}
       tabindex="0"
       role="document"
-      aria-label="End User License Agreement"
+      aria-label={$t('onboarding.eula.aria_label')}
     >
       <pre>{doc.text}</pre>
     </div>
 
     {#if !scrolledToBottom}
-      <p class="scroll-cue">Scroll to the bottom to continue ↓</p>
+      <p class="scroll-cue">{$t('onboarding.eula.scroll_cue')}</p>
     {/if}
 
     <label class="checkbox" class:disabled={!scrolledToBottom}>
@@ -84,7 +85,7 @@
         disabled={!scrolledToBottom}
         onchange={(e) => (accepted = (e.target as HTMLInputElement).checked)}
       />
-      <span>I have read and accept the {EULA_TITLE}.</span>
+      <span>{$t('onboarding.eula.accept', EULA_TITLE)}</span>
     </label>
   {/if}
 
@@ -94,7 +95,7 @@
 
   <div class="actions center">
     <button class="btn btn-primary" onclick={accept} disabled={!canAccept}>
-      {onboarding.busy ? 'Saving…' : 'I Accept'}
+      {onboarding.busy ? $t('onboarding.eula.saving') : $t('onboarding.eula.accept_button')}
     </button>
   </div>
 </div>

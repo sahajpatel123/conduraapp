@@ -10,6 +10,7 @@
   // empty, we show a setup hint instead of dead buttons.
   import { account } from '../stores/account.svelte'
   import type { AccountProvider } from '../ipc/types'
+  import { t } from '../i18n'
 
   interface Props {
     onClose?: () => void
@@ -77,19 +78,18 @@
     class="signin-panel"
     role="dialog"
     aria-modal="true"
-    aria-label="Sign in to Condura"
+    aria-label={$t('account.signin.aria_label')}
     tabindex="-1"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
   >
     <header>
-      <h2>Sign in</h2>
-      <button class="close" aria-label="Close" onclick={() => onClose?.()}>&times;</button>
+      <h2>{$t('account.signin.title')}</h2>
+      <button class="close" aria-label={$t('account.signin.close')} onclick={() => onClose?.()}>&times;</button>
     </header>
 
     <p class="lead">
-      Condura works fully without an account. Sign in to sync settings across
-      devices, publish skills, and back up encrypted to the cloud.
+      {$t('account.signin.lead')}
     </p>
 
     {#if hasProviders}
@@ -101,23 +101,19 @@
             disabled={account.loading}
           >
             <span class="p-icon" aria-hidden="true">{providerLabel(p).charAt(0)}</span>
-            Continue with {providerLabel(p)}
+            {$t('account.signin.continue_with', providerLabel(p))}
           </button>
         {/each}
       </div>
-      <div class="divider"><span>or</span></div>
+      <div class="divider"><span>{$t('account.signin.or')}</span></div>
     {:else}
       <p class="setup-hint">
-        Sign in with OAuth isn't configured on this machine. Either enter your
-        email below for a magic link, or ask your admin to set
-        <code>CONDURA_ACCOUNT_OAUTH_GOOGLE_CLIENT_ID</code> (and/or
-        <code>…_GITHUB_CLIENT_ID</code>, <code>…_APPLE_CLIENT_ID</code>) and
-        restart Condura.
+        {$t('account.signin.setup_hint')}
       </p>
     {/if}
 
     <div class="magic">
-      <label for="signin-email">Email magic link</label>
+      <label for="signin-email">{$t('account.signin.magic_label')}</label>
       <div class="magic-row">
         <input
           id="signin-email"
@@ -128,21 +124,20 @@
           onkeydown={(e) => { if (e.key === 'Enter') withEmail() }}
         />
         <button class="send" onclick={withEmail} disabled={!emailValid || account.loading}>
-          {account.loading ? 'Sending…' : 'Send link'}
+          {account.loading ? $t('account.signin.sending') : $t('account.signin.send_link')}
         </button>
       </div>
     </div>
 
     {#if magicSent}
-      <p class="ok">Check your inbox — we sent a one-time sign-in link to {email}.</p>
+      <p class="ok">{$t('account.signin.check_inbox', email)}</p>
     {/if}
     {#if account.error}
       <p class="err">{account.error}</p>
     {/if}
 
     <p class="fineprint">
-      By continuing you agree to the End-User License Agreement. Your local data
-      never leaves your machine unless you enable sync.
+      {$t('account.signin.fineprint')}
     </p>
   </div>
 </div>

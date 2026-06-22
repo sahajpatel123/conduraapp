@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
   import PublishModal from '../components/PublishModal.svelte'
+  import { t } from '../i18n'
 
   let showPublish = $state(false)
   let query = $state('')
@@ -19,7 +20,7 @@
       results = r.skills || []
       cursor = 0
       if (results.length === 0) {
-        error = `no skills matched "${query}"`
+        error = $t('hub.no_results', query)
       }
     } catch (e) {
       error = String(e)
@@ -29,7 +30,7 @@
   }
 
   async function install(id: string) {
-    if (!confirm(`Install skill ${id}?`)) return
+    if (!confirm($t('hub.install_confirm', id))) return
     try {
       await ipc.hubInstall(id)
       installed.add(id)
@@ -46,24 +47,24 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="hub-page" onkeydown={onKey} role="region" aria-label="Skills Hub">
+<div class="hub-page" onkeydown={onKey} role="region" aria-label={$t('hub.aria_label')}>
   <header class="hub-header">
     <div>
-      <h2>Skills Hub</h2>
-      <p class="muted">Search, install, and publish community skills.</p>
+      <h2>{$t('hub.title')}</h2>
+      <p class="muted">{$t('hub.intro')}</p>
     </div>
-    <button class="publish-btn" onclick={() => (showPublish = true)}>+ Publish a Skill</button>
+    <button class="publish-btn" onclick={() => (showPublish = true)}>+ {$t('hub.publish_button')}</button>
   </header>
 
   <div class="search-bar">
     <input
       type="text"
-      placeholder="Search skills…"
+      placeholder={$t('hub.search_placeholder')}
       bind:value={query}
       onkeydown={(e) => { if (e.key === 'Enter') search() }}
     />
     <button onclick={search} disabled={loading || !query.trim()}>
-      {loading ? 'Searching…' : 'Search'}
+      {loading ? $t('hub.searching') : $t('hub.search')}
     </button>
   </div>
 
@@ -82,13 +83,13 @@
             <span class="trust">[{r.trust}]</span>
             <span class="spacer"></span>
             {#if installed.has(r.id)}
-              <span class="installed">installed ✓</span>
+              <span class="installed">{$t('hub.installed')}</span>
             {:else}
-              <button onclick={(e) => { e.stopPropagation(); install(r.id) }}>install</button>
+              <button onclick={(e) => { e.stopPropagation(); install(r.id) }}>{$t('hub.install')}</button>
             {/if}
           </div>
           <div class="meta">
-            <span class="author">by {r.author}</span>
+            <span class="author">{$t('hub.by', r.author)}</span>
             <span class="id mono">{r.id}</span>
           </div>
           {#if r.description}
@@ -101,9 +102,7 @@
 
   <footer>
     <p class="muted">
-      All installs are safety-scanned (dangerous patterns, missing license, experimental trust)
-      and verified by SHA-256 checksum. Press <kbd>Enter</kbd> in the search box to run a query;
-      <kbd>↑</kbd> / <kbd>↓</kbd> to navigate.
+      {$t('hub.footer')}
     </p>
   </footer>
 </div>

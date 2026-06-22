@@ -3,6 +3,7 @@
   import { ipc } from '../../ipc/client'
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { PermissionStatus, PermissionGuide } from '../../ipc/types'
+  import { t } from '../../i18n'
 
   // Only the two permissions computer-use actually needs up front.
   // Microphone / automation / notifications live in Settings and
@@ -13,9 +14,12 @@
     accessibility: 'Accessibility',
     screen_recording: 'Screen Recording'
   }
-  const WHY: Record<string, string> = {
-    accessibility: 'Lets Condura click, type, and read UI elements in other apps.',
-    screen_recording: 'Lets Condura see your screen to understand what to do.'
+  const WHY_ACCESSIBILITY = $derived($t('onboarding.permissions.why_accessibility'))
+  const WHY_SCREEN = $derived($t('onboarding.permissions.why_screen_recording'))
+  function whyFor(kind: string): string {
+    if (kind === 'accessibility') return WHY_ACCESSIBILITY
+    if (kind === 'screen_recording') return WHY_SCREEN
+    return ''
   }
 
   let statuses = $state<PermissionStatus[]>([])
@@ -61,7 +65,7 @@
       guide = {
         kind,
         platform: '',
-        title: `Grant ${LABELS[kind] ?? kind}`,
+        title: $t('onboarding.permissions.grant_title', LABELS[kind] ?? kind),
         steps: [String(err)]
       }
     }
@@ -84,10 +88,9 @@
 </script>
 
 <div class="wizard perms">
-  <h2>Grant access</h2>
+  <h2>{$t('onboarding.permissions.title')}</h2>
   <p class="muted">
-    Condura needs two permissions to control your computer. Grant them now for the full experience, or skip and enable
-    later in Settings.
+    {$t('onboarding.permissions.intro')}
   </p>
 
   <div class="perm-list">
@@ -97,9 +100,9 @@
           <span class="perm-name">{LABELS[row.kind] ?? row.kind}</span>
           <span class="badge {badgeClass(row.status)}">{row.status}</span>
         </div>
-        <p class="perm-why">{WHY[row.kind] ?? ''}</p>
+        <p class="perm-why">{whyFor(row.kind)}</p>
         {#if row.status !== 'granted'}
-          <button class="btn btn-secondary" onclick={() => openSettings(row.kind)}>Open System Settings</button>
+          <button class="btn btn-secondary" onclick={() => openSettings(row.kind)}>{$t('onboarding.permissions.open_settings')}</button>
         {/if}
       </div>
     {/each}
@@ -114,9 +117,9 @@
         {/each}
       </ol>
       {#if guide.help_url}
-        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">More help</a>
+        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">{$t('onboarding.permissions.more_help')}</a>
       {/if}
-      <button class="btn btn-ghost small" onclick={() => (guide = null)}>Close</button>
+      <button class="btn btn-ghost small" onclick={() => (guide = null)}>{$t('onboarding.permissions.close')}</button>
     </div>
   {/if}
 
@@ -125,9 +128,9 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>Skip for now</button>
+    <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>{$t('onboarding.permissions.skip')}</button>
     <button class="btn btn-primary" onclick={cont} disabled={onboarding.busy}>
-      {allGranted ? 'Continue' : 'Continue anyway'} →
+      {(allGranted ? $t('onboarding.permissions.continue') : $t('onboarding.permissions.continue_anyway'))} →
     </button>
   </div>
 </div>

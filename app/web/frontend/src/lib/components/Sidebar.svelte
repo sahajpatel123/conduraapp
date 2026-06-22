@@ -4,6 +4,7 @@
   import { onMount } from 'svelte'
   import SignInPanel from './SignInPanel.svelte'
   import AccountMenu from './AccountMenu.svelte'
+  import { t } from '../i18n'
 
   let currentHash: string = $state('')
   let showSignIn = $state(false)
@@ -20,7 +21,7 @@
   })
 
   async function startNew(): Promise<void> {
-    await conversation.createNew('New conversation')
+    await conversation.createNew($t('sidebar.new_conversation'))
   }
 
   async function openExisting(id: number): Promise<void> {
@@ -28,7 +29,7 @@
   }
 
   async function deleteCurrent(): Promise<void> {
-    if (confirm('Delete this conversation? This cannot be undone.')) {
+    if (confirm($t('sidebar.delete_confirm'))) {
       await conversation.deleteCurrent()
     }
   }
@@ -42,7 +43,7 @@
         href="#/"
         class="rail-icon"
         class:active={currentHash === '#/' || currentHash === '#' || currentHash === ''}
-        title="Chat"
+        title={$t('sidebar.nav.chat')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h12a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V6a2 2 0 012-2z"/></svg>
@@ -51,7 +52,7 @@
         href="#/audit"
         class="rail-icon"
         class:active={currentHash === '#/audit'}
-        title="Audit"
+        title={$t('sidebar.nav.audit')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 3v5c0 4-3 6.5-7 8-4-1.5-7-4-7-8V5l7-3z"/></svg>
@@ -60,7 +61,7 @@
         href="#/replay"
         class="rail-icon"
         class:active={currentHash === '#/replay'}
-        title="Replay"
+        title={$t('sidebar.nav.replay')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
@@ -69,7 +70,7 @@
         href="#/hub"
         class="rail-icon"
         class:active={currentHash === '#/hub'}
-        title="Skills Hub"
+        title={$t('sidebar.nav.skills_hub')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l7-4 7 4-7 4-7-4zM3 7v6l7 4M17 7v6l-7 4"/></svg>
@@ -78,7 +79,7 @@
         href="#/skills"
         class="rail-icon"
         class:active={currentHash === '#/skills'}
-        title="Skills"
+        title={$t('sidebar.nav.skills')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l6 2 6-2-2 12-4 2-4-2L4 4z"/><path d="M10 6v12"/></svg>
@@ -87,7 +88,7 @@
         href="#/sync"
         class="rail-icon"
         class:active={currentHash === '#/sync'}
-        title="P2P Sync"
+        title={$t('sidebar.nav.sync')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
@@ -96,7 +97,7 @@
         href="#/channels"
         class="rail-icon"
         class:active={currentHash === '#/channels'}
-        title="Channels"
+        title={$t('sidebar.nav.channels')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
@@ -105,7 +106,7 @@
         href="#/delegation"
         class="rail-icon"
         class:active={currentHash === '#/delegation'}
-        title="Sub-agents"
+        title={$t('sidebar.nav.delegation')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
@@ -114,7 +115,7 @@
         href="#/settings"
         class="rail-icon"
         class:active={currentHash === '#/settings'}
-        title="Settings"
+        title={$t('sidebar.nav.settings')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 1v2m0 14v2m-7-9h2m14 0h2m-3.5-5.5-1.4 1.4m-8.2 8.2-1.4 1.4m0-11-1.4 1.4m8.2 8.2 1.4 1.4"/></svg>
@@ -123,7 +124,7 @@
         href="#/about"
         class="rail-icon"
         class:active={currentHash === '#/about'}
-        title="About"
+        title={$t('sidebar.nav.about')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 9v4m0-7h0"/></svg>
@@ -131,7 +132,7 @@
     </div>
 
     <div class="rail-bottom">
-      <button class="rail-new-btn" onclick={startNew} title="New conversation">
+      <button class="rail-new-btn" onclick={startNew} title={$t('sidebar.new_conversation')}>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4v12m-6-6h12"/></svg>
       </button>
     </div>
@@ -140,12 +141,12 @@
   <!-- Conversation Drawer -->
   <div class="drawer">
     <div class="drawer-header">
-      <span class="drawer-label">History</span>
+      <span class="drawer-label">{$t('sidebar.history')}</span>
     </div>
 
     <div class="conversation-list">
       {#if conversation.conversations.length === 0}
-        <p class="empty">No conversations yet.<br />Click <strong>+</strong> to start.</p>
+        <p class="empty">{$t('sidebar.empty')}</p>
       {/if}
       {#each conversation.conversations as c (c.id)}
         <button
@@ -154,7 +155,7 @@
           onclick={() => openExisting(c.id)}
         >
           <span class="title">{c.title}</span>
-          <span class="meta">{c.message_count} msg · {new Date(c.updated_at).toLocaleDateString()}</span>
+          <span class="meta">{$t('sidebar.msg_count', c.message_count)} · {new Date(c.updated_at).toLocaleDateString()}</span>
         </button>
       {/each}
     </div>
@@ -163,7 +164,7 @@
       <div class="drawer-footer">
         <button class="btn-delete" onclick={deleteCurrent}>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
-          Delete current
+          {$t('sidebar.delete_current')}
         </button>
       </div>
     {/if}
@@ -171,7 +172,7 @@
     <!-- Account footer (Phase 14B) -->
     <div class="account-footer">
       {#if account.isSignedIn}
-        <button class="account-chip" onclick={() => (showAccountMenu = true)} title="Account">
+        <button class="account-chip" onclick={() => (showAccountMenu = true)} title={$t('sidebar.account')}>
           {#if account.avatarURL}
             <img class="chip-avatar" src={account.avatarURL} alt="" />
           {:else}
@@ -180,7 +181,7 @@
           <span class="chip-email">{account.email || account.displayName}</span>
         </button>
       {:else}
-        <button class="signin-link" onclick={() => (showSignIn = true)}>Sign in</button>
+        <button class="signin-link" onclick={() => (showSignIn = true)}>{$t('sidebar.signin')}</button>
       {/if}
     </div>
   </div>

@@ -11,9 +11,9 @@ COMMIT="${COMMIT:-$(git rev-parse HEAD 2>/dev/null || echo none)}"
 BUILD_DATE="${BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 
 LDFLAGS="-s -w \
-  -X github.com/sahajpatel123/conduraapp/internal/version.Version=${VERSION} \
-  -X github.com/sahajpatel123/conduraapp/internal/version.Commit=${COMMIT} \
-  -X github.com/sahajpatel123/conduraapp/internal/version.BuildDate=${BUILD_DATE}"
+  -X github.com/sahajpatel123/synapticapp/internal/version.Version=${VERSION} \
+  -X github.com/sahajpatel123/synapticapp/internal/version.Commit=${COMMIT} \
+  -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate=${BUILD_DATE}"
 
 OUT_DIR="${ROOT}/dist/prebuilt"
 EXT=""

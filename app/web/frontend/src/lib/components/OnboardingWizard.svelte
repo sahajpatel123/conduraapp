@@ -5,6 +5,7 @@
   import PermissionsScreen from './onboarding/PermissionsScreen.svelte'
   import HotkeyScreen from './onboarding/HotkeyScreen.svelte'
   import ReadyScreen from './onboarding/ReadyScreen.svelte'
+  import { t } from '../i18n'
 
   interface Props {
     // Invoked when the wizard completes. The parent (App) hides
@@ -35,7 +36,7 @@
   </div>
 
   {#if onboarding.loading && !onboarding.daemon}
-    <div class="loading">Loading…</div>
+    <div class="loading">{$t('onboarding.loading')}</div>
   {:else if onboarding.currentStep === 'eula'}
     <EulaScreen />
   {:else if onboarding.currentStep === 'permissions'}

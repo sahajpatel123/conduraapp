@@ -12,8 +12,8 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/conductor"
 	"github.com/sahajpatel123/synapticapp/internal/daemon"
 	"github.com/sahajpatel123/synapticapp/internal/hotkey"
+	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/presence"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App is the Wails app struct. Methods on this struct are bound to
@@ -25,19 +25,42 @@ type App struct {
 	// true = compact overlay (frameless, always-on-top, transparent).
 	overlay atomic.Bool
 
+	// overlayCtrl is the Wails-backed overlay controller. Set
+	// in NewApp() so main.go can register it with the daemon's
+	// Subsystems before wails.Run() takes over. The Wails
+	// runtime context is wired into the controller in startup().
+	overlayCtrl *wailsController
+
 	// conductor is the hotkey → overlay toggle. Started once the
 	// daemon is ready. Nil until then.
 	conductor *conductor.Conductor
-}// NewApp creates a new App application struct.
+
+	// quitCancel triggers a clean shutdown. Wired in main.go
+	// to the same context the daemon goroutine runs under.
+	// Called from the tray's Quit menu item and from
+	// beforeClose when the user closes the window.
+	quitCancel context.CancelFunc
+}
+
+// NewApp creates a new App application struct. The overlayCtrl
+// is constructed here so main.go can pass it to daemon.Run via
+// subs.SetOverlay before the Wails runtime context exists.
 func NewApp() *App {
-	return &App{}
+	return &App{
+		overlayCtrl: newWailsController(),
+	}
 }
 
 // startup is called when the Wails app starts. The context is
-// saved so we can call Wails runtime methods.
+// saved so we can call Wails runtime methods, AND it's wired
+// into the overlay controller so Show/Hide actually drive the
+// Wails window.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	diagLog("startup: Wails app started")
+	if a.overlayCtrl != nil {
+		a.overlayCtrl.SetContext(ctx)
+	}
+	diagLog("startup: Wails app started; overlay controller wired")
 }
 
 // domReady is called when the WebView has finished loading the
@@ -95,32 +118,35 @@ type DaemonStatusResult struct {
 	Addr  string `json:"addr"`
 }
 
-// ShowOverlay switches the main window into overlay mode: frameless,
-// always-on-top, semi-transparent. The frontend (Svelte) is
-// responsible for collapsing its own UI to a compact prompt bar.
+// ShowOverlay switches the main window into overlay mode:
+// compact (620x88), always-on-top, semi-transparent. Delegates
+// to the wailsController so the resize + always-on-top +
+// background-color + (optional) center-on-screen all happen
+// in one place. The frontend (Svelte) is also responsible for
+// collapsing its own UI to the compact prompt bar via the
+// OverlayPrompt component.
 //
 // Safe to call from any goroutine.
 func (a *App) ShowOverlay() {
-	if a.ctx == nil {
-		return
-	}
 	a.overlay.Store(true)
-	wailsruntime.WindowSetAlwaysOnTop(a.ctx, true)
-	// 0 = fully transparent. We want translucent, so the user can
-	// still see the desktop behind. macOS treats A<255 as
-	// compositing; we land on 230/255 = ~10% transparency.
-	wailsruntime.WindowSetBackgroundColour(a.ctx, 18, 18, 22, 230)
+	if a.overlayCtrl != nil {
+		// AtCursor=false → keep the window at its previous
+		// position. The Svelte-initiated toggle path is
+		// "I'm already at the spot I want"; the conductor
+		// uses AtCursor=true so it appears at a consistent
+		// location each press.
+		_ = a.overlayCtrl.Show(context.Background(), overlay.ShowOpts{AtCursor: false})
+	}
 }
 
-// HideOverlay switches the main window back to normal mode: framed,
-// not always-on-top, fully opaque.
+// HideOverlay switches the main window back to normal mode:
+// 1200x800, not always-on-top, fully opaque. Delegates to the
+// controller for symmetry with ShowOverlay.
 func (a *App) HideOverlay() {
-	if a.ctx == nil {
-		return
-	}
 	a.overlay.Store(false)
-	wailsruntime.WindowSetAlwaysOnTop(a.ctx, false)
-	wailsruntime.WindowSetBackgroundColour(a.ctx, 18, 18, 22, 255)
+	if a.overlayCtrl != nil {
+		_ = a.overlayCtrl.Hide()
+	}
 }
 
 // IsOverlay reports whether the window is currently in overlay

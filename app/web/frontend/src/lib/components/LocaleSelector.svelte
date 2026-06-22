@@ -22,7 +22,7 @@
 <select
 	bind:value={$locale}
 	class="locale-select"
-	aria-label="Select language"
+	aria-label={$t('locale.selector.aria_label')}
 >
 	{#each SUPPORTED_LOCALES as loc}
 		<option value={loc}>{localeNames[loc]}</option>

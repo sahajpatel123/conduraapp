@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
+  import { t } from '../i18n'
 
   let version = $state<{ version: string; commit: string; build_date: string; go_version: string; platform: string } | null>(null)
   let health = $state<{ overall: string; checks: Array<{ name: string; state: string; message: string }> } | null>(null)
@@ -21,29 +22,29 @@
 
 <div class="about-page">
   <header>
-    <h2>About Condura</h2>
-    <p class="muted"><em>A free, on-device AI agent.</em></p>
+    <h2>{$t('about.title')}</h2>
+    <p class="muted"><em>{$t('about.tagline')}</em></p>
   </header>
 
   <div class="divider"></div>
 
   <section class="card">
-    <h3>Version</h3>
+    <h3>{$t('about.version')}</h3>
     {#if version}
       <div class="kv"><span class="k">Condura</span><span class="v">{version.version}</span></div>
-      <div class="kv"><span class="k">Commit</span><span class="v mono">{version.commit}</span></div>
-      <div class="kv"><span class="k">Built</span><span class="v">{version.build_date}</span></div>
+      <div class="kv"><span class="k">{$t('about.commit')}</span><span class="v mono">{version.commit}</span></div>
+      <div class="kv"><span class="k">{$t('about.built')}</span><span class="v">{version.build_date}</span></div>
       <div class="kv"><span class="k">Go</span><span class="v mono">{version.go_version}</span></div>
-      <div class="kv"><span class="k">Platform</span><span class="v mono">{version.platform}</span></div>
+      <div class="kv"><span class="k">{$t('about.platform')}</span><span class="v mono">{version.platform}</span></div>
     {:else}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Daemon health</h3>
+    <h3>{$t('about.daemon_health')}</h3>
     {#if health}
-      <p>Overall: <strong class="health-{health.overall}">{health.overall}</strong></p>
+      <p>{$t('about.overall')} <strong class="health-{health.overall}">{health.overall}</strong></p>
       <ul class="check-list">
         {#each health.checks as c}
           <li>
@@ -54,16 +55,16 @@
         {/each}
       </ul>
     {:else}
-      <p class="muted">Loading…</p>
+      <p class="muted">{$t('common.loading')}</p>
     {/if}
   </section>
 
   <section class="card">
-    <h3>Links</h3>
+    <h3>{$t('about.links')}</h3>
     <ul class="links">
-      <li><a href="https://github.com/sahajpatel123/conduraapp" target="_blank" rel="noreferrer">GitHub repository</a></li>
+      <li><a href="https://github.com/sahajpatel123/conduraapp" target="_blank" rel="noreferrer">{$t('about.github')}</a></li>
       <li><a href="https://condura.app" target="_blank" rel="noreferrer">condura.app</a></li>
-      <li><a href="https://hub.condura.app" target="_blank" rel="noreferrer">Skills Hub</a></li>
+      <li><a href="https://hub.condura.app" target="_blank" rel="noreferrer">{$t('about.skills_hub')}</a></li>
     </ul>
   </section>
 </div>

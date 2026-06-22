@@ -6,6 +6,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { ipc } from '../ipc/client'
+  import { t } from '../i18n'
 
   type OrbState = 'idle' | 'listening' | 'speaking'
 
@@ -56,7 +57,7 @@
   <div class="orb-ring ring-2"></div>
   <div class="orb-ring ring-3"></div>
   {#if state !== 'idle'}
-    <span class="orb-label">{state === 'listening' ? 'Listening' : 'Speaking'}</span>
+    <span class="orb-label">{state === 'listening' ? $t('voice.orb.listening') : $t('voice.orb.speaking')}</span>
   {/if}
 </div>
 
