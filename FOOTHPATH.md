@@ -340,3 +340,65 @@ this one. The format is:
 Do not edit a previous FOOTHPATH entry after it's been
 appended. The audit trail is the value; rewriting history
 breaks the contract with the next agent.
+
+## FOOTHPATH 2 — UI Ship-Gaps Closed (Overlay, Restore, svelte-check, Tool Calls)
+
+**Captured:** 2026-06-22
+**Branch:** main @ `c2eab5c`
+**Scope:** 4 production commits closed every v0.1.0 UI gap
+called out in the user's readiness summary except i18n locale
+files (deferred to v0.2.0 Crowdin sync).
+
+### 1. The One-Line Status
+> v0.1.0 is now UI-feature-complete except for translations:
+> overlay sends, restore works, svelte-check is silent, tool
+> calls render. Backend, frontend, build, lint, tests all
+> green.
+
+### 2. What Is Different From FOOTHPATH 1
+- `app/web/frontend/src/lib/components/OverlayPrompt.svelte`
+  (new, 192 lines) — primary UX entry point now sends
+  messages via the conversation store.
+- `app/web/frontend/src/App.svelte` shrunk 300 → 231 lines;
+  inline overlay markup + 50 lines of CSS gone.
+- `app/web/frontend/src/lib/ipc/{types,client}.ts` —
+  `backupRestore(path)` typed RPC exposed.
+- `app/web/frontend/src/lib/routes/Settings.svelte` —
+  Restore button per backup row + destructive-action
+  confirmation modal (Escape closes, role=dialog, aria-modal).
+- `app/web/frontend/src/lib/stores/conversation.svelte.ts`
+  + `app/web/frontend/src/lib/routes/Chat.svelte` — tool calls
+  rendered as `<details>` blocks (persisted) and pills
+  (streaming).
+- `svelte-check`: 1 error + 11 warnings → 0 errors, 0 warnings.
+  Fixes spanned 11 files (3 CSS background-clip, 7 a11y, 1 TS).
+- LOGBOOK.md gains a 163-line Phase 18 UI ship-gaps entry.
+
+### 3. How To Verify This Status Yourself (in 60 seconds)
+```bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+go test -count=1 -race -timeout 120s ./internal/...   # 61 packages, 0 fail
+cd app/web/frontend
+./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json  # 0 errors, 0 warnings
+npx vite build                                          # 265 modules, 0 errors
+cd "$(git rev-parse --show-toplevel)"
+go build -o /tmp/condurad ./cmd/condurad
+/tmp/condurad -print-default-config > /tmp/c.yaml
+rm -rf /tmp/data && /tmp/condurad -config /tmp/c.yaml -data-dir /tmp/data -listen "tcp://127.0.0.1:18700" &
+DPID=$!; sleep 2
+curl -sf -X POST http://127.0.0.1:18700/api -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ping","params":{}}' | grep -q '"pong":true'
+kill $DPID; rm -rf /tmp/data /tmp/c.yaml /tmp/condurad
+echo "FOOTHPATH 2 self-test: PASS"
+```
+
+### 4. What's Open (unchanged from FOOTHPATH 1 + new i18n note)
+- v0.2.0 backlog unchanged (Layer 3, MCP UI, Crowdin, Hub,
+  Dashboard, file.* dispatch, vision CUA, non-macOS voice).
+- i18n locale JSON files do not exist yet; `i18n.ts` fetch
+  404s and falls back to {} catalogs. English-only for
+  v0.1.0 (the LLM responds in user's language regardless).
+  v0.2.0 adds Crowdin sync + first-class locale catalogs.
+- On-device verification on clean macOS machine is the human's
+  next action per `docs/on-device-verification.md`.
