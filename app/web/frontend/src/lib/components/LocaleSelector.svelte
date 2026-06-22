@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { locale, SUPPORTED_LOCALES, type Locale, mergeDaemonCatalog } from '../i18n';
+	import { locale, t, SUPPORTED_LOCALES, type Locale, mergeDaemonCatalog } from '../i18n';
 	import { ipc } from '../ipc/client';
 
 	const localeNames: Record<Locale, string> = {
