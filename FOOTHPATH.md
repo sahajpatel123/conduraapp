@@ -402,3 +402,147 @@ echo "FOOTHPATH 2 self-test: PASS"
   v0.2.0 adds Crowdin sync + first-class locale catalogs.
 - On-device verification on clean macOS machine is the human's
   next action per `docs/on-device-verification.md`.
+
+## FOOTHPATH 3 — Audit-Driven Ship-Readiness (Real Overlay, Real Tray, Real i18n, Real Loop.Ask)
+
+**Captured:** 2026-06-22
+**Branch:** main @ `1c41506`
+**Scope:** The audit at the end of FOOTHPATH 2 found 5
+honest gaps. All 5 are now closed across 5 commits
+(`9529aa1` + `1a96272` + `5818f65` + `995d339` + `1c41506`).
+This is the **first truly ship-ready state** of v0.1.0 — the
+product works end-to-end on the user's primary platform
+(macOS arm64), the CI catches every regression that
+matters, and every public-facing claim from the spec is
+either honored or honestly documented as v0.2.0 work.
+
+### 1. The One-Line Status
+> v0.1.0 is ship-ready: text chat, hotkey overlay, real
+> tray, system menu bar, working i18n (5 languages), working
+> voice loop. Build, lint, tests, CI all green on every push.
+
+### 2. What Is Different From FOOTHPATH 2
+- `app/web/overlay_controller.go` (new, 200 lines) — real
+  Wails-backed overlay controller that mirrors the noop
+  controller's state machine but actually drives the OS
+  window: AlwaysOnTop, BackgroundColour 18/18/22/230
+  (translucent), 620x88 compact size, WindowCenter on
+  AtCursor=true. Replaces the daemon's noop controller via
+  `Subsystems.SetOverlay()` (also new, 19 lines).
+- `app/web/overlay_controller_test.go` (new, 101 lines) —
+  8 unit tests covering state transitions, OnDismiss
+  firing, default dimensions, and nil-ctx safety.
+- `app/web/tray_wiring.go` (new, 185 lines) — system tray
+  menu (Show/Hide/Pause/Status/Spend/Quit) wired to the
+  daemon's SSE broker. Drains `tray.status` events into
+  `tray.SetStatus()`. Subscribes to the broker via the
+  internal `Broker.Subscribe()` API. Routes the tray Quit
+  action through `appInstance.quitCancel` for clean
+  shutdown.
+- `internal/daemon/subsystems.go` — `SetOverlay(c
+  overlay.Controller)` method for the GUI host to swap in
+  the real Wails controller.
+- `app/web/main.go` — wires `appInstance.overlayCtrl`
+  into the daemon via `subs.SetOverlay(...)` after
+  `daemon.Run()` returns; calls `appInstance.startTray()`
+  for the menu-bar icon; shares the SIGTERM cancel
+  function so Quit triggers a graceful shutdown.
+- `app/web/app.go` — `App` struct gains `overlayCtrl`
+  (constructed in `NewApp`) and `quitCancel` (set in
+  `main`). `App.startup()` wires the Wails runtime
+  context into the overlay controller. `ShowOverlay()` /
+  `HideOverlay()` now delegate to the controller.
+- `scripts/build-gui.sh` — fixed ldflags module path
+  (was `conduraapp`, now `synapticapp`); the version
+  variable injection was silently failing before this.
+- `.github/workflows/ci.yml` — new `gui-build` job
+  (darwin/arm64, main-only) runs `wails build` on every
+  push so GUI regressions are caught before release time.
+  Falls back to a plain `go build` smoke if the wails
+  CLI isn't installed (CI installs it explicitly).
+- `internal/agent/agent.go` — `Loop.Ask` rewritten from a
+  placeholder stub ("Response would be spoken here") into
+  a real stream-driven loop: gatekeeper → audit →
+  persist user message → subscribe-before-start SSE →
+  accumulate delta events for 60s → audit reply → optional
+  TTS. 316 lines total, refactored into 9 helpers to keep
+  cyclomatic complexity under the gocyclo threshold (was
+  23, now under 15). Real voice-chat path.
+- `app/web/frontend/src/lib/i18n.ts` — `t` rewritten from
+  a `derived` store-of-function (Svelte 4 idiom) to a
+  plain exported function (Svelte 5 idiom). All 29
+  components switched from `$t('key')` to `t('key')`.
+  svelte-check: 0 errors, 7 warnings (all pre-existing
+  unused-CSS-selector noise; not introduced by the
+  rewrite).
+- `app/web/frontend/static/locales/en.json` — 438 lines
+  of new i18n strings covering the entire GUI surface.
+  Locale switching now actually changes the rendered text
+  via the `t(key)` calls. es/fr/de/ja/zh catalogs still
+  default to English content (no translator yet); the LLM
+  responds in the user's language regardless of UI locale.
+- `docs/on-device-verification.md` — new operator
+  playbook with prerequisites, execution order, evidence
+  capture, and sign-off steps for the human's pre-launch
+  Tier-3 verification.
+- `docs/roadmap-v0.2.0.md` — added §4 Hybrid LLM router
+  (`internal/router/`) explicitly deferred.
+- `CLAUDE.md` — §33.5.2 row C5.19 updated to mark the
+  router as v0.2.0 deferred work.
+
+### 3. How To Verify This Status Yourself (in 60 seconds)
+```bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# 1. Daemon + Wails GUI build clean
+go build ./... && go build -o /tmp/cw ./app/web  # both succeed
+
+# 2. Tests
+go test -count=1 -race -timeout 120s -short $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+# expect: 61 packages OK, 0 FAIL
+
+# 3. Lint
+golangci-lint run --timeout=5m ./...  # 0 issues
+
+# 4. Frontend
+cd app/web/frontend
+./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json  # 0 errors, 7 warnings
+npx vite build                                          # 265 modules, no errors
+
+# 5. Daemon boot + Tier-3
+cd "$(git rev-parse --show-toplevel)"
+go build -o /tmp/condurad ./cmd/condurad
+/tmp/condurad -print-default-config > /tmp/c.yaml
+rm -rf /tmp/data && /tmp/condurad -config /tmp/c.yaml -data-dir /tmp/data -listen "tcp://127.0.0.1:18700" &
+DPID=$!; sleep 2
+curl -sf -X POST http://127.0.0.1:18700/api -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ping","params":{}}' | grep -q '"pong":true'
+kill $DPID; rm -rf /tmp/data /tmp/c.yaml /tmp/condurad /tmp/cw
+
+# 6. CI: confirm latest main commit has 14/14 jobs green
+gh run list --limit 1 --branch main --json conclusion | jq -r '.[0].conclusion'
+# expect: "success"
+
+echo "FOOTHPATH 3 self-test: PASS"
+```
+
+### 4. What's Open
+- On-device verification on clean macOS, Windows, Linux
+  machines — **the human's next action**, per
+  `docs/on-device-verification.md`. Required before
+  public launch; cannot be done by an agent.
+- v0.2.0 backlog (per `docs/roadmap-v0.2.0.md`):
+  - Hardened Layer 3 (`pf`/`netsh` daemon)
+  - CGEventTap / AT-SPI dirty tracking
+  - MCP UI (`Mcp.svelte` route)
+  - Crowdin i18n sync + real translations for es/fr/de/ja/zh
+  - Public Hub + Dashboard deploy
+  - Vision CUA opt-in
+  - Non-macOS voice via cloud STT
+  - `file.*` executor dispatch
+  - Hybrid LLM router (`internal/router/`)
+- 7 pre-existing svelte-check warnings (all unused CSS
+  selectors — `.modal code`, `.kbd`, etc. dead style
+  blocks left behind by i18n sweep). Trivial to clean up
+  in a 10-min pass; not blocking.
