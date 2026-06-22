@@ -14,7 +14,7 @@
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
-  import VoiceOrb from './lib/components/VoiceOrb.svelte'
+  import OverlayPrompt from './lib/components/OverlayPrompt.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import ConsentModal from './lib/components/ConsentModal.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
@@ -108,22 +108,7 @@
       </div>
 
       {#if overlay.active}
-        <div class="overlay-prompt">
-          <VoiceOrb />
-          <div class="overlay-input-row">
-            <input
-              type="text"
-              class="overlay-input"
-              placeholder="Ask Condura..."
-              onkeydown={(e) => {
-                if (e.key === 'Escape') overlay.hide()
-              }}
-            />
-            <button class="overlay-close" onclick={() => overlay.hide()}>
-              &times;
-            </button>
-          </div>
-        </div>
+        <OverlayPrompt />
       {:else}
         <div class="route-container">
           {#if route === 'settings'}
@@ -242,59 +227,5 @@
     inset: 0;
     background: var(--color-bg);
     z-index: 100;
-  }
-
-  .overlay-prompt {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .overlay-input-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    max-width: 600px;
-  }
-
-  .overlay-input {
-    flex: 1;
-    padding: 16px 24px;
-    font-size: 18px;
-    font-family: var(--font-sans);
-    color: var(--color-text);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    backdrop-filter: var(--glass-blur);
-    outline: none;
-  }
-
-  .overlay-input:focus {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
-  }
-
-  .overlay-close {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    color: var(--color-text-faint);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: color var(--transition-base), border-color var(--transition-base);
-  }
-
-  .overlay-close:hover {
-    color: var(--color-text);
-    border-color: var(--color-text-faint);
   }
 </style>
