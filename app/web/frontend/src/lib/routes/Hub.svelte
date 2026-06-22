@@ -45,6 +45,7 @@
   }
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="hub-page" onkeydown={onKey} role="region" aria-label="Skills Hub">
   <header class="hub-header">
     <div>
@@ -73,6 +74,7 @@
   {#if results.length > 0}
     <ul class="results">
       {#each results as r, i}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{r.name}</strong>

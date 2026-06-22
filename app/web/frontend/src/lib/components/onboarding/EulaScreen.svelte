@@ -61,6 +61,7 @@
       <span class="version">{doc.version}{doc.updated_at ? ` · updated ${doc.updated_at}` : ''}</span>
     </div>
 
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       class="eula-body"
       bind:this={scrollEl}

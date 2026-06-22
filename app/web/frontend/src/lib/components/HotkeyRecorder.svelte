@@ -17,6 +17,12 @@
   let { value = '', onRecord }: Props = $props()
 
   let recording = $state(false)
+  // combo is the recorder's locally-tracked hotkey string.
+  // We seed it from the parent's `value` prop but do NOT
+  // re-sync on prop changes — the user owns the recording
+  // once they start typing, and overwriting their combo
+  // when the parent re-renders would be surprising.
+  // svelte-ignore state_referenced_locally
   let combo = $state(value)
   let hint = $state('')
 

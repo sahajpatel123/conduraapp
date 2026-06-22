@@ -82,7 +82,7 @@ export class AccountStore {
   pendingPKCEVerifier = $state<string | null>(null)
 
   /** Provider the user is currently signing in with (cached at start). */
-  pendingOAuthProvider = $state<AccountProvider | null>(null)
+  pendingOAuthProvider = $state<OAuthCallbackParams['provider'] | null>(null)
 
   /** True when the user is signed in. False on first load. */
   get isSignedIn(): boolean {

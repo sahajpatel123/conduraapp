@@ -84,6 +84,7 @@
     font-weight: 600;
     margin-bottom: var(--space-2);
     background: var(--color-accent-gradient);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }

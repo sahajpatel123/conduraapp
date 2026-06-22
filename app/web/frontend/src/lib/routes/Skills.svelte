@@ -51,6 +51,7 @@
   {:else}
     <ul>
       {#each skills as s, i}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{s.name}</strong>

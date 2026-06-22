@@ -147,8 +147,10 @@
           class="btn-send"
           onclick={send}
           disabled={!inputText.trim() || conversation.isStreaming}
+          aria-label="Send message"
+          title="Send message"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 10h12m-5-5 5 5-5 5"/></svg>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg>
         </button>
       </div>
       <p class="hint">

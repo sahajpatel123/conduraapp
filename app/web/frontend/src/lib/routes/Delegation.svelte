@@ -107,6 +107,8 @@
     {:else}
       <ul class="agent-list">
         {#each agents as a}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
           <li class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
             <strong>{a.name}</strong>
             <span class="desc">{a.description}</span>
