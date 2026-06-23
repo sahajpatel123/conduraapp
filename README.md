@@ -101,7 +101,7 @@ Claude Code · Codex · Antigravity · OpenCode · Kilo Code · Hermes Agent · 
 
 ## Support
 
-- **Discord**: [discord.gg/synaptic](https://discord.gg/synaptic)
+- **Discord**: [discord.gg/condura](https://discord.gg/condura)
 - **GitHub Issues**: [github.com/sahajpatel123/conduraapp/issues](https://github.com/sahajpatel123/conduraapp/issues)
 - **Email**: support@condura.app
 - **Docs**: [condura.app/docs](https://condura.app/docs)
@@ -113,7 +113,7 @@ Claude Code · Codex · Antigravity · OpenCode · Kilo Code · Hermes Agent · 
 Condura is free forever. If it makes your life better, consider donating:
 
 - [GitHub Sponsors](https://github.com/sponsors/conduraapp)
-- [Open Collective](https://opencollective.com/synaptic)
+- [Open Collective](https://opencollective.com/condura)
 - [Stripe one-time](https://condura.app/donate)
 
 ---

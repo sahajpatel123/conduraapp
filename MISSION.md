@@ -907,7 +907,7 @@ When primary provider is down or key is rejected:
 ## 26. Support + Donations + Marketing
 
 ### 26.1 Support
-- **Discord**: `discord.gg/synaptic` (community + dev)
+- **Discord**: `discord.gg/condura` (community + dev)
 - **GitHub Issues**: bug reports + feature requests
 - **Email**: `support@condura.app`
 - **Docs site**: `condura.app/docs`

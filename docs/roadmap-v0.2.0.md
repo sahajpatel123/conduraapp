@@ -119,8 +119,8 @@ subscription maps to which models.
 | Ecosystem detection: hardcoded `/usr/local/bin/claude` etc. | `web/app/ecosystem/page.tsx:45-53` | Replace with `onboarding.probe_power` data once the dashboard is wired in v0.2.0. |
 | Hub download CTA at `hub.synaptic.app` / `hub.condura.app` | `web/lib/site.ts` | The 404 should be replaced with "coming v0.2.0 — see on-device Skills" until the Hub ships. **Resolved in Phase 16**: daemon + network guard + config defaults now point to `hub.condura.app`. Web marketing text remains for KIMI K2.6 to update. |
 | Demo video | — | Required for v0.1.0 public launch per CLAUDE.md §26. 60-second screen capture, no script. |
-| Discord URL `discord.gg/synaptic` | `web/lib/site.ts:13` | Rename to `discord.gg/condura` (or whatever the actual channel is). |
-| Open Collective URL `opencollective.com/synaptic` | `README.md` | Same. |
+| Discord URL `discord.gg/synaptic` | `web/lib/site.ts:13` | **Resolved.** Now `discord.gg/condura` in site.ts, README.md, MISSION.md. |
+| Open Collective URL `opencollective.com/synaptic` | `README.md` | **Resolved.** Now `opencollective.com/condura` in README.md. |
 | PLATFORMS list in `site.ts` | `web/lib/site.ts` | Use `condura-gui-*.dmg` / `*.exe` / `*.AppImage`, not the legacy `synaptic.*` names. |
 | "Adaptive engine learns you" | `web/app/` (any page) | The backend works; the marketing copy oversells the depth. Tone down to "learns from your interactions, fully editable in Settings." |
 
@@ -160,21 +160,26 @@ shippable):
 
 ## Open questions for the user
 
-1. **Domain:** `hub.condura.app` is in `internal/halt/network.go`'s
-   default allow-list, but the v0.1.0 build points to
-   `hub.synaptic.app` (locked decision #18). When the user
-   migrates to v0.2.0, which do we keep? Recommend
-   `hub.condura.app` as the canonical, `hub.synaptic.app` as
-   the legacy redirect (already in the allow-list).
-2. **Discord / Open Collective:** the user has chosen the
-   product name as `condura` but the social URLs in the spec
-   are still `synaptic`. We need the canonical URLs.
-3. **v0.1.0 release date:** if the user plans to ship v0.1.0
-   before the marketing copy is updated to v0.2.0 reality, the
-   public launch will carry fictional claims. Recommend
-   delaying public launch until (a) the marketing copy is
-   aligned and (b) on-device verification on at least one
-   clean machine per OS is signed off.
+1. **Domain: hub.condura.app vs hub.synaptic.app** — **RESOLVED.**
+   `hub.condura.app` is canonical everywhere (daemon config, network
+   guard, hub client, docs, marketing site). `hub.synaptic.app` was
+   dropped from the network allow-list in Phase 16. CLAUDE.md §4
+   decision #18 (which pre-dates the rebrand) is superseded by the
+   completed Synaptic→Condura rename.
+2. **Discord / Open Collective URLs** — **RESOLVED.**
+   All references now use `discord.gg/condura` and
+   `opencollective.com/condura`. Updated in `web/lib/site.ts`,
+   `README.md`, and `MISSION.md`.
+3. **v0.1.0 release date** — **OPEN (user decision).**
+   Recommendation: do not publicly launch v0.1.0 until (a) the
+   marketing copy in `web/` is aligned with what the binary actually
+   does (see "Marketing copy that needs updating" above) and (b)
+   on-device verification on at least one clean macOS machine is
+   signed off in `docs/phase15-verification.md`. Shipping before
+   either gate is met means the public launch carries fictional
+   claims. A closed beta (shared with trusted testers via direct
+   download link, no Product Hunt / HN / Reddit post) is safe at any
+   time.
 
 ## What is NOT in v0.2.0 scope
 
