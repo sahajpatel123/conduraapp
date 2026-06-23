@@ -293,12 +293,12 @@
 </script>
 
 <div class="settings-page">
-  <header>
+  <header class="page-header">
     <h2>{t('settings.title')}</h2>
     <p class="muted">{t('settings.subtitle')}</p>
   </header>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.account.title')}</h3>
     {#if account.isSignedIn}
       <div class="account-row">
@@ -329,7 +329,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.channels.title')}</h3>
     <p class="muted">{t('settings.channels.intro')}</p>
     <div class="row">
@@ -337,7 +337,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.voice.title')}</h3>
     <p class="muted">{t('settings.voice.intro')}</p>
     <label class="checkbox">
@@ -374,7 +374,7 @@
     {#if micTestResult}<p class="muted">{micTestResult}</p>{/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.language.title')}</h3>
     <p class="muted">{t('settings.language.intro')}</p>
     <div class="row">
@@ -382,7 +382,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.spend.title')}</h3>
     {#if spend.summary}
       <div class="kv">
@@ -399,7 +399,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.hotkey.title')}</h3>
     <p class="muted">{t('settings.hotkey.intro')}</p>
     <div class="row">
@@ -413,7 +413,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.update.title')}</h3>
     <p class="muted">{t('settings.update.intro')}</p>
     <label class="checkbox">
@@ -429,7 +429,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.backup.title')}</h3>
     <p class="muted">{t('settings.backup.intro')}</p>
     <div class="row">
@@ -463,7 +463,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.permissions.title')}</h3>
     <p class="muted">{t('settings.permissions.intro')}</p>
     <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>{t('settings.permissions.refresh')}</button>
@@ -495,7 +495,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.adaptive.title')}</h3>
     <p class="muted">
       {t('settings.adaptive.intro')}
@@ -506,6 +506,7 @@
     <div class="strength">
       <span class="label">{t('settings.adaptive.strength')}</span>
       <select
+        class="input"
         value={adaptiveStrength}
         onchange={(e) => setAdaptiveStrength((e.target as HTMLSelectElement).value as typeof adaptiveStrength)}
         disabled={adaptiveLoading}
@@ -567,7 +568,7 @@
     {/if}
   </section>
 
-  <section class="card danger">
+  <section class="glass-card settings-section danger-card">
     <h3>{t('settings.killswitch.title')}</h3>
     <p class="muted">{t('settings.killswitch.intro')}</p>
     {#if halt.state.halted}
@@ -578,7 +579,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.apikeys.title')}</h3>
     <p class="muted">{t('settings.apikeys.intro')}</p>
 
@@ -629,7 +630,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.legal.title')}</h3>
     <p class="muted">{t('settings.legal.intro')}</p>
     {#if eulaText}
@@ -646,7 +647,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card settings-section">
     <h3>{t('settings.setup.title')}</h3>
     <p class="muted">{t('settings.setup.intro')}</p>
     <button class="btn btn-ghost" onclick={rerunSetup} disabled={rerunning}>
@@ -671,6 +672,13 @@
     role="presentation"
   >
     <div class="modal danger" role="dialog" aria-modal="true" aria-labelledby="restore-title">
+      <div class="modal-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
       <h3 id="restore-title">{t('settings.backup.restore_title')}</h3>
       <p class="muted">
         {t('settings.backup.restore_warning', restoreTarget.name)}
@@ -693,212 +701,45 @@
     padding: var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 760px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
   }
-  .settings-page header h2 {
-    font-size: var(--size-2xl);
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .muted {
-    color: var(--color-text-muted);
-    font-size: var(--size-sm);
-  }
-  .card {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
+
+  /* ── Section spacing ─────────────────────────────────── */
+  .settings-section {
     padding: var(--space-5);
     margin-top: var(--space-5);
-    transition: border-color var(--transition-base);
   }
-  .card:hover {
-    border-color: rgba(255,255,255,0.12);
-  }
-  .card.danger {
-    background: rgba(239, 68, 68, 0.04);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  .card h3 {
+  .settings-section h3 {
     font-size: var(--size-lg);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     margin-bottom: var(--space-3);
   }
-  .eula-view {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    margin: var(--space-3) 0;
-    max-height: 280px;
-    overflow-y: auto;
-  }
-  .eula-view-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: var(--space-2);
-  }
-  .eula-view pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: var(--font-sans);
-    font-size: var(--size-sm);
-    line-height: 1.6;
-    color: var(--color-text-muted);
-    margin: 0;
-  }
-  .card h4 {
+  .settings-section h4 {
     font-size: var(--size-md);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     margin: var(--space-4) 0 var(--space-2) 0;
   }
-  .row {
+  .settings-section .checkbox {
+    margin-top: var(--space-3);
+  }
+  .settings-section .row {
     display: flex;
     gap: var(--space-2);
     align-items: center;
     margin-top: var(--space-3);
   }
-  .input {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--glass-border);
-    color: var(--color-text);
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    font-size: var(--size-md);
-    flex: 1;
-    transition: all var(--transition-base);
+
+  /* ── Danger zone (kill switch) ───────────────────────── */
+  .danger-card {
+    background: var(--color-danger-soft);
+    border-color: rgba(239, 68, 68, 0.25);
   }
-  .input:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+  .danger-card:hover {
+    border-color: rgba(239, 68, 68, 0.35);
   }
-  .btn {
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    font-size: var(--size-md);
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: none;
-  }
-  .btn-primary {
-    background: var(--color-accent-gradient);
-    color: white;
-  }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow);
-  }
-  .btn-ghost {
-    background: transparent;
-    color: var(--color-text-muted);
-    border: 1px solid var(--glass-border);
-  }
-  .btn-ghost:hover {
-    color: var(--color-text);
-    border-color: rgba(255,255,255,0.15);
-  }
-  .btn-danger {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-    font-weight: 600;
-  }
-  .btn-danger:hover:not(:disabled) {
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
-  }
-  .checkbox {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-    cursor: pointer;
-  }
-  .kv {
-    display: flex;
-    justify-content: space-between;
-    padding: var(--space-2) 0;
-    font-size: var(--size-md);
-    border-bottom: 1px dotted var(--glass-border);
-  }
-  .kv:last-child {
-    border-bottom: none;
-  }
-  .kv .k {
-    color: var(--color-text-muted);
-  }
-  .kv .v {
-    color: var(--color-text);
-    font-family: var(--font-mono);
-  }
-  .apikey-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-  }
-  .apikey-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr auto;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    font-size: var(--size-sm);
-    align-items: center;
-  }
-  .apikey-row .provider {
-    font-weight: 600;
-  }
-  .apikey-row .has-token {
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--size-xs);
-  }
-  .backup-list, .perm-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-  }
-  .backup-row, .perm-row {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    padding: var(--space-2) var(--space-3);
-    background: rgba(0,0,0,0.2);
-    border-radius: var(--radius-md);
-    font-size: var(--size-sm);
-  }
-  .backup-name, .perm-kind {
-    flex: 1;
-    font-family: var(--font-mono);
-  }
-  .backup-size {
-    color: var(--color-text-muted);
-  }
-  .perm-status.granted { color: var(--color-success); }
-  .perm-status.denied { color: #f87171; }
-  .guide-box {
-    margin-top: var(--space-4);
-    padding: var(--space-4);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-  }
-  .guide-box ol {
-    margin: var(--space-3) 0;
-    padding-left: var(--space-5);
-  }
-  /* Account / Voice (Phase 14B/14H) */
+
+  /* ── Account ─────────────────────────────────────────── */
   .account-row {
     display: flex;
     align-items: center;
@@ -917,70 +758,184 @@
     align-items: center;
     justify-content: center;
     background: var(--color-accent-gradient);
-    color: white;
-    font-weight: 600;
+    color: #fff;
+    font-weight: var(--weight-semibold);
   }
   .acc-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  .acc-name { font-weight: 600; }
+  .acc-name { font-weight: var(--weight-semibold); }
   .acc-meta { color: var(--color-text-muted); font-size: var(--size-xs); }
   .benefits {
     margin: var(--space-3) 0;
     padding-left: var(--space-5);
     color: var(--color-text-muted);
     font-size: var(--size-sm);
-    line-height: 1.7;
+    line-height: var(--leading-relaxed);
   }
-  .err { color: var(--color-error, #f87171); }
+  .err { color: var(--color-error); }
+
+  /* ── Voice slider ────────────────────────────────────── */
   .slider-row { align-items: center; }
   .slider-label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
   .slider-row input[type='range'] { flex: 1; accent-color: var(--color-accent); }
   .slider-val { font-family: var(--font-mono); font-size: var(--size-sm); min-width: 44px; text-align: right; }
+
+  /* ── Adaptive engine ─────────────────────────────────── */
   .strength { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0 var(--space-4); }
   .strength .label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
-  .strength select { flex: 1; padding: 6px 10px; background: var(--color-bg-elev, rgba(255,255,255,0.04)); color: var(--color-text); border: 1px solid var(--glass-border); border-radius: var(--radius-md, 6px); }
-  .sub { margin-top: var(--space-3); font-size: var(--size-sm); font-weight: 600; }
+  .strength select { flex: 1; }
+  .sub { margin-top: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-semibold); }
   .profile-group { margin: var(--space-2) 0; }
-  .profile-label { display: block; color: var(--color-text-muted); font-size: var(--size-xs); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-  .profile-row { display: flex; align-items: center; gap: var(--space-2); padding: 4px 0; font-size: var(--size-sm); }
+  .profile-label {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--size-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    margin-bottom: var(--space-1);
+  }
+  .profile-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: var(--size-sm); }
   .profile-row .k { color: var(--color-text-muted); min-width: 100px; }
   .profile-row .v { flex: 1; }
-  .btn-xs { padding: 2px 8px; font-size: var(--size-xs); }
   .small { font-size: var(--size-xs); }
-  .error { color: var(--color-error, #f87171); margin: var(--space-2) 0; }
-  /* Restore confirmation modal */
+  .error { color: var(--color-error); margin: var(--space-2) 0; }
+
+  /* ── Backup list ─────────────────────────────────────── */
+  .backup-list, .perm-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .backup-row, .perm-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--size-sm);
+    transition: border-color var(--transition-base);
+  }
+  .backup-row:hover, .perm-row:hover {
+    border-color: var(--color-border-strong);
+  }
+  .backup-name, .perm-kind {
+    flex: 1;
+    font-family: var(--font-mono);
+  }
+  .backup-size { color: var(--color-text-muted); }
+  .perm-status.granted { color: var(--color-success); }
+  .perm-status.denied { color: var(--color-error); }
+
+  /* ── Permission guide ────────────────────────────────── */
+  .guide-box {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .guide-box h4 { margin-bottom: var(--space-2); }
+  .guide-box ol {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-5);
+    color: var(--color-text-muted);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* ── API key list ────────────────────────────────────── */
+  .apikey-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .apikey-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--size-sm);
+    align-items: center;
+    transition: border-color var(--transition-base);
+  }
+  .apikey-row:hover {
+    border-color: var(--color-border-strong);
+  }
+  .apikey-row .provider { font-weight: var(--weight-semibold); }
+  .apikey-row .has-token { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--size-xs); }
+
+  /* ── EULA view ───────────────────────────────────────── */
+  .eula-view {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin: var(--space-3) 0;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .eula-view-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: var(--space-2);
+  }
+  .eula-view pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  /* ── Restore confirmation modal ──────────────────────── */
   .modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: var(--z-modal);
   }
   .modal {
-    background: var(--color-bg);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
     padding: var(--space-5);
     max-width: 480px;
     width: calc(100% - 32px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-lg);
   }
   .modal.danger {
     border-color: rgba(239, 68, 68, 0.4);
   }
-  .modal h3 {
-    font-size: var(--size-lg);
-    font-weight: 600;
+  .modal-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
     margin-bottom: var(--space-3);
   }
-  .modal code {
-    font-family: var(--font-mono);
-    background: rgba(0, 0, 0, 0.3);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm, 4px);
-    font-size: var(--size-sm);
+  .modal h3 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-3);
   }
   .modal-actions {
     display: flex;

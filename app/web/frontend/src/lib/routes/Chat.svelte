@@ -71,7 +71,7 @@
     <div class="thread-inner">
       {#if conversation.messages.length === 0}
         <div class="empty-state">
-          <div class="empty-icon">⊡</div>
+          <div class="empty-icon"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 14h24a3 3 0 013 3v14a3 3 0 01-3 3H18l-9 7V17a3 3 0 013-3z"/><circle cx="18" cy="24" r="1.5" fill="currentColor"/><circle cx="24" cy="24" r="1.5" fill="currentColor"/><circle cx="30" cy="24" r="1.5" fill="currentColor"/></svg></div>
           <h3>{t('chat.empty.title')}</h3>
           <p>
             {#if !settings.config}
@@ -96,7 +96,7 @@
               {#each msg.tool_calls as tc (tc.id)}
                 <details class="tool-call">
                   <summary>
-                    <span class="tool-icon" aria-hidden="true">⚙</span>
+                    <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2m0 10v2m-7-7h2m10 0h2M3.5 3.5l1.4 1.4m6.2 6.2 1.4 1.4m0-11-1.4 1.4M5.1 10.9l-1.4 1.4"/></svg></span>
                     <span class="tool-name">{tc.function.name}</span>
                   </summary>
                   <pre class="tool-args">{tc.function.arguments}</pre>
@@ -109,12 +109,12 @@
 
       {#if conversation.isStreaming && conversation.streamingDelta}
         <div class="message message-assistant streaming">
-          <div class="message-content">{conversation.streamingDelta}<span class="cursor">▍</span></div>
+          <div class="message-content">{conversation.streamingDelta}<span class="cursor"></span></div>
           {#if conversation.streamingToolCalls.length > 0}
             <div class="tool-calls" aria-label="Tool calls in flight">
               {#each conversation.streamingToolCalls as tc (tc.id)}
                 <div class="tool-call streaming">
-                  <span class="tool-icon" aria-hidden="true">⚙</span>
+                  <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2m0 10v2m-7-7h2m10 0h2M3.5 3.5l1.4 1.4m6.2 6.2 1.4 1.4m0-11-1.4 1.4M5.1 10.9l-1.4 1.4"/></svg></span>
                   <span class="tool-name">{tc.function.name}</span>
                 </div>
               {/each}
@@ -207,18 +207,20 @@
     padding: var(--space-4) var(--space-5);
     flex-shrink: 0;
   }
+
   .chat-title {
-    font-size: var(--size-sm);
-    font-weight: 500;
+    font-size: var(--size-xs);
+    font-weight: var(--weight-medium);
     color: var(--color-text-faint);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-wider);
     text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 60%;
   }
+
   .chat-status {
     position: absolute;
     right: var(--space-5);
@@ -228,35 +230,50 @@
     align-items: center;
     gap: var(--space-2);
   }
+
   .streaming-pill {
     background: var(--color-accent-gradient);
     color: #fff;
     padding: 3px 10px;
     border-radius: var(--radius-pill);
-    font-size: var(--size-xs);
-    font-weight: 500;
+    font-size: var(--size-2xs);
+    font-weight: var(--weight-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--tracking-wide);
     box-shadow: 0 0 12px var(--color-glow);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
+
+  .streaming-pill::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
   .btn-stop {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
     background: transparent;
     color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-pill);
     padding: 4px 12px;
-    font-size: var(--size-xs);
-    font-weight: 500;
+    font-size: var(--size-2xs);
+    font-weight: var(--weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
   }
+
   .btn-stop:hover {
     color: var(--color-error);
     border-color: var(--color-error);
-    background: rgba(248, 113, 113, 0.06);
+    background: var(--color-error-soft);
   }
 
   /* ── Thread ─────────────────────────────────────────── */
@@ -265,127 +282,178 @@
     overflow-y: auto;
     padding: var(--space-4) var(--space-5);
   }
+
   .thread-inner {
-    max-width: 720px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    padding-bottom: var(--space-4);
   }
 
   /* ── Messages ───────────────────────────────────────── */
   @keyframes messageIn {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(10px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
     }
   }
+
   .message {
     max-width: 85%;
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
-    animation: messageIn 0.3s var(--ease-out-expo);
+    animation: messageIn var(--transition-slow) var(--ease-out-expo);
   }
+
   .message-user {
     align-self: flex-end;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
-    border-left: 2px solid var(--color-accent);
-    border-image: var(--color-accent-gradient) 1;
-    border-image-slice: 1;
-    border-width: 0 0 0 2px;
-    border-style: solid;
+    background: var(--color-accent-gradient-subtle);
+    border: 1px solid var(--color-border-accent);
+    border-left: 3px solid var(--color-accent);
   }
+
   .message-assistant {
     align-self: flex-start;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-xs), var(--shadow-inset);
   }
+
   .message-error {
     align-self: stretch;
     max-width: 100%;
-    background: rgba(248, 113, 113, 0.06);
-    border-left: 2px solid var(--color-error);
+    background: var(--color-error-soft);
+    border-left: 3px solid var(--color-error);
+    border-radius: var(--radius-md);
   }
+
   .message-content {
     font-size: var(--size-md);
-    line-height: 1.7;
+    line-height: var(--leading-relaxed);
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--color-text);
   }
 
-  /* ── Streaming cursor ───────────────────────────────── */
+  /* ── Streaming cursor — blinking bar ────────────────── */
+  .streaming .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--color-accent);
+    border-radius: 1px;
+    margin-left: 3px;
+    vertical-align: text-bottom;
+    animation: cursorBlink 1s steps(2) infinite;
+  }
+
+  @keyframes cursorBlink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
   }
-  .streaming .cursor {
-    color: var(--color-accent);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
 
-  /* ── Tool calls ─────────────────────────────────────── */
+  /* ── Tool calls — collapsible glass cards ───────────── */
   .tool-calls {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     margin-top: var(--space-3);
     padding-top: var(--space-3);
-    border-top: 1px dashed var(--glass-border);
+    border-top: 1px solid var(--glass-border);
   }
+
   .tool-call {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     font-size: var(--size-sm);
     overflow: hidden;
+    transition: border-color var(--transition-fast);
   }
+
+  .tool-call:hover {
+    border-color: var(--glass-border-hover);
+  }
+
   .tool-call.streaming {
-    padding: 6px 12px;
+    padding: var(--space-2) var(--space-3);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
   }
+
   .tool-call summary {
     cursor: pointer;
-    padding: 6px 12px;
+    padding: var(--space-2) var(--space-3);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     list-style: none;
     color: var(--color-text-muted);
     user-select: none;
+    -webkit-user-select: none;
+    transition: color var(--transition-fast);
   }
+
+  .tool-call summary:hover {
+    color: var(--color-text);
+  }
+
   .tool-call summary::-webkit-details-marker {
     display: none;
   }
+
   .tool-call summary::before {
-    content: '▸';
-    color: var(--color-text-faint);
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid var(--color-text-faint);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
     transition: transform var(--transition-fast);
+    flex-shrink: 0;
   }
+
   .tool-call[open] summary::before {
     transform: rotate(90deg);
   }
+
   .tool-icon {
-    font-size: var(--size-sm);
+    display: flex;
+    align-items: center;
     color: var(--color-accent);
+    flex-shrink: 0;
   }
+
+  .tool-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
   .tool-name {
     font-family: var(--font-mono);
     font-size: var(--size-xs);
     color: var(--color-text);
+    font-weight: var(--weight-medium);
   }
+
   .tool-args {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     margin: 0;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.25);
     border-top: 1px solid var(--glass-border);
     font-family: var(--font-mono);
     font-size: var(--size-xs);
@@ -394,6 +462,7 @@
     word-break: break-word;
     max-height: 200px;
     overflow-y: auto;
+    line-height: var(--leading-relaxed);
   }
 
   /* ── Input Pill ─────────────────────────────────────── */
@@ -401,6 +470,7 @@
     flex-shrink: 0;
     padding: 0 var(--space-5) var(--space-4);
   }
+
   .chat-input-pill {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
@@ -409,17 +479,20 @@
     border-radius: var(--radius-2xl);
     padding: var(--space-3) var(--space-4);
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    box-shadow: var(--shadow-sm);
   }
+
   .chat-input-pill:focus-within {
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-glow), var(--shadow-inset);
   }
 
   /* Streaming glow pulse on the pill */
   @keyframes glowPulse {
-    0%, 100% { box-shadow: 0 0 12px var(--color-glow); }
-    50% { box-shadow: 0 0 24px var(--color-glow-strong); }
+    0%, 100% { box-shadow: var(--shadow-sm), 0 0 12px var(--color-glow); }
+    50% { box-shadow: var(--shadow-sm), 0 0 24px var(--color-glow-strong); }
   }
+
   .is-streaming .chat-input-pill {
     border-color: var(--color-accent);
     animation: glowPulse 2s ease-in-out infinite;
@@ -434,6 +507,7 @@
     border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--space-2);
   }
+
   .meta-select {
     appearance: none;
     -webkit-appearance: none;
@@ -445,31 +519,38 @@
     cursor: pointer;
     padding: 2px 0;
     outline: none;
+    transition: color var(--transition-fast);
   }
+
   .meta-select:hover,
   .meta-select:focus {
     color: var(--color-text-muted);
   }
+
   .meta-sep {
     color: var(--color-text-faint);
     font-size: var(--size-xs);
-    opacity: 0.5;
+    opacity: 0.4;
     user-select: none;
   }
+
   .meta-model {
     background: transparent;
     border: none;
     color: var(--color-text-faint);
     font-size: var(--size-xs);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     outline: none;
     width: 140px;
     padding: 2px 0;
+    transition: color var(--transition-fast);
   }
+
   .meta-model::placeholder {
     color: var(--color-text-faint);
-    opacity: 0.6;
+    opacity: 0.5;
   }
+
   .meta-model:focus {
     color: var(--color-text-muted);
   }
@@ -480,6 +561,7 @@
     align-items: center;
     gap: var(--space-2);
   }
+
   .input-message {
     flex: 1;
     background: transparent;
@@ -490,9 +572,11 @@
     padding: var(--space-2) 0;
     outline: none;
   }
+
   .input-message::placeholder {
     color: var(--color-text-faint);
   }
+
   .input-message:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -511,33 +595,39 @@
     background: var(--color-accent-gradient);
     color: #fff;
     cursor: pointer;
-    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    transition: opacity var(--transition-fast), transform var(--transition-spring),
+      box-shadow var(--transition-base);
   }
+
   .btn-send:hover:not(:disabled) {
-    transform: scale(1.05);
+    transform: scale(1.08);
     box-shadow: var(--shadow-glow);
   }
+
   .btn-send:active:not(:disabled) {
-    transform: scale(0.95);
+    transform: scale(0.92);
   }
+
   .btn-send:disabled {
-    opacity: 0.3;
+    opacity: 0.25;
     cursor: not-allowed;
   }
 
   /* Hint */
   .hint {
-    font-size: var(--size-xs);
+    font-size: var(--size-2xs);
     color: var(--color-text-faint);
     margin-top: var(--space-2);
     padding-left: var(--space-1);
     opacity: 0.7;
   }
+
   .hint .warn {
     color: var(--color-warn);
     opacity: 1;
   }
 
+  /* ── Empty state ────────────────────────────────────── */
   .empty-state {
     display: flex;
     flex-direction: column;
@@ -545,25 +635,42 @@
     justify-content: center;
     padding: var(--space-10) var(--space-4);
     text-align: center;
-    color: var(--color-text-muted);
   }
+
   .empty-icon {
-    font-size: 48px;
-    opacity: 0.3;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
+    color: var(--color-accent);
+    opacity: 0.5;
   }
+
+  .empty-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+
   .empty-state h3 {
     font-size: var(--size-xl);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     color: var(--color-text);
     margin-bottom: var(--space-2);
+    letter-spacing: var(--tracking-tight);
   }
+
   .empty-state p {
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
     max-width: 360px;
-    line-height: 1.6;
+    line-height: var(--leading-relaxed);
   }
+
   .empty-state a {
     color: var(--color-accent);
-    text-decoration: underline;
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-accent-soft);
+    transition: border-color var(--transition-fast);
+  }
+
+  .empty-state a:hover {
+    border-color: var(--color-accent);
   }
 </style>

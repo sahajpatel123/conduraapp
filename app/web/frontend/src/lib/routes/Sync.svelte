@@ -75,11 +75,9 @@
 </script>
 
 <div class="sync-page">
-  <header>
+  <header class="page-header">
     <h2>{t('sync.title')}</h2>
-    <p class="muted">
-      {t('sync.intro')}
-    </p>
+    <p class="muted">{t('sync.intro')}</p>
   </header>
 
   {#if sync.error}
@@ -89,7 +87,7 @@
     <p class="success">{lastAction}</p>
   {/if}
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('sync.this_device')}</h3>
     {#if status}
       <div class="kv"><span class="k">{t('sync.device_id')}</span><span class="v mono">{status.device_id || t('sync.unset')}</span></div>
@@ -100,39 +98,43 @@
     {:else}
       <p class="muted">{t('common.loading')}</p>
     {/if}
-    <button class="btn-ghost" onclick={refreshAll} disabled={sync.loading}>{t('sync.refresh')}</button>
+    <button class="btn btn-ghost btn-sm refresh" onclick={refreshAll} disabled={sync.loading}>{t('sync.refresh')}</button>
   </section>
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('sync.discovered_peers', sync.peers.length)}</h3>
     {#if sync.peers.length === 0}
       <p class="muted">{t('sync.no_peers')}</p>
     {:else}
-      <ul>
+      <ul class="peer-list">
         {#each sync.peers as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.name}</span>
-            <button class="btn-ghost" onclick={() => startPair(p.device_id)}>{t('sync.pair')}</button>
-            <button class="btn-ghost" onclick={() => syncWith(p.device_id)}>{t('sync.sync_now')}</button>
+            <span class="row-actions">
+              <button class="btn btn-ghost btn-xs" onclick={() => startPair(p.device_id)}>{t('sync.pair')}</button>
+              <button class="btn btn-ghost btn-xs" onclick={() => syncWith(p.device_id)}>{t('sync.sync_now')}</button>
+            </span>
           </li>
         {/each}
       </ul>
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('sync.paired_devices', sync.pairs.length)}</h3>
     {#if sync.pairs.length === 0}
       <p class="muted">{t('sync.no_paired')}</p>
     {:else}
-      <ul>
+      <ul class="peer-list">
         {#each sync.pairs as p (p.device_id)}
           <li>
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.device_name}</span>
-            <span class="muted">{t('sync.paired_at', p.paired_at)}</span>
-            <button class="danger" onclick={() => revoke(p.device_id)}>{t('sync.revoke')}</button>
+            <span class="muted paired-at">{t('sync.paired_at', p.paired_at)}</span>
+            <span class="row-actions">
+              <button class="btn btn-danger btn-xs" onclick={() => revoke(p.device_id)}>{t('sync.revoke')}</button>
+            </span>
           </li>
         {/each}
       </ul>
@@ -155,54 +157,66 @@
 {/if}
 
 <style>
-  .sync-page { padding: var(--space-5); overflow-y: auto; height: 100%; max-width: 760px; margin: 0 auto; }
-  header h2 {
-    font-size: var(--size-2xl);
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .sync-page {
+    padding: var(--space-5);
+    overflow-y: auto;
+    height: 100%;
+    max-width: var(--content-max-width);
+    margin: 0 auto;
   }
   .card {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
     padding: var(--space-5);
     margin-top: var(--space-5);
   }
-  .card h3 { font-size: var(--size-lg); font-weight: 600; margin-bottom: var(--space-3); }
-  .kv { display: flex; justify-content: space-between; padding: var(--space-2) 0; border-bottom: 1px dotted var(--glass-border); }
-  .kv:last-of-type { border-bottom: none; }
-  .k { color: var(--color-text-muted); }
-  .v { font-weight: 500; }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; }
-  .mono { font-family: var(--font-mono); font-size: var(--size-xs); }
-  .id { opacity: 0.7; }
-  .name { flex: 1; }
-  .error { color: var(--color-error, #f87171); }
-  .success { color: var(--color-success); }
-  .muted { color: var(--color-text-muted); font-size: var(--size-sm); line-height: 1.5; }
-  .btn-ghost {
-    padding: 6px 12px;
+  .card h3 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-3);
+  }
+  .refresh {
+    margin-top: var(--space-3);
+  }
+  .peer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .peer-list li {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
+    background: rgba(0, 0, 0, 0.15);
+    transition: background var(--transition-base);
+  }
+  .peer-list li:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .id {
+    color: var(--color-text-faint);
+  }
+  .name {
+    flex: 1;
+    color: var(--color-text);
     font-size: var(--size-sm);
   }
-  .btn-ghost:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-accent); }
-  .danger {
-    padding: 6px 12px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-    cursor: pointer;
+  .paired-at {
+    font-size: var(--size-xs);
+  }
+  .row-actions {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .error {
+    color: var(--color-error);
+    font-size: var(--size-sm);
+  }
+  .success {
+    color: var(--color-success);
     font-size: var(--size-sm);
   }
 </style>

@@ -38,6 +38,7 @@
 <aside class="sidebar">
   <!-- Icon Rail -->
   <nav class="icon-rail">
+    <div class="rail-glow"></div>
     <div class="rail-top">
       <a
         href="#/"
@@ -141,12 +142,19 @@
   <!-- Conversation Drawer -->
   <div class="drawer">
     <div class="drawer-header">
+      <button class="new-conv-btn" onclick={startNew}>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4v12m-6-6h12"/></svg>
+        <span>{t('sidebar.new_conversation')}</span>
+      </button>
       <span class="drawer-label">{t('sidebar.history')}</span>
     </div>
 
     <div class="conversation-list">
       {#if conversation.conversations.length === 0}
-        <p class="empty">{t('sidebar.empty')}</p>
+        <div class="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16a2 2 0 012 2v8a2 2 0 01-2 2H8l-5 4V7a2 2 0 012-2z"/><path d="M9 10h6M9 13h4"/></svg>
+          <p>{t('sidebar.empty')}</p>
+        </div>
       {/if}
       {#each conversation.conversations as c (c.id)}
         <button
@@ -205,23 +213,48 @@
 
   /* ── Icon Rail ────────────────────────────────── */
   .icon-rail {
-    width: 64px;
-    min-width: 64px;
+    width: var(--sidebar-rail-width);
+    min-width: var(--sidebar-rail-width);
     background: var(--color-bg);
-    border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     padding: var(--space-4) 0;
     z-index: 2;
+    position: relative;
+  }
+
+  /* Subtle gradient glow at the top of the rail */
+  .rail-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background: radial-gradient(ellipse at top, var(--color-accent-faint), transparent 70%);
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* Gradient separator between rail and drawer */
+  .icon-rail::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    bottom: 10%;
+    right: 0;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, var(--color-border-strong) 30%, var(--color-border-strong) 70%, transparent);
   }
 
   .rail-top {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-1);
+    position: relative;
+    z-index: 1;
   }
 
   .rail-icon {
@@ -229,13 +262,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
     color: var(--color-text-faint);
     text-decoration: none;
-    transition: color var(--transition-fast), transform var(--transition-fast),
-      background var(--transition-fast);
+    transition: color var(--transition-fast), transform var(--transition-spring),
+      background var(--transition-fast), box-shadow var(--transition-fast);
     cursor: pointer;
   }
 
@@ -244,25 +277,32 @@
     height: 20px;
     position: relative;
     z-index: 1;
+    transition: transform var(--transition-spring);
   }
 
   .rail-icon:hover {
-    color: var(--color-text-muted);
-    transform: scale(1.1);
+    color: var(--color-text);
+    transform: scale(1.08);
     background: var(--color-bg-hover);
+    box-shadow: var(--shadow-glow);
   }
 
-  /* Active indicator — thin accent bar on the left */
+  .rail-icon:hover svg {
+    transform: scale(1.05);
+  }
+
+  /* Active indicator — accent bar with spring animation */
   .active-indicator {
     position: absolute;
-    left: 0;
+    left: -2px;
     top: 50%;
     transform: translateY(-50%) scaleY(0);
     width: 3px;
-    height: 20px;
+    height: 22px;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-accent);
-    transition: transform var(--transition-base);
+    background: var(--color-accent-gradient);
+    box-shadow: 0 0 8px var(--color-glow);
+    transition: transform var(--transition-spring);
   }
 
   .rail-icon.active .active-indicator {
@@ -271,33 +311,36 @@
 
   .rail-icon.active {
     color: var(--color-accent);
+    background: var(--color-accent-faint);
   }
 
   .rail-icon.active:hover {
-    color: var(--color-accent);
-    transform: none;
+    color: var(--color-accent-hover);
+    transform: scale(1.08);
   }
 
-  /* New conversation button */
+  /* New conversation button in rail — gradient pill */
   .rail-bottom {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
+    z-index: 1;
   }
 
   .rail-new-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-pill);
-    background: transparent;
-    border: 1px solid var(--color-border);
-    color: var(--color-text-faint);
+    background: var(--color-accent-gradient);
+    border: none;
+    color: #fff;
     cursor: pointer;
-    transition: color var(--transition-fast), transform var(--transition-fast),
-      border-color var(--transition-fast), background var(--transition-fast);
+    transition: transform var(--transition-spring), box-shadow var(--transition-base);
+    box-shadow: var(--shadow-sm);
   }
 
   .rail-new-btn svg {
@@ -306,19 +349,21 @@
   }
 
   .rail-new-btn:hover {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
     transform: scale(1.1);
-    background: var(--color-accent-soft);
+    box-shadow: var(--shadow-glow-strong);
+  }
+
+  .rail-new-btn:active {
+    transform: scale(0.95);
   }
 
   /* ── Conversation Drawer ──────────────────────── */
   .drawer {
-    width: 220px;
-    min-width: 220px;
+    width: var(--sidebar-drawer-width);
+    min-width: var(--sidebar-drawer-width);
     background: var(--color-bg-elevated);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
@@ -327,15 +372,54 @@
   }
 
   .drawer-header {
-    padding: var(--space-4) var(--space-4) var(--space-3);
+    padding: var(--space-4) var(--space-3) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /* Premium new conversation pill */
+  .new-conv-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-accent-gradient);
+    border: none;
+    color: #fff;
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .new-conv-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .new-conv-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .new-conv-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
   }
 
   .drawer-label {
-    font-size: var(--size-xs);
-    font-weight: 600;
+    font-size: var(--size-2xs);
+    font-weight: var(--weight-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-wider);
     color: var(--color-text-faint);
+    padding-left: var(--space-1);
   }
 
   /* ── Conversation List ────────────────────────── */
@@ -353,56 +437,72 @@
     flex-direction: column;
     width: 100%;
     text-align: left;
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-text);
     border: 1px solid transparent;
-    border-left: 3px solid transparent;
     cursor: pointer;
     transition: background var(--transition-fast), border-color var(--transition-fast),
       transform var(--transition-fast), box-shadow var(--transition-fast);
   }
 
   .conversation-item:hover {
-    background: var(--color-bg-hover);
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border);
     transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-xs);
   }
 
   .conversation-item.active {
-    background: var(--color-accent-soft);
-    border-left-color: var(--color-accent);
-    box-shadow: inset 0 0 12px var(--color-accent-soft), var(--shadow-sm);
+    background: var(--color-accent-faint);
+    border-color: var(--color-border-accent);
+    box-shadow: inset 2px 0 0 var(--color-accent), var(--shadow-xs);
   }
 
   .title {
     font-size: var(--size-sm);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 1.4;
+    line-height: var(--leading-tight);
   }
 
   .meta {
-    font-size: var(--size-xs);
+    font-size: var(--size-2xs);
     color: var(--color-text-faint);
     margin-top: 2px;
     line-height: 1.3;
   }
 
+  /* Empty state */
   .empty {
-    color: var(--color-text-faint);
-    font-size: var(--size-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: var(--space-5) var(--space-3);
-    line-height: 1.6;
+    padding: var(--space-8) var(--space-3);
+    color: var(--color-text-faint);
+  }
+
+  .empty svg {
+    width: 32px;
+    height: 32px;
+    opacity: 0.4;
+    margin-bottom: var(--space-3);
+  }
+
+  .empty p {
+    font-size: var(--size-xs);
+    line-height: var(--leading-relaxed);
+    max-width: 180px;
   }
 
   /* ── Drawer Footer ───────────────────────────── */
   .drawer-footer {
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border-top: 1px solid var(--color-border);
   }
 
@@ -423,9 +523,9 @@
   }
 
   .btn-delete:hover {
-    color: var(--color-danger);
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--color-error);
+    background: var(--color-error-soft);
+    border-color: rgba(248, 113, 113, 0.2);
   }
 
   .delete-icon {
@@ -434,63 +534,71 @@
     flex-shrink: 0;
   }
 
-  /* ── Account Footer (Phase 14B) ───────────────── */
+  /* ── Account Footer — subtle chip ─────────────── */
   .account-footer {
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border-top: 1px solid var(--color-border);
   }
+
   .signin-link {
     width: 100%;
     text-align: left;
     background: transparent;
     border: none;
     color: var(--color-text-faint);
-    font-size: var(--size-sm);
+    font-size: var(--size-xs);
     padding: var(--space-2) var(--space-1);
     cursor: pointer;
     transition: color var(--transition-fast);
   }
+
   .signin-link:hover {
     color: var(--color-accent);
   }
+
   .account-chip {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     width: 100%;
     padding: var(--space-2);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-pill);
     background: transparent;
     border: 1px solid transparent;
     color: var(--color-text);
     cursor: pointer;
     transition: background var(--transition-fast), border-color var(--transition-fast);
   }
+
   .account-chip:hover {
-    background: var(--color-bg-hover);
-    border-color: var(--color-border);
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border);
   }
+
   .chip-avatar {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     flex-shrink: 0;
     object-fit: cover;
   }
+
   .chip-avatar.fallback {
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-accent-gradient);
     color: white;
-    font-weight: 600;
-    font-size: var(--size-xs);
+    font-weight: var(--weight-semibold);
+    font-size: var(--size-2xs);
   }
+
   .chip-email {
-    font-size: var(--size-xs);
+    font-size: var(--size-2xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--color-text-muted);
   }
 
   /* ── Scrollbar ────────────────────────────────── */

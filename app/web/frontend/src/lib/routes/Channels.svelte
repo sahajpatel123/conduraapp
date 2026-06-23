@@ -79,18 +79,16 @@
 </script>
 
 <div class="channels-page">
-  <header>
+  <header class="page-header">
     <h2>{t('channels.title')}</h2>
-    <p class="muted">
-      {t('channels.intro')}
-    </p>
+    <p class="muted">{t('channels.intro')}</p>
   </header>
 
   {#if error}
     <p class="error">{error}</p>
   {/if}
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('channels.connected', channels.length)}</h3>
     {#if loading && channels.length === 0}
       <p class="muted">{t('common.loading')}</p>
@@ -107,14 +105,14 @@
             </span>
             {#if c.chat_id}<span class="ch-chat mono">{c.chat_id}</span>{/if}
             <span class="spacer"></span>
-            <button class="btn-ghost" onclick={() => disconnect(c.name)}>{t('channels.disconnect')}</button>
+            <button class="btn btn-ghost btn-xs" onclick={() => disconnect(c.name)}>{t('channels.disconnect')}</button>
           </li>
         {/each}
       </ul>
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('channels.telegram_title')}</h3>
     <p class="muted">
       {t('channels.telegram_intro_html')}
@@ -122,13 +120,14 @@
     <div class="connect-row">
       <input
         type="text"
+        class="input token-input"
         bind:value={token}
         placeholder="123456789:ABCdef…"
         autocomplete="off"
         spellcheck="false"
         onkeydown={(e) => { if (e.key === 'Enter') connectTelegram() }}
       />
-      <button class="btn-primary" onclick={connectTelegram} disabled={!tokenValid || connecting}>
+      <button class="btn btn-primary" onclick={connectTelegram} disabled={!tokenValid || connecting}>
         {connecting ? t('channels.connecting') : t('channels.connect')}
       </button>
     </div>
@@ -143,81 +142,75 @@
     padding: var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 760px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
   }
-  header h2 {
-    font-size: var(--size-2xl);
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .muted { color: var(--color-text-muted); font-size: var(--size-sm); line-height: 1.5; }
   .card {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
     padding: var(--space-5);
     margin-top: var(--space-5);
   }
-  .card h3 { font-size: var(--size-lg); font-weight: 600; margin-bottom: var(--space-3); }
-  .channel-list { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .card h3 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-3);
+  }
+  .channel-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
   .channel-row {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3);
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-size: var(--size-sm);
+    transition: border-color var(--transition-base);
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-faint); flex-shrink: 0; }
-  .dot.on { background: var(--color-success); box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
-  .dot.err { background: var(--color-error, #f87171); }
-  .ch-name { font-weight: 600; }
+  .channel-row:hover {
+    border-color: var(--glass-border-hover);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-text-faint);
+    flex-shrink: 0;
+  }
+  .dot.on {
+    background: var(--color-success);
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+  .dot.err {
+    background: var(--color-error);
+  }
+  .ch-name { font-weight: var(--weight-semibold); }
   .ch-status { color: var(--color-text-muted); }
   .ch-chat { color: var(--color-text-faint); font-size: var(--size-xs); }
-  .mono { font-family: var(--font-mono); }
   .spacer { flex: 1; }
-  .connect-row { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
-  .connect-row input {
+  .connect-row {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .token-input {
     flex: 1;
-    padding: 10px 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.3);
-    color: var(--color-text);
     font-family: var(--font-mono);
     font-size: var(--size-sm);
   }
-  .connect-row input:focus { outline: none; border-color: var(--color-accent); }
-  .btn-primary {
-    padding: 10px 18px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: var(--color-accent-gradient);
-    color: white;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
+  .hint {
+    color: var(--color-text-faint);
+    font-size: var(--size-xs);
+    margin-top: var(--space-2);
   }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost {
-    padding: 6px 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
+  .error {
+    color: var(--color-error);
     font-size: var(--size-sm);
   }
-  .btn-ghost:hover { color: var(--color-error, #f87171); border-color: rgba(239, 68, 68, 0.3); }
-  .hint { color: var(--color-text-faint); font-size: var(--size-xs); margin-top: var(--space-2); }
-  .error { color: var(--color-error, #f87171); font-size: var(--size-sm); }
-  code { font-family: var(--font-mono); background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 4px; }
-  a { color: var(--color-accent); }
 </style>

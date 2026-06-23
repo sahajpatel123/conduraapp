@@ -1,5 +1,6 @@
 @import './lib/styles/reset.css';
 @import './lib/styles/tokens.css';
+@import './lib/styles/utilities.css';
 
 html,
 body {
@@ -9,23 +10,37 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--size-md);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  letter-spacing: var(--tracking-tight);
 }
 
-/* Atmospheric radial gradient overlay — adds depth and ambient glow. */
+/* Atmospheric depth — layered radial gradients for ambient glow. */
 body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 10%, rgba(99, 102, 241, 0.05), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 90%, rgba(139, 92, 246, 0.04), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(99, 102, 241, 0.02), transparent 70%);
+}
+
+/* Grain texture — subtle SVG noise for tactile depth. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 10%, rgba(99, 102, 241, 0.04), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 90% 90%, rgba(139, 92, 246, 0.035), transparent 60%);
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' /%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
 }
 
 #app {
@@ -34,7 +49,7 @@ body::before {
   flex-direction: column;
 }
 
-/* Scrollbar — translucent glass look. */
+/* Scrollbar — minimal, translucent. */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,16 +58,42 @@ body::before {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-pill);
   transition: background var(--transition-fast);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Selection */
 ::selection {
   background: rgba(99, 102, 241, 0.3);
   color: var(--color-text);
+}
+
+/* Link defaults */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Code blocks */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+}
+pre {
+  font-family: var(--font-mono);
+}
+pre code {
+  background: none;
+  padding: 0;
 }

@@ -21,14 +21,14 @@
 </script>
 
 <div class="about-page">
-  <header>
+  <header class="page-header">
     <h2>{t('about.title')}</h2>
     <p class="muted"><em>{t('about.tagline')}</em></p>
   </header>
 
   <div class="divider"></div>
 
-  <section class="card">
+  <section class="glass-card about-section">
     <h3>{t('about.version')}</h3>
     {#if version}
       <div class="kv"><span class="k">Condura</span><span class="v">{version.version}</span></div>
@@ -41,7 +41,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card about-section">
     <h3>{t('about.daemon_health')}</h3>
     {#if health}
       <p>{t('about.overall')} <strong class="health-{health.overall}">{health.overall}</strong></p>
@@ -59,7 +59,7 @@
     {/if}
   </section>
 
-  <section class="card">
+  <section class="glass-card about-section">
     <h3>{t('about.links')}</h3>
     <ul class="links">
       <li><a href="https://github.com/sahajpatel123/conduraapp" target="_blank" rel="noreferrer">{t('about.github')}</a></li>
@@ -74,71 +74,29 @@
     padding: var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 760px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
   }
   .about-page header {
     padding: var(--space-4) 0;
   }
-  .about-page header h2 {
-    font-size: 32px;
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .muted {
-    color: var(--color-text-muted);
-    font-size: var(--size-sm);
-  }
-  .divider {
-    height: 1px;
-    background: linear-gradient(90deg, var(--color-accent), transparent);
-    opacity: 0.3;
-    margin-bottom: var(--space-4);
-  }
-  .card {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
+
+  /* ── Section spacing ─────────────────────────────────── */
+  .about-section {
     padding: var(--space-5);
     margin-top: var(--space-5);
-    transition: border-color var(--transition-base);
   }
-  .card:hover {
-    border-color: rgba(255,255,255,0.12);
-  }
-  .card h3 {
+  .about-section h3 {
     font-size: var(--size-lg);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     margin-bottom: var(--space-3);
   }
-  .kv {
-    display: flex;
-    justify-content: space-between;
-    padding: var(--space-2) 0;
-    font-size: var(--size-md);
-    border-bottom: 1px dotted var(--glass-border);
-  }
-  .kv:last-child {
-    border-bottom: none;
-  }
-  .kv .k {
-    color: var(--color-text-muted);
-  }
-  .kv .v {
-    color: var(--color-text);
-  }
-  .kv .v.mono {
-    font-family: var(--font-mono);
-    font-size: var(--size-sm);
-  }
+
+  /* ── Health check list ───────────────────────────────── */
   .check-list {
     list-style: none;
-    margin-top: var(--space-3);
+    margin: var(--space-3) 0 0 0;
+    padding: 0;
   }
   .check-list li {
     display: grid;
@@ -146,55 +104,57 @@
     gap: var(--space-3);
     align-items: center;
     padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--color-border);
   }
   .check-list li:last-child {
     border-bottom: none;
   }
-  .badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: var(--radius-pill);
-    font-size: var(--size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-    text-align: center;
-  }
-  .badge.health-ok {
-    background: rgba(74, 222, 128, 0.15);
-    color: var(--color-success);
-  }
-  .badge.health-degraded {
-    background: rgba(251, 191, 36, 0.15);
-    color: var(--color-warn);
-  }
-  .badge.health-down {
-    background: rgba(248, 113, 113, 0.15);
-    color: var(--color-error);
-  }
-  .name {
-    font-weight: 600;
-  }
-  .msg {
+  .check-list .name { font-weight: var(--weight-semibold); }
+  .check-list .msg {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
   }
+
+  /* ── Health state colors (overall + badges) ──────────── */
   .health-ok { color: var(--color-success); }
   .health-degraded { color: var(--color-warn); }
   .health-down { color: var(--color-error); }
+
+  .badge.health-ok {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .badge.health-degraded {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
+  }
+  .badge.health-down {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
+  }
+
+  /* ── Links ───────────────────────────────────────────── */
   .links {
     list-style: none;
     padding: 0;
+    margin: 0;
   }
   .links li {
     padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .links li:last-child {
+    border-bottom: none;
   }
   .links a {
-    transition: all var(--transition-fast);
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+    text-decoration: none;
   }
   .links a:hover {
-    text-shadow: var(--shadow-glow);
-    text-decoration: underline;
+    color: var(--color-accent);
   }
 </style>

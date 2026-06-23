@@ -35,7 +35,7 @@
 </script>
 
 <div class="skills-page">
-  <header>
+  <header class="page-header">
     <h2>{t('skills.title')}</h2>
     <p class="muted">{t('skills.subtitle', skills.length)}</p>
   </header>
@@ -45,21 +45,21 @@
   {/if}
 
   {#if skills.length === 0}
-    <p class="muted">
-      {@html t('skills.empty_html')}
-    </p>
+    <div class="empty-state">
+      <p>{@html t('skills.empty_html')}</p>
+    </div>
   {:else}
-    <ul>
+    <ul class="skill-list">
       {#each skills as s, i}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
+        <li class="skill-card glass-card" class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{s.name}</strong>
             <span class="version">v{s.version}</span>
-            <span class="trust">[{s.trust}]</span>
+            <span class="badge trust-badge">{s.trust}</span>
             {#if s.source}<span class="source">{t('skills.from', s.source)}</span>{/if}
             <span class="spacer"></span>
-            <button class="danger" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>{t('skills.delete')}</button>
+            <button class="btn btn-danger btn-xs" onclick={(e) => { e.stopPropagation(); remove(s.id) }}>{t('skills.delete')}</button>
           </div>
           {#if s.description}
             <p class="desc">{s.description}</p>
@@ -70,22 +70,71 @@
     </ul>
   {/if}
 
-  <button onclick={refresh} disabled={loading}>{loading ? t('skills.refreshing') : t('skills.refresh')}</button>
+  <div class="actions">
+    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{loading ? t('skills.refreshing') : t('skills.refresh')}</button>
+  </div>
 </div>
 
 <style>
-  .skills-page { padding: 16px; }
-  ul { list-style: none; padding: 0; margin: 12px 0; }
-  li { padding: 12px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
-  li.selected { border-color: var(--accent, #4a9eff); background: var(--hover, rgba(74, 158, 255, 0.08)); }
-  .row { display: flex; align-items: baseline; gap: 8px; }
+  .skills-page {
+    padding: var(--space-5);
+    overflow-y: auto;
+    height: 100%;
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+  }
+  .skill-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-4) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .skill-card {
+    padding: var(--space-3) var(--space-4);
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+  .skill-card:hover,
+  .skill-card.selected {
+    border-color: var(--color-border-accent);
+    background: var(--glass-bg-hover);
+  }
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
   .spacer { flex: 1; }
-  .version, .trust, .source { color: var(--muted, #888); font-size: 12px; }
-  .desc { margin: 6px 0; }
-  .id { font-size: 11px; opacity: 0.5; font-family: ui-monospace, monospace; }
-  .error { color: var(--error, #c0392b); }
-  .muted { color: var(--muted, #888); }
-  .danger { background: var(--danger, #c0392b); color: white; }
-  .mono { font-family: ui-monospace, monospace; }
-  button { padding: 4px 12px; }
+  .version {
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    font-family: var(--font-mono);
+  }
+  .trust-badge {
+    color: var(--color-text-muted);
+  }
+  .source {
+    color: var(--color-text-faint);
+    font-size: var(--size-xs);
+  }
+  .desc {
+    margin: var(--space-1) 0;
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
+  }
+  .id {
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
+  }
+  .error {
+    color: var(--color-error);
+    font-size: var(--size-sm);
+  }
+  .actions {
+    margin-top: var(--space-3);
+  }
 </style>

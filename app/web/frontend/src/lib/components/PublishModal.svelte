@@ -81,7 +81,7 @@
 
 <div class="pub-backdrop" role="presentation" onclick={close}>
   <div
-    class="pub-modal"
+    class="pub-modal glass-card elevated"
     role="dialog"
     aria-modal="true"
     aria-label={t('hub.publish.aria_label')}
@@ -91,7 +91,9 @@
   >
     <header>
       <h2>{t('hub.publish.title')}</h2>
-      <button class="close" aria-label={t('hub.publish.close')} onclick={close}>&times;</button>
+      <button class="close" aria-label={t('hub.publish.close')} onclick={close}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
+      </button>
     </header>
 
     {#if hub.publishState.kind === 'success'}
@@ -100,36 +102,36 @@
         {#if hub.publishState.result.url}
           <a href={hub.publishState.result.url} target="_blank" rel="noreferrer">{t('hub.publish.view_on_hub')}</a>
         {/if}
-        <button class="primary" onclick={close}>{t('hub.publish.done')}</button>
+        <button class="btn btn-primary btn-sm" onclick={close}>{t('hub.publish.done')}</button>
       </div>
     {:else}
       <div class="form">
         <label>
           {t('hub.publish.name')}
-          <input type="text" bind:value={name} placeholder={t('hub.publish.name_placeholder')} />
+          <input class="input" type="text" bind:value={name} placeholder={t('hub.publish.name_placeholder')} />
         </label>
         <label>
           {t('hub.publish.version')}
-          <input type="text" bind:value={version} placeholder="1.0.0" class:invalid={version && !versionValid} />
+          <input class="input" type="text" bind:value={version} placeholder="1.0.0" class:invalid={version && !versionValid} />
           {#if version && !versionValid}<span class="field-err">{t('hub.publish.semver_hint')}</span>{/if}
         </label>
         <label>
           {t('hub.publish.description')}
-          <textarea bind:value={description} rows="3" placeholder={t('hub.publish.description_placeholder')}></textarea>
+          <textarea class="input" bind:value={description} rows="3" placeholder={t('hub.publish.description_placeholder')}></textarea>
         </label>
         <div class="two">
           <label>
             {t('hub.publish.author')}
-            <input type="text" bind:value={author} placeholder="you" />
+            <input class="input" type="text" bind:value={author} placeholder="you" />
           </label>
           <label>
             {t('hub.publish.license')}
-            <input type="text" bind:value={license} placeholder="MIT" />
+            <input class="input" type="text" bind:value={license} placeholder="MIT" />
           </label>
         </div>
         <label>
           {t('hub.publish.tags')}
-          <input type="text" bind:value={tagsInput} placeholder="weather, api, utility" />
+          <input class="input" type="text" bind:value={tagsInput} placeholder="weather, api, utility" />
         </label>
         <label class="file">
           {t('hub.publish.archive')}
@@ -143,8 +145,8 @@
         {/if}
 
         <div class="actions">
-          <button class="ghost" onclick={close}>{t('hub.publish.cancel')}</button>
-          <button class="primary" disabled={!canSubmit} onclick={submit}>
+          <button class="btn btn-ghost" onclick={close}>{t('hub.publish.cancel')}</button>
+          <button class="btn btn-primary" disabled={!canSubmit} onclick={submit}>
             {hub.isPublishing ? t('hub.publish.publishing') : t('hub.publish.publish')}
           </button>
         </div>
@@ -157,52 +159,115 @@
   .pub-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 200;
     padding: var(--space-4);
+    animation: bd-in var(--transition-base) ease both;
+  }
+  @keyframes bd-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .pub-modal {
     width: 100%;
     max-width: 460px;
     max-height: 90vh;
     overflow-y: auto;
-    background: var(--color-bg-elevated, var(--color-bg));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
     padding: var(--space-5);
-    box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.4));
+    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
   }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
-  h2 { font-size: var(--size-lg); font-weight: 600; }
-  .close { background: none; border: none; color: var(--color-text-faint); font-size: 24px; cursor: pointer; line-height: 1; }
-  .close:hover { color: var(--color-text); }
-  .form { display: flex; flex-direction: column; gap: var(--space-3); }
-  label { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--size-sm); color: var(--color-text-muted); }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
-  input, textarea {
-    padding: 9px 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.3);
+  .pub-modal:hover {
+    border-color: var(--glass-border);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+  }
+  h2 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+  }
+  .close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--color-text-faint);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-base), background var(--transition-base);
+  }
+  .close svg { width: 16px; height: 16px; }
+  .close:hover {
     color: var(--color-text);
-    font-size: var(--size-md);
-    font-family: inherit;
+    background: var(--glass-bg-hover);
   }
-  input:focus, textarea:focus { outline: none; border-color: var(--color-accent); }
-  input.invalid { border-color: var(--color-error, #f87171); }
-  .field-err { color: var(--color-error, #f87171); font-size: var(--size-xs); }
-  .file-name { color: var(--color-text); font-size: var(--size-xs); font-family: var(--font-mono); }
-  .actions { display: flex; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
-  .ghost, .primary { padding: 10px 18px; border-radius: var(--radius-md); font-size: var(--size-md); font-weight: 500; cursor: pointer; }
-  .ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--color-text-muted); }
-  .primary { background: var(--color-accent-gradient); color: white; border: none; }
-  .primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .result { font-size: var(--size-sm); }
-  .result.ok { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
-  .result.ok a { color: var(--color-accent); }
-  .result.err { color: var(--color-error, #f87171); }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    font-size: var(--size-sm);
+    color: var(--color-text-muted);
+  }
+  .two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .pub-modal input.invalid {
+    border-color: var(--color-error);
+  }
+  .field-err {
+    color: var(--color-error);
+    font-size: var(--size-xs);
+  }
+  .file-name {
+    color: var(--color-text);
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+  }
+  .file input[type='file'] {
+    font-size: var(--size-sm);
+    color: var(--color-text-muted);
+  }
+  .actions {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin-top: var(--space-2);
+  }
+  .result {
+    font-size: var(--size-sm);
+  }
+  .result.ok {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+  .result.ok a {
+    color: var(--color-accent);
+  }
+  .result.err {
+    color: var(--color-error);
+  }
 </style>

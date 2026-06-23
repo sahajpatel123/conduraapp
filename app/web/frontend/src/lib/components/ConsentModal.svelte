@@ -35,7 +35,7 @@
 {#if consent.ticket}
   <div class="consent-backdrop" role="presentation">
     <div
-      class="consent-modal"
+      class="consent-modal glass-card elevated"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="consent-title"
@@ -78,10 +78,10 @@
       {/if}
 
       <div class="consent-actions">
-        <button class="consent-deny" onclick={() => consent.deny()}>
+        <button class="btn btn-secondary btn-lg consent-deny" onclick={() => consent.deny()}>
           {t('consent.deny')}
         </button>
-        <button class="consent-allow" onclick={() => consent.approve()}>
+        <button class="btn btn-primary btn-lg consent-allow" onclick={() => consent.approve()}>
           {t('consent.allow')}
         </button>
       </div>
@@ -97,135 +97,111 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: bd-in var(--transition-base) ease both;
+  }
+  @keyframes bd-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   .consent-modal {
-    width: min(420px, calc(100vw - 48px));
-    padding: 24px;
-    border-radius: var(--radius-xl, 16px);
-    background: var(--color-surface, #18181b);
-    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    width: min(440px, calc(100vw - 48px));
+    padding: var(--space-6);
     text-align: center;
+    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
+  }
+  .consent-modal:hover {
+    border-color: var(--glass-border);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
   }
 
   .consent-icon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 16px;
+    width: 52px;
+    height: 52px;
+    margin: 0 auto var(--space-4);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--color-warning, #f59e0b);
+    background: var(--color-warn-soft);
+    color: var(--color-warn);
+    animation: shield-pulse 2.6s ease-in-out infinite;
   }
-
   .consent-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
+  }
+  @keyframes shield-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--color-warn-soft); }
+    50% { box-shadow: 0 0 0 8px transparent; }
   }
 
   .consent-title {
-    margin: 0 0 12px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--color-text, #f4f4f5);
+    margin: 0 0 var(--space-3);
+    font-size: var(--size-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text);
   }
 
   .consent-body {
-    margin: 0 0 16px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--color-text-muted, #a1a1aa);
+    margin: 0 0 var(--space-4);
+    font-size: var(--size-md);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-muted);
   }
-
   .consent-body strong {
-    color: var(--color-text, #f4f4f5);
-    font-weight: 500;
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
   }
-
   .consent-meta {
     display: block;
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--color-text-faint, #71717a);
+    margin-top: var(--space-2);
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
   }
 
   .consent-countdown {
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
   }
-
   .consent-countdown-label {
     display: block;
-    font-size: 11px;
+    font-size: var(--size-xs);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-faint, #71717a);
-    margin-bottom: 6px;
+    letter-spacing: var(--tracking-wider);
+    color: var(--color-text-faint);
+    margin-bottom: var(--space-2);
   }
-
   .consent-countdown-bar {
-    height: 4px;
-    border-radius: var(--radius-pill, 999px);
-    background: rgba(255, 255, 255, 0.08);
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-active);
     overflow: hidden;
   }
-
   .consent-countdown-fill {
     height: 100%;
-    background: var(--color-warning, #f59e0b);
-    border-radius: var(--radius-pill, 999px);
+    background: var(--color-accent-gradient);
+    border-radius: var(--radius-pill);
     transition: width 1s linear;
   }
 
   .consent-error {
-    margin: 0 0 16px;
-    font-size: 12px;
-    color: var(--color-error, #ef4444);
+    margin: 0 0 var(--space-4);
+    font-size: var(--size-sm);
+    color: var(--color-error);
   }
 
   .consent-actions {
     display: flex;
-    gap: 12px;
+    gap: var(--space-3);
   }
-
-  .consent-actions button {
+  .consent-actions .btn {
     flex: 1;
-    padding: 12px 16px;
-    border-radius: var(--radius-lg, 10px);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-      background var(--transition-fast),
-      transform var(--transition-fast),
-      border-color var(--transition-fast);
-    border: 1px solid transparent;
-  }
-
-  .consent-actions button:hover {
-    transform: translateY(-1px);
-  }
-
-  .consent-deny {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--color-text, #f4f4f5);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .consent-deny:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .consent-allow {
-    background: var(--color-accent, #6366f1);
-    color: #fff;
-  }
-
-  .consent-allow:hover {
-    background: var(--color-accent-hover, #4f46e5);
   }
 </style>

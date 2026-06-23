@@ -1,0 +1,335 @@
+/* Condura shared utilities — premium component primitives.
+   Import once in style.css; use everywhere via class names.
+   No component should redefine buttons, cards, or inputs. */
+
+/* ── Glass card ─────────────────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm), var(--shadow-inset);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.glass-card:hover {
+  border-color: var(--glass-border-hover);
+}
+.glass-card.elevated {
+  box-shadow: var(--shadow-md), var(--shadow-inset);
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  font-size: var(--size-md);
+  font-weight: var(--weight-medium);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-base);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-sm {
+  padding: 5px 12px;
+  font-size: var(--size-sm);
+}
+.btn-xs {
+  padding: 3px 8px;
+  font-size: var(--size-xs);
+}
+.btn-lg {
+  padding: 12px 28px;
+  font-size: var(--size-lg);
+}
+.btn-primary {
+  background: var(--color-accent-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: var(--glass-border);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--glass-border-hover);
+  background: var(--glass-bg-hover);
+}
+.btn-ghost:active:not(:disabled) {
+  background: var(--glass-bg-active);
+}
+.btn-secondary {
+  background: var(--glass-bg);
+  color: var(--color-text);
+  border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+}
+.btn-danger {
+  background: var(--color-danger-gradient);
+  color: #fff;
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 0 16px var(--color-danger-soft);
+  transform: translateY(-1px);
+}
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.btn-icon-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Inputs ─────────────────────────────────────────────── */
+.input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text);
+  padding: 9px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--size-md);
+  font-family: var(--font-sans);
+  transition: all var(--transition-base);
+  width: 100%;
+}
+.input::placeholder {
+  color: var(--color-text-faint);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focus);
+}
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 80px;
+  line-height: var(--leading-normal);
+}
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888a0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* ── Badges ─────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  border: 1px solid var(--glass-border);
+}
+.badge-success {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+.badge-warn {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+.badge-error {
+  color: var(--color-error);
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+.badge-info {
+  color: var(--color-info);
+  border-color: var(--color-info);
+  background: var(--color-info-soft);
+}
+.badge-accent {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+/* ── Key-value rows ─────────────────────────────────────── */
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  font-size: var(--size-md);
+  border-bottom: 1px solid var(--color-border);
+}
+.kv:last-child {
+  border-bottom: none;
+}
+.kv .k {
+  color: var(--color-text-muted);
+}
+.kv .v {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+.kv .v.mono {
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+}
+
+/* ── Page header ────────────────────────────────────────── */
+.page-header {
+  margin-bottom: var(--space-2);
+}
+.page-header h2 {
+  font-size: var(--size-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-2);
+  background: var(--color-accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.page-header .muted {
+  color: var(--color-text-muted);
+  font-size: var(--size-sm);
+  line-height: var(--leading-relaxed);
+}
+
+/* ── Muted text ─────────────────────────────────────────── */
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--size-sm);
+}
+.faint {
+  color: var(--color-text-faint);
+  font-size: var(--size-xs);
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) var(--space-5);
+  text-align: center;
+}
+.empty-state h3 {
+  font-size: var(--size-xl);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+.empty-state p {
+  color: var(--color-text-muted);
+  font-size: var(--size-sm);
+  max-width: 380px;
+  line-height: var(--leading-relaxed);
+}
+
+/* ── Checkbox ───────────────────────────────────────────── */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+/* ── Divider ────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-accent), transparent);
+  opacity: 0.2;
+  margin: var(--space-4) 0;
+}
+
+/* ── Loading skeleton ───────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--glass-bg) 25%,
+    var(--glass-bg-hover) 50%,
+    var(--glass-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Focus visible ──────────────────────────────────────── */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Mono utility ───────────────────────────────────────── */
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Gradient text ──────────────────────────────────────── */
+.gradient-text {
+  background: var(--color-accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

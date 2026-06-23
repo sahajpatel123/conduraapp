@@ -73,7 +73,7 @@
       disabled={!inputText.trim() || sending || !firstEnabled}
       aria-label={t('overlay.send')}
     >
-      ↵
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
     </button>
     <button
       class="overlay-close"
@@ -81,7 +81,7 @@
       onclick={() => overlay.hide()}
       aria-label={t('overlay.close')}
     >
-      ×
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
     </button>
   </div>
   <div class="overlay-meta">
@@ -100,72 +100,83 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 12px;
-    padding: 24px;
+    gap: var(--space-4);
+    padding: var(--space-6);
   }
 
   .overlay-input-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-3);
     width: 100%;
-    max-width: 600px;
+    max-width: 620px;
   }
 
   .overlay-input {
     flex: 1;
-    padding: 16px 24px;
-    font-size: 18px;
+    padding: 16px 26px;
+    font-size: var(--size-xl);
     font-family: var(--font-sans);
     color: var(--color-text);
     background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
     backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-md), var(--shadow-inset);
     outline: none;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
-
+  .overlay-input::placeholder {
+    color: var(--color-text-faint);
+  }
   .overlay-input:focus {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
+    box-shadow: var(--shadow-focus), var(--shadow-glow);
   }
-
   .overlay-input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
   .overlay-send {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    color: white;
+    color: #fff;
     background: var(--color-accent-gradient);
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    transition: box-shadow var(--transition-base);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition-base), transform var(--transition-base);
   }
-
+  .overlay-send svg {
+    width: 20px;
+    height: 20px;
+  }
   .overlay-send:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-glow-strong);
+    transform: translateY(-1px);
   }
-
+  .overlay-send:active:not(:disabled) {
+    transform: translateY(0);
+  }
   .overlay-send:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
   .overlay-close {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
     color: var(--color-text-faint);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -173,21 +184,19 @@
     cursor: pointer;
     transition: color var(--transition-base), border-color var(--transition-base);
   }
-
+  .overlay-close svg {
+    width: 16px;
+    height: 16px;
+  }
   .overlay-close:hover {
     color: var(--color-text);
-    border-color: var(--color-text-faint);
+    border-color: var(--glass-border-hover);
   }
 
   .overlay-meta {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--size-xs);
     color: var(--color-text-faint);
-    letter-spacing: 0.02em;
-  }
-
-  .overlay-meta code {
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
+    letter-spacing: var(--tracking-wide);
   }
 </style>

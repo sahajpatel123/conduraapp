@@ -141,7 +141,7 @@
   <div class="suggestions">
     <span class="sug-label">{t('hotkey.recorder.suggestions')}</span>
     {#each suggestions as s}
-      <button type="button" class="chip" onclick={() => pick(s)}>{s}</button>
+      <button type="button" class="btn btn-ghost btn-xs chip" onclick={() => pick(s)}>{s}</button>
     {/each}
   </div>
 </div>
@@ -156,29 +156,34 @@
 
   .capture {
     width: 100%;
-    padding: var(--space-4);
-    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    border-radius: var(--radius-pill);
     border: 1px dashed var(--glass-border);
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     color: var(--color-text);
     font-size: var(--size-lg);
     cursor: pointer;
-    transition: all var(--transition-base);
-    min-height: 64px;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+    min-height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: var(--shadow-inset);
   }
   .capture:hover {
-    border-color: var(--color-accent);
+    border-color: var(--color-border-accent);
   }
   .capture.recording {
     border-style: solid;
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+    background: var(--color-accent-faint);
+    box-shadow: var(--shadow-glow-strong), var(--shadow-inset);
   }
   .capture.filled {
     border-style: solid;
+    border-color: var(--color-border-accent);
   }
 
   .placeholder {
@@ -188,21 +193,24 @@
 
   .pulse {
     color: var(--color-accent);
+    font-weight: var(--weight-medium);
     animation: blink 1.2s ease-in-out infinite;
   }
   @keyframes blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.45; }
+    50% { opacity: 0.4; }
   }
 
   kbd {
     font-family: var(--font-mono);
-    font-size: var(--size-lg);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md, 8px);
-    padding: 4px 12px;
-    letter-spacing: 0.02em;
+    font-size: var(--size-xl);
+    font-weight: var(--weight-semibold);
+    background: var(--color-bg-active);
+    border: 1px solid var(--glass-border-hover);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-4);
+    letter-spacing: var(--tracking-wide);
+    box-shadow: var(--shadow-inset);
   }
 
   .hint {
@@ -225,17 +233,6 @@
   }
   .chip {
     font-family: var(--font-mono);
-    font-size: var(--size-sm);
-    padding: 4px 10px;
     border-radius: var(--radius-pill);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition: all var(--transition-base);
-  }
-  .chip:hover {
-    color: var(--color-text);
-    border-color: var(--color-accent);
   }
 </style>

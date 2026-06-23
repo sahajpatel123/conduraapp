@@ -75,7 +75,10 @@
     </div>
 
     {#if !scrolledToBottom}
-      <p class="scroll-cue">{t('onboarding.eula.scroll_cue')}</p>
+      <p class="scroll-cue">
+        {t('onboarding.eula.scroll_cue')}
+        <svg class="cue-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+      </p>
     {/if}
 
     <label class="checkbox" class:disabled={!scrolledToBottom}>
@@ -94,7 +97,7 @@
   {/if}
 
   <div class="actions center">
-    <button class="btn btn-primary" onclick={accept} disabled={!canAccept}>
+    <button class="btn btn-primary btn-lg cta" onclick={accept} disabled={!canAccept}>
       {onboarding.busy ? t('onboarding.eula.saving') : t('onboarding.eula.accept_button')}
     </button>
   </div>
@@ -109,10 +112,16 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
+  }
+  @keyframes screen-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
   }
   h1 {
     font-size: var(--size-3xl);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
     margin-bottom: var(--space-2);
     background: var(--color-accent-gradient);
     -webkit-background-clip: text;
@@ -122,10 +131,8 @@
   .lede {
     font-size: var(--size-md);
     color: var(--color-text-muted);
-    margin-bottom: var(--space-4);
-  }
-  .muted {
-    color: var(--color-text-muted);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-5);
   }
   .eula-meta {
     display: flex;
@@ -145,68 +152,61 @@
     height: 320px;
     overflow-y: auto;
     text-align: left;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     margin-bottom: var(--space-2);
+    box-shadow: var(--shadow-sm), var(--shadow-inset);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
   }
   .eula-body pre {
     white-space: pre-wrap;
     word-wrap: break-word;
     font-family: var(--font-sans);
     font-size: var(--size-sm);
-    line-height: 1.6;
+    line-height: var(--leading-relaxed);
     color: var(--color-text-muted);
     margin: 0;
   }
+  .eula-body::-webkit-scrollbar { width: 6px; }
+  .eula-body::-webkit-scrollbar-track { background: transparent; }
+  .eula-body::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: var(--radius-pill);
+  }
   .scroll-cue {
-    color: var(--color-accent);
-    font-size: var(--size-sm);
-    margin: 0 0 var(--space-3) 0;
-    animation: bob 1.5s ease-in-out infinite;
-  }
-  @keyframes bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(2px); }
-  }
-  .checkbox {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    margin: var(--space-3) 0;
-    cursor: pointer;
-    color: var(--color-text);
+    color: var(--color-accent);
+    font-size: var(--size-sm);
+    margin: var(--space-2) 0 var(--space-3) 0;
   }
-  .checkbox.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .cue-arrow {
+    width: 14px;
+    height: 14px;
+    animation: bob 1.6s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); opacity: 0.7; }
+    50% { transform: translateY(3px); opacity: 1; }
+  }
+  .wizard .checkbox {
+    margin: var(--space-3) 0;
+    color: var(--color-text);
+    font-size: var(--size-sm);
   }
   .actions {
     display: flex;
     justify-content: center;
     margin-top: var(--space-4);
   }
-  .btn {
-    padding: 12px 28px;
+  .cta {
     border-radius: var(--radius-pill);
-    font-size: var(--size-md);
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all var(--transition-spring);
-  }
-  .btn-primary {
-    background: var(--color-accent-gradient);
-    color: white;
-  }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-1px);
-  }
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
   .error {
     color: var(--color-error);

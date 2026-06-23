@@ -30,7 +30,7 @@
 
 <div class="menu-backdrop" role="presentation" onclick={() => onClose?.()}>
   <div
-    class="account-menu"
+    class="account-menu glass-card elevated"
     role="menu"
     tabindex="-1"
     aria-label={t('account.menu.aria_label')}
@@ -55,8 +55,8 @@
     {#if confirmingSignOut}
       <p class="confirm-q">{t('account.menu.signout_confirm')}</p>
       <div class="confirm-actions">
-        <button class="ghost" onclick={() => (confirmingSignOut = false)}>{t('account.menu.cancel')}</button>
-        <button class="danger" onclick={doSignOut} disabled={account.loading}>
+        <button class="btn btn-ghost btn-sm" onclick={() => (confirmingSignOut = false)}>{t('account.menu.cancel')}</button>
+        <button class="btn btn-danger btn-sm" onclick={doSignOut} disabled={account.loading}>
           {account.loading ? t('account.menu.signing_out') : t('account.menu.signout')}
         </button>
       </div>
@@ -83,11 +83,15 @@
     bottom: 64px;
     left: 12px;
     width: 248px;
-    background: var(--color-bg-elevated, var(--color-bg));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
     padding: var(--space-3);
-    box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.4));
+    animation: dropdown-in var(--transition-spring) var(--ease-out-expo) both;
+  }
+  .account-menu:hover {
+    border-color: var(--glass-border);
+  }
+  @keyframes dropdown-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
   }
   .who {
     display: flex;
@@ -106,8 +110,8 @@
     align-items: center;
     justify-content: center;
     background: var(--color-accent-gradient);
-    color: white;
-    font-weight: 600;
+    color: #fff;
+    font-weight: var(--weight-semibold);
   }
   .who-text {
     display: flex;
@@ -115,7 +119,7 @@
     min-width: 0;
   }
   .name {
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     font-size: var(--size-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -147,25 +151,28 @@
     border: none;
     color: var(--color-text);
     font-size: var(--size-sm);
+    font-family: var(--font-sans);
     cursor: pointer;
+    transition: background var(--transition-base);
   }
-  .item:hover { background: var(--color-bg-hover); }
+  .item:hover {
+    background: var(--color-bg-hover);
+  }
   .confirm-q {
     font-size: var(--size-sm);
     color: var(--color-text-muted);
     margin-bottom: var(--space-2);
   }
-  .confirm-actions { display: flex; gap: var(--space-2); }
-  .ghost, .danger {
-    flex: 1;
-    padding: var(--space-2);
-    border-radius: var(--radius-md);
-    font-size: var(--size-sm);
-    cursor: pointer;
-    border: 1px solid var(--glass-border);
+  .confirm-actions {
+    display: flex;
+    gap: var(--space-2);
   }
-  .ghost { background: transparent; color: var(--color-text-muted); }
-  .danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; }
-  .danger:disabled { opacity: 0.5; cursor: not-allowed; }
-  .err { color: var(--color-error, #f87171); font-size: var(--size-xs); margin-top: var(--space-2); }
+  .confirm-actions .btn {
+    flex: 1;
+  }
+  .err {
+    color: var(--color-error);
+    font-size: var(--size-xs);
+    margin-top: var(--space-2);
+  }
 </style>

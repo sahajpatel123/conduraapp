@@ -26,7 +26,7 @@
 </script>
 
 <div class="replay-page">
-  <header>
+  <header class="page-header">
     <h2>{t('replay.title')}</h2>
     <p class="muted">{t('replay.intro')}</p>
     <div class="header-actions">
@@ -56,13 +56,14 @@
         value={replay.selectedIndex}
         oninput={(e) => replay.selectIndex(parseInt((e.target as HTMLInputElement).value, 10))}
         class="slider"
+        style={`--fill: ${(replay.selectedIndex / Math.max(replay.frames.length - 1, 1)) * 100}%`}
         aria-label={t('replay.scrubber_aria')}
       />
       <span class="scrub-label">{replay.selectedIndex + 1} / {replay.frames.length}</span>
     </div>
 
     {#if replay.selected}
-      <div class="frame-detail card">
+      <div class="frame-detail glass-card">
         <div class="meta">
           <span class="ts">{new Date(replay.selected.timestamp).toLocaleString()}</span>
           <span class="badge {outcomeClass(replay.selected.outcome)}">{replay.selected.outcome}</span>
@@ -111,19 +112,11 @@
     padding: var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 1100px;
+    max-width: var(--content-max-width-wide);
     margin: 0 auto;
   }
-  header h2 {
-    font-size: var(--size-2xl);
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .muted { color: var(--color-text-muted); font-size: var(--size-sm); }
+
+  /* ── Header actions ──────────────────────────────────── */
   .header-actions {
     display: flex;
     gap: var(--space-2);
@@ -132,19 +125,74 @@
   }
   .integrity { font-size: var(--size-sm); margin-top: var(--space-2); }
   .integrity.valid { color: var(--color-success); }
-  .integrity:not(.valid) { color: #f87171; }
+  .integrity:not(.valid) { color: var(--color-error); }
+
+  /* ── Premium scrubber — glass track with accent fill ── */
   .scrubber {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     margin: var(--space-4) 0;
-  }
-  .slider { flex: 1; }
-  .scrub-label { font-family: var(--font-mono); font-size: var(--size-sm); color: var(--color-text-muted); }
-  .card {
+    padding: var(--space-3) var(--space-4);
     background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-pill);
+  }
+  .slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(
+      to right,
+      var(--color-accent) 0%,
+      var(--color-accent-secondary) var(--fill, 0%),
+      var(--color-bg-elevated) var(--fill, 0%),
+      var(--color-bg-elevated) 100%
+    );
+    outline: none;
+    cursor: pointer;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    box-shadow: var(--shadow-glow), 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: transform var(--transition-base);
+  }
+  .slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+  .slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: none;
+    box-shadow: var(--shadow-glow), 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: transform var(--transition-base);
+  }
+  .slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+  }
+  .scrub-label {
+    font-family: var(--font-mono);
+    font-size: var(--size-sm);
+    color: var(--color-text-muted);
+    min-width: 64px;
+    text-align: right;
+  }
+
+  /* ── Frame detail card ───────────────────────────────── */
+  .frame-detail {
     padding: var(--space-5);
     margin-bottom: var(--space-4);
   }
@@ -156,29 +204,59 @@
     margin-bottom: var(--space-3);
     font-size: var(--size-sm);
   }
-  .action { font-weight: 600; font-family: var(--font-mono); }
-  .app { color: var(--color-text-muted); }
-  .message { margin-bottom: var(--space-4); font-size: var(--size-md); }
+  .meta .ts { font-family: var(--font-mono); font-size: var(--size-xs); color: var(--color-text-muted); }
+  .meta .action { font-weight: var(--weight-semibold); font-family: var(--font-mono); }
+  .meta .app { color: var(--color-text-muted); }
+  .message {
+    margin-bottom: var(--space-4);
+    font-size: var(--size-md);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text);
+  }
+
+  /* ── Screenshots ─────────────────────────────────────── */
   .shots {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--space-4);
   }
   figure { margin: 0; }
-  figcaption { font-size: var(--size-xs); color: var(--color-text-muted); margin-bottom: var(--space-2); }
+  figcaption {
+    font-size: var(--size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    margin-bottom: var(--space-2);
+  }
   .shots img {
     width: 100%;
     border-radius: var(--radius-md);
     border: 1px solid var(--glass-border);
+    transition: border-color var(--transition-base);
   }
+  .shots img:hover {
+    border-color: var(--glass-border-hover);
+  }
+
+  /* ── Frame list — clean vertical timeline ────────────── */
   .frame-list {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: 2px;
+    position: relative;
+  }
+  .frame-list::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: var(--space-2);
+    bottom: var(--space-2);
+    width: 1px;
+    background: var(--color-border);
   }
   .frame-row {
     display: grid;
-    grid-template-columns: 100px 1fr auto;
+    grid-template-columns: 28px 100px 1fr auto;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     text-align: left;
@@ -188,28 +266,59 @@
     color: var(--color-text);
     cursor: pointer;
     font-size: var(--size-sm);
+    align-items: center;
+    transition: all var(--transition-base);
+    position: relative;
   }
-  .frame-row:hover, .frame-row.active {
+  .frame-row::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-text-faint);
+    transition: all var(--transition-base);
+    justify-self: center;
+  }
+  .frame-row:hover {
+    background: var(--color-bg-hover);
+  }
+  .frame-row.active {
     background: var(--color-accent-soft);
-    border-color: var(--glass-border);
+    border-color: var(--color-border-accent);
   }
-  .badge {
-    padding: 2px 8px;
-    border-radius: var(--radius-pill);
+  .frame-row.active::before {
+    background: var(--color-accent);
+    box-shadow: var(--shadow-glow);
+  }
+  .frame-row .ts {
+    font-family: var(--font-mono);
     font-size: var(--size-xs);
-    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
-  .outcome-allowed { background: rgba(74, 222, 128, 0.15); color: var(--color-success); }
-  .outcome-denied { background: rgba(248, 113, 113, 0.15); color: #f87171; }
-  .outcome-errored { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
-  .outcome-unknown { background: rgba(148, 163, 184, 0.15); color: var(--color-text-muted); }
-  .btn {
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    font-size: var(--size-md);
-    cursor: pointer;
-    border: none;
+  .frame-row .action {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
   }
-  .btn-primary { background: var(--color-accent-gradient); color: white; }
-  .btn-ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--color-text-muted); }
+
+  /* ── Outcome badges (component-specific colors) ──────── */
+  .badge.outcome-allowed {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .badge.outcome-denied {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
+  }
+  .badge.outcome-errored {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
+  }
+  .badge.outcome-unknown {
+    color: var(--color-text-muted);
+    border-color: var(--glass-border);
+    background: var(--color-bg-elevated);
+  }
 </style>

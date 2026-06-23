@@ -71,7 +71,7 @@
 
 <div class="pair-backdrop" role="presentation" onclick={onCancel}>
   <div
-    class="pair-modal"
+    class="pair-modal glass-card elevated"
     role="dialog"
     aria-modal="true"
     aria-label={t('sync.pair.aria_label')}
@@ -81,7 +81,9 @@
   >
     <header>
       <h2>{t('sync.pair.title', peerName)}</h2>
-      <button class="close" aria-label={t('sync.pair.close')} onclick={onCancel}>&times;</button>
+      <button class="close" aria-label={t('sync.pair.close')} onclick={onCancel}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
+      </button>
     </header>
 
     <div class="qr-area">
@@ -110,6 +112,7 @@
       <div class="confirm-row">
         <input
           id="pair-pin"
+          class="input pin-input"
           type="text"
           inputmode="numeric"
           bind:value={entered}
@@ -117,7 +120,7 @@
           maxlength="8"
           onkeydown={(e) => { if (e.key === 'Enter' && confirmReady) onConfirm(entered.trim()) }}
         />
-        <button class="confirm-btn" disabled={!confirmReady || busy} onclick={() => onConfirm(entered.trim())}>
+        <button class="btn btn-primary" disabled={!confirmReady || busy} onclick={() => onConfirm(entered.trim())}>
           {busy ? t('sync.pair.busy') : t('sync.pair.confirm')}
         </button>
       </div>
@@ -133,23 +136,33 @@
   .pair-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 200;
     padding: var(--space-4);
+    animation: bd-in var(--transition-base) ease both;
+  }
+  @keyframes bd-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .pair-modal {
     width: 100%;
     max-width: 380px;
-    background: var(--color-bg-elevated, var(--color-bg));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
     padding: var(--space-5);
-    box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.4));
     text-align: center;
+    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
+  }
+  .pair-modal:hover {
+    border-color: var(--glass-border);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
   }
   header {
     display: flex;
@@ -157,16 +170,41 @@
     justify-content: space-between;
     margin-bottom: var(--space-3);
   }
-  h2 { font-size: var(--size-lg); font-weight: 600; }
-  .close { background: none; border: none; color: var(--color-text-faint); font-size: 24px; cursor: pointer; line-height: 1; }
-  .close:hover { color: var(--color-text); }
-  .qr-area { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  h2 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+  }
+  .close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--color-text-faint);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-base), background var(--transition-base);
+  }
+  .close svg { width: 16px; height: 16px; }
+  .close:hover {
+    color: var(--color-text);
+    background: var(--glass-bg-hover);
+  }
+  .qr-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+  }
   .qr {
     width: 200px;
     height: 200px;
     border-radius: var(--radius-md);
     background: #fff;
     padding: 8px;
+    box-shadow: var(--shadow-glow);
   }
   .qr.placeholder {
     display: flex;
@@ -175,7 +213,12 @@
     color: #999;
     font-family: var(--font-mono);
   }
-  .qr-cap { color: var(--color-text-muted); font-size: var(--size-xs); line-height: 1.5; max-width: 280px; }
+  .qr-cap {
+    color: var(--color-text-muted);
+    font-size: var(--size-xs);
+    line-height: var(--leading-relaxed);
+    max-width: 280px;
+  }
   .pin-block {
     display: flex;
     flex-direction: column;
@@ -183,34 +226,45 @@
     gap: 2px;
     margin: var(--space-4) 0;
   }
-  .pin-label { font-size: var(--size-xs); color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.08em; }
-  .pin { font-family: var(--font-mono); font-size: var(--size-2xl); font-weight: 700; letter-spacing: 0.2em; color: var(--color-accent); }
-  .ttl { font-size: var(--size-xs); color: var(--color-text-muted); }
-  .ttl.expired { color: var(--color-error, #f87171); }
-  .confirm label { display: block; font-size: var(--size-sm); color: var(--color-text-muted); margin-bottom: var(--space-2); }
-  .confirm-row { display: flex; gap: var(--space-2); }
-  .confirm-row input {
+  .pin-label {
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+  }
+  .pin {
+    font-family: var(--font-mono);
+    font-size: var(--size-2xl);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.2em;
+    color: var(--color-accent);
+    text-shadow: 0 0 18px var(--color-glow-strong);
+  }
+  .ttl {
+    font-size: var(--size-xs);
+    color: var(--color-text-muted);
+  }
+  .ttl.expired { color: var(--color-error); }
+  .confirm label {
+    display: block;
+    font-size: var(--size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+  }
+  .confirm-row {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .pin-input {
     flex: 1;
-    padding: 10px 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.3);
-    color: var(--color-text);
     font-family: var(--font-mono);
     font-size: var(--size-lg);
     text-align: center;
     letter-spacing: 0.15em;
   }
-  .confirm-row input:focus { outline: none; border-color: var(--color-accent); }
-  .confirm-btn {
-    padding: 10px 18px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: var(--color-accent-gradient);
-    color: white;
-    font-weight: 500;
-    cursor: pointer;
+  .err {
+    color: var(--color-error);
+    font-size: var(--size-sm);
+    margin-top: var(--space-3);
   }
-  .confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .err { color: var(--color-error, #f87171); font-size: var(--size-sm); margin-top: var(--space-3); }
 </style>

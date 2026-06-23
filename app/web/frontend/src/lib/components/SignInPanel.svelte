@@ -75,7 +75,7 @@
 
 <div class="signin-backdrop" role="presentation" onclick={() => onClose?.()}>
   <div
-    class="signin-panel"
+    class="signin-panel glass-card elevated"
     role="dialog"
     aria-modal="true"
     aria-label={t('account.signin.aria_label')}
@@ -85,7 +85,9 @@
   >
     <header>
       <h2>{t('account.signin.title')}</h2>
-      <button class="close" aria-label={t('account.signin.close')} onclick={() => onClose?.()}>&times;</button>
+      <button class="close" aria-label={t('account.signin.close')} onclick={() => onClose?.()}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
+      </button>
     </header>
 
     <p class="lead">
@@ -96,7 +98,7 @@
       <div class="providers">
         {#each account.configuredProviders as p (p)}
           <button
-            class={providerClass(p)}
+            class="btn btn-secondary {providerClass(p)}"
             onclick={() => signInWith(p)}
             disabled={account.loading}
           >
@@ -105,7 +107,7 @@
           </button>
         {/each}
       </div>
-      <div class="divider"><span>{t('account.signin.or')}</span></div>
+      <div class="or-divider"><span>{t('account.signin.or')}</span></div>
     {:else}
       <p class="setup-hint">
         {t('account.signin.setup_hint')}
@@ -117,13 +119,14 @@
       <div class="magic-row">
         <input
           id="signin-email"
+          class="input"
           type="email"
           bind:value={email}
           placeholder="you@example.com"
           autocomplete="email"
           onkeydown={(e) => { if (e.key === 'Enter') withEmail() }}
         />
-        <button class="send" onclick={withEmail} disabled={!emailValid || account.loading}>
+        <button class="btn btn-primary" onclick={withEmail} disabled={!emailValid || account.loading}>
           {account.loading ? t('account.signin.sending') : t('account.signin.send_link')}
         </button>
       </div>
@@ -146,22 +149,32 @@
   .signin-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 200;
     padding: var(--space-4);
+    animation: bd-in var(--transition-base) ease both;
+  }
+  @keyframes bd-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .signin-panel {
     width: 100%;
     max-width: 420px;
-    background: var(--color-bg-elevated, var(--color-bg));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
     padding: var(--space-5);
-    box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.4));
+    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
+  }
+  .signin-panel:hover {
+    border-color: var(--glass-border);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
   }
   header {
     display: flex;
@@ -171,21 +184,30 @@
   }
   h2 {
     font-size: var(--size-xl);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
   .close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
     background: none;
     border: none;
     color: var(--color-text-faint);
-    font-size: 24px;
     cursor: pointer;
-    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-base), background var(--transition-base);
   }
-  .close:hover { color: var(--color-text); }
+  .close svg { width: 16px; height: 16px; }
+  .close:hover {
+    color: var(--color-text);
+    background: var(--glass-bg-hover);
+  }
   .lead {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
-    line-height: 1.5;
+    line-height: var(--leading-relaxed);
     margin-bottom: var(--space-4);
   }
   .providers {
@@ -194,25 +216,11 @@
     gap: var(--space-2);
   }
   .provider {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-    padding: 11px 16px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: var(--glass-bg);
-    color: var(--color-text);
-    font-size: var(--size-md);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-base);
+    justify-content: flex-start;
   }
   .provider:hover:not(:disabled) {
-    border-color: var(--color-accent);
     transform: translateY(-1px);
   }
-  .provider:disabled { opacity: 0.5; cursor: not-allowed; }
   .p-icon {
     display: inline-flex;
     align-items: center;
@@ -220,29 +228,22 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     background: var(--color-bg);
     border: 1px solid var(--glass-border);
-    font-size: 13px;
+    font-size: var(--size-sm);
   }
   .setup-hint {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
-    line-height: 1.5;
+    line-height: var(--leading-relaxed);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: var(--space-3);
     margin-bottom: var(--space-4);
   }
-  .setup-hint code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    background: rgba(0, 0, 0, 0.25);
-    padding: 1px 5px;
-    border-radius: 4px;
-  }
-  .divider {
+  .or-divider {
     display: flex;
     align-items: center;
     text-align: center;
@@ -250,50 +251,43 @@
     font-size: var(--size-xs);
     margin: var(--space-4) 0;
   }
-  .divider::before, .divider::after {
+  .or-divider::before,
+  .or-divider::after {
     content: '';
     flex: 1;
     height: 1px;
     background: var(--glass-border);
   }
-  .divider span { padding: 0 var(--space-3); }
+  .or-divider span {
+    padding: 0 var(--space-3);
+  }
   .magic label {
     display: block;
     font-size: var(--size-sm);
     color: var(--color-text-muted);
     margin-bottom: var(--space-2);
   }
-  .magic-row { display: flex; gap: var(--space-2); }
-  .magic-row input {
+  .magic-row {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .magic-row .input {
     flex: 1;
-    padding: 10px 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.3);
-    color: var(--color-text);
-    font-size: var(--size-md);
   }
-  .magic-row input:focus {
-    outline: none;
-    border-color: var(--color-accent);
+  .ok {
+    color: var(--color-success);
+    font-size: var(--size-sm);
+    margin-top: var(--space-3);
   }
-  .send {
-    padding: 10px 16px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: var(--color-accent-gradient);
-    color: white;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
+  .err {
+    color: var(--color-error);
+    font-size: var(--size-sm);
+    margin-top: var(--space-3);
   }
-  .send:disabled { opacity: 0.5; cursor: not-allowed; }
-  .ok { color: var(--color-success); font-size: var(--size-sm); margin-top: var(--space-3); }
-  .err { color: var(--color-error, #f87171); font-size: var(--size-sm); margin-top: var(--space-3); }
   .fineprint {
     color: var(--color-text-faint);
     font-size: var(--size-xs);
-    line-height: 1.5;
+    line-height: var(--leading-relaxed);
     margin-top: var(--space-4);
   }
 </style>

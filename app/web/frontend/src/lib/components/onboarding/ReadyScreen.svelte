@@ -48,7 +48,12 @@
 </script>
 
 <div class="wizard ready">
-  <div class="check">✓</div>
+  <div class="check" aria-hidden="true">
+    <svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <circle class="check-ring" cx="26" cy="26" r="22" />
+      <path class="check-mark" d="M16 27l7 7 13-14" />
+    </svg>
+  </div>
   <h1>{t('onboarding.ready.title')}</h1>
 
   {#if probing}
@@ -56,13 +61,13 @@
   {/if}
 
   <div class="setup-cards">
-    <button class="setup-card primary" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
+    <button class="setup-card glass-card primary" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
       <span class="card-label">{t('onboarding.ready.add_provider')}</span>
       <span class="card-desc">{t('onboarding.ready.add_provider_desc')}</span>
     </button>
 
     {#if probe?.ollama_reachable}
-      <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
+      <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
         <span class="card-label">{t('onboarding.ready.ollama_detected')}</span>
         <span class="card-desc">
           {t('onboarding.ready.ollama_desc')}{#if probe.ollama_models.length} ({probe.ollama_models.slice(0, 2).join(', ')}){/if}
@@ -70,12 +75,12 @@
       </button>
     {/if}
 
-    <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
+    <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
       <span class="card-label">{t('onboarding.ready.connect_messaging')}</span>
       <span class="card-desc">{t('onboarding.ready.telegram_settings')}</span>
     </button>
 
-    <button class="setup-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
+    <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
       <span class="card-label">{t('onboarding.ready.setup_voice')}</span>
       <span class="card-desc">
         {#if voice}
@@ -92,7 +97,7 @@
   {/if}
 
   <div class="actions center">
-    <button class="btn btn-primary big" onclick={() => finish()} disabled={onboarding.busy}>
+    <button class="btn btn-primary btn-lg cta" onclick={() => finish()} disabled={onboarding.busy}>
       {onboarding.busy ? t('onboarding.ready.starting') : t('onboarding.ready.start_button')}
     </button>
   </div>
@@ -107,22 +112,44 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
+  }
+  @keyframes screen-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
   }
   .check {
-    font-size: 56px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: var(--space-3);
     color: var(--color-accent);
-    margin-bottom: var(--space-2);
+    filter: drop-shadow(0 0 16px var(--color-glow-strong));
+  }
+  .check svg { width: 100%; height: 100%; }
+  .check-ring {
+    stroke-dasharray: 140;
+    stroke-dashoffset: 140;
+    animation: draw 620ms var(--ease-out-expo) 80ms forwards;
+  }
+  .check-mark {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: draw 360ms var(--ease-out-expo) 540ms forwards;
+  }
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
   }
   h1 {
     font-size: var(--size-3xl);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
     margin-bottom: var(--space-4);
     background: var(--color-accent-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .muted { color: var(--color-text-muted); }
+  .wizard > .muted { color: var(--color-text-muted); }
   .setup-cards {
     display: flex;
     flex-direction: column;
@@ -136,53 +163,33 @@
     flex-direction: column;
     gap: 2px;
     padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--glass-border);
-    background: var(--glass-bg);
     color: var(--color-text);
     cursor: pointer;
-    transition: all var(--transition-base);
+    transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
   }
   .setup-card:hover:not(:disabled) {
-    border-color: var(--color-accent);
+    border-color: var(--color-border-accent);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
   .setup-card.primary {
-    border-color: var(--color-accent);
-    background: rgba(99, 102, 241, 0.06);
+    border-color: var(--color-border-accent);
+    background: var(--color-accent-gradient-subtle), var(--glass-bg);
   }
   .setup-card:disabled { opacity: 0.5; cursor: not-allowed; }
-  .card-label { font-weight: 600; font-size: var(--size-md); }
-  .card-desc { color: var(--color-text-muted); font-size: var(--size-sm); }
+  .card-label { font-weight: var(--weight-semibold); font-size: var(--size-md); }
+  .card-desc { color: var(--color-text-muted); font-size: var(--size-sm); line-height: var(--leading-relaxed); }
   .hotkey-note {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
     margin-bottom: var(--space-4);
   }
-  kbd {
-    font-family: var(--font-mono);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 6px;
-    padding: 2px 8px;
-  }
   .actions.center { display: flex; justify-content: center; }
-  .btn {
-    padding: 12px 24px;
+  .cta {
     border-radius: var(--radius-pill);
-    font-size: var(--size-md);
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all var(--transition-spring);
+    box-shadow: var(--shadow-md);
   }
-  .btn.big { padding: 14px 36px; font-size: var(--size-lg); }
-  .btn-primary {
-    background: var(--color-accent-gradient);
-    color: white;
+  .cta:hover:not(:disabled) {
+    box-shadow: var(--shadow-glow-strong);
   }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-1px);
-  }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

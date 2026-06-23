@@ -94,7 +94,7 @@
   <header>
     <div class="title-row">
       <h3>{t('pending.title')}</h3>
-      <span class="badge" class:has-pending={$pendingCount > 0}>{$pendingCount}</span>
+      <span class="badge count" class:has-pending={$pendingCount > 0}>{$pendingCount}</span>
     </div>
     <p class="muted">
       {t('pending.description')}
@@ -106,7 +106,7 @@
   {/if}
 
   <div class="actions-row">
-    <button class="btn btn-ghost" onclick={onRefresh}>{t('pending.refresh')}</button>
+    <button class="btn btn-ghost btn-sm" onclick={onRefresh}>{t('pending.refresh')}</button>
   </div>
 
   {#if pending.length === 0 && approved.length === 0 && decided.length === 0}
@@ -114,15 +114,15 @@
   {/if}
 
   {#if pending.length > 0}
-    <section class="card">
+    <section class="glass-card card">
       <h4>{t('pending.awaiting', pending.length)}</h4>
-      <ul class="row-list">
+      <ul class="row-list pending-rows">
         {#each pending as a (a.id)}
           <li>
             <div class="row-head">
               <span class="kind">{a.kind}</span>
               <span class="agent muted">{a.agent_name}</span>
-              <span class="gate gate-{a.gate_decision}">{a.gate_decision}</span>
+              <span class="badge gate gate-{a.gate_decision}">{a.gate_decision}</span>
               <span class="expires muted">{t('pending.expires', formatTime(a.expires_at))}</span>
             </div>
             <div class="row-payload">{describePayload(a)}</div>
@@ -131,21 +131,21 @@
             {/if}
             <div class="row-actions">
               <button
-                class="btn btn-primary"
+                class="btn btn-primary btn-sm"
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, true)}
               >
                 {t('pending.approve_run')}
               </button>
               <button
-                class="btn btn-secondary"
+                class="btn btn-secondary btn-sm"
                 disabled={working[a.id]}
                 onclick={() => onApprove(a, false)}
               >
                 {t('pending.approve_only')}
               </button>
               <button
-                class="btn btn-danger"
+                class="btn btn-danger btn-sm"
                 disabled={working[a.id]}
                 onclick={() => onDeny(a)}
               >
@@ -159,7 +159,7 @@
   {/if}
 
   {#if approved.length > 0}
-    <section class="card">
+    <section class="glass-card card">
       <h4>{t('pending.approved', approved.length)}</h4>
       <ul class="row-list compact">
         {#each approved as a (a.id)}
@@ -167,7 +167,7 @@
             <div class="row-head">
               <span class="kind">{a.kind}</span>
               <span class="agent muted">{a.agent_name}</span>
-              <span class="status status-{a.status}">{a.status}</span>
+              <span class="badge status status-{a.status}">{a.status}</span>
               {#if a.duration_ms > 0}
                 <span class="muted">{a.duration_ms}ms</span>
               {/if}
@@ -181,7 +181,7 @@
             {#if a.status === 'approved'}
               <div class="row-actions">
                 <button
-                  class="btn btn-primary"
+                  class="btn btn-primary btn-sm"
                   disabled={working[a.id]}
                   onclick={() => onExecute(a)}
                 >
@@ -196,7 +196,7 @@
   {/if}
 
   {#if decided.length > 0}
-    <section class="card">
+    <section class="glass-card card">
       <h4>{t('pending.history', decided.length)}</h4>
       <ul class="row-list compact">
         {#each decided as a (a.id)}
@@ -204,7 +204,7 @@
             <div class="row-head">
               <span class="kind">{a.kind}</span>
               <span class="agent muted">{a.agent_name}</span>
-              <span class="status status-{a.status}">{a.status}</span>
+              <span class="badge status status-{a.status}">{a.status}</span>
               <span class="muted">{formatTime(a.decided_at ?? a.created_at)}</span>
             </div>
           </li>
@@ -215,42 +215,76 @@
 </div>
 
 <style>
-  .pending-panel { padding: var(--space-4); overflow-y: auto; height: 100%; }
-  .pending-panel header h3 { font-size: var(--size-xl); font-weight: 600; margin: 0; }
-  .title-row { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: var(--color-bg-elev, rgba(255, 255, 255, 0.05));
-    color: var(--color-text-muted);
-    font-size: var(--size-xs);
-    font-weight: 600;
+  .pending-panel {
+    padding: var(--space-4);
+    overflow-y: auto;
+    height: 100%;
   }
-  .badge.has-pending { background: var(--color-accent, #4a9eff); color: white; }
-  .muted { color: var(--color-text-muted); font-size: var(--size-sm); }
-  .error { color: var(--color-error, #f87171); margin: var(--space-2) 0; }
-  .actions-row { display: flex; justify-content: flex-end; margin: var(--space-3) 0; }
+  .pending-panel header h3 {
+    font-size: var(--size-xl);
+    font-weight: var(--weight-semibold);
+    margin: 0;
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .count {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 var(--space-2);
+    justify-content: center;
+    background: var(--color-bg-active);
+    color: var(--color-text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .count.has-pending {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: transparent;
+  }
+  .error {
+    color: var(--color-error);
+    margin: var(--space-2) 0;
+    font-size: var(--size-sm);
+  }
+  .actions-row {
+    display: flex;
+    justify-content: flex-end;
+    margin: var(--space-3) 0;
+  }
   .card {
-    background: var(--glass-bg, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
-    border-radius: var(--radius-xl, 12px);
     padding: var(--space-4);
     margin: var(--space-3) 0;
   }
-  .card h4 { font-size: var(--size-md); font-weight: 600; margin: 0 0 var(--space-3) 0; }
-  .row-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+  .card h4 {
+    font-size: var(--size-md);
+    font-weight: var(--weight-semibold);
+    margin: 0 0 var(--space-3) 0;
+  }
+  .row-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
   .row-list li {
     padding: var(--space-3);
-    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
-    border-radius: var(--radius-md, 6px);
-    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.18);
   }
-  .row-list.compact li { padding: var(--space-2); }
+  .pending-rows li {
+    border-left: 2px solid var(--color-warn);
+  }
+  .row-list.compact li {
+    padding: var(--space-2) var(--space-3);
+  }
   .row-head {
     display: flex;
     align-items: center;
@@ -258,39 +292,76 @@
     flex-wrap: wrap;
     margin-bottom: var(--space-1);
   }
-  .kind { font-family: var(--font-mono); font-weight: 600; font-size: var(--size-sm); }
-  .agent { font-size: var(--size-xs); }
-  .gate, .status {
-    font-size: var(--size-xs);
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--color-bg-elev, rgba(255, 255, 255, 0.05));
+  .kind {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    font-size: var(--size-sm);
   }
-  .gate-allow { color: #4ade80; }
-  .gate-deny { color: #f87171; }
-  .gate-require_consent { color: #fbbf24; }
-  .gate-require_presence_and_consent { color: #fb923c; }
-  .status-executed { color: #4ade80; }
-  .status-failed { color: #f87171; }
-  .status-expired { color: var(--color-text-muted); }
-  .status-denied { color: var(--color-text-muted); }
-  .row-payload { font-family: var(--font-mono); font-size: var(--size-sm); padding: var(--space-1) 0; }
-  .row-reason { font-size: var(--size-xs); margin-top: var(--space-1); }
-  .row-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+  .agent { font-size: var(--size-xs); }
+  .expires { font-size: var(--size-xs); }
+  .row-head :global(.gate-allow) {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .row-head :global(.gate-deny) {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
+  }
+  .row-head :global(.gate-require_consent) {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
+  }
+  .row-head :global(.gate-require_presence_and_consent) {
+    color: #fb923c;
+    border-color: #fb923c;
+    background: rgba(251, 146, 60, 0.12);
+  }
+  .row-head :global(.status-executed) {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .row-head :global(.status-failed) {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
+  }
+  .row-head :global(.status-approved) {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
+  }
+  .row-head :global(.status-expired),
+  .row-head :global(.status-denied) {
+    color: var(--color-text-muted);
+  }
+  .row-payload {
+    font-family: var(--font-mono);
+    font-size: var(--size-sm);
+    padding: var(--space-1) 0;
+    color: var(--color-text);
+  }
+  .row-reason {
+    font-size: var(--size-xs);
+    margin-top: var(--space-1);
+  }
+  .row-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
   pre {
     background: rgba(0, 0, 0, 0.3);
     padding: var(--space-2);
-    border-radius: var(--radius-md, 6px);
+    border-radius: var(--radius-md);
     overflow: auto;
     max-height: 200px;
     font-size: var(--size-xs);
+    line-height: var(--leading-relaxed);
     margin: var(--space-2) 0 0 0;
   }
-  pre.error-output { color: #f87171; }
-  .btn { padding: 6px 12px; border-radius: var(--radius-md, 6px); font-size: var(--size-sm); cursor: pointer; border: none; }
-  .btn-primary { background: var(--color-accent, #4a9eff); color: white; }
-  .btn-secondary { background: var(--color-bg-elev, rgba(255, 255, 255, 0.05)); color: var(--color-text); border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08)); }
-  .btn-danger { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08)); }
+  pre.error-output { color: var(--color-error); }
 </style>

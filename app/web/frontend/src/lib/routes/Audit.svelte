@@ -17,7 +17,7 @@
 </script>
 
 <div class="audit-page">
-  <header>
+  <header class="page-header">
     <h2>{t('audit.title')}</h2>
     <p class="muted">{t('audit.intro')}</p>
   </header>
@@ -33,7 +33,7 @@
       />
       <select
         bind:value={filterLevel}
-        class="select"
+        class="input"
         onchange={applyFilter}
       >
         <option value="">{t('audit.all_levels')}</option>
@@ -98,22 +98,11 @@
     padding: var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 1100px;
+    max-width: var(--content-max-width-wide);
     margin: 0 auto;
   }
-  .audit-page header h2 {
-    font-size: var(--size-2xl);
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .muted {
-    color: var(--color-text-muted);
-    font-size: var(--size-sm);
-  }
+
+  /* ── Filter bar — premium glass pill ─────────────────── */
   .filter-bar {
     display: flex;
     gap: var(--space-3);
@@ -122,55 +111,41 @@
   }
   .filter-pill {
     display: flex;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-pill);
     overflow: hidden;
     flex: 1;
-    transition: border-color var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
   .filter-pill:focus-within {
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-focus);
   }
-  .input,
-  .select {
+  .filter-pill .input {
     background: transparent;
     border: none;
-    color: var(--color-text);
-    padding: 8px 16px;
-    font-size: var(--size-md);
-  }
-  .input {
+    border-right: 1px solid var(--color-border);
     flex: 1;
-    border-right: 1px solid var(--glass-border);
   }
-  .input:focus,
-  .select:focus {
-    outline: none;
+  .filter-pill .input:focus {
+    box-shadow: none;
   }
-  .btn {
-    padding: 8px 16px;
-    border-radius: var(--radius-pill);
-    font-size: var(--size-md);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: none;
+  .filter-pill select.input {
+    border-right: none;
+    width: auto;
+    min-width: 140px;
   }
-  .btn-ghost {
-    background: var(--glass-bg);
-    color: var(--color-text-muted);
-    border: 1px solid var(--glass-border);
-  }
-  .btn-ghost:hover:not(:disabled) {
-    color: var(--color-text);
-    border-color: rgba(255,255,255,0.15);
-  }
+
+  /* ── Audit table ─────────────────────────────────────── */
   .audit-table {
     width: 100%;
     border-collapse: collapse;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
     overflow: hidden;
@@ -180,21 +155,21 @@
     text-align: left;
     padding: var(--space-3);
     font-size: var(--size-sm);
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--color-border);
   }
   .audit-table th {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-elevated);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--tracking-wide);
     font-size: var(--size-xs);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
-  .audit-table tr {
+  .audit-table tbody tr {
     transition: background var(--transition-base);
   }
-  .audit-table tr:hover {
-    background: rgba(255, 255, 255, 0.02);
+  .audit-table tbody tr:hover {
+    background: var(--color-bg-hover);
   }
   .audit-table tr:last-child td {
     border-bottom: none;
@@ -207,36 +182,30 @@
   .audit-table td.msg {
     color: var(--color-text-muted);
   }
-  .badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: var(--radius-pill);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-  }
+
+  /* ── Level badges (component-specific colors) ────────── */
   .badge.level-info {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
+    color: var(--color-info);
+    border-color: var(--color-info);
+    background: var(--color-info-soft);
   }
   .badge.level-warn {
-    background: rgba(251, 191, 36, 0.15);
     color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
   }
   .badge.level-error {
-    background: rgba(248, 113, 113, 0.15);
     color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
   }
-  .result-allow {
-    color: var(--color-success);
-  }
-  .result-block {
-    color: var(--color-error);
-  }
-  .result-prompt {
-    color: var(--color-warn);
-  }
+
+  /* ── Result indicators ───────────────────────────────── */
+  .result-allow { color: var(--color-success); }
+  .result-block { color: var(--color-error); }
+  .result-prompt { color: var(--color-warn); }
+
+  /* ── Pagination ──────────────────────────────────────── */
   .pagination {
     display: flex;
     justify-content: space-between;

@@ -95,21 +95,21 @@
 
   <div class="perm-list">
     {#each rows as row (row.kind)}
-      <div class="perm-card">
+      <div class="perm-card glass-card">
         <div class="perm-head">
           <span class="perm-name">{LABELS[row.kind] ?? row.kind}</span>
           <span class="badge {badgeClass(row.status)}">{row.status}</span>
         </div>
         <p class="perm-why">{whyFor(row.kind)}</p>
         {#if row.status !== 'granted'}
-          <button class="btn btn-secondary" onclick={() => openSettings(row.kind)}>{t('onboarding.permissions.open_settings')}</button>
+          <button class="btn btn-secondary btn-sm" onclick={() => openSettings(row.kind)}>{t('onboarding.permissions.open_settings')}</button>
         {/if}
       </div>
     {/each}
   </div>
 
   {#if guide}
-    <div class="guide-box">
+    <div class="guide-box glass-card">
       <h4>{guide.title}</h4>
       <ol>
         {#each guide.steps as step}
@@ -119,7 +119,7 @@
       {#if guide.help_url}
         <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">{t('onboarding.permissions.more_help')}</a>
       {/if}
-      <button class="btn btn-ghost small" onclick={() => (guide = null)}>{t('onboarding.permissions.close')}</button>
+      <button class="btn btn-ghost btn-sm guide-close" onclick={() => (guide = null)}>{t('onboarding.permissions.close')}</button>
     </div>
   {/if}
 
@@ -141,15 +141,25 @@
     max-width: 560px;
     padding: var(--space-6) var(--space-5);
     text-align: center;
+    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
+  }
+  @keyframes screen-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
   }
   h2 {
     font-size: var(--size-2xl);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
     margin-bottom: var(--space-2);
+    background: var(--color-accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-  .muted {
-    color: var(--color-text-muted);
+  .wizard > .muted {
     font-size: var(--size-md);
+    line-height: var(--leading-relaxed);
     margin-bottom: var(--space-5);
   }
   .perm-list {
@@ -160,9 +170,6 @@
   }
   .perm-card {
     text-align: left;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
     padding: var(--space-4);
   }
   .perm-head {
@@ -172,50 +179,50 @@
     margin-bottom: var(--space-2);
   }
   .perm-name {
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     font-size: var(--size-md);
   }
   .perm-why {
     color: var(--color-text-muted);
     font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
     margin: 0 0 var(--space-3) 0;
   }
-  .badge {
-    font-family: var(--font-mono);
-    font-size: var(--size-xs, 11px);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 2px 10px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--glass-border);
-  }
-  .badge.granted {
+  .perm-head :global(.granted) {
     color: var(--color-success);
     border-color: var(--color-success);
+    background: var(--color-success-soft);
   }
-  .badge.denied {
+  .perm-head :global(.denied) {
     color: var(--color-error);
     border-color: var(--color-error);
+    background: var(--color-error-soft);
   }
-  .badge.unknown {
+  .perm-head :global(.unknown) {
     color: var(--color-text-faint);
   }
   .guide-box {
     text-align: left;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
     padding: var(--space-4);
     margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-md), var(--shadow-inset);
+  }
+  .guide-box h4 {
+    font-size: var(--size-md);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-2);
   }
   .guide-box ol {
     padding-left: var(--space-5);
     color: var(--color-text-muted);
     font-size: var(--size-sm);
-    line-height: 1.6;
+    line-height: var(--leading-relaxed);
+  }
+  .guide-close {
+    margin-top: var(--space-3);
   }
   .full-link {
-    color: var(--color-text-muted);
+    color: var(--color-accent);
     font-size: var(--size-sm);
     text-decoration: underline;
   }
@@ -223,48 +230,6 @@
     display: flex;
     justify-content: space-between;
     margin-top: var(--space-4);
-  }
-  .btn {
-    padding: 12px 24px;
-    border-radius: var(--radius-pill);
-    font-size: var(--size-md);
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    transition: all var(--transition-spring);
-  }
-  .btn.small {
-    padding: 6px 14px;
-    font-size: var(--size-sm);
-    margin-top: var(--space-2);
-  }
-  .btn-primary {
-    background: var(--color-accent-gradient);
-    color: white;
-  }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-1px);
-  }
-  .btn-secondary {
-    background: var(--glass-bg);
-    color: var(--color-text);
-    border: 1px solid var(--glass-border);
-  }
-  .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .btn-ghost {
-    background: transparent;
-    color: var(--color-text-muted);
-    border: 1px solid var(--glass-border);
-  }
-  .btn-ghost:hover {
-    color: var(--color-text);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
   .error {
     color: var(--color-error);

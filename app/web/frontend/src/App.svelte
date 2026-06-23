@@ -111,6 +111,7 @@
       {#if overlay.active}
         <OverlayPrompt />
       {:else}
+        {#key route}
         <div class="route-container">
           {#if route === 'settings'}
             <Settings />
@@ -134,6 +135,7 @@
             <Chat />
           {/if}
         </div>
+        {/key}
       {/if}
     </main>
 
@@ -165,41 +167,52 @@
     position: relative;
   }
 
+  /* ── Status bar — refined glass pill ─────────────── */
   .status-bar {
     position: absolute;
-    top: 12px;
-    right: 16px;
+    top: var(--space-3);
+    right: var(--space-4);
     display: flex;
     align-items: center;
-    gap: 6px;
-    z-index: 10;
-    padding: 4px 12px;
+    gap: var(--space-2);
+    z-index: var(--z-elevated);
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-pill);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-xs);
+    transition: border-color var(--transition-base);
+  }
+
+  .status-bar:hover {
+    border-color: var(--glass-border-hover);
   }
 
   .conn {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--color-text-faint);
-    transition: background var(--transition-base);
+    transition: background var(--transition-base), box-shadow var(--transition-base);
+    flex-shrink: 0;
   }
 
   .conn.connected {
     background: var(--color-success);
-    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
-    animation: breathe 2s ease-in-out infinite;
+    box-shadow: 0 0 0 3px var(--color-success-soft), 0 0 10px rgba(74, 222, 128, 0.5);
+    animation: breathe 2.4s var(--ease-in-out-quart) infinite;
   }
 
   .conn-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--size-2xs);
     color: var(--color-text-faint);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--tracking-wide);
+    font-weight: var(--weight-medium);
+    transition: color var(--transition-base);
   }
 
   .conn-label.connected {
@@ -207,14 +220,27 @@
   }
 
   @keyframes breathe {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
   }
 
+  /* ── Route container — fade-in on route change ──── */
   .route-container {
     flex: 1;
     overflow: hidden;
     display: flex;
+    animation: routeFadeIn var(--transition-slow) var(--ease-out-expo);
+  }
+
+  @keyframes routeFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .route-container :global(div) {
@@ -223,10 +249,23 @@
     width: 100%;
   }
 
+  /* ── Onboarding overlay — premium entrance ──────── */
   .onboarding-overlay {
     position: fixed;
     inset: 0;
     background: var(--color-bg);
-    z-index: 100;
+    z-index: var(--z-overlay);
+    animation: onboardingIn var(--transition-slow) var(--ease-out-expo);
+  }
+
+  @keyframes onboardingIn {
+    from {
+      opacity: 0;
+      transform: scale(1.02);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 </style>

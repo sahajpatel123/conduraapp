@@ -49,21 +49,26 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="hub-page" onkeydown={onKey} role="region" aria-label={t('hub.aria_label')}>
   <header class="hub-header">
-    <div>
+    <div class="page-header">
       <h2>{t('hub.title')}</h2>
       <p class="muted">{t('hub.intro')}</p>
     </div>
-    <button class="publish-btn" onclick={() => (showPublish = true)}>+ {t('hub.publish_button')}</button>
+    <button class="btn btn-primary publish-btn" onclick={() => (showPublish = true)}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      {t('hub.publish_button')}
+    </button>
   </header>
 
-  <div class="search-bar">
+  <div class="search-pill">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
     <input
       type="text"
+      class="search-input"
       placeholder={t('hub.search_placeholder')}
       bind:value={query}
       onkeydown={(e) => { if (e.key === 'Enter') search() }}
     />
-    <button onclick={search} disabled={loading || !query.trim()}>
+    <button class="btn btn-primary btn-sm" onclick={search} disabled={loading || !query.trim()}>
       {loading ? t('hub.searching') : t('hub.search')}
     </button>
   </div>
@@ -76,16 +81,16 @@
     <ul class="results">
       {#each results as r, i}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
+        <li class="result-row" class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{r.name}</strong>
             <span class="version">v{r.version}</span>
-            <span class="trust">[{r.trust}]</span>
+            <span class="badge trust-badge">{r.trust}</span>
             <span class="spacer"></span>
             {#if installed.has(r.id)}
-              <span class="installed">{t('hub.installed')}</span>
+              <span class="badge badge-success">{t('hub.installed')}</span>
             {:else}
-              <button onclick={(e) => { e.stopPropagation(); install(r.id) }}>{t('hub.install')}</button>
+              <button class="btn btn-primary btn-xs" onclick={(e) => { e.stopPropagation(); install(r.id) }}>{t('hub.install')}</button>
             {/if}
           </div>
           <div class="meta">
@@ -112,34 +117,120 @@
 {/if}
 
 <style>
-  .hub-page { padding: 16px; }
-  .hub-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .publish-btn {
-    padding: 8px 16px;
-    border-radius: var(--radius-md, 8px);
-    border: none;
-    background: var(--color-accent-gradient, #4a9eff);
-    color: white;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
+  .hub-page {
+    padding: var(--space-5);
+    overflow-y: auto;
+    height: 100%;
+    max-width: var(--content-max-width-wide);
+    margin: 0 auto;
   }
-  .publish-btn:hover { box-shadow: var(--shadow-glow, 0 0 12px rgba(74,158,255,0.4)); }
-  .search-bar { display: flex; gap: 8px; margin: 12px 0; }
-  .search-bar input { flex: 1; padding: 8px; font-size: 14px; }
-  .search-bar button { padding: 8px 16px; }
-  .results { list-style: none; padding: 0; margin: 0; }
-  .results li { padding: 12px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
-  .results li.selected { border-color: var(--accent, #4a9eff); background: var(--hover, rgba(74, 158, 255, 0.08)); }
-  .row { display: flex; align-items: baseline; gap: 8px; }
+  .hub-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .publish-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .search-pill {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-4) 0;
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-inset);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+  .search-pill:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
+  }
+  .search-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--color-text-faint);
+    flex-shrink: 0;
+  }
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font-size: var(--size-md);
+    font-family: var(--font-sans);
+    padding: var(--space-2) 0;
+  }
+  .search-input::placeholder {
+    color: var(--color-text-faint);
+  }
+  .results {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .result-row {
+    padding: var(--space-3) var(--space-4);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+  .result-row:hover,
+  .result-row.selected {
+    border-color: var(--color-border-accent);
+    background: var(--glass-bg-hover);
+  }
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
   .spacer { flex: 1; }
-  .version, .trust, .author { color: var(--muted, #888); font-size: 12px; }
-  .meta { display: flex; gap: 12px; margin-top: 4px; }
-  .id { font-size: 11px; opacity: 0.6; }
-  .desc { margin: 6px 0 0 0; color: var(--fg, #333); }
-  .error { color: var(--error, #c0392b); padding: 8px; background: var(--error-bg, rgba(192, 57, 43, 0.1)); border-radius: 4px; }
-  .installed { color: var(--success, #27ae60); font-weight: 500; }
-  .muted { color: var(--muted, #888); }
-  .mono { font-family: ui-monospace, monospace; }
-  kbd { background: var(--bg-elev, #f0f0f0); border: 1px solid var(--border, #ccc); border-radius: 3px; padding: 1px 4px; font-size: 11px; }
+  .version {
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    font-family: var(--font-mono);
+  }
+  .trust-badge {
+    color: var(--color-text-muted);
+  }
+  .meta {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-1);
+  }
+  .author {
+    color: var(--color-text-muted);
+    font-size: var(--size-xs);
+  }
+  .id {
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
+  }
+  .desc {
+    margin: var(--space-1) 0 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
+  }
+  .error {
+    color: var(--color-error);
+    font-size: var(--size-sm);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-error-soft);
+    border-radius: var(--radius-md);
+  }
 </style>

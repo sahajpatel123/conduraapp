@@ -83,18 +83,16 @@
 </script>
 
 <div class="delegation-page">
-  <header>
+  <header class="page-header">
     <h2>{t('delegation.title')}</h2>
-    <p class="muted">
-      {t('delegation.intro')}
-    </p>
+    <p class="muted">{t('delegation.intro')}</p>
   </header>
 
   {#if error}
     <p class="error">{error}</p>
   {/if}
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('delegation.available_title')}</h3>
     <p class="muted">
       {t('delegation.available_intro')}
@@ -108,7 +106,7 @@
         {#each agents as a}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <li class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
+          <li class="agent-card glass-card" class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
             <strong>{a.name}</strong>
             <span class="desc">{a.description}</span>
             <span class="binary">{t('delegation.binary', a.binary)}</span>
@@ -116,15 +114,15 @@
         {/each}
       </ul>
     {/if}
-    <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{t('delegation.refresh')}</button>
+    <button class="btn btn-ghost btn-sm" onclick={refresh} disabled={loading}>{t('delegation.refresh')}</button>
   </section>
 
-  <section class="card">
+  <section class="glass-card card">
     <h3>{t('delegation.spawn_title')}</h3>
     <form onsubmit={(e) => { e.preventDefault(); void spawn(); }}>
       <label class="field">
         <span>{t('delegation.agent_label')}</span>
-        <select bind:value={selectedAgent} disabled={spawning || agents.length === 0}>
+        <select class="input" bind:value={selectedAgent} disabled={spawning || agents.length === 0}>
           {#each agents as a}
             <option value={a.name}>{a.name}</option>
           {/each}
@@ -133,6 +131,7 @@
       <label class="field">
         <span>{t('delegation.task_label')}</span>
         <textarea
+          class="input"
           bind:value={taskInput}
           rows="4"
           placeholder={t('delegation.task_placeholder')}
@@ -141,11 +140,11 @@
       </label>
       <label class="field">
         <span>{t('delegation.model_label')}</span>
-        <input type="text" bind:value={modelInput} placeholder={t('delegation.model_placeholder')} disabled={spawning} />
+        <input class="input" type="text" bind:value={modelInput} placeholder={t('delegation.model_placeholder')} disabled={spawning} />
       </label>
       <label class="field">
         <span>{t('delegation.budget_label')}</span>
-        <input type="number" bind:value={budgetInput} min="0.01" step="0.10" disabled={spawning} />
+        <input class="input" type="number" bind:value={budgetInput} min="0.01" step="0.10" disabled={spawning} />
       </label>
       <button type="submit" class="btn btn-primary" disabled={spawning || !selectedAgent || !taskInput.trim()}>
         {spawning ? t('delegation.spawning') : t('delegation.spawn_button')}
@@ -154,73 +153,128 @@
   </section>
 
   {#if lastSpawn}
-    <section class="card">
+    <section class="glass-card card">
       <h3>{t('delegation.last_spawn')}</h3>
-      <dl class="result">
-        <dt>{t('delegation.spawn_id')}</dt>
-        <dd class="mono">{lastSpawn.spawn_id}</dd>
-        <dt>{t('delegation.agent')}</dt>
-        <dd>{lastSpawn.agent_name}</dd>
-        <dt>{t('delegation.state')}</dt>
-        <dd class="state-{lastSpawn.state}">{lastSpawn.state}</dd>
-        <dt>{t('delegation.cost')}</dt>
-        <dd>${lastSpawn.cost?.toFixed(4) ?? '0.0000'}</dd>
-        <dt>{t('delegation.tokens')}</dt>
-        <dd>{lastSpawn.tokens ?? 0}</dd>
+      <div class="result">
+        <div class="kv"><span class="k">{t('delegation.spawn_id')}</span><span class="v mono">{lastSpawn.spawn_id}</span></div>
+        <div class="kv"><span class="k">{t('delegation.agent')}</span><span class="v">{lastSpawn.agent_name}</span></div>
+        <div class="kv"><span class="k">{t('delegation.state')}</span><span class="v"><span class="badge state-{lastSpawn.state}">{lastSpawn.state}</span></span></div>
+        <div class="kv"><span class="k">{t('delegation.cost')}</span><span class="v">${lastSpawn.cost?.toFixed(4) ?? '0.0000'}</span></div>
+        <div class="kv"><span class="k">{t('delegation.tokens')}</span><span class="v">{lastSpawn.tokens ?? 0}</span></div>
         {#if lastSpawn.started}
-          <dt>{t('delegation.started')}</dt>
-          <dd>{new Date(lastSpawn.started).toLocaleString()}</dd>
+          <div class="kv"><span class="k">{t('delegation.started')}</span><span class="v">{new Date(lastSpawn.started).toLocaleString()}</span></div>
         {/if}
         {#if lastSpawn.finished}
-          <dt>{t('delegation.finished')}</dt>
-          <dd>{new Date(lastSpawn.finished).toLocaleString()}</dd>
+          <div class="kv"><span class="k">{t('delegation.finished')}</span><span class="v">{new Date(lastSpawn.finished).toLocaleString()}</span></div>
         {/if}
-      </dl>
+      </div>
       {#if lastSpawn.output}
         <details>
           <summary>{t('delegation.output')}</summary>
           <pre>{lastSpawn.output}</pre>
         </details>
       {/if}
-  {#if lastSpawn && lastSpawn.state === 'running'}
-    <button class="btn btn-danger" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{t('delegation.cancel')}</button>
-  {/if}
+      {#if lastSpawn && lastSpawn.state === 'running'}
+        <button class="btn btn-danger btn-sm" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{t('delegation.cancel')}</button>
+      {/if}
     </section>
   {/if}
 
-  <section class="card">
+  <section class="pending-section">
     <PendingActions />
   </section>
 </div>
 
 <style>
-  .delegation-page { padding: var(--space-5); overflow-y: auto; height: 100%; max-width: 900px; margin: 0 auto; }
-  .delegation-page header h2 { font-size: var(--size-2xl); font-weight: 600; margin-bottom: var(--space-2); }
-  .card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-5); margin: var(--space-4) 0; }
-  .muted { color: var(--color-text-muted); font-size: var(--size-sm); }
-  .error { color: var(--color-error, #f87171); margin: var(--space-2) 0; }
-  .agent-list { list-style: none; padding: 0; margin: var(--space-2) 0; display: grid; gap: var(--space-2); }
-  .agent-list li { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-md, 6px); cursor: pointer; font-size: var(--size-sm); }
-  .agent-list li.selected { border-color: var(--color-accent, #4a9eff); background: var(--color-accent-soft, rgba(74,158,255,0.08)); }
-  .agent-list .desc { color: var(--color-text-muted); }
-  .agent-list .binary { font-family: var(--font-mono); font-size: var(--size-xs); color: var(--color-text-muted); }
-  form { display: flex; flex-direction: column; gap: var(--space-3); }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field span { color: var(--color-text-muted); font-size: var(--size-sm); }
-  .field input, .field select, .field textarea { padding: 6px 10px; background: var(--color-bg-elev, rgba(255,255,255,0.04)); color: var(--color-text); border: 1px solid var(--glass-border); border-radius: var(--radius-md, 6px); font-family: inherit; }
-  .field textarea { resize: vertical; min-height: 80px; }
-  .btn { padding: 8px 16px; border-radius: var(--radius-md, 6px); font-size: var(--size-md); cursor: pointer; border: none; }
-  .btn-primary { background: var(--color-accent-gradient); color: white; }
-  .btn-ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--color-text-muted); }
-  .btn-danger { background: #c0392b; color: white; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .result { display: grid; grid-template-columns: 120px 1fr; gap: 4px 12px; font-size: var(--size-sm); }
-  .result dt { color: var(--color-text-muted); }
-  .result dd { margin: 0; }
-  .state-running { color: #fbbf24; }
-  .state-completed { color: #4ade80; }
-  .state-failed { color: #f87171; }
-  .state-cancelled { color: var(--color-text-muted); }
-  pre { background: rgba(0,0,0,0.3); padding: var(--space-3); border-radius: var(--radius-md, 6px); overflow: auto; max-height: 300px; font-size: var(--size-xs); }
-  .mono { font-family: var(--font-mono); }
+  .delegation-page {
+    padding: var(--space-5);
+    overflow-y: auto;
+    height: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .card {
+    padding: var(--space-5);
+    margin: var(--space-4) 0;
+  }
+  .card h3 {
+    font-size: var(--size-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-3);
+  }
+  .agent-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+  .agent-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3);
+    cursor: pointer;
+    font-size: var(--size-sm);
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+  .agent-card.selected {
+    border-color: var(--color-border-accent);
+    background: var(--color-accent-gradient-subtle), var(--glass-bg);
+  }
+  .agent-card .desc { color: var(--color-text-muted); }
+  .agent-card .binary {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-text-faint);
+  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .field > span {
+    color: var(--color-text-muted);
+    font-size: var(--size-sm);
+  }
+  .kv :global(.state-running) {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: var(--color-warn-soft);
+  }
+  .kv :global(.state-completed) {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .kv :global(.state-failed) {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: var(--color-error-soft);
+  }
+  .kv :global(.state-cancelled) {
+    color: var(--color-text-muted);
+  }
+  pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    overflow: auto;
+    max-height: 300px;
+    font-size: var(--size-xs);
+    line-height: var(--leading-relaxed);
+  }
+  .pending-section {
+    margin: var(--space-4) 0;
+  }
+  .error {
+    color: var(--color-error);
+    margin: var(--space-2) 0;
+    font-size: var(--size-sm);
+  }
 </style>
