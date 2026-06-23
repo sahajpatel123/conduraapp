@@ -985,3 +985,209 @@ would be acceptable. If yes, ship the obvious version.
 That is the loop. Every other section in this file is a
 description of a constraint inside that loop.
 
+## 23. The Versioning Policy
+
+Section 22 describes how I sequence work. This section
+describes when that work is ready to be **named** — when
+the cumulative state on `main` is ready to be called
+`v0.x.y` and shipped to a human. The cadence produces
+commits; this policy decides which commits become tags.
+
+I use **Semantic Versioning 2.0.0** (SemVer). The format is
+`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`. For this project,
+in the pre-1.0 era:
+
+| Version | Meaning |
+|---|---|
+| `v0.x.0` | New feature, milestone, or substantive change. |
+| `v0.x.y` (y > 0) | Bug fix or small update. |
+| `v1.0.0` | First public launch. Not before the bar in §23.6. |
+
+The infrastructure already exists: `internal/version/version.go`
+holds the ldflags-overridable `Version` constant (default
+`v0.0.0-dev`), `release.yml` triggers on `v*` tag push, and
+`build-gui.sh` injects the version via `-X .../version.Version`.
+Nothing about this policy is novel code. It is the **discipline
+of cutting tags** at the right moments.
+
+### 23.1 Patch (`v0.1.0` → `v0.1.1`) — Small, Surgical, No Public-Contract Change
+
+A patch is the right bump when the change is small AND does
+not change what the user can do. Concretely:
+
+- A bug fix (something was working, now it doesn't, restore it)
+- A crash fix
+- A security fix
+- A documentation correction
+- svelte-check / lint / dead-code cleanup that doesn't touch behavior
+- A test fix
+- An on-device verification finding that's a regression
+- An internal refactor with no user-visible change
+
+The test for "is this a patch?" is mechanical: **can the user
+do anything with this commit that they could not do with the
+previous tag?** If no, it is a patch. If yes, it is at
+least a minor.
+
+### 23.2 Minor (`v0.1.0` → `v0.2.0`) — New Capability
+
+A minor is the right bump when the change adds something the
+user can do or a new internal capability the system can
+exercise. Concretely:
+
+- A new RPC method
+- A new GUI route, store, or component
+- A new safety layer or new policy default
+- A new LLM provider backend
+- A new subsystem
+- A new supported file format
+- A cluster of patch-worthy fixes that tell a coherent story
+  ("the v0.2.0 Windows compatibility pass" is one minor,
+  even if each individual fix would have been a patch)
+
+The test for "is this a minor?" is also mechanical: **does
+the public contract grow?** If a new RPC ships, or a new
+component is mounted, or a new config key is read, the
+public contract grew. That is a minor.
+
+### 23.3 Major (`v0.x.x` → `v1.0.0`) — First Public Launch
+
+I do not bump to `v1.0.0` during development. The `1.0`
+milestone is a one-time event that means **this is the v0.1.0
+we meant to ship, and it is safe to put in front of
+strangers.** That requires the bar in §23.6, not just a
+version number.
+
+Within the pre-1.0 era, a major-version-style break to the
+public contract (renamed RPC, removed config key, changed
+file format) does NOT trigger a major bump. It triggers
+either a minor bump (if the change is additive — e.g.
+"v0.3.0 deprecates `backup.create(destination)` in favor
+of `backup.create({destination})`") or a patch with a LOGBOOK
+note (if the change is a breaking rename inside the same
+minor). The discipline here is: **don't hide breaking
+changes inside a patch**, but also **don't conflate
+"breaking change" with "production ready."** Those are
+different milestones.
+
+### 23.4 Pre-release Tags (When We Need Them)
+
+SemVer's pre-release field is for special builds that should
+NOT be considered the latest stable. For this project:
+
+- `v0.2.0-alpha.1` — early internal milestone, not for
+  public distribution
+- `v0.2.0-beta.1` — feature-complete, stabilizing, on-device
+  verification target
+- `v0.2.0-rc.1` — release candidate, only bug fixes expected
+
+Without a pre-release tag, every `v*` tag is implicitly
+`latest`. I add the pre-release tag when the build is
+known-incomplete and I don't want a customer pulling it
+without warning. Internal milestones (the FOOTHPATH entries,
+the audit-driven fix bundles) do not need pre-release tags —
+they are commits, not releases.
+
+### 23.5 Build Metadata (The `+BUILD` Part)
+
+The build system already injects the build metadata
+correctly. The convention is:
+
+```
+-X github.com/sahajpatel123/synapticapp/internal/version.Version=${VERSION}
+-X github.com/sahajpatel123/synapticapp/internal/version.Commit=${COMMIT}
+-X github.com/sahajpatel123/synapticapp/internal/version.BuildDate=${BUILD_DATE}
+```
+
+The git-describe fallback in `scripts/build-gui.sh` adds
+`-N-gCOMMIT-DIRTY` for dev builds so a binary built from
+an unclean tree self-identifies. The `Info` struct in
+`internal/version/version.go` already exposes the right
+fields via `version.Get()`. I do not need to write any
+new code to use this — I just need to cut the tags.
+
+### 23.6 The Bar for `v1.0.0`
+
+`v1.0.0` is gated on **all four of the following** being true:
+
+1. **Phase 15 on-device verification** signed off on at
+   least one clean machine per OS (macOS arm64, Windows
+   amd64, Ubuntu amd64). Per `docs/phase15-verification.md`:
+   zero P0/P1 failures across every user-journey step.
+2. **Marketing copy is honest.** The `web/` Next.js
+   pages do not claim features that aren't shipped
+   (`docs/roadmap-v0.2.0.md` §"Marketing copy that needs
+   updating" lists the v0.1.0-era claims to remove).
+3. **The `release.yml` flow has produced a green release**
+   for at least one tag at the candidate version. CI is
+   not a substitute for a real release; release.yml bundles
+   GUI builds, DMG/NSIS packaging, and a GitHub release.
+4. **The user has explicitly approved** the `v1.0.0`
+   milestone. This is a public-facing decision and is not
+   mine to make alone.
+
+I do not silently bump to `v1.0.0`. The version constant
+defaulting to `v0.0.0-dev` is the safety net — even if I
+slip, the binary self-identifies as a development build
+until someone explicitly tags a release.
+
+### 23.7 The Tagging Ceremony
+
+When the user (or I, with the user's nod) decides to cut a
+tag, the sequence is:
+
+1. **Verify green on the candidate commit.** `go test -race
+   ./...` + `svelte-check` + `golangci-lint run ./...` +
+   `vite build` are all clean. The CI run for the
+   candidate commit is green.
+2. **Decide the bump** using the decision rules in §23.1,
+   §23.2, §23.3. State the reasoning in the LOGBOOK entry
+   for the tag.
+3. **Tag annotated, not lightweight.** `git tag -a v0.x.y
+   -m "Condura v0.x.y\n\n<one-line summary>"`. The tag
+   message gives `git show v0.x.y` a real meaning for the
+   next agent and the user.
+4. **Push the tag explicitly.** `git push origin v0.x.y`
+   — never `git push --tags` (which pushes everything,
+   including tags I didn't intend to ship).
+5. **Watch `release.yml` complete.** It builds the GUI +
+   daemon for every OS, runs GoReleaser, and creates a
+   GitHub release. I stay at the keyboard until I see
+   the green check, per §22.9.
+6. **Append the LOGBOOK entry** for the release, pointing
+   at the tag SHA and summarizing what shipped.
+
+The candidate commit does not need to be at the tip of
+`main` — it is whatever commit carries the work the tag
+represents. If the user wants me to ship v0.1.1 from a
+fix bundle, I tag that bundle's commit, not the next
+in-progress feature commit.
+
+### 23.8 Day-to-Day: Tags Are Release Events, Not Commit Events
+
+I do not cut a tag after every commit. Day-to-day, I
+commit to `main` without thinking about tags. The CI is
+my green light. Tags are **release events** — they are
+the moments when the cumulative state on `main` is ready
+to be called `v0.x.y` and handed to a human.
+
+The question "should this commit be a tag?" is the wrong
+one. The right one: **"is the cumulative state on `main`
+ready to be called `v0.x.y`?"** If yes, I find the commit
+that carries the work, and I tag that. If no, I keep
+working.
+
+This is the discipline that keeps the version numbers
+honest. A repo with a tag per commit is marketing copy,
+not a release history.
+
+### 23.9 The Mental Loop, Applied to Versions
+
+> **Decide the bump. Verify the build is green. Cut the
+> tag. Watch the release. Write down what shipped.**
+
+The version policy is the cadence made public. A commit
+without a tag is a draft; a tag without a release is a
+promise; a release without a green CI is a lie.
+
+
