@@ -9,7 +9,7 @@ OUT_DIR="${ROOT}/dist/prebuilt"
 
 package_dmg() {
   local app_zip="$1"
-  local dmg_out="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}.dmg"
+  local dmg_out="${OUT_DIR}/condura-gui-${GOOS}-${GOARCH}.dmg"
   local staging
   staging="$(mktemp -d)"
   trap 'rm -rf "$staging"' RETURN
@@ -34,7 +34,7 @@ package_dmg() {
 
 package_nsis() {
   local exe="$1"
-  local setup_out="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}-setup.exe"
+  local setup_out="${OUT_DIR}/condura-gui-${GOOS}-${GOARCH}-setup.exe"
   local makensis_bin
   makensis_bin="$(find_makensis || true)"
   if [ -z "$makensis_bin" ]; then
@@ -44,7 +44,7 @@ package_nsis() {
   # NSIS File() is picky about paths on Windows CI — stage a short local copy.
   local staging="${OUT_DIR}/nsis-staging"
   mkdir -p "$staging"
-  local payload="${staging}/synaptic.exe"
+  local payload="${staging}/condura.exe"
   cp "$exe" "$payload"
   local out_arg="$setup_out"
   local exe_arg="$payload"
@@ -55,7 +55,7 @@ package_nsis() {
   "$makensis_bin" -NOCD \
     -DOUTFILE="$out_arg" \
     -DEXE="$exe_arg" \
-    "${ROOT}/scripts/synaptic-gui.nsi"
+    "${ROOT}/scripts/condura-gui.nsi"
   rm -rf "$staging"
   echo "NSIS: $setup_out"
 }
@@ -80,7 +80,7 @@ find_makensis() {
 
 case "$GOOS" in
   darwin)
-    zip="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}.zip"
+    zip="${OUT_DIR}/condura-gui-${GOOS}-${GOARCH}.zip"
     if [ -f "$zip" ]; then
       package_dmg "$zip"
     else
@@ -89,7 +89,7 @@ case "$GOOS" in
     fi
     ;;
   windows)
-    exe="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}.exe"
+    exe="${OUT_DIR}/condura-gui-${GOOS}-${GOARCH}.exe"
     if [ -f "$exe" ]; then
       package_nsis "$exe"
     else

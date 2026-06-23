@@ -1,4 +1,4 @@
-cask "synaptic" do
+cask "condura" do
   version "0.1.0"
   sha256 :no_check
 
@@ -18,8 +18,8 @@ cask "synaptic" do
   app "Condura.app"
 
   zap trash: [
-    "~/Library/Application Support/synaptic",
-    "~/.synaptic",
+    "~/Library/Application Support/condura",
+    "~/.condura",
     "~/Library/Preferences/com.condura.app.plist",
   ]
 end

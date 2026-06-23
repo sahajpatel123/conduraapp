@@ -15,9 +15,9 @@ echo "Downloading release ${TAG} from ${REPO}..."
 gh release download "$TAG" -R "$REPO" --dir "$WORKDIR" \
   --pattern 'checksums.txt' \
   --pattern 'manifest.json' \
-  --pattern 'synapticd-*' \
-  --pattern 'synaptic-cli-*' \
-  --pattern 'synaptic-gui-*' || true
+  --pattern 'condurad-*' \
+  --pattern 'condura-cli-*' \
+  --pattern 'condura-gui-*' || true
 
 if [ ! -f "$WORKDIR/checksums.txt" ]; then
   echo "checksums.txt missing from release ${TAG}" >&2

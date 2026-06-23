@@ -1,9 +1,9 @@
-; Synaptic GUI — minimal NSIS installer for Windows releases.
+; Condura GUI — minimal NSIS installer for Windows releases.
 !include "MUI2.nsh"
 
-Name "Synaptic"
+Name "Condura"
 OutFile "${OUTFILE}"
-InstallDir "$PROGRAMFILES64\Synaptic"
+InstallDir "$PROGRAMFILES64\Condura"
 RequestExecutionLevel admin
 Unicode true
 
@@ -12,16 +12,16 @@ Unicode true
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Synaptic" SecMain
+Section "Condura" SecMain
   SetOutPath "$INSTDIR"
   File "${EXE}"
-  CreateShortcut "$DESKTOP\Synaptic.lnk" "$INSTDIR\synaptic.exe"
+  CreateShortcut "$DESKTOP\Condura.lnk" "$INSTDIR\condura.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 SectionEnd
 
 Section "Uninstall"
-  Delete "$INSTDIR\synaptic.exe"
+  Delete "$INSTDIR\condura.exe"
   Delete "$INSTDIR\Uninstall.exe"
-  Delete "$DESKTOP\Synaptic.lnk"
+  Delete "$DESKTOP\Condura.lnk"
   RMDir "$INSTDIR"
 SectionEnd

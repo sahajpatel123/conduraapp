@@ -25,10 +25,15 @@ import { NextRequest, NextResponse } from "next/server";
 const GITHUB_REPO = "sahajpatel123/conduraapp";
 const RELEASE_BASE = `https://github.com/${GITHUB_REPO}/releases/latest/download`;
 const RELEASE_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
+const API_BASE = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
-// Map of platform keys to GitHub artifact filenames
+// Map of platform keys to artifact filename patterns.
+// For GUI artifacts: exact filenames (no version in name).
+// For daemon/CLI archives: GoReleaser uses versioned names
+// (e.g., condurad-v0.1.0-darwin-arm64.tar.gz), so we use a
+// prefix-based lookup via the GitHub API.
 const ARTIFACTS: Record<string, string> = {
-  // macOS GUI installers
+  // macOS GUI installers (built by build-gui.sh, no version in name)
   mac: "condura-gui-darwin-arm64.dmg",
   "mac-intel": "condura-gui-darwin-amd64.dmg",
 
@@ -36,22 +41,35 @@ const ARTIFACTS: Record<string, string> = {
   windows: "condura-gui-windows-amd64-setup.exe",
   "windows-portable": "condura-gui-windows-amd64.exe",
 
-  // Linux packages
+  // Linux packages (GoReleaser nfpms uses underscores, no v prefix)
   linux: "condurad_0.1.0_linux_amd64.deb",
   "linux-rpm": "condura-0.1.0-1.x86_64.rpm",
   "linux-appimage": "condura-gui-linux-amd64",
+};
 
-  // Daemon-only builds (no GUI)
-  "daemon-mac": "condurad-darwin-arm64.tar.gz",
-  "daemon-mac-intel": "condurad-darwin-amd64.tar.gz",
-  "daemon-windows": "condurad-windows-amd64.tar.gz",
-  "daemon-linux": "condurad_0.1.0_linux_amd64.tar.gz",
+// Daemon/CLI archives use GoReleaser versioned names.
+// We store a prefix and match dynamically from release assets.
+const VERSIONED_PREFIXES: Record<string, string> = {
+  "daemon-mac": "condurad-v",
+  "daemon-mac-intel": "condurad-v",
+  "daemon-windows": "condurad-v",
+  "daemon-linux": "condurad-v",
+  "cli-mac": "condura-cli-v",
+  "cli-mac-intel": "condura-cli-v",
+  "cli-windows": "condura-cli-v",
+  "cli-linux": "condura-cli-v",
+};
 
-  // CLI-only builds
-  "cli-mac": "condura-cli-darwin-arm64.tar.gz",
-  "cli-mac-intel": "condura-cli-darwin-amd64.tar.gz",
-  "cli-windows": "condura-cli-windows-amd64.tar.gz",
-  "cli-linux": "condura-cli-linux-amd64.tar.gz",
+// Suffix patterns to match the correct OS/arch from versioned names
+const VERSIONED_SUFFIXES: Record<string, string> = {
+  "daemon-mac": "-darwin-arm64.tar.gz",
+  "daemon-mac-intel": "-darwin-amd64.tar.gz",
+  "daemon-windows": "-windows-amd64.tar.gz",
+  "daemon-linux": "-linux-amd64.tar.gz",
+  "cli-mac": "-darwin-arm64.tar.gz",
+  "cli-mac-intel": "-darwin-amd64.tar.gz",
+  "cli-windows": "-windows-amd64.tar.gz",
+  "cli-linux": "-linux-amd64.tar.gz",
 };
 
 // Human-readable filenames for Content-Disposition
@@ -75,6 +93,28 @@ const FILENAMES: Record<string, string> = {
 
 export const runtime = "nodejs"; // Need Node.js runtime for streaming
 
+async function findVersionedArtifact(
+  prefix: string,
+  suffix: string
+): Promise<string | null> {
+  try {
+    const headers: HeadersInit = { Accept: "application/vnd.github+json" };
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+    const res = await fetch(API_BASE, { headers });
+    if (!res.ok) return null;
+    const release = await res.json();
+    const assets: Array<{ name: string }> = release.assets || [];
+    const match = assets.find(
+      (a) => a.name.startsWith(prefix) && a.name.endsWith(suffix)
+    );
+    return match?.name || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ platform: string }> }
@@ -83,13 +123,24 @@ export async function GET(
   const platform = platformParam.toLowerCase();
 
   // Look up the artifact filename
-  const artifact = ARTIFACTS[platform];
+  let artifact = ARTIFACTS[platform];
+  if (!artifact && VERSIONED_PREFIXES[platform]) {
+    // Resolve versioned artifact dynamically from GitHub API
+    artifact =
+      (await findVersionedArtifact(
+        VERSIONED_PREFIXES[platform],
+        VERSIONED_SUFFIXES[platform]
+      )) || undefined;
+  }
   if (!artifact) {
     return NextResponse.json(
       {
         error: "Unknown platform",
         message: `Platform "${platform}" is not supported.`,
-        availablePlatforms: Object.keys(ARTIFACTS),
+        availablePlatforms: [
+          ...Object.keys(ARTIFACTS),
+          ...Object.keys(VERSIONED_PREFIXES),
+        ],
       },
       { status: 404 }
     );

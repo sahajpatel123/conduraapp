@@ -202,7 +202,7 @@ func (a *App) startConductor(subs *daemon.Subsystems, hkSpec string) {
 	slog.Info("conductor ready", "hotkey", hkSpec)
 }
 
-// diagLog appends a line to ~/Library/Logs/synaptic-gui-diag.log so
+// diagLog appends a line to ~/Library/Logs/condura-gui-diag.log so
 // we can diagnose startup problems from the Go side without seeing
 // the GUI. Best-effort; errors are silently ignored so logging
 // itself never breaks the app.
@@ -213,7 +213,7 @@ func diagLog(msg string) {
 	}
 	logDir := filepath.Join(home, "Library", "Logs")
 	_ = os.MkdirAll(logDir, 0o755)
-	path := filepath.Join(logDir, "synaptic-gui-diag.log")
+	path := filepath.Join(logDir, "condura-gui-diag.log")
 	line := fmt.Sprintf("%s %s\n", time.Now().Format(time.RFC3339), msg)
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {

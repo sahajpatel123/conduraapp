@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-gui.sh — build the Condura Wails desktop app for the current OS/arch.
-# Output: dist/prebuilt/synaptic-gui-<goos>-<goarch>[.exe]
+# Output: dist/prebuilt/condura-gui-<goos>-<goarch>[.exe]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +20,7 @@ EXT=""
 if [ "$GOOS" = "windows" ]; then
   EXT=".exe"
 fi
-DEST="${OUT_DIR}/synaptic-gui-${GOOS}-${GOARCH}${EXT}"
+DEST="${OUT_DIR}/condura-gui-${GOOS}-${GOARCH}${EXT}"
 mkdir -p "$OUT_DIR"
 
 cd "${ROOT}/app/web"
@@ -42,7 +42,7 @@ else
   wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
 fi
 
-# Wails outputfilename is "web" — normalize to synaptic for releases.
+# Wails outputfilename is "web" — normalize to condura for releases.
 case "$GOOS" in
   darwin)
     APP="${ROOT}/app/web/build/bin/condura.app"
@@ -60,14 +60,14 @@ case "$GOOS" in
   windows)
     BIN="${ROOT}/app/web/build/bin/web.exe"
     if [ ! -f "$BIN" ]; then
-      BIN="${ROOT}/app/web/build/bin/synaptic.exe"
+      BIN="${ROOT}/app/web/build/bin/condura.exe"
     fi
     cp "$BIN" "$DEST"
   ;;
   linux)
     BIN="${ROOT}/app/web/build/bin/web"
     if [ ! -f "$BIN" ]; then
-      BIN="${ROOT}/app/web/build/bin/synaptic"
+      BIN="${ROOT}/app/web/build/bin/condura"
     fi
     cp "$BIN" "$DEST"
     chmod 755 "$DEST"

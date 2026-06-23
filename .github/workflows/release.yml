@@ -266,5 +266,5 @@ jobs:
           unzip -q "$ZIP" -d dist/signed
           APP=$(find dist/signed -name '*.app' | head -1)
           codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" --timestamp "$APP"
-          ditto -c -k --keepParent "$APP" dist/synaptic-gui-signed.zip
-          gh release upload "${GITHUB_REF_NAME}" dist/synaptic-gui-signed.zip --clobber
+          ditto -c -k --keepParent "$APP" dist/condura-gui-signed.zip
+          gh release upload "${GITHUB_REF_NAME}" dist/condura-gui-signed.zip --clobber
