@@ -57,6 +57,15 @@ const (
 	ProviderOllama     = "ollama"
 )
 
+// OllamaLocalSentinel is the value auto-filled into api_keys.secret
+// when a user adds a local Ollama provider without supplying a
+// real API key. Local Ollama ignores the Authorization header
+// entirely, so any non-empty string works; this constant is the
+// canonical "no real key" marker for admin tooling and audit
+// log filtering. Phase 15 Run #1: see docs/phase15-verification.md
+// for the finding this constant was added to address.
+const OllamaLocalSentinel = "ollama-local-no-key"
+
 // AllProviders is the canonical list. Order matters for the default
 // failover chain in internal/failover.
 var AllProviders = []string{
@@ -230,7 +239,17 @@ func validateSetKey(k *Key) error {
 		return ErrInvalidKind
 	}
 	if k.Secret == "" {
-		return ErrInvalidSecret
+		// Phase 15 Run #1 finding: local Ollama doesn't need a
+		// real key, but the storage layer requires non-empty
+		// secrets. Auto-fill with a sentinel so the row passes
+		// the non-empty invariant; Ollama's HTTP client ignores
+		// the value. The sentinel is stable and grep-able so a
+		// future admin tool can identify "no real key" rows.
+		if k.Provider == ProviderOllama {
+			k.Secret = OllamaLocalSentinel
+		} else {
+			return ErrInvalidSecret
+		}
 	}
 	return nil
 }
@@ -438,7 +457,11 @@ func Validate(k Key) error {
 		return ErrInvalidKind
 	}
 	if k.Secret == "" {
-		return ErrInvalidSecret
+		// Phase 15 Run #1: same Ollama special-case as
+		// validateSetKey. See OllamaLocalSentinel for rationale.
+		if k.Provider != ProviderOllama {
+			return ErrInvalidSecret
+		}
 	}
 	if k.AuthKind == AuthAPIKey {
 		// Per-provider format hints (not exhaustive; we don't reject unknown shapes).

@@ -14,6 +14,18 @@
 // Each stream is identified by a ULID request_id. The GUI uses the
 // request_id to correlate SSE events with the originating call and to
 // cancel a specific in-flight stream.
+//
+// CONTRACT — assistant message persistence (Phase 15 Run #1):
+// StreamManager does NOT persist the assistant's response to the
+// conversation store. The GUI subscribes to the stream.* events on
+// the SSE broker, accumulates the deltas, and on EventFinished it
+// calls conversations.append to write the final assistant message.
+// This split lets the GUI render partial deltas live and decide
+// when to commit the final text. Direct-RPC callers of llm.stream
+// (no SSE consumer) will see a stream.complete but no assistant
+// row in the conversation — by design. llm.chat (the synchronous
+// sibling RPC) DOES return the full response but does not persist
+// it either; persistence is always the caller's responsibility.
 package stream
 
 import (

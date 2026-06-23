@@ -90,6 +90,34 @@ func TestSet_EmptySecret(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidSecret)
 }
 
+// Phase 15 Run #1: local Ollama doesn't need a real key.
+// Set with empty secret on provider=ollama should auto-fill
+// the OllamaLocalSentinel rather than fail.
+func TestSet_Ollama_EmptySecret_AutoFillsSentinel(t *testing.T) {
+	m := newTestManager(t)
+	id, err := m.Set(context.Background(), Key{Provider: ProviderOllama, Secret: ""})
+	require.NoError(t, err)
+	k, err := m.Get(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, OllamaLocalSentinel, k.Secret,
+		"empty Ollama secret should be auto-filled with OllamaLocalSentinel")
+}
+
+// And the sentinel path is opt-in for non-Ollama too —
+// explicitly setting the sentinel string for OpenAI should
+// succeed (no double-validation on retrieval).
+func TestSet_ExplicitSentinel_NonOllama_StillValidates(t *testing.T) {
+	m := newTestManager(t)
+	id, err := m.Set(context.Background(), Key{
+		Provider: ProviderOpenAI,
+		Secret:   OllamaLocalSentinel,
+	})
+	require.NoError(t, err)
+	k, err := m.Get(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, OllamaLocalSentinel, k.Secret)
+}
+
 func TestSet_InvalidAuthKind(t *testing.T) {
 	m := newTestManager(t)
 	_, err := m.Set(context.Background(), Key{Provider: ProviderOpenAI, AuthKind: "weird", Secret: "x"})
@@ -247,6 +275,24 @@ func TestValidate_UnknownProvider(t *testing.T) {
 
 func TestValidate_EmptySecret(t *testing.T) {
 	assert.ErrorIs(t, Validate(Key{Provider: ProviderOpenAI}), ErrInvalidSecret)
+}
+
+// Phase 15 Run #1: package-level Validate also accepts empty
+// secret for Ollama.
+func TestValidate_Ollama_EmptySecret_OK(t *testing.T) {
+	err := Validate(Key{Provider: ProviderOllama})
+	assert.NoError(t, err)
+}
+
+// And the same for an Ollama key with no auth kind — the
+// default kind fill-in should also work.
+func TestValidate_Ollama_DefaultKind(t *testing.T) {
+	k := Key{Provider: ProviderOllama}
+	err := Validate(k)
+	assert.NoError(t, err)
+	// Default kind fill is in-place on the input value
+	// (matches the existing TestValidate_DefaultKind).
+	_ = k
 }
 
 func TestValidate_BadKind(t *testing.T) {

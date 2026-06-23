@@ -52,22 +52,46 @@ func ProbePower(ctx context.Context) *PowerProbe {
 }
 
 func (pp *PowerProbe) probeOllama(ctx context.Context) {
-	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	// Try once; if it fails, wait briefly and try again. Phase 15
+	// Run #1 observed a race where the first call after daemon
+	// startup returned "unreachable" but the second (sub-second
+	// later) returned reachable — likely a TCP accept race on
+	// Ollama's listener or a Go HTTP client first-use warm-up.
+	// One retry with a 250ms back-off handles this without
+	// making the common case (already-up) noticeably slower.
+	if pp.tryOllamaOnce(ctx) {
+		return
+	}
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(250 * time.Millisecond):
+	}
+	_ = pp.tryOllamaOnce(ctx)
+}
+
+// tryOllamaOnce attempts one Ollama HTTP probe. Returns true on
+// success (OllamaReachable set, models populated).
+func (pp *PowerProbe) tryOllamaOnce(ctx context.Context) bool {
+	// Per-attempt timeout is 1s, not 2s, so the full retry
+	// (1s + 250ms back-off + 1s = 2.25s) fits inside the 3s
+	// parent context from ProbePowerWithTimeout.
+	reqCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx,
 		http.MethodGet, "http://127.0.0.1:11434/api/tags", nil)
 	if err != nil {
-		return
+		return false
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return
+		return false
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return
+		return false
 	}
 	pp.OllamaReachable = true
 
@@ -77,13 +101,14 @@ func (pp *PowerProbe) probeOllama(ctx context.Context) {
 		} `json:"models"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return
+		return true // status was OK, count the probe as successful
 	}
 	for _, m := range body.Models {
 		if m.Name != "" {
 			pp.OllamaModels = append(pp.OllamaModels, m.Name)
 		}
 	}
+	return true
 }
 
 func (pp *PowerProbe) probeCLIs() {
