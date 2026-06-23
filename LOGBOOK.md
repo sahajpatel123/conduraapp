@@ -3005,3 +3005,28 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 **Next steps:** On-device verification per operator playbook; optionally daemon-wire `agent.Loop` when voice path needs thin loop vs full session.
 ---
 
+
+## [2026-06-23] AI Model: minimax-m3
+**Session ID:** phase15-run1-fixes
+**Task:** Close the 3 P3 findings from Phase 15 Run #1 (`docs/phase15-verification.md`).
+**Files modified:**
+- `internal/onboarding/power.go` — extracted `tryOllamaOnce`; `probeOllama` does one retry with 250ms back-off; per-attempt timeout 1s (was 2s) to fit parent 3s context
+- `internal/api_key/manager.go` — added `OllamaLocalSentinel = "ollama-local-no-key"`; `validateSetKey` and `Validate` special-case `provider=ollama` to auto-fill empty input
+- `internal/api_key/manager_test.go` — 4 new tests: `TestSet_Ollama_EmptySecret_AutoFillsSentinel`, `TestSet_ExplicitSentinel_NonOllama_StillValidates`, `TestValidate_Ollama_EmptySecret_OK`, `TestValidate_Ollama_DefaultKind`
+- `internal/stream/manager.go` — package doc now spells out the assistant-message-persistence contract
+- `docs/phase15-verification.md` — Run #2 section documenting the fix-and-re-test cycle; findings table now has Status + Resolution columns
+**Decisions made:**
+- **Re-scoped the env-level Wails/Go 1.26+ finding from P0 to "Known, not blocking"**: CI on Go 1.25.11 is green; the duplicate `_OBJC_*_AppDelegate` symbols are a Wails v2.12.0 upstream issue, not a project bug. Local Go 1.26+ devs should pin to 1.25.x via `go.work` toolchain directive.
+- **Ollama sentinel is a stable string `"ollama-local-no-key"`**: stored non-empty, grep-able, Ollama's HTTP client ignores the value. Admin tools can identify "no real key" rows.
+- **Fix #4 is docs-only, not code**: changing the streaming contract to auto-persist would either double-write (GUI appends + we auto-append) or break the live-rendering contract. The contract split (stream produces events, GUI persists) is correct; only the docs were missing.
+- **Probe retry timeout re-balanced to 1s+1s instead of 2s+2s**: original 2s per attempt + 250ms + 2s = 4.25s exceeded the 3s parent context from `ProbePowerWithTimeout`. Reducing per-attempt to 1s keeps the full retry under 3s.
+**Bugs/issues encountered:** None. Live e2e verified all three fixes.
+**Verification:** Built `/tmp/condurad-phase15` from main, ran the same Phase 15 MVP flow:
+- `onboarding.probe_power` now returns `ollama_reachable: true` with 2 models on the first call (was: needed a second call)
+- `apikeys.set ollama ""` returns `{"id":1}` and stores the sentinel; subsequent `llm.chat` to `minimax-m2.5:cloud` returns "PONG" in 62 output tokens
+- HMAC chain still valid after the new audit events (`replay.verify_integrity` returns `{"valid":true,"rows_checked":2}`)
+- All 47 test packages pass locally; svelte-check 0 errors; golangci-lint 0 issues
+- **CI: 15/15 green on main CI + 3/3 green on Release Verify** (commit `b254108`)
+**Open questions for next session:** Wails build under Go 1.26+ is an upstream issue; v0.2.0+ should either pin Go in local dev or upgrade Wails. `subs.Executor` is still nil when `cuComps` is nil (no LLM configured), blocking shell-only sub-agents.
+**Next steps:** Per §23 versioning policy in STYLE.md, this is a PATCH-level fix bundle. When the next release is cut, this commit (`b254108`) should be tagged as part of v0.1.1 (or whichever PATCH follows v0.1.0). Continue Phase 15 on real machines (Windows + Linux + full macOS GUI run) per `docs/macos-verification-runbook.md`.
+---
