@@ -3030,3 +3030,53 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 **Open questions for next session:** Wails build under Go 1.26+ is an upstream issue; v0.2.0+ should either pin Go in local dev or upgrade Wails. `subs.Executor` is still nil when `cuComps` is nil (no LLM configured), blocking shell-only sub-agents.
 **Next steps:** Per §23 versioning policy in STYLE.md, this is a PATCH-level fix bundle. When the next release is cut, this commit (`b254108`) should be tagged as part of v0.1.1 (or whichever PATCH follows v0.1.0). Continue Phase 15 on real machines (Windows + Linux + full macOS GUI run) per `docs/macos-verification-runbook.md`.
 ---
+
+## [2026-06-17 12:00] AI Model: Composer
+**Session ID:** quick-prompt-menu-ctrl-s
+**Task:** Implement menu-bar / tray quick prompt with default global shortcut Ctrl+S and fix Go↔Svelte overlay sync.
+**Files created:**
+- `app/web/quick_prompt.go` — default hotkey resolver + native application menu (Condura → Quick Prompt)
+- `app/web/quick_prompt_actions.go` — OpenQuickPrompt / CloseQuickPrompt / ToggleQuickPrompt + `condura:overlay` EventsEmit
+- `app/web/quick_prompt_test.go` — hotkey default + visibility tests
+**Files modified:**
+- `app/web/app.go` — presence orchestrator wiring; legacy Show/Hide delegate to quick prompt actions
+- `app/web/main.go` — Ctrl+S default hotkey + Wails Menu
+- `app/web/tray_wiring.go` — tray opens/closes quick prompt via unified path
+- `internal/tray/tray.go` — menu labels "Open/Close Quick Prompt"
+- `internal/hotkey/hotkey.go` — DefaultOverlay() → Ctrl+S
+- `app/web/frontend/src/lib/stores/overlay.svelte.ts` — EventsOn sync + Linux in-app Ctrl+S + Wails bindings
+- `app/web/frontend/src/lib/components/HotkeyRecorder.svelte` — Ctrl+S first suggestion
+- `app/web/frontend/src/lib/components/Sidebar.svelte` — sidebar quick-prompt button
+- `app/web/frontend/static/locales/en.json` — `sidebar.nav.quick_prompt`
+- `app/web/frontend/wailsjs/go/main/App.{js,d.ts}` — new bound methods
+**Decisions made:**
+- macOS menu bar uses Wails Application Menu (systray disabled on darwin/Wails due to AppDelegate conflict); Windows uses systray + same menu; Linux uses menu + in-app Ctrl+S (global hotkey still deferred).
+- Default overlay hotkey is Ctrl+S on every OS when `hotkey.overlay` is unset (user can override in onboarding).
+- Go emits `condura:overlay` so hotkey/menu/tray paths keep Svelte `overlay.active` in sync with window resize.
+**Bugs/issues encountered:** Wails has no `WindowFocus`; use `WindowShow` + `WindowUnminimise` instead.
+**Verification:** `go test ./...` in `app/web` passed; `npm run build` in frontend passed.
+**Next steps:** Run `wails dev` on macOS/Windows to verify global Ctrl+S registration and menu item; consider persisting default hotkey after first run so Settings shows Ctrl+S.
+---
+
+## [2026-06-24] AI Model: minimax-m3
+**Session ID:** v0.1.1-fix-bundle
+**Task:** Close every actionable finding from the Tier-4 backend audit (docs/analysis/backend-audit-2026-06-24.md) and ship as v0.1.1.
+**Files modified:** 30 files, +1192/-168 lines (commit cace2a4).
+**Decisions made:**
+- **Bundle as v0.1.1 (PATCH) per user instruction.** Per §23.2, wiring autonomy + perception + CU SSE events technically adds user-facing capability (MINOR). Per §23.3, no breaking public-contract change is hidden in the patch. The user named the version; I honored it and note the tension here. The honest framing: this is a "fix bundle that also wires two pre-built-but-orphaned packages" — the code already existed, only the wiring was missing.
+- **B-12 secrets encryption:** AES-256-GCM with per-file salt + nonce. Key from CONDURA_FILE_PASSPHRASE env var (headless/CI) or machine-bound .key file (mode 0600, generated once). TOFU for legacy v1 cleartext files (migrated on first read). Probe-decrypt at construction so wrong key fails fast.
+- **B-01 autonomy wiring:** config.AutonomyConfig.PerApp/PerTask/DefaultLevel now consumed by buildAutonomyMatrix. Hardcoded heuristic is the fallback floor. PerApp entries expanded across known action kinds so Evaluate(taskType, app) hits regardless of task type.
+- **B-02 perception wiring:** SmartCapturer wired into CUResolver via SetCapturer. New config key daemon.energy_mode. New sentinel perception.ErrBudgetExhausted. CU aborts with it when budget spent (decision #26).
+- **B-07 wake word:** HeyConduraModel canonical; HeySynapticModel deprecated alias. Asset URL unchanged (the ONNX model detects the phrase regardless of filename). WakeModelForName accepts both.
+- **B-09 executor sanitize:** ShellSanitizer with defaultShellAllowlist (POSIX builtins + dev toolchains). Reject before sh -c. 2 new tests pin rejection of `rm -rf /` + metachar pipes.
+- **B-10 Windows presence:** GetLastInputInfo via P/Invoke (seconds since last input). Fails closed. macOS ioreg also fails closed now.
+- **B-11 osascript:** escapeAppleScript now escapes backticks. imessage_darwin.go replaced Go %q with explicit AppleScript escaping.
+- **B-30 wake model TOFU:** .sha256 sidecar written on first download, verified on subsequent downloads.
+- **B-37 audit prune:** Prune(retention) re-chains oldest surviving row (resets prev_hash to genesis + recomputes hmac). Daily pruner in startBackgroundServices. Default 90 days.
+- **B-38 CU cascade:** CascadeOnFailure flag (default false). Documented the trade-off.
+- **P3 cleanup:** removed llm.ErrNotImplemented, adaptive dead const, sensitive dup, telegram dead vars; fixed branding (Synaptic→Condura in permissions, synapticd→condurad in hub UA); annotated ExpandedLoop + SimplePlanner as Deprecated; fixed executor doc drift.
+**Bugs/issues encountered:** None. All 47 test packages pass, svelte-check 0 errors, golangci-lint 0 issues.
+**Verification:** CI 15/15 green (main CI) + 3/3 green (Release Verify) at commit cace2a4.
+**Open questions for next session:** The 9 INFO findings (B-13..B-21) are intentionally deferred to v0.2.0 per docs/roadmap-v0.2.0.md — they are the router, subscription OAuth, waves, CE-MCP, channels, hub, MCP transports, Linux hotkey/tray, non-mac voice. ExpandedLoop + SimplePlanner should be deleted in v0.2.0 once their tests migrate to CULoop + LLMPlanner.
+**Next steps:** Tag v0.1.1 from commit cace2a4 (per §23.7 Tagging Ceremony). Watch release.yml complete. The user's on-device Phase 15 verification on a clean macOS/Windows/Linux machine remains the v1.0.0 gate per §23.6.
+---
