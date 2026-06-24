@@ -139,6 +139,12 @@ type Observation struct {
 }
 
 // SimplePlanner is a basic planner that creates linear plans.
+//
+// Deprecated: SimplePlanner is retained for test coverage but is NOT
+// wired into the daemon. The production planner is LLMPlanner
+// (llm_planner.go), which sends a real LLM request to decompose the
+// task. SimplePlanner will be removed in v0.2.0 once its tests are
+// migrated to LLMPlanner.
 type SimplePlanner struct{}
 
 // NewSimplePlanner creates a new simple planner.

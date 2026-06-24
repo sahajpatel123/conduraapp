@@ -117,6 +117,11 @@ type DaemonConfig struct {
 	IdleTimeoutMinutes int `yaml:"idle_timeout_minutes"`
 	// DefaultAutonomy is the default autonomy level (supervised, warn, autonomous).
 	DefaultAutonomy string `yaml:"default_autonomy"`
+	// EnergyMode is the Selective Perception energy budget
+	// (CLAUDE.md §6.4). One of: auto, low, balanced, high.
+	// Default: auto (resolves to balanced until a power-state
+	// probe is wired in v0.2.0).
+	EnergyMode string `yaml:"energy_mode"`
 	// Watchdog is Layer 2 of the kill switch (CLAUDE.md §5.3).
 	// Phase 16, Rec 2: ships a simple in-process timer. v0.2.0
 	// will harden into a separate watcher process the agent

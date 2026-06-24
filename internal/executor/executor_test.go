@@ -125,6 +125,51 @@ func TestExecutor_ShellExec_EmptyCommand(t *testing.T) {
 	}
 }
 
+// TestExecutor_ShellExec_SanitizerRejectsDangerousCommand pins
+// CLAUDE.md §5.5: a model output that is a shell command does not
+// run until it is validated against an allowlist. A command with a
+// disallowed binary or a shell metacharacter must be rejected before
+// it reaches sh -c, even when the Gatekeeper approved it.
+func TestExecutor_ShellExec_SanitizerRejectsDangerousCommand(t *testing.T) {
+	store := pending.New(newPendingTestStorage(t))
+	a, _ := store.Insert(context.Background(), pending.InsertInput{
+		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
+		Payload:      pending.Payload{Command: "rm -rf /"},
+		GateDecision: "allow",
+	})
+	a = approveAndReload(t, store, a)
+
+	e := New(alwaysAllowGate{}, scriptedResolver{})
+	res, _ := e.Execute(context.Background(), a)
+	if res == nil || res.Error == nil {
+		t.Fatalf("expected sanitizer rejection, got nil error: %+v", res)
+	}
+	if !strings.Contains(res.Error.Error(), "sanitizer rejected") {
+		t.Errorf("expected 'sanitizer rejected' error, got %q", res.Error.Error())
+	}
+}
+
+// TestExecutor_ShellExec_SanitizerRejectsMetachar pins that a
+// command using a disallowed binary but with a pipe is rejected.
+func TestExecutor_ShellExec_SanitizerRejectsMetachar(t *testing.T) {
+	store := pending.New(newPendingTestStorage(t))
+	a, _ := store.Insert(context.Background(), pending.InsertInput{
+		SpawnID: "sp", AgentName: "claude", Kind: "shell.exec",
+		Payload:      pending.Payload{Command: "echo hello | cat"},
+		GateDecision: "allow",
+	})
+	a = approveAndReload(t, store, a)
+
+	e := New(alwaysAllowGate{}, scriptedResolver{})
+	res, _ := e.Execute(context.Background(), a)
+	if res == nil || res.Error == nil {
+		t.Fatalf("expected sanitizer rejection for metachar, got nil error: %+v", res)
+	}
+	if !strings.Contains(res.Error.Error(), "sanitizer rejected") {
+		t.Errorf("expected 'sanitizer rejected' error, got %q", res.Error.Error())
+	}
+}
+
 // TestExecutor_ShellExec_Timeout covers the ShellTimeout path.
 func TestExecutor_ShellExec_Timeout(t *testing.T) {
 	store := pending.New(newPendingTestStorage(t))

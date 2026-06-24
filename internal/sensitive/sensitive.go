@@ -123,7 +123,6 @@ var sensitiveDomains = []string{
 	// Health
 	"epic.com",
 	"mychart.",
-	"mychart.",
 	"cerner.com",
 	"patient.",
 	"health.",

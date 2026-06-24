@@ -143,6 +143,6 @@ func (d *OpenWakeWordDetector) Status() WakeStatus {
 		Available:   d.binaryPath != "",
 		ModelLoaded: d.modelPath != "",
 		Listening:   d.cancel != nil,
-		Hotword:     "hey_synaptic",
+		Hotword:     "hey_condura",
 	}
 }

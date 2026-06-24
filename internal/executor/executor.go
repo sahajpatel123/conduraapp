@@ -1,7 +1,7 @@
 // Package executor dispatches sub-agent pending actions to the
 // appropriate physical-execution backend (shell or computer-use).
 //
-// It is the v0.2.0 sibling of the Phase 17 gateAndAuditParsedActions
+// It is the production sibling of the Phase 17 gateAndAuditParsedActions
 // step. The lifecycle is:
 //
 //  1. delegate.spawn runs the sub-agent and parses ActionRequests.
@@ -43,6 +43,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/pending"
+	"github.com/sahajpatel123/synapticapp/internal/sanitize"
 )
 
 // Resolver is the subset of *daemon.CUResolver the executor needs.
@@ -58,20 +59,54 @@ type Gatekeeper interface {
 	Evaluate(ctx context.Context, a blastradius.Action) (gatekeeper.Decision, string)
 }
 
+// defaultShellAllowlist is the binary allowlist the shell sanitizer
+// enforces when no explicit allowlist is configured. It covers the
+// common read-only + dev-tooling commands a sub-agent would issue,
+// plus the POSIX shell builtins that are safe in a `sh -c` context
+// (exit, true, false, cd, export, set, unset, type, alias, umask).
+// Users can widen this via the sanitize.NewShellSanitizer constructor
+// or the SanitizeHook in the gatekeeper.
+var defaultShellAllowlist = []string{
+	// POSIX builtins safe in sh -c.
+	"exit", "true", "false", "cd", "export", "set", "unset", "type",
+	"alias", "umask", "read", "printf", "test",
+	// Common read-only + inspection tools.
+	"git", "ls", "cat", "echo", "find", "grep", "head", "tail", "sort",
+	"uniq", "wc", "pwd", "which", "file", "stat", "du", "df", "date",
+	"env", "whoami", "hostname", "uname",
+	// Dev toolchains.
+	"go", "node", "npm", "yarn", "pnpm", "python", "python3", "pip",
+	"pip3", "cargo", "rustc", "make", "cmake", "tsc", "eslint",
+	"prettier", "ruff", "black",
+	// Modern unix utilities.
+	"rg", "fd", "bat", "jq", "yq", "sed", "awk", "tr", "cut", "xargs",
+	// Sleep is allowed for tests + deliberate pauses.
+	"sleep",
+}
+
 // Executor dispatches a single approved pending action.
 type Executor struct {
 	Gate Gatekeeper
 	CU   Resolver
 	// ShellTimeout bounds a single shell.exec call. 30s default.
 	ShellTimeout time.Duration
+	// ShellSanitizer validates every shell.exec command against a
+	// binary allowlist + metacharacter block before it reaches
+	// sh -c. Implements CLAUDE.md §5.5 (model isolation: a model
+	// output that is a shell command does not run until it is
+	// parsed, validated against an allowlist, and passed to the
+	// executor). nil → a sanitizer with defaultShellAllowlist is
+	// used.
+	ShellSanitizer *sanitize.ShellSanitizer
 }
 
 // New constructs an Executor with sensible defaults.
 func New(gate Gatekeeper, cu Resolver) *Executor {
 	return &Executor{
-		Gate:         gate,
-		CU:           cu,
-		ShellTimeout: 30 * time.Second,
+		Gate:           gate,
+		CU:             cu,
+		ShellTimeout:   30 * time.Second,
+		ShellSanitizer: sanitize.NewShellSanitizer(defaultShellAllowlist),
 	}
 }
 
@@ -96,7 +131,7 @@ type Result struct {
 //
 //	shell.exec        → exec.CommandContext with ShellTimeout
 //	computeruse.*     → Resolver.Execute (CUResolver parses verb)
-//	file.*            → not implemented in v0.2.0 (deny at gate)
+//	file.*            → not implemented (deny at gate)
 //	other             → ErrUnsupportedKind
 func (e *Executor) Execute(ctx context.Context, a *pending.Action) (*Result, error) {
 	if a == nil {
@@ -159,11 +194,11 @@ func (e *Executor) Execute(ctx context.Context, a *pending.Action) (*Result, err
 		exitCode, outResult, outErr = e.execCU(ctx, a)
 	case strings.HasPrefix(a.Kind, "file."):
 		// File ops need their own path (Phase 12 territory).
-		// v0.2.0 ships shell + computeruse; file ops return
+		// ships shell + computeruse; file ops return
 		// unsupported for now so we can ship without over-promising.
 		return &Result{
 			ExitCode: -1,
-			Error:    fmt.Errorf("executor: file.* not yet supported in v0.2.0 (kind=%s)", a.Kind),
+			Error:    fmt.Errorf("executor: file.* not yet supported (kind=%s)", a.Kind),
 			Duration: time.Since(start),
 		}, nil
 	default:
@@ -193,11 +228,28 @@ func (e *Executor) Execute(ctx context.Context, a *pending.Action) (*Result, err
 
 // execShell runs shell.exec. The command lives on the payload.
 // We use sh -c so the user can write pipelines; the sandboxing is
-// delegated to the OS (no extra container yet — that's v0.3.0).
+// delegated to the OS (no extra container yet — planned for a future release).
+//
+// Per CLAUDE.md §5.5 (model isolation), the command is first parsed
+// and validated against a binary allowlist + metacharacter block via
+// the sanitize.ShellSanitizer. A command that fails validation is
+// rejected with a clear error and never reaches sh -c. This is the
+// deterministic validation layer between the model's output and the
+// execution context — the Gatekeeper approves policy; the sanitizer
+// approves the actual command string.
 func (e *Executor) execShell(ctx context.Context, a *pending.Action) (int, string, error) {
 	cmdStr := strings.TrimSpace(a.Payload.Command)
 	if cmdStr == "" {
 		return -1, "", errors.New("shell.exec: empty command")
+	}
+	// §5.5: validate before exec. A nil sanitizer (shouldn't happen
+	// via New, but be defensive) falls back to the default allowlist.
+	san := e.ShellSanitizer
+	if san == nil {
+		san = sanitize.NewShellSanitizer(defaultShellAllowlist)
+	}
+	if _, err := san.Sanitize(cmdStr); err != nil {
+		return -1, "", fmt.Errorf("shell.exec: sanitizer rejected command: %w", err)
 	}
 	timeout := e.ShellTimeout
 	if timeout <= 0 {
@@ -205,7 +257,7 @@ func (e *Executor) execShell(ctx context.Context, a *pending.Action) (int, strin
 	}
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr) //nolint:gosec // user-approved, gated
+	cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr) //nolint:gosec // user-approved, gated, sanitized
 	out, err := cmd.CombinedOutput()
 	return 0, string(out), err
 }

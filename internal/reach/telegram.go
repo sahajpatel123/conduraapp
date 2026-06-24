@@ -164,9 +164,3 @@ func (t *telegramChannel) apiCall(ctx context.Context, method string, params url
 	defer func() { _ = resp.Body.Close() }()
 	return io.ReadAll(resp.Body)
 }
-
-var _ = time.Now
-var _ = fmt.Sprintf
-var _ = json.Marshal
-var _ = http.DefaultClient
-var _ = io.ReadAll

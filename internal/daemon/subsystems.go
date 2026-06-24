@@ -40,6 +40,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/onboarding"
 	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/pending"
+	"github.com/sahajpatel123/synapticapp/internal/perception"
 	"github.com/sahajpatel123/synapticapp/internal/permissions"
 	"github.com/sahajpatel123/synapticapp/internal/reach"
 	"github.com/sahajpatel123/synapticapp/internal/replay"
@@ -127,6 +128,10 @@ type Subsystems struct {
 	// Phase 7: computer-use + memory.
 	CULoop *agent.CULoop
 	Memory *memory.StoreManager
+	// Capturer is the Selective Perception energy-budget
+	// capturer (CLAUDE.md §6). When non-nil, every CU capture
+	// debits the session budget and aborts on exhaustion.
+	Capturer *perception.SmartCapturer
 
 	// Extractor runs async post-session memory extraction and
 	// skill auto-creation. Nil when disabled.
@@ -589,7 +594,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		}
 	}
 
-	safety := buildSafetyLayer(haltFlag, broker, trustStore, log)
+	safety := buildSafetyLayer(haltFlag, broker, trustStore, cfg, log)
 	gate := safety.Engine
 	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 
@@ -690,12 +695,54 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		}
 	}
 
+	// Selective Perception (§6): wire the energy-budget capturer
+	// into the CU resolver so every AX/screenshot capture debits
+	// the session budget and aborts when exhausted (decision #26).
+	// The energy mode comes from config; EnergyAuto resolves to
+	// Balanced until a platform power-state probe is wired (v0.2.0).
+	// The capturer is assigned to subs.Capturer after subs is
+	// constructed below.
+	var capturer *perception.SmartCapturer
+	if cuComps != nil && cuComps.resolver != nil {
+		energyMode := perceptionEnergyMode(cfg)
+		capturer = perception.NewSmartCapturer(energyMode)
+		cuComps.resolver.SetCapturer(capturer)
+		log.Info("selective perception wired", "energy_mode", energyMode.String())
+	}
+
 	// Fan status out to the SSE broker.
 	if cuLoop != nil {
 		cuLoop.OnStatus = func(s status.Status) {
 			broker.PublishJSON("tray.status", map[string]any{
 				statusKey: s.String(),
 			})
+		}
+		// B-22: emit a cu.action SSE event per executed action so
+		// the chat UI can show a live "agent is clicking X"
+		// indicator. The event carries the action type, success
+		// flag, and a short output snippet (capped to avoid
+		// flooding the SSE channel with large screenshots).
+		cuLoop.OnAction = func(actionType string, success bool, result *agent.StepResult) {
+			payload := map[string]any{
+				"action":  actionType,
+				"success": success,
+			}
+			if result != nil {
+				if result.Output != "" {
+					out := result.Output
+					if len(out) > 200 {
+						out = out[:200] + "…"
+					}
+					payload["output"] = out
+				}
+				if result.Duration > 0 {
+					payload["duration_ms"] = int(result.Duration * 1000)
+				}
+				if result.SSBeforeRef != "" {
+					payload["screenshot_before"] = result.SSBeforeRef
+				}
+			}
+			broker.PublishJSON("cu.action", payload)
 		}
 		log.Info("computer-use loop ready")
 	}
@@ -806,6 +853,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Voice:                    voicePipeline,
 		CULoop:                   cuLoop,
 		Memory:                   memMgr,
+		Capturer:                 capturer,
 		Extractor:                extractor,
 		Adaptive:                 adaptiveComps,
 		MCP:                      mcp.NewManager(gate),
@@ -1541,4 +1589,23 @@ func (a watchdogAuditAdapter) RecordHalt(ctx context.Context, e watchdog.AuditEv
 		Result:  e.Result,
 		Message: e.Detail,
 	})
+}
+
+// perceptionEnergyMode maps the config string to a perception.EnergyMode.
+// Unknown / empty → EnergyAuto (resolves to Balanced until a power-state
+// probe is wired in v0.2.0).
+func perceptionEnergyMode(cfg *config.Config) perception.EnergyMode {
+	if cfg == nil {
+		return perception.EnergyAuto
+	}
+	switch strings.ToLower(cfg.Daemon.EnergyMode) {
+	case "low":
+		return perception.EnergyLow
+	case "balanced":
+		return perception.EnergyBalanced
+	case "high":
+		return perception.EnergyHigh
+	default:
+		return perception.EnergyAuto
+	}
 }

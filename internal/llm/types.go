@@ -169,12 +169,11 @@ type ModelInfo struct {
 
 // Common errors.
 var (
-	ErrNoModel        = errors.New("llm: no model specified")
-	ErrNoMessages     = errors.New("llm: no messages")
-	ErrNoAPIKey       = errors.New("llm: no api key available")
-	ErrNoProvider     = errors.New("llm: provider not registered")
-	ErrNotImplemented = errors.New("llm: not implemented")
-	ErrResponseShape  = errors.New("llm: unexpected response shape")
+	ErrNoModel       = errors.New("llm: no model specified")
+	ErrNoMessages    = errors.New("llm: no messages")
+	ErrNoAPIKey      = errors.New("llm: no api key available")
+	ErrNoProvider    = errors.New("llm: provider not registered")
+	ErrResponseShape = errors.New("llm: unexpected response shape")
 )
 
 // Provider is the interface every LLM backend implements.

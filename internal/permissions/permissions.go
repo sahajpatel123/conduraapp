@@ -1,4 +1,4 @@
-// Package permissions probes the OS-level permissions Synaptic
+// Package permissions probes the OS-level permissions Condura
 // needs to operate (Phase 11, sub-phase 11E).
 //
 // Honest constraint: we CANNOT grant OS permissions programmatically
@@ -23,10 +23,10 @@ import (
 	"runtime"
 )
 
-// Kind is a Synaptic permission requirement.
+// Kind is a Condura permission requirement.
 type Kind string
 
-// Permission kinds Synaptic needs on every supported platform.
+// Permission kinds Condura needs on every supported platform.
 const (
 	KindAccessibility   Kind = "accessibility"    // macOS AX / Windows UIA / Linux AT-SPI
 	KindScreenRecording Kind = "screen_recording" // macOS ScreenCapture / Windows GraphicsCapture
@@ -57,7 +57,7 @@ type Permission struct {
 	Note   string `json:"note,omitempty"`
 }
 
-// Probe checks every permission Synaptic needs. The ctx is
+// Probe checks every permission Condura needs. The ctx is
 // honored by per-platform probes that may make a syscall or
 // shell out (not currently used, but reserved for future
 // platform-specific implementations).
@@ -183,30 +183,30 @@ func darwinSteps(k Kind) ([]string, string, string) {
 		return []string{
 			"Open System Settings → Privacy & Security → Accessibility",
 			"Click the lock icon and authenticate",
-			"Find Synaptic in the list and toggle it ON",
+			"Find Condura in the list and toggle it ON",
 			"If Condura is not in the list, click + and add it from /Applications",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindScreenRecording:
 		return []string{
 			"Open System Settings → Privacy & Security → Screen & System Audio Recording",
 			"Click the lock icon and authenticate",
-			"Find Synaptic in the list and toggle it ON",
+			"Find Condura in the list and toggle it ON",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindMicrophone:
 		return []string{
 			"Open System Settings → Privacy & Security → Microphone",
 			"Click the lock icon and authenticate",
-			"Find Synaptic in the list and toggle it ON",
+			"Find Condura in the list and toggle it ON",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindAutomation:
 		return []string{
 			"Open System Settings → Privacy & Security → Automation",
-			"Find Synaptic in the list and toggle it ON for each app Synaptic should control",
+			"Find Condura in the list and toggle it ON for each app Condura should control",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation", ""
 	case KindNotifications:
 		return []string{
 			"Open System Settings → Notifications",
-			"Find Synaptic in the list and set Allow Notifications to ON",
+			"Find Condura in the list and set Allow Notifications to ON",
 		}, "x-apple.systempreferences:com.apple.preference.notifications", ""
 	}
 	return nil, "", ""
@@ -217,26 +217,26 @@ func windowsSteps(k Kind) ([]string, string, string) {
 	case KindAccessibility:
 		return []string{
 			"Open Settings → Privacy & Security → Accessibility",
-			"Click Synaptic and toggle ON",
+			"Click Condura and toggle ON",
 		}, "ms-settings:privacy-accessibility", ""
 	case KindScreenRecording:
 		return []string{
 			"Open Settings → Privacy & Security → Graphics capture settings",
-			"Click Synaptic and toggle ON",
+			"Click Condura and toggle ON",
 		}, "ms-settings:privacy-graphicsCapture", ""
 	case KindMicrophone:
 		return []string{
 			"Open Settings → Privacy & Security → Microphone",
-			"Click Synaptic and toggle ON",
+			"Click Condura and toggle ON",
 		}, "ms-settings:privacy-microphone", ""
 	case KindAutomation:
 		return []string{
-			"No OS-level Automation permission on Windows; Synaptic uses UI Automation (UIA) which is enabled per-app via the same Privacy panel as Accessibility.",
+			"No OS-level Automation permission on Windows; Condura uses UI Automation (UIA) which is enabled per-app via the same Privacy panel as Accessibility.",
 		}, "ms-settings:privacy-accessibility", ""
 	case KindNotifications:
 		return []string{
 			"Open Settings → System → Notifications",
-			"Find Synaptic and configure your preferences",
+			"Find Condura and configure your preferences",
 		}, "ms-settings:notifications", ""
 	}
 	return nil, "", ""
@@ -259,7 +259,7 @@ func linuxSteps(k Kind) ([]string, string, string) {
 		return []string{
 			"Add your user to the 'audio' group: sudo usermod -aG audio $USER",
 			"GNOME: Settings → Privacy → Microphone",
-			"PipeWire / PulseAudio: ensure the Synaptic process can access the mic source",
+			"PipeWire / PulseAudio: ensure the Condura process can access the mic source",
 		}, "", ""
 	case KindAutomation:
 		return []string{

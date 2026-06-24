@@ -8,6 +8,7 @@ import (
 
 	"github.com/sahajpatel123/synapticapp/internal/agent"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/synapticapp/internal/perception"
 	"github.com/sahajpatel123/synapticapp/internal/replay"
 )
 
@@ -47,11 +48,19 @@ const (
 //
 // It wraps the GatedComputerUseExecutor so every resolved action
 // still passes through the Gatekeeper before physical execution.
+//
+// When a perception.SmartCapturer is wired via SetCapturer, every
+// AX-tree + screenshot capture is preceded by a strategy choice and
+// followed by an energy debit. When the session energy budget is
+// exhausted (per §6.4 / decision #26), Execute aborts with
+// perception.ErrBudgetExhausted so the caller can pause and ask the
+// user rather than silently draining the battery.
 type CUResolver struct {
 	cu       *computeruse.ComputerUse
 	gate     *computeruse.GatedExecutor
 	shots    *replay.ScreenshotStore
 	onCUStep func(kind string, x, y float64, success bool)
+	capturer *perception.SmartCapturer
 }
 
 // NewCUResolver creates an ActionResolver that bridges the agent
@@ -69,6 +78,37 @@ func (r *CUResolver) SetScreenshotStore(shots *replay.ScreenshotStore) {
 // SetAnomalyHook wires the anomaly detector to fire on every CU step.
 func (r *CUResolver) SetAnomalyHook(fn func(kind string, x, y float64, success bool)) {
 	r.onCUStep = fn
+}
+
+// SetCapturer wires the Selective Perception energy-budget capturer.
+// When set, every AX/screenshot capture consults the capturer for a
+// strategy and debits the session energy budget. When the budget is
+// exhausted, Execute aborts with perception.ErrBudgetExhausted.
+func (r *CUResolver) SetCapturer(c *perception.SmartCapturer) {
+	r.capturer = c
+}
+
+// chooseAndRecordPerception picks a perception strategy for the given
+// action + dirty state, debits the budget, and returns the chosen
+// strategy. A nil capturer short-circuits to StrategyNone (the
+// v0.1.0 path before perception was wired).
+func (r *CUResolver) chooseAndRecordPerception(a *agent.Action, dirty perception.DirtyState) (perception.Strategy, error) {
+	if r.capturer == nil {
+		return perception.StrategyNone, nil
+	}
+	q := perception.Question{
+		Text:                 a.Type + " " + a.Target,
+		NeedsElementIdentity: true, // CU always needs the AX tree to find the target
+		NeedsPixels:          a.Type == "screenshot" || a.Type == "describe",
+		NeedsOCR:             false,
+		TargetApp:            "",
+	}
+	strategy, err := r.capturer.ChooseStrategy(q, dirty)
+	if err != nil {
+		return perception.StrategyNone, fmt.Errorf("perception: %w", err)
+	}
+	r.capturer.Record(strategy)
+	return strategy, nil
 }
 
 // Execute resolves an agent-level action into a computer-use
@@ -91,6 +131,20 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 	// focus changed, target node removed) we ABORT the action
 	// and return ErrStaleState so the planner can retry with a
 	// fresh AX tree.
+	//
+	// Selective Perception (§6): before capturing, consult the
+	// energy-budget capturer for a strategy. When the budget is
+	// exhausted, abort with a clear error so the caller can pause
+	// and ask the user (decision #26: refuse, force user decision).
+	dirty := perception.DirtyState{}
+	if _, perr := r.chooseAndRecordPerception(a, dirty); perr != nil {
+		return &agent.StepResult{
+			Success: false,
+			Error:   perr,
+			Output:  "selective perception budget exhausted — pause and ask the user before retrying",
+		}, perr
+	}
+
 	pre := r.captureAXSnapshot(ctx)
 
 	ssBeforeRef := r.captureScreenshot(ctx, "before")

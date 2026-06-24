@@ -176,6 +176,8 @@ func TestFileManager_DirCreatedWith0700(t *testing.T) {
 func TestFileManager_ExistingFileGets0600(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secrets.json")
+	// Write a legacy v1 cleartext file with loose perms; the constructor
+	// must migrate it to v2 (encrypted) and tighten perms to 0600.
 	require.NoError(t, os.WriteFile(path, []byte(`{"version":1,"secrets":{}}`), 0o644))
 	_, err := newFileManager(path)
 	require.NoError(t, err)
@@ -201,31 +203,74 @@ func TestFileManager_CorruptedFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secrets.json")
 	require.NoError(t, os.WriteFile(path, []byte(`{not valid json`), 0o600))
-	m, err := newFileManager(path)
-	require.NoError(t, err)
-	_, err = m.Get("k")
+	_, err := newFileManager(path)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "parse secrets file")
 }
 
-func TestFileManager_ReadError(t *testing.T) {
+func TestFileManager_LegacyV1MigratesToV2Encrypted(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "missing-dir", "secrets.json")
-	m := &fileManager{path: path}
-	_, err := m.read()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "read secrets file")
+	path := filepath.Join(dir, "secrets.json")
+	// Write a v1 cleartext file with a real secret; the constructor must
+	// migrate it to v2 encrypted AND the cleartext value must no longer be
+	// greppable on disk.
+	require.NoError(t, os.WriteFile(path,
+		[]byte(`{"version":1,"secrets":{"api_key.openai":"sk-test-migrate-me"}}`),
+		0o600))
+	m, err := newFileManager(path)
+	require.NoError(t, err)
+	got, err := m.Get("api_key.openai")
+	require.NoError(t, err)
+	assert.Equal(t, "sk-test-migrate-me", got)
+	// The on-disk file must not contain the cleartext secret.
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "sk-test-migrate-me",
+		"v2 file must not contain the cleartext secret")
+	assert.NotContains(t, string(raw), `"secrets"`,
+		"v2 file must not contain the cleartext secrets map")
+}
+
+func TestFileManager_V2FileNotPortableToWrongKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secrets.json")
+	m1, err := newFileManager(path)
+	require.NoError(t, err)
+	require.NoError(t, m1.Set("k", "secret-value"))
+	// Remove the machine-bound key file so a second instance generates a
+	// different one. Decryption must fail (wrong key).
+	require.NoError(t, os.Remove(path+".key"))
+	_, err = newFileManager(path)
+	assert.Error(t, err, "wrong key file must fail to decrypt the v2 file")
+}
+
+func TestFileManager_EnvPassphraseOverridesKeyFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secrets.json")
+	t.Setenv("CONDURA_FILE_PASSPHRASE", "hunter2-strength-passphrase")
+	m, err := newFileManager(path)
+	require.NoError(t, err)
+	require.NoError(t, m.Set("k", "env-secret"))
+	// No .key file should exist because the env var took precedence.
+	_, statErr := os.Stat(path + ".key")
+	assert.True(t, os.IsNotExist(statErr),
+		"env passphrase must skip the .key file")
+	// A second instance with the same env var must read the secret back.
+	t.Setenv("CONDURA_FILE_PASSPHRASE", "hunter2-strength-passphrase")
+	m2, err := newFileManager(path)
+	require.NoError(t, err)
+	got, err := m2.Get("k")
+	require.NoError(t, err)
+	assert.Equal(t, "env-secret", got)
 }
 
 func TestFileManager_NewFileManager_ExistingDir(t *testing.T) {
-	// When the given path is an existing directory, Stat succeeds and Chmod
-	// is called on the dir (which is a no-op on most systems). The
-	// constructor should still succeed.
+	// When the given path is an existing directory, the constructor should
+	// fail rather than silently corrupting the directory.
 	dir := t.TempDir()
 	d := filepath.Join(dir, "is_a_dir")
 	require.NoError(t, os.Mkdir(d, 0o755))
 	_, err := newFileManager(d)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 }
 
 func TestFileManager_NewFileManager_MkdirFails(t *testing.T) {

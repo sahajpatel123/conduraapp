@@ -294,6 +294,27 @@ func (l *Log) GetByID(ctx context.Context, id int64) (*Event, error) {
 		       session_id,
 		       prev_hash, hmac
 		FROM audit_log WHERE id = ?`, id)
+	return l.scanEvent(row)
+}
+
+// getByIDTx is the transaction-scoped variant of GetByID, used by
+// Prune to read the oldest surviving row inside the prune tx.
+func (l *Log) getByIDTx(ctx context.Context, tx *sql.Tx, id int64) (*Event, error) {
+	row := tx.QueryRowContext(ctx, `
+		SELECT id, ts, actor, action, app, level, result, message,
+		       kind, blast_class, verdict,
+		       target_app, target_url, path, command,
+		       consent_result,
+		       screenshot_before_ref, screenshot_after_ref,
+		       session_id,
+		       prev_hash, hmac
+		FROM audit_log WHERE id = ?`, id)
+	return l.scanEvent(row)
+}
+
+// scanEvent reads a single row into an Event. Shared by GetByID and
+// getByIDTx so the column list stays in one place.
+func (l *Log) scanEvent(row *sql.Row) (*Event, error) {
 	var e Event
 	var ts string
 	err := row.Scan(
@@ -323,6 +344,68 @@ func (l *Log) Count(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+// Prune deletes audit rows older than the given retention window
+// (per CLAUDE.md §10.5: "90-day retention (configurable)"). Returns
+// the number of rows deleted.
+//
+// The audit log is HMAC-chained, so deleting old rows would break
+// the chain for the surviving rows (their prev_hash would point at
+// deleted rows). Prune handles this by, after the delete, resetting
+// the oldest surviving row's prev_hash to the genesis hash (64 zeros)
+// and recomputing its hmac. The pruned log is therefore a valid
+// standalone chain starting at the oldest surviving row.
+//
+// A zero or negative retention window is a no-op (retention disabled).
+func (l *Log) Prune(ctx context.Context, retention time.Duration) (int64, error) {
+	if retention <= 0 {
+		return 0, nil
+	}
+	cutoff := time.Now().Add(-retention).Format(time.RFC3339Nano)
+	tx, err := l.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("audit: prune: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(ctx,
+		`DELETE FROM audit_log WHERE ts < ?`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("audit: prune: delete: %w", err)
+	}
+	deleted, _ := res.RowsAffected()
+
+	// Reset the oldest surviving row's prev_hash to genesis and
+	// recompute its hmac so the pruned log is a valid chain.
+	var oldestID int64
+	row := tx.QueryRowContext(ctx, `SELECT id FROM audit_log ORDER BY id ASC LIMIT 1`)
+	if err := row.Scan(&oldestID); err != nil {
+		// No surviving rows — nothing to re-chain.
+		if err := tx.Commit(); err != nil {
+			return 0, fmt.Errorf("audit: prune: commit (empty): %w", err)
+		}
+		return deleted, nil
+	}
+
+	// Load the oldest surviving row so we can recompute its hmac
+	// over its canonical payload.
+	e, err := l.getByIDTx(ctx, tx, oldestID)
+	if err != nil {
+		return 0, fmt.Errorf("audit: prune: load oldest: %w", err)
+	}
+	e.prevHash = genesisHash
+	e.hmac = l.computeHMAC(*e)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE audit_log SET prev_hash = ?, hmac = ? WHERE id = ?`,
+		e.prevHash, e.hmac, e.ID); err != nil {
+		return 0, fmt.Errorf("audit: prune: rechain oldest: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("audit: prune: commit: %w", err)
+	}
+	return deleted, nil
 }
 
 // VerifyChain walks the audit log in id order and confirms that:

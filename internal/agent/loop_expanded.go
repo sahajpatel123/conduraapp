@@ -7,6 +7,11 @@ import (
 )
 
 // ExpandedLoop is the expanded agent loop with multi-step planning.
+//
+// Deprecated: ExpandedLoop is retained for test coverage but is NOT
+// wired into the daemon. The production agent loop is CULoop
+// (culoop.go), which wraps the CUResolver + GatedExecutor. ExpandedLoop
+// will be removed in v0.2.0 once its tests are migrated to CULoop.
 type ExpandedLoop struct {
 	// Planner decomposes tasks into steps.
 	Planner Planner

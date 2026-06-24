@@ -33,7 +33,7 @@ func (d *darwinMCP) isAvailable() bool {
 }
 
 func (d *darwinMCP) runAppleScript(script string) (string, error) {
-	out, err := exec.CommandContext(context.Background(), "osascript", "-e", script).Output() //nolint:gosec // script is constructed from trusted constants
+	out, err := exec.CommandContext(context.Background(), "osascript", "-e", script).Output() //nolint:gosec // script is built from escapeAppleScript-escaped model-controlled values
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -191,5 +191,11 @@ func escapeAppleScript(s string) string {
 	// Escape backslashes and double quotes for AppleScript strings.
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "\"", "\\\"")
+	// Escape backticks. AppleScript evaluates backtick-quoted
+	// expressions inside string literals, so an unescaped backtick
+	// in a model-controlled value can inject a `do shell script "..."`
+	// expression. This is the osascript injection vector flagged in
+	// the security audit (F-11) and the backend audit (B-11).
+	s = strings.ReplaceAll(s, "`", "\\`")
 	return s
 }

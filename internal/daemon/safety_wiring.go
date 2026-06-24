@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
+	"github.com/sahajpatel123/synapticapp/internal/autonomy"
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
 	"github.com/sahajpatel123/synapticapp/internal/sanitize"
@@ -22,13 +24,20 @@ type SafetyComponents struct {
 	Consent   gatekeeper.ConsentProvider
 	Sanitizer []sanitize.Sanitizer
 	Trust     *trust.Store // Phase 16, Rec 5: per-workspace trust
+	Autonomy  *autonomy.Matrix
 }
 
 // buildSafetyLayer constructs the real safety components and wires all
 // safety hooks (Anomaly, Autonomy, Sanitize, Trust) into the
 // gatekeeper engine so that every action flows through the full
 // safety pipeline.
-func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, log *slog.Logger) *SafetyComponents {
+//
+// The autonomy hook is driven by the user-editable config matrix
+// (config.AutonomyConfig.PerApp / PerTask / DefaultLevel). When the
+// config has no entries, the hook falls back to the conservative
+// hardcoded default (research / image_generation / code_review are
+// autonomous; everything else warns) so a fresh install still works.
+func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
 	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
@@ -50,10 +59,15 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		detector.Record(a.Kind, 0, 0, false)
 	}
 
+	// Build the autonomy matrix from config. The matrix is the
+	// user-defining setting from §27 — users dial per-cell via the
+	// YAML config. When the config is empty, fall back to the
+	// conservative hardcoded default so a fresh install still works.
+	matrix := buildAutonomyMatrix(cfg)
+
 	// Wire the autonomy hook so every Evaluate call checks autonomy.
 	engine.AutonomyHook = func(taskType, app string) int {
-		level := getAutonomyLevel(taskType, app)
-		return level
+		return int(matrix.Evaluate(taskType, app))
 	}
 
 	// Field-aware sanitizer dispatch: run the right sanitizer on
@@ -109,6 +123,86 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		Consent:   consent,
 		Sanitizer: sanitize.DefaultChain(),
 		Trust:     trustStore,
+		Autonomy:  matrix,
+	}
+}
+
+// buildAutonomyMatrix translates the user-editable config.AutonomyConfig
+// into an autonomy.Matrix. PerTask entries become "task.*" wildcards;
+// PerApp entries become "*.app" pairs (matched via the default path when
+// no task wildcard hits); DefaultLevel sets the floor. When the config
+// is empty, the conservative hardcoded default from §10.9 is used so a
+// fresh install still behaves sensibly.
+func buildAutonomyMatrix(cfg *config.Config) *autonomy.Matrix {
+	if cfg == nil {
+		return autonomy.NewMatrix(autonomy.Warn, defaultAutonomyMapping())
+	}
+	defaultLevel := parseAutonomyLevel(cfg.Autonomy.DefaultLevel, autonomy.Warn)
+	mapping := defaultAutonomyMapping()
+	// PerTask → task.* wildcards. These override the hardcoded defaults.
+	for task, lvlStr := range cfg.Autonomy.PerTask {
+		mapping[task+".*"] = parseAutonomyLevel(lvlStr, defaultLevel)
+	}
+	// PerApp → *.app pairs. We register them as "<any-task>.<app>"
+	// by adding an entry for each known action kind, so the
+	// Evaluate(taskType, app) lookup hits regardless of the task
+	// type. The known action kinds are the set the engine actually
+	// passes to the hook (a.Kind).
+	for app, lvlStr := range cfg.Autonomy.PerApp {
+		lvl := parseAutonomyLevel(lvlStr, defaultLevel)
+		for _, kind := range autonomyActionKinds {
+			mapping[kind+"."+app] = lvl
+		}
+	}
+	return autonomy.NewMatrix(defaultLevel, mapping)
+}
+
+// defaultAutonomyMapping returns the conservative hardcoded default
+// from §10.9: research / image_generation / code_review are autonomous;
+// everything else warns. This is the floor when the user has not
+// configured the matrix.
+func defaultAutonomyMapping() map[string]autonomy.Level {
+	return map[string]autonomy.Level{
+		"research.*":         autonomy.Autonomous,
+		"image_generation.*": autonomy.Autonomous,
+		"code_review.*":      autonomy.Autonomous,
+	}
+}
+
+// autonomyActionKinds is the set of action kinds the engine actually
+// passes to the AutonomyHook (a.Kind). Used to expand PerApp entries
+// into per-kind rows so the Evaluate(taskType, app) lookup hits
+// regardless of the task type.
+var autonomyActionKinds = []string{
+	"chat",
+	"shell.exec",
+	"delegation.spawn",
+	"computeruse.click",
+	"computeruse.type",
+	"computeruse.scroll",
+	"computeruse.launch",
+	"computeruse.read",
+	"file.read",
+	"file.write",
+}
+
+// parseAutonomyLevel parses a level string ("block", "warn", "ask",
+// "autonomous") into an autonomy.Level, returning the fallback on
+// empty or unrecognized input.
+func parseAutonomyLevel(s string, fallback autonomy.Level) autonomy.Level {
+	switch s {
+	case "block", "0":
+		return autonomy.Block
+	case "warn", "1":
+		return autonomy.Warn
+	case "ask", "2":
+		return autonomy.Ask
+	case "autonomous", "3":
+		return autonomy.Autonomous
+	case "":
+		return fallback
+	default:
+		return fallback
 	}
 }
 
@@ -135,27 +229,6 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 	case result := <-ticket.Result:
 		return result, nil
 	}
-}
-
-// getAutonomyLevel returns the autonomy level for a given task type
-// and app, looking up the config at runtime. Returns 1 (Warn) as the
-// conservative default to ensure fail-safe behavior.
-func getAutonomyLevel(taskType, app string) int {
-	// Simplified autonomy mapping based on MISSION §10.9 defaults.
-	// Research and code_review are autonomous; everything else warns.
-	autonomousTasks := map[string]bool{
-		"research":         true,
-		"image_generation": true,
-		"code_review":      true,
-	}
-	if autonomousTasks[taskType] {
-		return 3 // Autonomous
-	}
-	apps := map[string]bool{"com.google.Chrome": true, "com.apple.finder": true, "com.microsoft.VSCode": true}
-	if apps[app] {
-		return 3 // Autonomous for explicitly trusted apps
-	}
-	return 1 // Warn for everything else
 }
 
 func (p *rpcConsentProvider) IsAvailable() bool { return true }

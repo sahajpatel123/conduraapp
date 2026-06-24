@@ -129,3 +129,51 @@ func TestDetector_LastActivity(t *testing.T) {
 		t.Error("LastActivity should be set after a process call")
 	}
 }
+
+// TestDetector_NewEndpoint_TripsOnPivot pins the 5th "agent went
+// insane" trigger (§5.6): the first network endpoint in a session is
+// NOT a trip, but a pivot to a new endpoint mid-session IS.
+func TestDetector_NewEndpoint_TripsOnPivot(t *testing.T) {
+	var trips []Trip
+	d := NewDetector(func(t Trip) { trips = append(trips, t) })
+	// First contact — not a trip (empty set).
+	d.RecordNetwork("api.openai.com")
+	if len(trips) != 0 {
+		t.Errorf("first endpoint should not trip, got %d trips: %+v", len(trips), trips)
+	}
+	// Same host again — not a trip.
+	d.RecordNetwork("api.openai.com")
+	if len(trips) != 0 {
+		t.Errorf("repeat endpoint should not trip, got %d trips", len(trips))
+	}
+	// New host mid-session — trip.
+	d.RecordNetwork("evil.example.com")
+	if len(trips) != 1 || trips[0].Type != TripNewEndpoint {
+		t.Errorf("pivot to new endpoint should trip TripNewEndpoint, got %+v", trips)
+	}
+}
+
+// TestDetector_NewEndpoint_NormalizesHost pins that the host is
+// port-stripped + lowercased before comparison, so "API.OpenAI.com:443"
+// matches "api.openai.com".
+func TestDetector_NewEndpoint_NormalizesHost(t *testing.T) {
+	var trips []Trip
+	d := NewDetector(func(t Trip) { trips = append(trips, t) })
+	d.RecordNetwork("API.OpenAI.com:443")
+	d.RecordNetwork("api.openai.com")
+	if len(trips) != 0 {
+		t.Errorf("normalized repeat should not trip, got %d trips", len(trips))
+	}
+}
+
+// TestDetector_NewEndpoint_EmptyHostIgnored pins that an empty
+// host string is a no-op (no trip, no state change).
+func TestDetector_NewEndpoint_EmptyHostIgnored(t *testing.T) {
+	var trips []Trip
+	d := NewDetector(func(t Trip) { trips = append(trips, t) })
+	d.RecordNetwork("")
+	d.RecordNetwork("   ")
+	if len(trips) != 0 {
+		t.Errorf("empty host should not trip, got %d trips", len(trips))
+	}
+}

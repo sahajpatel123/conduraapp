@@ -49,6 +49,13 @@ type CULoop struct {
 	OnStatus func(status.Status)
 	// OnStart fires at the beginning of each Run() call.
 	OnStart func()
+	// OnAction fires after each step executes, with the action
+	// type, the success flag, and the step result. This is the
+	// live "agent is clicking X" indicator data source (§10 /
+	// backend audit B-22): the daemon wires this to publish a
+	// `cu.action` SSE event per action so the chat UI can show
+	// what the agent is doing in real time. nil = no events.
+	OnAction func(actionType string, success bool, result *StepResult)
 }
 
 // NewCULoop creates a computer-use execution loop.
@@ -110,6 +117,7 @@ func (l *CULoop) Run(ctx context.Context, task string, planCtx *Context) (*PlanR
 		if err != nil {
 			step.Status = StepFailed
 			step.Result = &StepResult{Success: false, Error: err}
+			l.emitAction(step.Action.Type, false, step.Result)
 			l.emit(status.StatusError)
 			return l.finish(result, false, err)
 		}
@@ -117,6 +125,7 @@ func (l *CULoop) Run(ctx context.Context, task string, planCtx *Context) (*PlanR
 		step.Result = sr
 		step.Status = StepCompleted
 		result.Steps = append(result.Steps, sr)
+		l.emitAction(step.Action.Type, sr != nil && sr.Success, sr)
 	}
 
 	return l.finish(result, true, nil)
@@ -144,5 +153,13 @@ func (l *CULoop) finish(r *PlanResult, success bool, err error) (*PlanResult, er
 func (l *CULoop) emit(s status.Status) {
 	if l.OnStatus != nil {
 		l.OnStatus(s)
+	}
+}
+
+// emitAction fires the OnAction hook if wired. Used after every
+// step to drive the live "agent is clicking X" SSE indicator.
+func (l *CULoop) emitAction(actionType string, success bool, result *StepResult) {
+	if l.OnAction != nil {
+		l.OnAction(actionType, success, result)
 	}
 }

@@ -5,6 +5,7 @@
 package anomaly
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,10 +29,11 @@ type Trip struct {
 type TripType string
 
 const (
-	TripRate     TripType = "rate"
-	TripDuration TripType = "duration"
-	TripLoop     TripType = "loop"
-	TripFailures TripType = "failures"
+	TripRate        TripType = "rate"
+	TripDuration    TripType = "duration"
+	TripLoop        TripType = "loop"
+	TripFailures    TripType = "failures"
+	TripNewEndpoint TripType = "new_endpoint"
 )
 
 type actionRecord struct {
@@ -48,6 +50,15 @@ type detectorState struct {
 	startTime    time.Time
 	lastActivity time.Time // time of most recent Record(); used by IdleReset
 	coordWindow  [][2]float64
+	// seenHosts tracks every network host the agent has contacted
+	// this session. The 5th "agent went insane" trigger (§5.6)
+	// fires when the agent sends to a network endpoint it has
+	// never used before. A new session starts with an empty set;
+	// the first contact of any host is NOT a trip (the set is
+	// empty), but a subsequent contact of a *different* host
+	// after the set is populated is. This catches an agent that
+	// suddenly pivots to a new exfil endpoint mid-session.
+	seenHosts map[string]bool
 }
 
 // NewDetector creates an anomaly detector with the given thresholds.
@@ -59,6 +70,7 @@ func NewDetector(onTrip func(Trip)) *Detector {
 	}
 	d.state.coordWindow = make([][2]float64, 0, 5)
 	d.state.startTime = time.Now()
+	d.state.seenHosts = make(map[string]bool)
 
 	go d.loop()
 	return d
@@ -72,6 +84,49 @@ func (d *Detector) Record(kind string, x, y float64, success bool) {
 	}
 }
 
+// RecordNetwork records a network endpoint the agent is about to
+// contact. It trips TripNewEndpoint when the host has not been seen
+// this session AND the session has already contacted at least one
+// other host (so the first ever contact in a session is not a trip,
+// but a pivot to a new endpoint mid-session is). The host is the
+// URL's hostname (port-stripped); non-network kinds are ignored.
+//
+// This implements the 5th "agent went insane" trigger from
+// CLAUDE.md §5.6: "Agent sends to network endpoints it has never
+// used before." The detector is the right place for this because it
+// already owns the behavioral-anomaly state and the onTrip callback.
+func (d *Detector) RecordNetwork(host string) {
+	host = normalizeHost(host)
+	if host == "" {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.state.lastActivity = time.Now()
+	if d.state.seenHosts == nil {
+		d.state.seenHosts = make(map[string]bool)
+	}
+	if !d.state.seenHosts[host] {
+		if len(d.state.seenHosts) > 0 {
+			// The session has already contacted at least one
+			// other host, so a new host is a pivot — trip.
+			d.trip(Trip{Type: TripNewEndpoint, Reason: "network endpoint not seen before this session: " + host})
+		}
+		d.state.seenHosts[host] = true
+	}
+}
+
+// normalizeHost strips the port and lowercases the host. Returns
+// empty for non-network inputs.
+func normalizeHost(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	// Strip port.
+	if i := strings.LastIndex(host, ":"); i > 0 {
+		host = host[:i]
+	}
+	return host
+}
+
 // Reset clears all counters for a new conversation.
 func (d *Detector) Reset() {
 	d.mu.Lock()
@@ -79,6 +134,7 @@ func (d *Detector) Reset() {
 	d.state = detectorState{}
 	d.state.startTime = time.Now()
 	d.state.coordWindow = make([][2]float64, 0, 5)
+	d.state.seenHosts = make(map[string]bool)
 }
 
 // IdleReset returns true if the detector has been inactive longer

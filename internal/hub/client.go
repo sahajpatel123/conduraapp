@@ -110,7 +110,7 @@ func (c *Client) doGet(path string, params url.Values) (*http.Response, error) {
 	}
 	c.applyAuth(req)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "synapticd/0.1.0")
+	req.Header.Set("User-Agent", "condurad/0.1.0")
 	return c.httpClient.Do(req)
 }
 
@@ -128,7 +128,7 @@ func (c *Client) doPost(path string, body any) (*http.Response, error) {
 	c.applyAuth(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "synapticd/0.1.0")
+	req.Header.Set("User-Agent", "condurad/0.1.0")
 	return c.httpClient.Do(req)
 }
 

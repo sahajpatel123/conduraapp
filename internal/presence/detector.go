@@ -127,7 +127,9 @@ func (d *Detector) checkActiveOnDarwin() bool {
 	// For now, assume active unless screen is locked.
 	out, err := exec.CommandContext(context.Background(), "ioreg", "-c", "IOHIDSystem").Output()
 	if err != nil {
-		return true // Assume present on error
+		// Fail closed: a broken probe must NOT claim the user is
+		// present, because presence gates DESTRUCTIVE consent.
+		return false
 	}
 	// Check for "AppleEventKeyDown" timestamps in the last minute.
 	return strings.Contains(string(out), "AppleEvent")
@@ -143,14 +145,44 @@ func (d *Detector) checkLockedDarwin() bool {
 }
 
 func (d *Detector) checkActiveOnWindows() bool {
-	// Use PowerShell to check last input time.
-	cmd := exec.CommandContext(context.Background(), "powershell", "-Command",
-		"(Get-NetAdapter | Where-Object {$_.Status -eq 'Up'}).Count -gt 0")
-	out, err := cmd.Output()
+	// Use GetLastInputInfo via PowerShell P/Invoke to measure the
+	// seconds since the last keyboard/mouse input. This is the
+	// correct Windows API for "is the user at the keyboard?".
+	// The previous implementation counted network adapters
+	// (Get-NetAdapter), which returns true on any Wi-Fi-connected
+	// machine regardless of whether anyone is present — defeating
+	// the require_user_active consent gate for DESTRUCTIVE actions.
+	//
+	// We consider the user present if the last input was within
+	// presenceIdleSeconds (default 120s). A failure of the P/Invoke
+	// path fails closed (returns false) so a DESTRUCTIVE action is
+	// queued rather than auto-allowed on a broken probe.
+	const script = `Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class LI {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct LASTINPUTINFO {
+    public uint cbSize;
+    public uint dwTime;
+  }
+  [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+  [DllImport("kernel32.dll")] public static extern uint GetTickCount();
+}
+"@
+$li = New-Object LI+LASTINPUTINFO
+$li.cbSize = [uint32][System.Runtime.InteropServices.Marshal]::SizeOf([type][LI+LASTINPUTINFO])
+[void][LI]::GetLastInputInfo([ref]$li)
+$now = [LI]::GetTickCount()
+$secs = ($now - $li.dwTime) / 1000
+if ($secs -lt 120) { "true" } else { "false" }`
+	out, err := exec.CommandContext(context.Background(), "powershell", "-NoProfile", "-Command", script).Output()
 	if err != nil {
-		return true
+		// Fail closed: a broken probe must NOT claim the user is
+		// present, because presence gates DESTRUCTIVE consent.
+		return false
 	}
-	return strings.TrimSpace(string(out)) == "True"
+	return strings.TrimSpace(strings.ToLower(string(out))) == "true"
 }
 
 func (d *Detector) checkLockedWindows() bool {

@@ -34,10 +34,18 @@ package perception
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 )
+
+// ErrBudgetExhausted is returned by SmartCapturer.ChooseStrategy when
+// the session energy budget is spent. Per CLAUDE.md §6.4 / decision
+// #26, the caller MUST pause and ask the user rather than silently
+// retrying or downgrading. Use errors.Is(err, perception.ErrBudgetExhausted)
+// to detect it.
+var ErrBudgetExhausted = errors.New("perception budget exhausted")
 
 // Strategy is the cost-ordered tier of a screen capture.
 // Cheaper strategies consume less energy and battery; more
@@ -294,7 +302,7 @@ func (c *SmartCapturer) ChooseStrategy(q Question, dirty DirtyState) (Strategy, 
 		}
 		return s, nil
 	}
-	return StrategyNone, fmt.Errorf("perception budget exhausted (used=%.2f, budget=%.2f, mode=%s)", c.used, c.budget, c.mode)
+	return StrategyNone, fmt.Errorf("%w (used=%.2f, budget=%.2f, mode=%s)", ErrBudgetExhausted, c.used, c.budget, c.mode)
 }
 
 // Record debits the energy used for an executed strategy. Call

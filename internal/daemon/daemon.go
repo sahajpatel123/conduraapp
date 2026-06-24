@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
+	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/crash"
 	"github.com/sahajpatel123/synapticapp/internal/lockfile"
@@ -224,6 +225,64 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 		subs.Pending.Start(ctx)
 		log.Info("pending-actions sweeper started")
 	}
+	// Audit log retention (§10.5 / B-37). Prunes rows older than
+	// the configured retention window once per day. Default 90
+	// days; 0 disables pruning (keep forever). The pruner
+	// re-chains the oldest surviving row so the log stays
+	// tamper-evident after pruning.
+	if subs.Audit != nil {
+		retention := auditRetention(subs.cfg)
+		if retention > 0 {
+			go runAuditPruner(ctx, subs.Audit, retention, log)
+			log.Info("audit log pruner started", "retention", retention.String())
+		} else {
+			log.Info("audit log pruner disabled (retention=0)")
+		}
+	}
+}
+
+// runAuditPruner prunes the audit log once per day, deleting rows
+// older than retention. Stops when ctx is canceled. The first prune
+// runs immediately on startup so a long-running daemon doesn't wait
+// a day to clear a backlog.
+func runAuditPruner(ctx context.Context, log *audit.Log, retention time.Duration, logger *slog.Logger) {
+	prune := func() {
+		deleted, err := log.Prune(ctx, retention)
+		if err != nil {
+			logger.Error("audit prune failed", "error", err)
+			return
+		}
+		if deleted > 0 {
+			logger.Info("audit pruned", "deleted", deleted, "retention", retention.String())
+		}
+	}
+	prune()
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
+		}
+	}
+}
+
+// auditRetention resolves the audit retention duration from config.
+// 0 → disabled (keep forever). Negative or unset → 90-day default
+// per CLAUDE.md §10.5.
+func auditRetention(cfg *config.Config) time.Duration {
+	if cfg == nil {
+		return 90 * 24 * time.Hour
+	}
+	if cfg.Security.AuditRetentionDays < 0 {
+		return 90 * 24 * time.Hour
+	}
+	if cfg.Security.AuditRetentionDays == 0 {
+		return 0
+	}
+	return time.Duration(cfg.Security.AuditRetentionDays) * 24 * time.Hour
 }
 
 // runAnomalyIdleWatcher polls the anomaly detector every minute and

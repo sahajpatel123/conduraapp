@@ -48,15 +48,34 @@ func (i *imessageChannel) Send(ctx context.Context, chatID, text string) error {
 	if strings.TrimSpace(text) == "" {
 		return fmt.Errorf("reach: imessage message is empty")
 	}
+	// Build the AppleScript with explicit escaping. Go's %q verb
+	// produces a Go-quoted string, not an AppleScript-safe string
+	// literal — it does not escape backticks, which AppleScript
+	// evaluates inside string literals, allowing a model-controlled
+	// text or recipient to inject a `do shell script "..."` expression
+	// (security audit F-11 / backend audit B-11). We escape backslash,
+	// double-quote, and backtick explicitly and wrap in double quotes.
 	script := fmt.Sprintf(
-		`tell application "Messages" to send %q to buddy %q of (service 1 whose service type is iMessage)`,
-		text, target,
+		`tell application "Messages" to send "%s" to buddy "%s" of (service 1 whose service type is iMessage)`,
+		escapeAppleScriptString(text), escapeAppleScriptString(target),
 	)
-	cmd := exec.CommandContext(ctx, "osascript", "-e", script) //nolint:gosec // AppleScript send via system osascript
+	cmd := exec.CommandContext(ctx, "osascript", "-e", script) //nolint:gosec // values are AppleScript-escaped below
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("reach: imessage send: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// escapeAppleScriptString escapes a value for safe interpolation
+// into an AppleScript double-quoted string literal. It escapes
+// backslash, double-quote, and backtick. The backtick escape closes
+// the osascript injection vector (F-11/B-11) where a model-controlled
+// value could otherwise inject a `do shell script "..."` expression.
+func escapeAppleScriptString(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	s = strings.ReplaceAll(s, "`", "\\`")
+	return s
 }
 
 func (i *imessageChannel) Receive(_ context.Context) (<-chan Message, error) {

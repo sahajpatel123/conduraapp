@@ -60,7 +60,7 @@ func TestE2E_Safety_ShellSanitizerCatchesPipe(t *testing.T) {
 	// The Engine struct is public so we access the consent field directly.
 	hf := halt.New(testDB(t))
 	broker := sse.NewBroker()
-	safety := buildSafetyLayer(hf, broker, nil, nil)
+	safety := buildSafetyLayer(hf, broker, nil, nil, nil)
 
 	// Override consent to approve, so the only thing that can
 	// produce Deny is the SanitizeHook.
@@ -79,7 +79,7 @@ func TestE2E_Safety_ChatDoesNotHalt(t *testing.T) {
 	// Use real buildSafetyLayer so AnomalyHook is installed.
 	hf := halt.New(testDB(t))
 	broker := sse.NewBroker()
-	safety := buildSafetyLayer(hf, broker, nil, nil)
+	safety := buildSafetyLayer(hf, broker, nil, nil, nil)
 	e := safety.Engine
 
 	for i := 0; i < 3; i++ {
@@ -98,7 +98,7 @@ func TestE2E_Safety_ChatDoesNotHalt(t *testing.T) {
 func TestE2E_Safety_HaltBlocks(t *testing.T) {
 	hf := halt.New(testDB(t))
 	broker := sse.NewBroker()
-	safety := buildSafetyLayer(hf, broker, nil, nil)
+	safety := buildSafetyLayer(hf, broker, nil, nil, nil)
 	e := safety.Engine
 
 	_, _ = hf.Halt(context.Background(), "test halt")

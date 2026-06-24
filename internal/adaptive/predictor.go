@@ -41,7 +41,6 @@ func (p *Predictor) Predict(ctx context.Context, query string) (string, error) {
 	}
 
 	const minConfidence = 0.5
-	_ = minConfidence
 
 	var parts []string
 
