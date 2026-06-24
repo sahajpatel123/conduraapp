@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build windows
 
 package main
 
@@ -64,9 +64,9 @@ func (a *App) startTray(ctx context.Context, subs *daemon.Subsystems) {
 		tray.Run(ctx, menu, func(ev tray.Event) {
 			switch ev {
 			case tray.EventShow:
-				a.ShowOverlay()
+				a.OpenQuickPrompt()
 			case tray.EventHide:
-				a.HideOverlay()
+				a.CloseQuickPrompt()
 			case tray.EventToggleHalt:
 				a.toggleHaltFromTray(subs)
 			case tray.EventQuit:
