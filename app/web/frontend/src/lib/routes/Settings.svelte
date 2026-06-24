@@ -704,12 +704,25 @@
     max-width: var(--content-max-width);
     margin: 0 auto;
   }
+  .settings-page .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
 
   /* ── Section spacing ─────────────────────────────────── */
   .settings-section {
     padding: var(--space-5);
     margin-top: var(--space-5);
+    animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
   }
+  .settings-section:nth-of-type(1) { animation-delay: 40ms; }
+  .settings-section:nth-of-type(2) { animation-delay: 80ms; }
+  .settings-section:nth-of-type(3) { animation-delay: 120ms; }
+  .settings-section:nth-of-type(4) { animation-delay: 160ms; }
+  .settings-section:nth-of-type(5) { animation-delay: 200ms; }
+  .settings-section:nth-of-type(6) { animation-delay: 240ms; }
+  .settings-section:nth-of-type(7) { animation-delay: 280ms; }
+  .settings-section:nth-of-type(8) { animation-delay: 320ms; }
+  .settings-section:nth-of-type(n + 9) { animation-delay: 360ms; }
   .settings-section h3 {
     font-size: var(--size-lg);
     font-weight: var(--weight-semibold);
@@ -730,13 +743,19 @@
     margin-top: var(--space-3);
   }
 
-  /* ── Danger zone (kill switch) ───────────────────────── */
+  /* ── Danger zone (kill switch) — red ambient glow */
   .danger-card {
     background: var(--color-danger-soft);
     border-color: rgba(239, 68, 68, 0.25);
+    box-shadow: var(--shadow-sm), 0 0 24px rgba(239, 68, 68, 0.12), var(--shadow-inset);
+    animation: breathe-soft 6s var(--ease-in-out-quart) infinite;
   }
   .danger-card:hover {
-    border-color: rgba(239, 68, 68, 0.35);
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: var(--shadow-md), 0 0 40px rgba(239, 68, 68, 0.25), var(--shadow-inset);
+  }
+  .danger-card :global(.btn-danger) {
+    box-shadow: var(--shadow-sm), 0 0 20px rgba(239, 68, 68, 0.2), var(--shadow-inset);
   }
 
   /* ── Account ─────────────────────────────────────────── */
@@ -779,21 +798,48 @@
   .slider-row input[type='range'] { flex: 1; accent-color: var(--color-accent); }
   .slider-val { font-family: var(--font-mono); font-size: var(--size-sm); min-width: 44px; text-align: right; }
 
-  /* ── Adaptive engine ─────────────────────────────────── */
+  /* ── Adaptive engine — premium learned-surface ──────── */
   .strength { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0 var(--space-4); }
-  .strength .label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
+  .strength .label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; letter-spacing: var(--tracking-wide); text-transform: uppercase; }
   .strength select { flex: 1; }
-  .sub { margin-top: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-semibold); }
-  .profile-group { margin: var(--space-2) 0; }
+  .sub {
+    margin-top: var(--space-3);
+    font-size: var(--size-sm);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    text-shadow: 0 0 16px var(--color-glow);
+  }
+  .profile-group {
+    margin: var(--space-2) 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-accent-faint);
+    border: 1px solid var(--glass-border);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+  .profile-group:hover {
+    border-color: var(--glass-border-active);
+    box-shadow: var(--shadow-glow);
+  }
   .profile-label {
     display: block;
     color: var(--color-text-muted);
     font-size: var(--size-xs);
     text-transform: uppercase;
-    letter-spacing: var(--tracking-wide);
+    letter-spacing: var(--tracking-wider);
     margin-bottom: var(--space-1);
   }
-  .profile-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; font-size: var(--size-sm); }
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    font-size: var(--size-sm);
+    transition: transform var(--transition-fast);
+  }
+  .profile-row:hover { transform: translateX(2px); }
   .profile-row .k { color: var(--color-text-muted); min-width: 100px; }
   .profile-row .v { flex: 1; }
   .small { font-size: var(--size-xs); }
@@ -815,10 +861,12 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-size: var(--size-sm);
-    transition: border-color var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
   }
   .backup-row:hover, .perm-row:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--glass-border-active);
+    box-shadow: var(--shadow-glow);
+    transform: translateX(2px);
   }
   .backup-name, .perm-kind {
     flex: 1;
@@ -861,10 +909,12 @@
     border-radius: var(--radius-md);
     font-size: var(--size-sm);
     align-items: center;
-    transition: border-color var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
   }
   .apikey-row:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--glass-border-active);
+    box-shadow: var(--shadow-glow);
+    transform: translateX(2px);
   }
   .apikey-row .provider { font-weight: var(--weight-semibold); }
   .apikey-row .has-token { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--size-xs); }
@@ -906,6 +956,7 @@
     align-items: center;
     justify-content: center;
     z-index: var(--z-modal);
+    animation: backdrop-in var(--transition-base) ease both;
   }
   .modal {
     background: var(--glass-bg);
@@ -917,9 +968,14 @@
     max-width: 480px;
     width: calc(100% - 32px);
     box-shadow: var(--shadow-lg);
+    animation: modal-in var(--transition-spring-soft) var(--ease-out-expo) both;
   }
   .modal.danger {
     border-color: rgba(239, 68, 68, 0.4);
+  }
+  .modal.danger .modal-icon {
+    animation: pulse-glow 2.5s var(--ease-in-out-quart) infinite;
+    box-shadow: 0 0 24px var(--color-error-glow);
   }
   .modal-icon {
     display: flex;

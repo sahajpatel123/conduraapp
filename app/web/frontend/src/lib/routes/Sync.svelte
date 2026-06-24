@@ -107,8 +107,8 @@
       <p class="muted">{t('sync.no_peers')}</p>
     {:else}
       <ul class="peer-list">
-        {#each sync.peers as p (p.device_id)}
-          <li>
+        {#each sync.peers as p, i (p.device_id)}
+          <li class="stagger-item" style="--stagger-index: {i}">
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.name}</span>
             <span class="row-actions">
@@ -127,8 +127,8 @@
       <p class="muted">{t('sync.no_paired')}</p>
     {:else}
       <ul class="peer-list">
-        {#each sync.pairs as p (p.device_id)}
-          <li>
+        {#each sync.pairs as p, i (p.device_id)}
+          <li class="stagger-item" style="--stagger-index: {i}">
             <span class="mono id">{p.device_id}</span>
             <span class="name">{p.device_name}</span>
             <span class="muted paired-at">{t('sync.paired_at', p.paired_at)}</span>
@@ -164,6 +164,9 @@
     max-width: var(--content-max-width);
     margin: 0 auto;
   }
+  .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
   .card {
     padding: var(--space-5);
     margin-top: var(--space-5);
@@ -191,10 +194,13 @@
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
     background: rgba(0, 0, 0, 0.15);
-    transition: background var(--transition-base);
+    border: 1px solid transparent;
+    transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
   }
   .peer-list li:hover {
     background: rgba(0, 0, 0, 0.25);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-glow-accent);
   }
   .id {
     color: var(--color-text-faint);

@@ -52,7 +52,7 @@
     <ul class="skill-list">
       {#each skills as s, i}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li class="skill-card glass-card" class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
+        <li class="skill-card glass-card stagger-item" class:selected={i === cursor} style="--stagger-index: {i}" onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{s.name}</strong>
             <span class="version">v{s.version}</span>
@@ -83,6 +83,9 @@
     max-width: var(--content-max-width);
     margin: 0 auto;
   }
+  .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
   .skill-list {
     list-style: none;
     padding: 0;
@@ -100,6 +103,7 @@
   .skill-card.selected {
     border-color: var(--color-border-accent);
     background: var(--glass-bg-hover);
+    box-shadow: var(--shadow-glow-accent);
   }
   .row {
     display: flex;

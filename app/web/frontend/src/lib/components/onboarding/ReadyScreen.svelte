@@ -112,11 +112,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
-  }
-  @keyframes screen-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
   .check {
     width: 64px;
@@ -132,9 +128,9 @@
     animation: draw 620ms var(--ease-out-expo) 80ms forwards;
   }
   .check-mark {
-    stroke-dasharray: 40;
-    stroke-dashoffset: 40;
-    animation: draw 360ms var(--ease-out-expo) 540ms forwards;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: draw-check 360ms var(--ease-out-expo) 540ms forwards;
   }
   @keyframes draw {
     to { stroke-dashoffset: 0; }

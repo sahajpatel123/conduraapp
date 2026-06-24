@@ -63,7 +63,8 @@
     </div>
 
     {#if replay.selected}
-      <div class="frame-detail glass-card">
+      {#key replay.selectedIndex}
+        <div class="frame-detail glass-card">
         <div class="meta">
           <span class="ts">{new Date(replay.selected.timestamp).toLocaleString()}</span>
           <span class="badge {outcomeClass(replay.selected.outcome)}">{replay.selected.outcome}</span>
@@ -89,6 +90,7 @@
           {/if}
         </div>
       </div>
+      {/key}
 
       <div class="frame-list">
         {#each replay.frames as f, i (f.id)}
@@ -114,6 +116,9 @@
     height: 100%;
     max-width: var(--content-max-width-wide);
     margin: 0 auto;
+  }
+  .replay-page .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
 
   /* ── Header actions ──────────────────────────────────── */
@@ -164,11 +169,17 @@
     border-radius: 50%;
     background: var(--color-accent);
     cursor: pointer;
-    box-shadow: var(--shadow-glow), 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: transform var(--transition-base);
+    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
   .slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.25);
+    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
+  }
+  .slider::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
   }
   .slider::-moz-range-thumb {
     width: 18px;
@@ -176,12 +187,13 @@
     border-radius: 50%;
     background: var(--color-accent);
     cursor: pointer;
-    border: none;
-    box-shadow: var(--shadow-glow), 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: transform var(--transition-base);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
   .slider::-moz-range-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.25);
+    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
   }
   .scrub-label {
     font-family: var(--font-mono);
@@ -191,10 +203,11 @@
     text-align: right;
   }
 
-  /* ── Frame detail card ───────────────────────────────── */
+  /* ── Frame detail card — fade-in-scale on selection change ── */
   .frame-detail {
     padding: var(--space-5);
     margin-bottom: var(--space-4);
+    animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both;
   }
   .meta {
     display: flex;
@@ -252,7 +265,8 @@
     top: var(--space-2);
     bottom: var(--space-2);
     width: 1px;
-    background: var(--color-border);
+    background: linear-gradient(180deg, transparent, var(--color-accent), transparent);
+    opacity: 0.4;
   }
   .frame-row {
     display: grid;
@@ -269,7 +283,17 @@
     align-items: center;
     transition: all var(--transition-base);
     position: relative;
+    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
   }
+  .frame-row:nth-of-type(1) { animation-delay: 40ms; }
+  .frame-row:nth-of-type(2) { animation-delay: 80ms; }
+  .frame-row:nth-of-type(3) { animation-delay: 120ms; }
+  .frame-row:nth-of-type(4) { animation-delay: 160ms; }
+  .frame-row:nth-of-type(5) { animation-delay: 200ms; }
+  .frame-row:nth-of-type(6) { animation-delay: 240ms; }
+  .frame-row:nth-of-type(7) { animation-delay: 280ms; }
+  .frame-row:nth-of-type(8) { animation-delay: 320ms; }
+  .frame-row:nth-of-type(n + 9) { animation-delay: 360ms; }
   .frame-row::before {
     content: '';
     width: 6px;
@@ -285,10 +309,11 @@
   .frame-row.active {
     background: var(--color-accent-soft);
     border-color: var(--color-border-accent);
+    box-shadow: var(--shadow-glow);
   }
   .frame-row.active::before {
     background: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-glow-strong);
   }
   .frame-row .ts {
     font-family: var(--font-mono);
@@ -300,21 +325,24 @@
     font-size: var(--size-xs);
   }
 
-  /* ── Outcome badges (component-specific colors) ──────── */
+  /* ── Outcome badges (component-specific colors, glow-enhanced) ── */
   .badge.outcome-allowed {
     color: var(--color-success);
-    border-color: var(--color-success);
+    border-color: rgba(16, 185, 129, 0.4);
     background: var(--color-success-soft);
+    box-shadow: 0 0 14px var(--color-success-glow);
   }
   .badge.outcome-denied {
     color: var(--color-error);
-    border-color: var(--color-error);
+    border-color: rgba(239, 68, 68, 0.4);
     background: var(--color-error-soft);
+    box-shadow: 0 0 14px var(--color-error-glow);
   }
   .badge.outcome-errored {
     color: var(--color-warn);
-    border-color: var(--color-warn);
+    border-color: rgba(245, 158, 11, 0.4);
     background: var(--color-warn-soft);
+    box-shadow: 0 0 14px var(--color-warn-glow);
   }
   .badge.outcome-unknown {
     color: var(--color-text-muted);

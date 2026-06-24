@@ -101,6 +101,13 @@
     max-width: var(--content-max-width-wide);
     margin: 0 auto;
   }
+  .audit-page .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
+  .audit-page .filter-bar {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+    animation-delay: 60ms;
+  }
 
   /* ── Filter bar — premium glass pill ─────────────────── */
   .filter-bar {
@@ -122,7 +129,7 @@
   }
   .filter-pill:focus-within {
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-focus);
+    box-shadow: var(--shadow-focus), var(--shadow-glow-accent);
   }
   .filter-pill .input {
     background: transparent;
@@ -166,10 +173,21 @@
     font-weight: var(--weight-semibold);
   }
   .audit-table tbody tr {
-    transition: background var(--transition-base);
+    transition: background var(--transition-base), box-shadow var(--transition-base);
+    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
   }
+  .audit-table tbody tr:nth-of-type(1) { animation-delay: 20ms; }
+  .audit-table tbody tr:nth-of-type(2) { animation-delay: 40ms; }
+  .audit-table tbody tr:nth-of-type(3) { animation-delay: 60ms; }
+  .audit-table tbody tr:nth-of-type(4) { animation-delay: 80ms; }
+  .audit-table tbody tr:nth-of-type(5) { animation-delay: 100ms; }
+  .audit-table tbody tr:nth-of-type(6) { animation-delay: 120ms; }
+  .audit-table tbody tr:nth-of-type(7) { animation-delay: 140ms; }
+  .audit-table tbody tr:nth-of-type(8) { animation-delay: 160ms; }
+  .audit-table tbody tr:nth-of-type(n + 9) { animation-delay: 180ms; }
   .audit-table tbody tr:hover {
     background: var(--color-bg-hover);
+    box-shadow: inset 2px 0 0 var(--color-accent);
   }
   .audit-table tr:last-child td {
     border-bottom: none;
@@ -183,21 +201,24 @@
     color: var(--color-text-muted);
   }
 
-  /* ── Level badges (component-specific colors) ────────── */
+  /* ── Level badges (component-specific colors, glow-enhanced) ── */
   .badge.level-info {
     color: var(--color-info);
-    border-color: var(--color-info);
+    border-color: rgba(59, 130, 246, 0.4);
     background: var(--color-info-soft);
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.15);
   }
   .badge.level-warn {
     color: var(--color-warn);
-    border-color: var(--color-warn);
+    border-color: rgba(245, 158, 11, 0.4);
     background: var(--color-warn-soft);
+    box-shadow: 0 0 14px var(--color-warn-glow);
   }
   .badge.level-error {
     color: var(--color-error);
-    border-color: var(--color-error);
+    border-color: rgba(239, 68, 68, 0.4);
     background: var(--color-error-soft);
+    box-shadow: 0 0 14px var(--color-error-glow);
   }
 
   /* ── Result indicators ───────────────────────────────── */

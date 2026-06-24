@@ -1,0 +1,212 @@
+/* Condura animation library — the soul of the interface.
+   These keyframes power every ambient effect, micro-interaction,
+   and transition in the app. Import once in style.css. */
+
+/* ── Ambient breathing ──────────────────────────────────── */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes breathe-soft {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.95); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px var(--color-glow), 0 0 40px transparent;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 30px var(--color-glow-strong), 0 0 60px var(--color-glow);
+    opacity: 0.85;
+  }
+}
+
+/* ── Gradient mesh drift ────────────────────────────────── */
+@keyframes mesh-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(3%, -2%) scale(1.05); }
+  50% { transform: translate(-2%, 3%) scale(0.98); }
+  75% { transform: translate(-3%, -1%) scale(1.03); }
+}
+
+@keyframes mesh-drift-alt {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-3%, 2%) scale(1.03); }
+  50% { transform: translate(2%, -3%) scale(1.05); }
+  75% { transform: translate(3%, 1%) scale(0.97); }
+}
+
+/* ── Entrance animations ────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in-scale-up {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Staggered list entrance ────────────────────────────── */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* ── Message entrance ───────────────────────────────────── */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* ── Modal entrance ─────────────────────────────────────── */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+/* ── Shimmer (loading) ──────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Streaming cursor ───────────────────────────────────── */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes cursor-pulse {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.4; transform: scaleY(0.8); }
+}
+
+/* ── Streaming pill ─────────────────────────────────────── */
+@keyframes streaming-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px var(--color-glow), inset 0 0 8px transparent;
+  }
+  50% {
+    box-shadow: 0 0 24px var(--color-glow-strong), inset 0 0 12px var(--color-glow);
+  }
+}
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Checkmark draw ─────────────────────────────────────── */
+@keyframes draw-check {
+  from { stroke-dashoffset: 48; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes circle-fill {
+  from { stroke-dashoffset: 151; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Floating particles ─────────────────────────────────── */
+@keyframes float-up {
+  0% {
+    transform: translateY(100vh) translateX(0);
+    opacity: 0;
+  }
+  10% { opacity: 0.4; }
+  90% { opacity: 0.4; }
+  100% {
+    transform: translateY(-10vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+/* ── Glow sweep (hover effect) ──────────────────────────── */
+@keyframes glow-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Ring expand ────────────────────────────────────────── */
+@keyframes ring-expand {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* ── Press feedback ─────────────────────────────────────── */
+@keyframes press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+/* ── Utility animation classes ──────────────────────────── */
+.anim-fade-in { animation: fade-in var(--transition-slow) var(--ease-out-expo) both; }
+.anim-fade-in-up { animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both; }
+.anim-fade-in-scale { animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both; }
+.anim-modal-in { animation: modal-in var(--transition-spring-soft) var(--ease-out-expo) both; }
+.anim-backdrop-in { animation: backdrop-in var(--transition-base) ease both; }
+
+/* Staggered list: use with --stagger-index custom property */
+.stagger-item {
+  animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
+  animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}

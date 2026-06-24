@@ -112,6 +112,7 @@
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
       </a>
+      <div class="rail-spacer"></div>
       <a
         href="#/settings"
         class="rail-icon"
@@ -131,28 +132,26 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 9v4m0-7h0"/></svg>
       </a>
     </div>
-
-    <div class="rail-bottom">
-      <button class="rail-new-btn" onclick={startNew} title={t('sidebar.new_conversation')}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4v12m-6-6h12"/></svg>
-      </button>
-    </div>
   </nav>
 
   <!-- Conversation Drawer -->
   <div class="drawer">
     <div class="drawer-header">
       <button class="new-conv-btn" onclick={startNew}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4v12m-6-6h12"/></svg>
+        <div class="new-conv-bg"></div>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12m-6-6h12"/></svg>
         <span>{t('sidebar.new_conversation')}</span>
       </button>
-      <span class="drawer-label">{t('sidebar.history')}</span>
+      <div class="drawer-label-wrap">
+        <span class="drawer-label">{t('sidebar.history')}</span>
+        <div class="drawer-label-line"></div>
+      </div>
     </div>
 
     <div class="conversation-list">
       {#if conversation.conversations.length === 0}
         <div class="empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16a2 2 0 012 2v8a2 2 0 01-2 2H8l-5 4V7a2 2 0 012-2z"/><path d="M9 10h6M9 13h4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 5h16a2 2 0 012 2v8a2 2 0 01-2 2H8l-5 4V7a2 2 0 012-2z"/><path d="M9 10h6M9 13h4"/></svg>
           <p>{t('sidebar.empty')}</p>
         </div>
       {/if}
@@ -162,8 +161,11 @@
           class:active={c.id === conversation.currentID}
           onclick={() => openExisting(c.id)}
         >
-          <span class="title">{c.title}</span>
-          <span class="meta">{t('sidebar.msg_count', c.message_count)} · {new Date(c.updated_at).toLocaleDateString()}</span>
+          <div class="item-content">
+            <span class="title">{c.title}</span>
+            <span class="meta">{t('sidebar.msg_count', c.message_count)} · {new Date(c.updated_at).toLocaleDateString()}</span>
+          </div>
+          <div class="active-glow"></div>
         </button>
       {/each}
     </div>
@@ -172,12 +174,12 @@
       <div class="drawer-footer">
         <button class="btn-delete" onclick={deleteCurrent}>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
-          {t('sidebar.delete_current')}
+          <span>{t('sidebar.delete_current')}</span>
         </button>
       </div>
     {/if}
 
-    <!-- Account footer (Phase 14B) -->
+    <!-- Account footer -->
     <div class="account-footer">
       {#if account.isSignedIn}
         <button class="account-chip" onclick={() => (showAccountMenu = true)} title={t('sidebar.account')}>
@@ -186,10 +188,16 @@
           {:else}
             <span class="chip-avatar fallback">{(account.displayName || '?').charAt(0).toUpperCase()}</span>
           {/if}
-          <span class="chip-email">{account.email || account.displayName}</span>
+          <div class="chip-info">
+            <span class="chip-name">{account.displayName || 'User'}</span>
+            <span class="chip-email">{account.email || account.displayName}</span>
+          </div>
         </button>
       {:else}
-        <button class="signin-link" onclick={() => (showSignIn = true)}>{t('sidebar.signin')}</button>
+        <button class="signin-link" onclick={() => (showSignIn = true)}>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l-4-4m4 4l-4 4m4-4H5"/></svg>
+          {t('sidebar.signin')}
+        </button>
       {/if}
     </div>
   </div>
@@ -209,66 +217,66 @@
     flex-direction: row;
     height: 100%;
     flex-shrink: 0;
+    position: relative;
+    z-index: var(--z-elevated);
   }
 
-  /* ── Icon Rail ────────────────────────────────── */
+  /* ── Icon Rail — the spine of the app ──────────── */
   .icon-rail {
     width: var(--sidebar-rail-width);
     min-width: var(--sidebar-rail-width);
-    background: var(--color-bg);
+    background: rgba(5, 5, 8, 0.5);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
     padding: var(--space-4) 0;
     z-index: 2;
     position: relative;
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
   }
 
-  /* Subtle gradient glow at the top of the rail */
+  /* Ambient glow at the top of the rail */
   .rail-glow {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 120px;
+    height: 200px;
     background: radial-gradient(ellipse at top, var(--color-accent-faint), transparent 70%);
     pointer-events: none;
-    opacity: 0.6;
-  }
-
-  /* Gradient separator between rail and drawer */
-  .icon-rail::after {
-    content: '';
-    position: absolute;
-    top: 10%;
-    bottom: 10%;
-    right: 0;
-    width: 1px;
-    background: linear-gradient(180deg, transparent, var(--color-border-strong) 30%, var(--color-border-strong) 70%, transparent);
+    animation: breathe-soft 8s ease-in-out infinite;
   }
 
   .rail-top {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-1);
+    gap: 6px;
     position: relative;
     z-index: 1;
+    width: 100%;
+    height: 100%;
   }
 
+  .rail-spacer {
+    flex-grow: 1;
+    min-height: var(--space-4);
+  }
+
+  /* ── Rail icons — tactile, magnetic ─────────────── */
   .rail-icon {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-lg);
     color: var(--color-text-faint);
     text-decoration: none;
-    transition: color var(--transition-fast), transform var(--transition-spring),
-      background var(--transition-fast), box-shadow var(--transition-fast);
+    transition: all var(--transition-spring);
     cursor: pointer;
   }
 
@@ -282,16 +290,20 @@
 
   .rail-icon:hover {
     color: var(--color-text);
-    transform: scale(1.08);
-    background: var(--color-bg-hover);
-    box-shadow: var(--shadow-glow);
+    background: var(--glass-bg-hover);
+    box-shadow: var(--shadow-sm);
   }
 
   .rail-icon:hover svg {
-    transform: scale(1.05);
+    transform: scale(1.15);
   }
 
-  /* Active indicator — accent bar with spring animation */
+  .rail-icon:active {
+    transform: scale(0.92);
+    transition-duration: var(--transition-instant);
+  }
+
+  /* Active indicator — glowing accent bar */
   .active-indicator {
     position: absolute;
     left: -2px;
@@ -299,9 +311,9 @@
     transform: translateY(-50%) scaleY(0);
     width: 3px;
     height: 22px;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-accent-gradient);
-    box-shadow: 0 0 8px var(--color-glow);
+    border-radius: 0 4px 4px 0;
+    background: var(--color-accent);
+    box-shadow: 0 0 12px var(--color-accent-glow), 0 0 24px var(--color-glow);
     transition: transform var(--transition-spring);
   }
 
@@ -310,58 +322,24 @@
   }
 
   .rail-icon.active {
-    color: var(--color-accent);
-    background: var(--color-accent-faint);
+    color: var(--color-text);
+    background: linear-gradient(90deg, rgba(0, 223, 216, 0.08) 0%, transparent 100%);
+  }
+
+  .rail-icon.active svg {
+    filter: drop-shadow(0 0 8px var(--color-glow));
   }
 
   .rail-icon.active:hover {
     color: var(--color-accent-hover);
-    transform: scale(1.08);
-  }
-
-  /* New conversation button in rail — gradient pill */
-  .rail-bottom {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    z-index: 1;
-  }
-
-  .rail-new-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent-gradient);
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    transition: transform var(--transition-spring), box-shadow var(--transition-base);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .rail-new-btn svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .rail-new-btn:hover {
-    transform: scale(1.1);
-    box-shadow: var(--shadow-glow-strong);
-  }
-
-  .rail-new-btn:active {
-    transform: scale(0.95);
+    transform: translateX(2px);
   }
 
   /* ── Conversation Drawer ──────────────────────── */
   .drawer {
     width: var(--sidebar-drawer-width);
     min-width: var(--sidebar-drawer-width);
-    background: var(--color-bg-elevated);
+    background: rgba(8, 8, 12, 0.35);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-right: 1px solid var(--color-border);
@@ -375,27 +353,45 @@
     padding: var(--space-4) var(--space-3) var(--space-3);
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-4);
   }
 
-  /* Premium new conversation pill */
+  /* ── New conversation button — the hero CTA ────── */
   .new-conv-btn {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
     width: 100%;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-md);
-    background: var(--color-accent-gradient);
-    border: none;
-    color: #fff;
+    padding: 12px var(--space-3);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
     font-size: var(--size-sm);
-    font-weight: var(--weight-medium);
+    font-weight: var(--weight-semibold);
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: transform var(--transition-base), box-shadow var(--transition-base);
-    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-sm), var(--shadow-inset);
+    letter-spacing: var(--tracking-normal);
+  }
+
+  .new-conv-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--color-accent-gradient);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    z-index: 0;
+  }
+
+  .new-conv-btn svg, .new-conv-btn span {
+    position: relative;
+    z-index: 1;
+    transition: transform var(--transition-spring);
   }
 
   .new-conv-btn svg {
@@ -404,60 +400,115 @@
   }
 
   .new-conv-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md), var(--shadow-glow), var(--shadow-inset);
+  }
+
+  .new-conv-btn:hover .new-conv-bg {
+    opacity: 0.2;
+  }
+
+  .new-conv-btn:hover svg {
+    transform: rotate(90deg) scale(1.1);
   }
 
   .new-conv-btn:active {
-    transform: translateY(0);
-    box-shadow: var(--shadow-sm);
+    transform: translateY(0) scale(0.98);
+    transition-duration: var(--transition-instant);
+  }
+
+  .drawer-label-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-1);
   }
 
   .drawer-label {
     font-size: var(--size-2xs);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--color-text-faint);
-    padding-left: var(--space-1);
+    letter-spacing: var(--tracking-widest);
+    color: var(--color-text-dim);
   }
 
-  /* ── Conversation List ────────────────────────── */
+  .drawer-label-line {
+    flex-grow: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-border) 0%, transparent 100%);
+  }
+
+  /* ── Conversation List — staggered entrance ────── */
   .conversation-list {
     flex: 1;
     overflow-y: auto;
     padding: 0 var(--space-2) var(--space-2);
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: 4px;
   }
 
   .conversation-item {
+    position: relative;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     width: 100%;
     text-align: left;
-    padding: var(--space-2) var(--space-3);
+    padding: 10px 14px;
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--color-text);
+    color: var(--color-text-muted);
     border: 1px solid transparent;
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast),
-      transform var(--transition-fast), box-shadow var(--transition-fast);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+    animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
+  }
+
+  .item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
   }
 
   .conversation-item:hover {
     background: var(--glass-bg-hover);
-    border-color: var(--glass-border);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-xs);
+    color: var(--color-text);
+    transform: translateX(2px);
   }
 
   .conversation-item.active {
-    background: var(--color-accent-faint);
-    border-color: var(--color-border-accent);
-    box-shadow: inset 2px 0 0 var(--color-accent), var(--shadow-xs);
+    background: var(--glass-bg-active);
+    color: var(--color-text);
+    border-color: var(--glass-border);
+  }
+
+  .active-glow {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    width: 3px;
+    height: 70%;
+    background: var(--color-accent);
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 12px var(--color-accent-glow);
+    opacity: 0;
+    transition: all var(--transition-spring);
+  }
+
+  .conversation-item.active .active-glow {
+    opacity: 1;
+    transform: translateY(-50%) scaleY(1);
+  }
+
+  .conversation-item:active {
+    transform: scale(0.98);
+    transition-duration: var(--transition-instant);
   }
 
   .title {
@@ -471,12 +522,12 @@
 
   .meta {
     font-size: var(--size-2xs);
-    color: var(--color-text-faint);
-    margin-top: 2px;
+    color: var(--color-text-dim);
     line-height: 1.3;
+    font-family: var(--font-mono);
   }
 
-  /* Empty state */
+  /* Empty state — with personality */
   .empty {
     display: flex;
     flex-direction: column;
@@ -484,20 +535,21 @@
     justify-content: center;
     text-align: center;
     padding: var(--space-8) var(--space-3);
-    color: var(--color-text-faint);
+    color: var(--color-text-dim);
+    animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both;
   }
 
   .empty svg {
     width: 32px;
     height: 32px;
-    opacity: 0.4;
+    opacity: 0.25;
     margin-bottom: var(--space-3);
+    animation: breathe-soft 4s ease-in-out infinite;
   }
 
   .empty p {
     font-size: var(--size-xs);
     line-height: var(--leading-relaxed);
-    max-width: 180px;
   }
 
   /* ── Drawer Footer ───────────────────────────── */
@@ -509,23 +561,29 @@
   .btn-delete {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-2);
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    padding: 10px;
     border-radius: var(--radius-md);
-    font-size: var(--size-sm);
+    font-size: var(--size-xs);
+    font-weight: var(--weight-medium);
     background: transparent;
     color: var(--color-text-faint);
     border: 1px solid transparent;
     cursor: pointer;
-    transition: color var(--transition-fast), background var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: all var(--transition-fast);
   }
 
   .btn-delete:hover {
     color: var(--color-error);
     background: var(--color-error-soft);
-    border-color: rgba(248, 113, 113, 0.2);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .btn-delete:active {
+    transform: scale(0.97);
+    transition-duration: var(--transition-instant);
   }
 
   .delete-icon {
@@ -534,53 +592,74 @@
     flex-shrink: 0;
   }
 
-  /* ── Account Footer — subtle chip ─────────────── */
+  /* ── Account Footer ──────────────────────────── */
   .account-footer {
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-3);
     border-top: 1px solid var(--color-border);
+    background: rgba(0, 0, 0, 0.15);
   }
 
   .signin-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    color: var(--color-text-faint);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
     font-size: var(--size-xs);
-    padding: var(--space-2) var(--space-1);
+    font-weight: var(--weight-medium);
+    padding: 10px var(--space-2);
     cursor: pointer;
-    transition: color var(--transition-fast);
+    transition: all var(--transition-fast);
   }
 
   .signin-link:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--color-accent);
     color: var(--color-accent);
+    box-shadow: 0 0 16px var(--color-accent-faint);
+  }
+
+  .signin-link svg {
+    width: 16px;
+    height: 16px;
+    transition: transform var(--transition-spring);
+  }
+
+  .signin-link:hover svg {
+    transform: translateX(2px);
   }
 
   .account-chip {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-3);
     width: 100%;
-    padding: var(--space-2);
-    border-radius: var(--radius-pill);
+    padding: 8px;
+    border-radius: var(--radius-lg);
     background: transparent;
     border: 1px solid transparent;
     color: var(--color-text);
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+    text-align: left;
+    transition: all var(--transition-fast);
   }
 
   .account-chip:hover {
     background: var(--glass-bg-hover);
     border-color: var(--glass-border);
+    transform: translateY(-1px);
   }
 
   .chip-avatar {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     flex-shrink: 0;
     object-fit: cover;
+    box-shadow: var(--shadow-sm);
   }
 
   .chip-avatar.fallback {
@@ -589,34 +668,31 @@
     justify-content: center;
     background: var(--color-accent-gradient);
     color: white;
-    font-weight: var(--weight-semibold);
-    font-size: var(--size-2xs);
+    font-weight: var(--weight-bold);
+    font-size: var(--size-sm);
+    box-shadow: var(--shadow-sm), 0 0 16px var(--color-glow);
+  }
+
+  .chip-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chip-name {
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .chip-email {
     font-size: var(--size-2xs);
+    color: var(--color-text-faint);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--color-text-muted);
-  }
-
-  /* ── Scrollbar ────────────────────────────────── */
-  .conversation-list::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .conversation-list::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .conversation-list::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: var(--radius-pill);
-  }
-
-  .conversation-list::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-strong);
+    font-family: var(--font-mono);
   }
 </style>
-

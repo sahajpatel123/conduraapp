@@ -112,11 +112,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
-  }
-  @keyframes screen-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
   h1 {
     font-size: var(--size-3xl);

@@ -96,8 +96,8 @@
       <p class="muted">{t('channels.empty')}</p>
     {:else}
       <ul class="channel-list">
-        {#each channels as c (c.name)}
-          <li class="channel-row">
+        {#each channels as c, i (c.name)}
+          <li class="channel-row stagger-item" style="--stagger-index: {i}">
             <span class="dot" class:on={c.connected} class:err={!!c.error}></span>
             <span class="ch-name">{prettyName(c.name)}</span>
             <span class="ch-status">
@@ -145,6 +145,9 @@
     max-width: var(--content-max-width);
     margin: 0 auto;
   }
+  .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
   .card {
     padding: var(--space-5);
     margin-top: var(--space-5);
@@ -175,6 +178,7 @@
   }
   .channel-row:hover {
     border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-glow-accent);
   }
   .dot {
     width: 8px;

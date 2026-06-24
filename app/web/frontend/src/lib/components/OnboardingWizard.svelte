@@ -75,6 +75,7 @@
     background:
       radial-gradient(560px circle at 50% 42%, var(--color-glow) 0%, transparent 65%),
       radial-gradient(420px circle at 30% 70%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+    animation: breathe-soft 9s ease-in-out infinite;
   }
   .step-indicator {
     position: absolute;
@@ -116,6 +117,16 @@
     border-color: var(--color-accent-hover);
     box-shadow: var(--shadow-glow);
     transform: scale(1.35);
+  }
+  .step-dot.active::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+    animation: breathe 2.6s ease-in-out infinite;
+    z-index: -1;
+    pointer-events: none;
   }
   .loading {
     color: var(--color-text-muted);

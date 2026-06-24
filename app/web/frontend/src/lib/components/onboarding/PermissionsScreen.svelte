@@ -94,8 +94,8 @@
   </p>
 
   <div class="perm-list">
-    {#each rows as row (row.kind)}
-      <div class="perm-card glass-card">
+    {#each rows as row, i (row.kind)}
+      <div class="perm-card glass-card stagger-item" style="--stagger-index: {i}">
         <div class="perm-head">
           <span class="perm-name">{LABELS[row.kind] ?? row.kind}</span>
           <span class="badge {badgeClass(row.status)}">{row.status}</span>
@@ -141,11 +141,7 @@
     max-width: 560px;
     padding: var(--space-6) var(--space-5);
     text-align: center;
-    animation: screen-in var(--transition-spring-soft) var(--ease-out-expo) both;
-  }
-  @keyframes screen-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
   h2 {
     font-size: var(--size-2xl);

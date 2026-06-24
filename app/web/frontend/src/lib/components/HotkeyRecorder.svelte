@@ -179,7 +179,7 @@
     border-style: solid;
     border-color: var(--color-accent);
     background: var(--color-accent-faint);
-    box-shadow: var(--shadow-glow-strong), var(--shadow-inset);
+    box-shadow: var(--shadow-glow-accent), var(--shadow-inset);
   }
   .capture.filled {
     border-style: solid;

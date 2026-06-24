@@ -132,7 +132,7 @@
   }
   .overlay-input:focus {
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-focus), var(--shadow-glow);
+    box-shadow: var(--shadow-focus), var(--shadow-glow-accent);
   }
   .overlay-input:disabled {
     opacity: 0.5;

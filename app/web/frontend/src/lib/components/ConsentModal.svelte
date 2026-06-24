@@ -100,11 +100,7 @@
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    animation: bd-in var(--transition-base) ease both;
-  }
-  @keyframes bd-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    animation: backdrop-in var(--transition-base) ease both;
   }
 
   .consent-modal {
@@ -114,11 +110,7 @@
     animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
   }
   .consent-modal:hover {
-    border-color: var(--glass-border);
-  }
-  @keyframes modal-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.98); }
-    to { opacity: 1; transform: none; }
+    border-color: var(--glass-border-hover);
   }
 
   .consent-icon {
@@ -131,15 +123,11 @@
     border-radius: 50%;
     background: var(--color-warn-soft);
     color: var(--color-warn);
-    animation: shield-pulse 2.6s ease-in-out infinite;
+    animation: pulse-glow 2.6s ease-in-out infinite;
   }
   .consent-icon svg {
     width: 26px;
     height: 26px;
-  }
-  @keyframes shield-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 var(--color-warn-soft); }
-    50% { box-shadow: 0 0 0 8px transparent; }
   }
 
   .consent-title {
@@ -179,16 +167,18 @@
     margin-bottom: var(--space-2);
   }
   .consent-countdown-bar {
-    height: 6px;
+    height: 8px;
     border-radius: var(--radius-pill);
     background: var(--color-bg-active);
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
   }
   .consent-countdown-fill {
     height: 100%;
     background: var(--color-accent-gradient);
     border-radius: var(--radius-pill);
     transition: width 1s linear;
+    box-shadow: 0 0 12px var(--color-glow-strong), 0 0 24px var(--color-glow);
   }
 
   .consent-error {

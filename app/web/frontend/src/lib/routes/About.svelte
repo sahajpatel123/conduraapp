@@ -79,13 +79,30 @@
   }
   .about-page header {
     padding: var(--space-4) 0;
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
+  .about-page .divider {
+    animation: fade-in var(--transition-slow) var(--ease-out-expo) both;
+    animation-delay: 60ms;
   }
 
-  /* ── Section spacing ─────────────────────────────────── */
+  /* ── Section spacing — staggered entrance ─────────── */
   .about-section {
     padding: var(--space-5);
     margin-top: var(--space-5);
+    animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
   }
+  .about-section:nth-of-type(1) { animation-delay: 80ms; }
+  .about-section:nth-of-type(2) { animation-delay: 140ms; }
+  .about-section:nth-of-type(3) { animation-delay: 200ms; }
+  .about-section .kv {
+    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+  }
+  .about-section .kv:nth-of-type(1) { animation-delay: 120ms; }
+  .about-section .kv:nth-of-type(2) { animation-delay: 160ms; }
+  .about-section .kv:nth-of-type(3) { animation-delay: 200ms; }
+  .about-section .kv:nth-of-type(4) { animation-delay: 240ms; }
+  .about-section .kv:nth-of-type(5) { animation-delay: 280ms; }
   .about-section h3 {
     font-size: var(--size-lg);
     font-weight: var(--weight-semibold);
@@ -105,7 +122,14 @@
     align-items: center;
     padding: var(--space-2) 0;
     border-bottom: 1px solid var(--color-border);
+    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
   }
+  .check-list li:nth-of-type(1) { animation-delay: 40ms; }
+  .check-list li:nth-of-type(2) { animation-delay: 80ms; }
+  .check-list li:nth-of-type(3) { animation-delay: 120ms; }
+  .check-list li:nth-of-type(4) { animation-delay: 160ms; }
+  .check-list li:nth-of-type(5) { animation-delay: 200ms; }
+  .check-list li:nth-of-type(n + 6) { animation-delay: 240ms; }
   .check-list li:last-child {
     border-bottom: none;
   }
@@ -122,18 +146,21 @@
 
   .badge.health-ok {
     color: var(--color-success);
-    border-color: var(--color-success);
+    border-color: rgba(16, 185, 129, 0.4);
     background: var(--color-success-soft);
+    box-shadow: 0 0 14px var(--color-success-glow);
   }
   .badge.health-degraded {
     color: var(--color-warn);
-    border-color: var(--color-warn);
+    border-color: rgba(245, 158, 11, 0.4);
     background: var(--color-warn-soft);
+    box-shadow: 0 0 14px var(--color-warn-glow);
   }
   .badge.health-down {
     color: var(--color-error);
-    border-color: var(--color-error);
+    border-color: rgba(239, 68, 68, 0.4);
     background: var(--color-error-soft);
+    box-shadow: 0 0 14px var(--color-error-glow);
   }
 
   /* ── Links ───────────────────────────────────────────── */
@@ -151,10 +178,13 @@
   }
   .links a {
     color: var(--color-text-muted);
-    transition: color var(--transition-base);
+    transition: color var(--transition-base), text-shadow var(--transition-base), transform var(--transition-base);
     text-decoration: none;
+    display: inline-block;
   }
   .links a:hover {
     color: var(--color-accent);
+    text-shadow: 0 0 16px var(--color-glow);
+    transform: translateX(2px);
   }
 </style>

@@ -81,7 +81,7 @@
     <ul class="results">
       {#each results as r, i}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li class="result-row" class:selected={i === cursor} onclick={() => cursor = i} onkeydown={() => {}}>
+        <li class="result-row stagger-item" class:selected={i === cursor} style="--stagger-index: {i}" onclick={() => cursor = i} onkeydown={() => {}}>
           <div class="row">
             <strong>{r.name}</strong>
             <span class="version">v{r.version}</span>
@@ -129,6 +129,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-4);
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
   .publish-btn svg {
     width: 16px;
@@ -191,6 +192,7 @@
   .result-row.selected {
     border-color: var(--color-border-accent);
     background: var(--glass-bg-hover);
+    box-shadow: var(--shadow-glow-accent);
   }
   .row {
     display: flex;

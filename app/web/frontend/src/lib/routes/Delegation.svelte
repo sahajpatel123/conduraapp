@@ -103,10 +103,10 @@
       <p class="muted">{t('delegation.no_agents')}</p>
     {:else}
       <ul class="agent-list">
-        {#each agents as a}
+        {#each agents as a, i}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <li class="agent-card glass-card" class:selected={a.name === selectedAgent} onclick={() => (selectedAgent = a.name)}>
+          <li class="agent-card glass-card stagger-item" class:selected={a.name === selectedAgent} style="--stagger-index: {i}" onclick={() => (selectedAgent = a.name)}>
             <strong>{a.name}</strong>
             <span class="desc">{a.description}</span>
             <span class="binary">{t('delegation.binary', a.binary)}</span>
@@ -193,6 +193,9 @@
     max-width: 900px;
     margin: 0 auto;
   }
+  .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
   .card {
     padding: var(--space-5);
     margin: var(--space-4) 0;
@@ -218,9 +221,14 @@
     font-size: var(--size-sm);
     transition: border-color var(--transition-base), background var(--transition-base);
   }
+  .agent-card:hover:not(.selected) {
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-glow-accent);
+  }
   .agent-card.selected {
     border-color: var(--color-border-accent);
     background: var(--color-accent-gradient-subtle), var(--glass-bg);
+    box-shadow: var(--shadow-glow-accent);
   }
   .agent-card .desc { color: var(--color-text-muted); }
   .agent-card .binary {

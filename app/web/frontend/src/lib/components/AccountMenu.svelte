@@ -77,6 +77,7 @@
     position: fixed;
     inset: 0;
     z-index: 150;
+    animation: backdrop-in var(--transition-base) ease both;
   }
   .account-menu {
     position: absolute;
@@ -84,14 +85,10 @@
     left: 12px;
     width: 248px;
     padding: var(--space-3);
-    animation: dropdown-in var(--transition-spring) var(--ease-out-expo) both;
+    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
   }
   .account-menu:hover {
-    border-color: var(--glass-border);
-  }
-  @keyframes dropdown-in {
-    from { opacity: 0; transform: translateY(8px) scale(0.98); }
-    to { opacity: 1; transform: none; }
+    border-color: var(--glass-border-hover);
   }
   .who {
     display: flex;

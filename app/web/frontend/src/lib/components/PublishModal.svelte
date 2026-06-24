@@ -167,11 +167,7 @@
     justify-content: center;
     z-index: 200;
     padding: var(--space-4);
-    animation: bd-in var(--transition-base) ease both;
-  }
-  @keyframes bd-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    animation: backdrop-in var(--transition-base) ease both;
   }
   .pub-modal {
     width: 100%;
@@ -182,11 +178,7 @@
     animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
   }
   .pub-modal:hover {
-    border-color: var(--glass-border);
-  }
-  @keyframes modal-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.98); }
-    to { opacity: 1; transform: none; }
+    border-color: var(--glass-border-hover);
   }
   header {
     display: flex;

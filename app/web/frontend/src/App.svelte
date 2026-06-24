@@ -90,6 +90,7 @@
 
 {#if showOnboarding}
   <div class="onboarding-overlay">
+    <div class="onboarding-glow"></div>
     <OnboardingWizard onComplete={completeOnboarding} />
   </div>
 {:else}
@@ -99,11 +100,10 @@
     {/if}
 
     <main class="main">
-      <div class="status-bar">
-        <span class="conn" class:connected={daemon.connected}>
-          {daemon.connected ? '' : ''}
-        </span>
-        <span class="conn-label" class:connected={daemon.connected}>
+      <div class="status-bar" class:connected={daemon.connected}>
+        <span class="conn-dot"></span>
+        <span class="conn-ring"></span>
+        <span class="conn-label">
           {daemon.connected ? t('app.status.connected') : t('app.status.disconnected')}
         </span>
       </div>
@@ -167,7 +167,7 @@
     position: relative;
   }
 
-  /* ── Status bar — refined glass pill ─────────────── */
+  /* ── Status bar — living breathing pill ──────────── */
   .status-bar {
     position: absolute;
     top: var(--space-3);
@@ -176,33 +176,54 @@
     align-items: center;
     gap: var(--space-2);
     z-index: var(--z-elevated);
-    padding: var(--space-1) var(--space-3);
+    padding: 6px 14px;
     border-radius: var(--radius-pill);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: var(--shadow-xs);
-    transition: border-color var(--transition-base);
+    box-shadow: var(--shadow-xs), var(--shadow-inset);
+    transition: all var(--transition-base);
   }
 
   .status-bar:hover {
     border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-sm), var(--shadow-inset);
   }
 
-  .conn {
+  .status-bar.connected {
+    border-color: rgba(16, 185, 129, 0.15);
+  }
+
+  .conn-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: var(--color-text-faint);
-    transition: background var(--transition-base), box-shadow var(--transition-base);
     flex-shrink: 0;
+    position: relative;
+    transition: background var(--transition-base);
   }
 
-  .conn.connected {
+  .status-bar.connected .conn-dot {
     background: var(--color-success);
-    box-shadow: 0 0 0 3px var(--color-success-soft), 0 0 10px rgba(74, 222, 128, 0.5);
+    box-shadow: 0 0 8px var(--color-success-glow);
     animation: breathe 2.4s var(--ease-in-out-quart) infinite;
+  }
+
+  .conn-ring {
+    position: absolute;
+    left: 10px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 2px solid var(--color-success);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .status-bar.connected .conn-ring {
+    animation: ring-expand 2.4s var(--ease-out-quart) infinite;
   }
 
   .conn-label {
@@ -210,37 +231,21 @@
     font-size: var(--size-2xs);
     color: var(--color-text-faint);
     text-transform: uppercase;
-    letter-spacing: var(--tracking-wide);
-    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wider);
+    font-weight: var(--weight-semibold);
     transition: color var(--transition-base);
   }
 
-  .conn-label.connected {
+  .status-bar.connected .conn-label {
     color: var(--color-success);
   }
 
-  @keyframes breathe {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
-  }
-
-  /* ── Route container — fade-in on route change ──── */
+  /* ── Route container — premium entrance ──────────── */
   .route-container {
     flex: 1;
     overflow: hidden;
     display: flex;
-    animation: routeFadeIn var(--transition-slow) var(--ease-out-expo);
-  }
-
-  @keyframes routeFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo);
   }
 
   .route-container :global(div) {
@@ -249,23 +254,27 @@
     width: 100%;
   }
 
-  /* ── Onboarding overlay — premium entrance ──────── */
+  /* ── Onboarding overlay — cinematic entrance ─────── */
   .onboarding-overlay {
     position: fixed;
     inset: 0;
     background: var(--color-bg);
     z-index: var(--z-overlay);
-    animation: onboardingIn var(--transition-slow) var(--ease-out-expo);
+    animation: fade-in var(--transition-slow) var(--ease-out-expo);
+    overflow: hidden;
   }
 
-  @keyframes onboardingIn {
-    from {
-      opacity: 0;
-      transform: scale(1.02);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
+  .onboarding-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-accent-soft) 0%, transparent 70%);
+    pointer-events: none;
+    animation: breathe-soft 6s ease-in-out infinite;
+    opacity: 0.6;
   }
 </style>

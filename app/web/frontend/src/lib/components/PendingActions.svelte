@@ -114,7 +114,7 @@
   {/if}
 
   {#if pending.length > 0}
-    <section class="glass-card card">
+    <section class="glass-card card urgent">
       <h4>{t('pending.awaiting', pending.length)}</h4>
       <ul class="row-list pending-rows">
         {#each pending as a (a.id)}
@@ -259,6 +259,9 @@
   .card {
     padding: var(--space-4);
     margin: var(--space-3) 0;
+  }
+  .card.urgent {
+    animation: pulse-glow 2.6s ease-in-out infinite;
   }
   .card h4 {
     font-size: var(--size-md);

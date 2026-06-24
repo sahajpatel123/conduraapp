@@ -1,6 +1,7 @@
 @import './lib/styles/reset.css';
 @import './lib/styles/tokens.css';
 @import './lib/styles/utilities.css';
+@import './lib/styles/animations.css';
 
 html,
 body {
@@ -15,60 +16,67 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  letter-spacing: var(--tracking-tight);
+  letter-spacing: var(--tracking-normal);
+  overflow: hidden;
 }
 
-/* Atmospheric depth — layered radial gradients for ambient glow. */
+/* ── Living ambient background ──────────────────────────── */
+/* Two drifting gradient blobs + grain texture. The app feels
+   alive even when nothing is happening. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: var(--z-ambient);
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 60% at 15% 10%, rgba(99, 102, 241, 0.05), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 85% 90%, rgba(139, 92, 246, 0.04), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(99, 102, 241, 0.02), transparent 70%);
+    radial-gradient(ellipse 50% 50% at 15% 15%, rgba(0, 223, 216, 0.06), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 85%, rgba(0, 124, 240, 0.05), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0, 223, 216, 0.02), transparent 70%);
+  animation: mesh-drift 20s ease-in-out infinite;
 }
 
-/* Grain texture — subtle SVG noise for tactile depth. */
+/* Second layer — counter-drift for depth */
 body::after {
   content: '';
   position: fixed;
-  inset: 0;
-  z-index: -1;
+  inset: -10%;
+  z-index: var(--z-ambient);
   pointer-events: none;
-  opacity: 0.015;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' /%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
+  background:
+    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(0, 124, 240, 0.04), transparent 50%),
+    radial-gradient(ellipse 35% 35% at 20% 80%, rgba(0, 223, 216, 0.03), transparent 50%);
+  animation: mesh-drift-alt 25s ease-in-out infinite;
+  opacity: 0.7;
 }
 
 #app {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-/* Scrollbar — minimal, translucent. */
+/* ── Scrollbar — minimal, almost invisible ──────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-pill);
   transition: background var(--transition-fast);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 /* Selection */
 ::selection {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(0, 223, 216, 0.25);
   color: var(--color-text);
 }
 
@@ -79,14 +87,15 @@ a {
   transition: color var(--transition-fast);
 }
 a:hover {
-  text-decoration: underline;
+  color: var(--color-accent-hover);
 }
 
 /* Code blocks */
 code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
 }
@@ -95,5 +104,11 @@ pre {
 }
 pre code {
   background: none;
+  border: none;
   padding: 0;
+}
+
+/* ── Global animation utilities ─────────────────────────── */
+.route-enter {
+  animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
 }
