@@ -1,168 +1,151 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { SITE } from "@/lib/site";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 const NAV_ITEMS = [
-  { label: "Download", href: "/download" },
   { label: "How it works", href: "/orchestration" },
+  { label: "Integrations", href: "/ecosystem" },
   { label: "Security", href: "/security" },
   { label: "Mission", href: "/manifesto" },
 ];
 
 export default function GlobalNav() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
   const reduced = useReducedMotion();
 
-  // Hide on scroll-down, reveal on scroll-up. The nav slides up
-  // out of view and fades; on scroll-up it slides back in.
   useEffect(() => {
     if (reduced) return;
     let lastY = window.scrollY;
     let ticking = false;
-
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        if (y < 80) {
-          setHidden(false);
-        } else if (y > lastY + 6) {
-          setHidden(true);
-        } else if (y < lastY - 6) {
-          setHidden(false);
-        }
+        setScrolled(y > 24);
+        if (y < 80) setHidden(false);
+        else if (y > lastY + 6) setHidden(true);
+        else if (y < lastY - 6) setHidden(false);
         lastY = y;
         ticking = false;
       });
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [reduced]);
 
-  const handleScrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   return (
     <motion.nav
-      initial={{ y: -100, opacity: 0 }}
-      animate={{
-        y: hidden ? -110 : 0,
-        opacity: hidden ? 0 : 1,
-      }}
+      initial={reduced ? false : { y: -100, opacity: 0 }}
+      animate={{ y: hidden ? -110 : 0, opacity: hidden ? 0 : 1 }}
       transition={{
         y: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
         opacity: { duration: 0.3 },
       }}
-      className="fixed left-1/2 top-4 z-[90] w-[calc(100%-24px)] max-w-6xl -translate-x-1/2 sm:w-[calc(100%-40px)]"
+      className="fixed left-1/2 top-3 z-[90] w-[calc(100%-20px)] max-w-[1180px] -translate-x-1/2"
       aria-label="Primary"
       aria-hidden={hidden}
     >
-      <div className="liquid-glass relative grid h-[60px] w-full grid-cols-[1fr_auto_1fr] items-center overflow-hidden rounded-[28px] px-3 sm:px-4 lg:h-[64px]">
-        <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[linear-gradient(116deg,rgba(255,255,255,0.13),rgba(255,255,255,0.035)_32%,rgba(255,255,255,0.075)_64%,rgba(255,255,255,0.03)),radial-gradient(circle_at_18%_0%,rgba(255,255,255,0.13),transparent_34%),radial-gradient(circle_at_84%_100%,rgba(255,255,255,0.06),transparent_36%)]" />
-        <div className="pointer-events-none absolute inset-[1px] rounded-[27px] border border-white/[0.055] bg-black/[0.18]" />
-        <div className="pointer-events-none absolute -left-16 top-1/2 h-24 w-56 -translate-y-1/2 rotate-[-10deg] rounded-full bg-white/[0.035] blur-2xl" />
-        <div className="pointer-events-none absolute -right-20 top-1/2 h-24 w-64 -translate-y-1/2 rotate-[8deg] rounded-full bg-white/[0.035] blur-2xl" />
-        
+      <div
+        className={`relative grid h-[58px] w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden rounded-full px-2.5 sm:px-3 transition-all duration-300 ${
+          scrolled
+            ? "border border-[rgba(20,17,11,0.12)] bg-[rgba(244,239,228,0.82)] backdrop-blur-xl shadow-[0_12px_40px_-18px_rgba(20,17,11,0.25)]"
+            : "border border-transparent bg-transparent"
+        }`}
+      >
+        {/* ── Wordmark ── */}
         <Link
           href="/"
           prefetch
           aria-label={`${SITE.name} home`}
-          className="group relative z-10 col-start-1 flex min-w-0 items-center justify-self-start rounded-full px-4 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/45"
+          className="group relative col-start-1 flex items-center gap-2.5 rounded-full px-3 py-2"
+          onMouseEnter={() => setHovered("home")}
+          onMouseLeave={() => setHovered(null)}
         >
-          <span className="relative inline-flex overflow-hidden font-display text-[20px] font-semibold leading-none tracking-[-0.04em] text-white sm:text-[22px]">
-            <span className="absolute inset-x-0 bottom-0 h-px origin-left scale-x-0 bg-gradient-to-r from-white/0 via-white/65 to-white/0 transition-transform duration-500 group-hover:scale-x-100" />
-            <span className="bg-gradient-to-b from-white via-white to-white/56 bg-clip-text text-transparent drop-shadow-[0_1px_16px_rgba(255,255,255,0.08)]">
-              {SITE.name}
-            </span>
+          <Wordmark />
+          <span className="hidden font-display text-[19px] leading-none tracking-[-0.04em] text-[var(--color-ink)] sm:inline">
+            {SITE.name}
           </span>
         </Link>
 
-        {/* ─── Desktop nav links ─── */}
-        <div 
-          className="relative z-10 col-start-2 hidden items-center gap-1 justify-self-center rounded-[18px] border border-white/[0.075] bg-black/20 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl md:flex"
-          onMouseLeave={() => setHoveredIndex(null)}
+        {/* ── Center nav (desktop) ── */}
+        <div
+          className="relative col-start-2 hidden items-center justify-self-center md:flex"
+          onMouseLeave={() => setHovered(null)}
         >
-          {NAV_ITEMS.map((item, i) => (
-            <Link
-              href={item.href}
-              prefetch
-              key={item.label}
-              className="relative h-10 rounded-[14px] px-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40 flex items-center"
-              onMouseEnter={() => setHoveredIndex(i)}
-              onFocus={() => setHoveredIndex(i)}
-            >
-              <AnimatePresence>
-                {hoveredIndex === i && (
-                  <motion.div
-                    layoutId="nav-hover"
-                    initial={{ opacity: 0, scale: 0.92 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    className="absolute inset-0 rounded-[14px] border border-white/[0.12] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+          {NAV_ITEMS.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                className="relative rounded-full px-4 py-2 text-[13.5px] font-medium tracking-[-0.005em] text-[var(--color-ink-soft)] transition-colors hover:text-[var(--color-ink)]"
+                onMouseEnter={() => setHovered(item.href)}
+                data-active={active}
+              >
+                {hovered === item.href && (
+                  <motion.span
+                    layoutId="nav-pill"
+                    className="absolute inset-0 -z-10 rounded-full bg-[rgba(20,17,11,0.06)]"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
-              </AnimatePresence>
-              
-              <span className={`relative z-20 font-body-mature text-[13px] transition-colors duration-300 ${
-                hoveredIndex === i ? "text-[#ffffff]" : "text-[#a1a1aa]"
-              }`}>
-                {item.label}
-              </span>
-            </Link>
-          ))}
+                {active && (
+                  <span className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-[14px] rounded-full bg-[var(--color-synapse)]" />
+                )}
+                <span className="relative">{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
 
-        {/* ─── Right side: GitHub + Download + Mobile hamburger ─── */}
-        <div className="z-10 col-start-3 flex items-center gap-2 justify-self-end sm:gap-3">
+        {/* ── Right cluster ── */}
+        <div className="col-start-3 flex items-center gap-1.5 justify-self-end sm:gap-2">
           <a
             href={SITE.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden rounded-full px-3 py-2 font-body-mature text-[13px] text-[#a1a1aa] outline-none transition-colors hover:text-[#ffffff] focus-visible:ring-2 focus-visible:ring-white/40 sm:inline"
+            className="hidden rounded-full px-3 py-2 text-[13px] font-medium text-[var(--color-ink-mute)] transition-colors hover:text-[var(--color-ink)] sm:inline"
           >
             GitHub
           </a>
-          <button 
-            onClick={() => handleScrollToSection("download-tile")}
-            className="group relative h-10 overflow-hidden rounded-full border border-white/18 bg-white/[0.08] px-4 font-body-mature text-[13px] font-semibold text-white outline-none transition-colors hover:bg-white/[0.14] focus-visible:ring-2 focus-visible:ring-white/45 sm:px-5"
-          >
-            <span className="absolute inset-y-0 -left-10 w-10 rotate-12 bg-white/25 opacity-0 blur-sm transition-all duration-700 group-hover:left-[110%] group-hover:opacity-100" />
-            <span className="relative z-10 hidden sm:inline">Download v0.1.0</span>
-            <span className="relative z-10 sm:hidden">Download</span>
-          </button>
+          <Link href="/download" prefetch className="group btn btn-primary !px-4 !py-2.5 !text-[13px]">
+            <span className="relative h-1.5 w-1.5">
+              <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
+              <span className="absolute inset-0 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-[var(--color-synapse-glow)]" />
+            </span>
+            <span className="hidden sm:inline">Download</span>
+            <span className="sm:hidden">Get</span>
+            <Arrow />
+          </Link>
 
-          {/* Mobile hamburger */}
+          {/* Mobile menu toggle */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle navigation menu"
             aria-expanded={mobileOpen}
-            className="flex md:hidden items-center justify-center w-10 h-10 rounded-full text-white/60 hover:text-white transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.06)] md:hidden"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {mobileOpen ? (
-                <path d="M18 6L6 18M6 6l12 12" />
-              ) : (
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              )}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              {mobileOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
             </svg>
           </button>
         </div>
       </div>
 
-      {/* ─── Mobile dropdown panel ─── */}
+      {/* ── Mobile panel ── */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -170,34 +153,34 @@ export default function GlobalNav() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-              onClick={closeMobile}
+              className="fixed inset-0 z-40 bg-[rgba(20,17,11,0.35)] backdrop-blur-[2px] md:hidden"
+              onClick={() => setMobileOpen(false)}
             />
             <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.96 }}
+              initial={{ opacity: 0, y: -10, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="absolute left-0 right-0 top-[68px] z-50 rounded-2xl border border-white/[0.08] bg-[#111113]/98 backdrop-blur-xl p-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:hidden"
+              exit={{ opacity: 0, y: -10, scale: 0.97 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute left-0 right-0 top-[68px] z-50 rounded-3xl border border-[rgba(20,17,11,0.12)] bg-[var(--color-paper-warm)] p-2 shadow-[0_30px_60px_-20px_rgba(20,17,11,0.35)] md:hidden"
             >
               {NAV_ITEMS.map((item) => (
                 <Link
-                  key={item.label}
+                  key={item.href}
                   href={item.href}
                   prefetch
-                  onClick={closeMobile}
-                  className="block rounded-xl px-4 py-3 font-body-mature text-[15px] text-[#a1a1aa] transition-colors hover:text-white hover:bg-white/[0.06]"
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-2xl px-4 py-3 text-[15px] font-medium text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
                 >
                   {item.label}
                 </Link>
               ))}
-              <hr className="my-2 border-white/[0.06]" />
+              <div className="rule-ink my-2" />
               <a
                 href={SITE.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={closeMobile}
-                className="block rounded-xl px-4 py-3 font-body-mature text-[15px] text-[#a1a1aa] transition-colors hover:text-white hover:bg-white/[0.06]"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-2xl px-4 py-3 text-[15px] font-medium text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
               >
                 GitHub
               </a>
@@ -206,5 +189,40 @@ export default function GlobalNav() {
         )}
       </AnimatePresence>
     </motion.nav>
+  );
+}
+
+function Wordmark() {
+  // A tiny synapse mark — a node with two reaching threads.
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        className="synapse-thread"
+        d="M3 18 C 8 12, 14 16, 21 7"
+        strokeDasharray="40"
+        style={{ strokeDashoffset: 0 }}
+      />
+      <path
+        className="synapse-thread"
+        d="M3 6 C 9 14, 13 4, 21 14"
+        style={{ opacity: 0.4 }}
+      />
+      <circle className="synapse-node" cx="12" cy="11.5" r="2.6" />
+      <circle className="synapse-node-ring" cx="12" cy="11.5" r="5" />
+    </svg>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
+    >
+      <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

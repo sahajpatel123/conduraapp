@@ -1,74 +1,136 @@
 "use client";
 
-import { motion } from "motion/react";
-import HeroDownload from "./HeroDownload";
-import OverlayPreview from "./OverlayPreview";
+import Link from "next/link";
+import { motion, useInView } from "motion/react";
+import { useRef } from "react";
+import SynapseGarden from "./SynapseGarden";
+import { SITE } from "@/lib/site";
+import { EASE_OUT } from "@/lib/motion";
 
+/**
+ * HeroSection — the opening statement of the site.
+ *
+ * Layout: full-viewport SynapseGarden scene with the editorial headline
+ * set into the sky (negative space, per the image brief), a subhead, two
+ * CTAs, and a thin "scroll" cue at the bottom. Everything reveals with a
+ * staggered ink-drying motion.
+ */
 export default function HeroSection() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const inView = useInView(ref, { once: true, margin: "-10%" });
+
+  const line = (text: string, delay: number) => ({
+    initial: { y: "110%" },
+    animate: inView ? { y: "0%" } : { y: "110%" },
+    transition: { duration: 0.9, ease: EASE_OUT, delay },
+  });
+
   return (
-    <section className="relative w-full h-full flex flex-col items-center justify-between overflow-hidden pt-24 pb-12">
-      {/* Background Image with Cinematic Overlay */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 mix-blend-screen scale-105"
-        style={{ backgroundImage: "url('/hero-bg.png')" }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#000000]/90 via-[#000000]/60 to-[#000000]/90" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,223,216,0.06)_0%,rgba(0,0,0,0.8)_100%)]" />
+    <section
+      ref={ref}
+      className="relative min-h-[100svh] w-full overflow-hidden"
+    >
+      <SynapseGarden />
 
-      {/* Main Content Container - Text Block */}
-      <div className="relative z-20 w-full max-w-[1200px] mx-auto px-4 flex flex-col items-center text-center mt-2 sm:mt-6 shrink-0">
-        
-        {/* Massive Headline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-[900px] mb-3"
-        >
-          <h1 className="font-hero-display text-[42px] sm:text-[60px] md:text-[76px] lg:text-[88px] font-extrabold leading-[1.05] tracking-tighter">
-            <span className="text-white block">One hotkey.</span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00DFD8] to-[#007CF0]">Every AI you own.</span>
-          </h1>
-        </motion.div>
+      {/* Top eyebrow */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+        transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.1 }}
+        className="absolute left-1/2 top-[18vh] z-10 -translate-x-1/2 px-6 text-center"
+      >
+        <span className="text-eyebrow">Condura · v0.1.1 · Free forever</span>
+      </motion.div>
 
-        {/* Subtitle */}
+      {/* Headline block — set into the sky */}
+      <div className="absolute inset-x-0 top-[26vh] z-10 mx-auto flex max-w-[1100px] flex-col items-center px-6 text-center">
+        <h1 className="text-hero text-[var(--color-ink)] text-balance">
+          <span className="block overflow-hidden">
+            <motion.span className="block" {...line("Your computer,", 0.18)} />
+          </span>
+          <span className="block overflow-hidden">
+            <motion.span
+              className="block italic text-[var(--color-synapse)]"
+              {...line("alive.", 0.34)}
+            />
+          </span>
+        </h1>
+
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="font-lead-airy text-[15px] sm:text-[18px] md:text-[20px] text-white/60 max-w-[600px] mb-6"
+          initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
+          animate={
+            inView
+              ? { opacity: 1, y: 0, filter: "blur(0px)" }
+              : { opacity: 0, y: 14, filter: "blur(6px)" }
+          }
+          transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.55 }}
+          className="text-lead mt-7 max-w-[52ch] text-[var(--color-ink-soft)] text-pretty"
         >
-          The ultimate orchestration layer for your local environment. A free desktop app that summons every AI tool instantly.
+          One hotkey summons every AI tool on your machine. Condura is the
+          conductor that makes Claude, Codex, Ollama, and your subscriptions
+          play together — clicking, typing, and shipping while you stay in
+          control. Free, local, private.
         </motion.p>
 
-        {/* Actions */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col items-center w-full"
+          initial={{ opacity: 0, y: 14 }}
+          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+          transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.75 }}
+          className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
         >
-          <div className="scale-[0.80] sm:scale-90 origin-top">
-            <HeroDownload />
-          </div>
+          <Link href="/download" prefetch className="btn btn-primary group">
+            <span className="relative h-1.5 w-1.5">
+              <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
+              <span className="absolute inset-0 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-[var(--color-synapse-glow)]" />
+            </span>
+            Download for free
+            <svg width="13" height="13" viewBox="0 0 12 12" fill="none" className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]">
+              <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <Link href="/orchestration" prefetch className="btn btn-ghost">
+            See how it works
+          </Link>
         </motion.div>
       </div>
 
-      {/* Product Preview in Center - Bottom section */}
+      {/* Bottom strip — the roster + scroll cue */}
       <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[600px] lg:max-w-[700px] relative z-10 flex-1 flex flex-col justify-end min-h-0"
+        initial={{ opacity: 0 }}
+        animate={inView ? { opacity: 1 } : { opacity: 0 }}
+        transition={{ duration: 1, ease: EASE_OUT, delay: 1 }}
+        className="absolute inset-x-0 bottom-0 z-10"
       >
-        {/* Subtle glow behind the preview */}
-        <div className="absolute inset-0 top-1/4 bg-[#00DFD8]/10 blur-[80px] rounded-full pointer-events-none" />
-        
-        <div className="relative transform-gpu hover:scale-[1.02] transition-transform duration-700 ease-out shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_20px_60px_rgba(0,0,0,0.8)] rounded-2xl bg-black/40 backdrop-blur-3xl p-1 mb-2">
-          <OverlayPreview active={true} />
+        <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-4 px-6 pb-7">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[11px] uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">
+            <span className="font-mono">Conducts</span>
+            {["Claude Code", "Codex", "Antigravity", "Ollama", "Gemini", "OpenCode", "Hermes", "Kilo"].map(
+              (t, i) => (
+                <span key={t} className="flex items-center gap-2.5">
+                  {i > 0 && <span className="h-1 w-1 rounded-full bg-[var(--color-ink-faint)]" />}
+                  <span className="font-mono text-[var(--color-ink-soft)]">{t}</span>
+                </span>
+              )
+            )}
+          </div>
+          <ScrollCue />
         </div>
       </motion.div>
-
     </section>
+  );
+}
+
+function ScrollCue() {
+  return (
+    <a
+      href="#manifesto-start"
+      className="group flex flex-col items-center gap-2 text-[var(--color-ink-mute)] transition-colors hover:text-[var(--color-ink)]"
+      aria-label="Scroll to content"
+    >
+      <span className="text-[10px] font-mono uppercase tracking-[0.2em]">Scroll</span>
+      <span className="relative h-9 w-px overflow-hidden bg-[rgba(20,17,11,0.15)]">
+        <span className="absolute inset-x-0 top-0 h-3 animate-[thread-draw_1.8s_var(--thread-ease)_infinite] bg-[var(--color-synapse)]" />
+      </span>
+    </a>
   );
 }

@@ -1,341 +1,533 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════
+   CONDURA — “Synapse Garden” brand system
+   A bespoke generative-ink aesthetic on warm paper. Not dark mode.
+   Not vibe-coded. A living neural thread runs through everything.
+   ═══════════════════════════════════════════════════════════════════════ */
+
 @theme {
-  --color-primary: #ffffff;
-  --color-primary-focus: #e5e5e5;
-  --color-ink: #ffffff;
-  --color-ink-muted: #a1a1aa;
-  --color-body: #ffffff;
-  --color-canvas: #000000;
-  --color-canvas-parchment: #0a0a0a;
-  
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: var(--font-display), var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* ── Paper canvas ── */
+  --color-paper:        #f4efe4;
+  --color-paper-warm:   #ece5d4;
+  --color-paper-deep:   #e2dac6;
+  --color-paper-shadow: #d8cfb8;
+
+  /* ── Ink ── */
+  --color-ink:          #14110b;
+  --color-ink-soft:     #2a2519;
+  --color-ink-mute:     #5c5443;
+  --color-ink-faint:    #8a8169;
+  --color-ink-ghost:    #b8af98;
+
+  /* ── Synapse (the living thread) ── */
+  --color-synapse:      #0b3d2e;
+  --color-synapse-deep: #06241b;
+  --color-synapse-glow: #1a8a6a;
+  --color-synapse-light:#9ce8c8;
+
+  /* ── Pollen (the warm accent — sparks, CTAs, life) ── */
+  --color-pollen:       #c97b2e;
+  --color-pollen-deep:  #9a5a1a;
+  --color-pollen-light: #f0c082;
+
+  /* ── Sky (the breath behind everything) ── */
+  --color-sky:          #b4d8e8;
+  --color-sky-deep:     #7fb4c8;
+  --color-sky-warm:     #e8d8b4;
+
+  /* ── Functional ── */
+  --color-danger:       #a3312a;
+  --color-ok:           #2e7d4f;
+
+  --font-sans:    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-display), var(--font-inter), ui-serif, Georgia, serif;
+  --font-mono:    var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 36px;
+
+  --shadow-paper: 0 1px 0 rgba(20,17,11,0.04), 0 8px 24px -12px rgba(20,17,11,0.12);
+  --shadow-card:  0 1px 0 rgba(20,17,11,0.06), 0 24px 60px -28px rgba(20,17,11,0.22), 0 2px 8px -4px rgba(20,17,11,0.08);
+  --shadow-float: 0 2px 0 rgba(20,17,11,0.05), 0 40px 90px -32px rgba(20,17,11,0.30), 0 4px 12px -6px rgba(20,17,11,0.10);
 }
 
 :root {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: var(--font-display), var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans:    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-display), var(--font-inter), ui-serif, Georgia, serif;
+  --font-mono:    var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --paper-grain-opacity: 0.5;
+  --thread-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── Base ── */
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
-  background-color: #000000;
-  color: #ffffff;
-  /* Hide scrollbar across browsers while keeping scroll functional */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge legacy */
-}
-html::-webkit-scrollbar,
-*::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none; /* Chrome, Safari, Opera */
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  color-scheme: light;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #000000;
-  color: #ffffff;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   overflow-x: hidden;
+  font-feature-settings: "ss01", "cv11", "kern";
+  text-rendering: optimizeLegibility;
 }
 
-@keyframes page-load-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.72;
-  }
+::selection {
+  background: var(--color-synapse);
+  color: var(--color-paper);
+  text-shadow: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-\[page-load-pulse_0\.9s_ease-in-out_infinite\] {
-    animation: none;
-  }
+/* Hide default cursor on pointer-fine devices — custom cursor takes over */
+@media (pointer: fine) {
+  body { cursor: none; }
+  a, button, [role="button"], .clickable, input, textarea, select { cursor: none; }
+}
+@media (pointer: coarse) {
+  .condura-cursor { display: none !important; }
 }
 
-/* ── Minimalist & Mature Typography ──────────────────────── */
+/* ── Scrollbar (warm, thin, inked) ── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-paper-warm); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-faint);
+  border: 3px solid var(--color-paper-warm);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-mute); }
+* { scrollbar-color: var(--color-ink-faint) var(--color-paper-warm); scrollbar-width: thin; }
 
-.font-hero-display {
+/* ── Focus ring ── */
+:focus-visible {
+  outline: 2px solid var(--color-synapse);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY — editorial, confident, hand-set
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.font-display { font-family: var(--font-display); font-feature-settings: "ss01", "kern"; }
+.font-mono    { font-family: var(--font-mono); }
+
+.text-hero {
   font-family: var(--font-display);
-  font-size: clamp(40px, 6vw, 72px);
+  font-size: clamp(48px, 9vw, 132px);
+  font-weight: 500;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+}
+.text-display {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 5vw, 64px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+.text-headline {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 40px);
   font-weight: 500;
   line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: #ffffff;
+  letter-spacing: -0.025em;
 }
-
-.font-lead-airy {
-  font-family: var(--font-sans);
-  font-size: clamp(18px, 2vw, 21px);
+.text-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
+}
+.text-lead {
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.55;
+  letter-spacing: -0.012em;
+  color: var(--color-ink-soft);
   font-weight: 400;
+}
+.text-body {
+  font-size: 16px;
   line-height: 1.6;
-  letter-spacing: -0.01em;
-  color: #a1a1aa;
+  letter-spacing: -0.008em;
+  color: var(--color-ink-soft);
+}
+.text-small {
+  font-size: 13px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  color: var(--color-ink-mute);
+}
+.text-mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
 }
 
-.font-body-mature {
+/* ═══════════════════════════════════════════════════════════════════════
+   SURFACES — paper, ink, thread
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Warm paper with a subtle grain — the canvas of the whole site */
+.surface-paper {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(180,216,232,0.18), transparent 50%),
+    radial-gradient(ellipse at 90% 10%, rgba(232,216,180,0.22), transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(11,61,46,0.05), transparent 55%);
+}
+
+/* A card cut from the paper — hairline ink rule, soft shadow, no glass */
+.surface-card {
+  background: var(--color-paper-warm);
+  border: 1px solid rgba(20,17,11,0.10);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.surface-card-deep {
+  background: var(--color-paper-deep);
+  border: 1px solid rgba(20,17,11,0.14);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Ink panel — the rare dark moment, used for emphasis (terminal, code, the "night" sections) */
+.surface-ink {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(244,239,228,0.06);
+  box-shadow: var(--shadow-float);
+}
+
+/* Hairline rule in ink */
+.rule-ink {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(20,17,11,0.18) 8%, rgba(20,17,11,0.18) 92%, transparent);
+}
+.rule-ink-vertical {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(20,17,11,0.18) 8%, rgba(20,17,11,0.18) 92%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BUTTONS — tactile, inked, with a pollen spark
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
-/* ── Navigation glass only ──────────────────────── */
-
-.liquid-glass {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  background:
-    linear-gradient(116deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.038) 34%, rgba(255, 255, 255, 0.085) 68%, rgba(255, 255, 255, 0.032)),
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.16), transparent 34%),
-    radial-gradient(circle at 84% 100%, rgba(255, 255, 255, 0.06), transparent 36%),
-    rgba(12, 13, 17, 0.50);
-  box-shadow:
-    0 26px 72px rgba(0, 0, 0, 0.44),
-    inset 0 1px 0 rgba(255, 255, 255, 0.11),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(34px) saturate(175%);
-  -webkit-backdrop-filter: blur(34px) saturate(175%);
-}
-
-.liquid-glass > :not(.absolute):not(.fixed):not(.sticky) {
-  position: relative;
-  z-index: 1;
-}
-
-.mature-button {
-  color: #020503;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 20px;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  background:
-    radial-gradient(circle at 25% 0%, rgba(255, 255, 255, 0.98), transparent 42%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(230, 230, 230, 0.72) 48%, rgba(200, 200, 200, 0.42)),
-    rgba(255, 255, 255, 0.78);
-  box-shadow:
-    0 18px 48px rgba(255, 255, 255, 0.10),
-    0 18px 42px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
-}
-
-.mature-button:hover {
-  transform: translateY(-1px);
-  background-color: rgba(255, 255, 255, 0.9);
-}
-
-.mature-button-secondary {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: #ffffff;
-  border-radius: 999px;
   font-size: 14px;
   font-weight: 500;
-  padding: 10px 20px;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255,255,255,0.15);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
-}
-
-.mature-button-secondary:hover {
-  background-color: rgba(255,255,255,0.05);
-}
-
-/* ── Glass Download Button ──
-   Refined, dark, translucent. A hairline border with a soft top glow,
-   subtle inner depth, and a gentle hover lift. Easy on the eyes on the
-   black hero — no heavy bright-white slab. */
-.glass-download {
-  color: #ffffff;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 60%, rgba(255, 255, 255, 0.01) 100%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.10) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.02),
-    0 12px 32px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  letter-spacing: -0.005em;
+  padding: 13px 22px;
+  border-radius: 999px;
+  transition: transform 0.28s var(--thread-ease), box-shadow 0.28s var(--thread-ease), background 0.28s var(--thread-ease), color 0.28s var(--thread-ease), border-color 0.28s var(--thread-ease);
+  white-space: nowrap;
+  isolation: isolate;
   overflow: hidden;
 }
-
-.glass-download:hover {
+.btn-primary {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  box-shadow: 0 1px 0 rgba(244,239,228,0.08) inset, 0 12px 30px -14px rgba(20,17,11,0.5);
+}
+.btn-primary:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.22);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(255, 255, 255, 0.015) 100%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.16) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 18px 44px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 1px 0 rgba(244,239,228,0.12) inset, 0 18px 40px -16px rgba(20,17,11,0.6), 0 0 0 4px rgba(201,123,46,0.18);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-pollen {
+  background: var(--color-pollen);
+  color: var(--color-paper);
+  border: 1px solid var(--color-pollen-deep);
+  box-shadow: 0 1px 0 rgba(255,220,180,0.4) inset, 0 12px 30px -14px rgba(201,123,46,0.6);
+}
+.btn-pollen:hover {
+  transform: translateY(-1px);
+  background: var(--color-pollen-deep);
+  box-shadow: 0 1px 0 rgba(255,220,180,0.5) inset, 0 18px 40px -16px rgba(201,123,46,0.75), 0 0 0 4px rgba(201,123,46,0.22);
 }
 
-.glass-download:active {
-  transform: translateY(0);
+.btn-ghost {
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid rgba(20,17,11,0.18);
+}
+.btn-ghost:hover {
+  transform: translateY(-1px);
+  background: rgba(20,17,11,0.04);
+  border-color: rgba(20,17,11,0.32);
 }
 
-/* The sheen that sweeps across on hover — a thin diagonal light */
-.glass-download::after {
+/* The signature thread underline that animates on hover for text links */
+.thread-link {
+  position: relative;
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: color 0.2s var(--thread-ease);
+}
+.thread-link::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1.5px;
+  background: var(--color-synapse);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.4s var(--thread-ease);
+}
+.thread-link:hover { color: var(--color-synapse); }
+.thread-link:hover::after { transform: scaleX(1); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE SYNAPSE THREAD — the signature brand motif
+   A thin living line that flows through the site. SVG path with stroke-dash
+   animation, responsive to pointer proximity. Used in hero, section dividers,
+   and the cursor itself.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.synapse-thread {
+  stroke: var(--color-synapse);
+  stroke-width: 1.25;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.synapse-thread-glow {
+  stroke: var(--color-synapse-glow);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.25;
+  filter: blur(4px);
+  vector-effect: non-scaling-stroke;
+}
+
+/* A node on the thread — a small luminous dot */
+.synapse-node {
+  fill: var(--color-pollen);
+  filter: drop-shadow(0 0 6px rgba(201,123,46,0.7));
+}
+.synapse-node-ring {
+  fill: none;
+  stroke: var(--color-pollen);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAPER GRAIN — a subtle noise overlay that gives the canvas warmth
+   ═══════════════════════════════════════════════════════════════════════ */
+.paper-grain::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.06) 48%, transparent 66%);
+  z-index: 1;
+  opacity: var(--paper-grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.04  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  mix-blend-mode: multiply;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CUSTOM CURSOR — a small ink dot with a pollen spark and a trailing thread
+   ═══════════════════════════════════════════════════════════════════════ */
+.condura-cursor {
+  position: fixed;
+  top: 0; left: 0;
+  width: 10px; height: 10px;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: multiply;
+  transition: transform 0.08s linear, width 0.2s var(--thread-ease), height 0.2s var(--thread-ease);
+  will-change: transform;
+}
+.condura-cursor-dot {
+  width: 100%; height: 100%;
+  border-radius: 999px;
+  background: var(--color-ink);
+}
+.condura-cursor.hovering {
+  width: 38px; height: 38px;
+  mix-blend-mode: normal;
+}
+.condura-cursor.hovering .condura-cursor-dot {
+  background: transparent;
+  border: 1.5px solid var(--color-synapse);
+}
+.condura-cursor-spark {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 4px; height: 4px;
+  border-radius: 999px;
+  background: var(--color-pollen);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(201,123,46,0.8);
   opacity: 0;
-  transition: opacity 0.4s ease, transform 0.6s ease;
-  transform: translateX(-30%);
+  transition: opacity 0.2s var(--thread-ease);
+}
+.condura-cursor.hovering .condura-cursor-spark { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes thread-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes node-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.7; }
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(8px, -6px); }
+}
+@keyframes pollen-float {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(var(--drift-x, 40px), var(--drift-y, -120px)) rotate(360deg); opacity: 0; }
+}
+@keyframes shimmer-paper {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes ink-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
 }
 
-.glass-download:hover::after {
+/* ═══════════════════════════════════════════════════════════════════════
+   UTILITY — text balance, clamp, marquee
+   ═══════════════════════════════════════════════════════════════════════ */
+.text-balance { text-wrap: balance; }
+.text-pretty  { text-wrap: pretty; }
+
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 40s linear infinite;
+}
+@keyframes marquee-scroll {
+  to { transform: translateX(-50%); }
+}
+
+/* Reveal-on-scroll primitive (used by Reveal component) */
+.reveal-init {
+  opacity: 0;
+  transform: translateY(24px);
+  filter: blur(6px);
+}
+.reveal-in {
   opacity: 1;
-  transform: translateX(30%);
+  transform: translateY(0);
+  filter: blur(0);
+  transition: opacity 0.7s var(--thread-ease), transform 0.7s var(--thread-ease), filter 0.7s var(--thread-ease);
 }
 
-.mature-panel {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.028) 42%, rgba(255, 255, 255, 0.058)),
-    rgba(10, 10, 10, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
-}
-
-/* Abstract Grid */
-.bg-grid-dark {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
-}
-
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
-  }
-
-  .liquid-glass {
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .condura-cursor { display: none !important; }
+  body { cursor: auto; }
+  .reveal-init { opacity: 1; transform: none; filter: none; }
 }
 
-/* ── Prose styling for changelog & legal ──────────────────── */
-
+/* Prose (for changelog/legal — kept, retinted to ink on paper) */
 .prose-condura {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 15px;
-  line-height: 1.65;
+  color: var(--color-ink-soft);
+  font-size: 16px;
+  line-height: 1.7;
+  max-width: 68ch;
 }
-.prose-condura h1,
-.prose-condura h2,
-.prose-condura h3 {
-  color: #ffffff;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-top: 1.5em;
-  margin-bottom: 0.6em;
-  line-height: 1.2;
+.prose-condura h1, .prose-condura h2, .prose-condura h3 {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+  line-height: 1.15;
 }
-.prose-condura h1 { font-size: 1.75rem; }
-.prose-condura h2 {
-  font-size: 1.35rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.prose-condura h2::before {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-  flex-shrink: 0;
-}
-.prose-condura h3 { font-size: 1.05rem; color: rgba(255, 255, 255, 0.85); }
-.prose-condura p { margin: 0.8em 0; }
-.prose-condura strong { color: rgba(255, 255, 255, 0.9); font-weight: 600; }
+.prose-condura h1 { font-size: clamp(32px, 4vw, 48px); }
+.prose-condura h2 { font-size: clamp(24px, 3vw, 32px); }
+.prose-condura h3 { font-size: 20px; color: var(--color-ink-soft); }
+.prose-condura p { margin: 1em 0; }
+.prose-condura strong { color: var(--color-ink); font-weight: 600; }
 .prose-condura a {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-synapse);
   text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.25);
+  text-decoration-color: rgba(11,61,46,0.3);
   text-underline-offset: 3px;
   transition: text-decoration-color 0.2s;
 }
-.prose-condura a:hover { text-decoration-color: rgba(255, 255, 255, 0.6); }
-.prose-condura ul,
-.prose-condura ol {
-  margin: 0.8em 0;
-  padding-left: 1.4em;
-}
-.prose-condura li { margin: 0.35em 0; }
+.prose-condura a:hover { text-decoration-color: var(--color-synapse); }
+.prose-condura ul, .prose-condura ol { margin: 1em 0; padding-left: 1.4em; }
+.prose-condura li { margin: 0.4em 0; }
 .prose-condura ul { list-style: none; padding-left: 0; }
-.prose-condura ul li {
-  position: relative;
-  padding-left: 1.2em;
-}
+.prose-condura ul li { position: relative; padding-left: 1.3em; }
 .prose-condura ul li::before {
-  content: "▸";
-  position: absolute;
-  left: 0;
-  color: rgba(255, 255, 255, 0.3);
+  content: "→";
+  position: absolute; left: 0;
+  color: var(--color-synapse);
 }
 .prose-condura ol { list-style: decimal; }
-.prose-condura ol li::marker { color: rgba(255, 255, 255, 0.35); }
+.prose-condura ol li::marker { color: var(--color-ink-faint); }
 .prose-condura code {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.85em;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 0.1em 0.35em;
-  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-paper-deep);
+  border: 1px solid rgba(20,17,11,0.10);
+  border-radius: 6px;
+  padding: 0.1em 0.4em;
+  color: var(--color-ink);
 }
 .prose-condura pre {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 1em 1.2em;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-radius: var(--radius-md);
+  padding: 1.2em 1.4em;
   overflow-x: auto;
-  margin: 1em 0;
+  margin: 1.4em 0;
+  font-size: 14px;
 }
-.prose-condura pre code {
-  background: none;
-  border: none;
-  padding: 0;
-}
-.prose-condura hr {
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  margin: 2em 0;
-}
+.prose-condura pre code { background: none; border: none; padding: 0; color: inherit; }
+.prose-condura hr { border: none; border-top: 1px solid rgba(20,17,11,0.12); margin: 2.4em 0; }
 .prose-condura blockquote {
-  border-left: 2px solid rgba(255, 255, 255, 0.2);
-  padding-left: 1em;
-  margin: 1em 0;
-  color: rgba(255, 255, 255, 0.45);
+  border-left: 2px solid var(--color-synapse);
+  padding-left: 1.2em;
+  margin: 1.4em 0;
+  color: var(--color-ink-mute);
   font-style: italic;
 }
