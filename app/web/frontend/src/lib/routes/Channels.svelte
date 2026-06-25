@@ -170,7 +170,7 @@
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3);
-    background: rgba(0, 0, 0, 0.18);
+    background: var(--color-bg-hover);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-size: var(--size-sm);

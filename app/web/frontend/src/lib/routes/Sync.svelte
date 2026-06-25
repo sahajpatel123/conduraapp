@@ -193,12 +193,12 @@
     align-items: center;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--color-bg-hover);
     border: 1px solid transparent;
     transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
   }
   .peer-list li:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--glass-bg);
     border-color: var(--glass-border-hover);
     box-shadow: var(--shadow-glow-accent);
   }

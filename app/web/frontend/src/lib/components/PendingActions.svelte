@@ -280,7 +280,7 @@
     padding: var(--space-3);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    background: rgba(0, 0, 0, 0.18);
+    background: var(--color-bg-hover);
   }
   .pending-rows li {
     border-left: 2px solid var(--color-warn);
@@ -357,7 +357,7 @@
     margin-top: var(--space-3);
   }
   pre {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--glass-bg-active);
     padding: var(--space-2);
     border-radius: var(--radius-md);
     overflow: auto;

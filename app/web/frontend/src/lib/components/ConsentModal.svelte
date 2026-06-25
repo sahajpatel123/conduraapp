@@ -97,7 +97,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(20, 17, 11, 0.45);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     animation: backdrop-in var(--transition-base) ease both;
@@ -171,7 +171,7 @@
     border-radius: var(--radius-pill);
     background: var(--color-bg-active);
     overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 1px 2px rgba(20, 17, 11, 0.18);
   }
   .consent-countdown-fill {
     height: 100%;

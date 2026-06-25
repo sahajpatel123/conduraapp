@@ -98,8 +98,8 @@
     transition: all var(--transition-base, 150ms ease);
   }
   .toast-close:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-hover);
     color: var(--color-text);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--color-border-strong);
   }
 </style>

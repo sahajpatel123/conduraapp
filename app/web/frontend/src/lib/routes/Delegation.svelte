@@ -269,7 +269,7 @@
     color: var(--color-text-muted);
   }
   pre {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--glass-bg-active);
     padding: var(--space-3);
     border-radius: var(--radius-md);
     overflow: auto;

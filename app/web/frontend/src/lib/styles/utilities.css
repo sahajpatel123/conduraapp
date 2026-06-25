@@ -71,7 +71,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%);
   pointer-events: none;
   border-radius: inherit;
 }
@@ -157,7 +157,7 @@
 
 /* ── Inputs — premium focus states ──────────────────────── */
 .input {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: var(--color-text);
   padding: 10px 16px;
@@ -175,7 +175,7 @@
   outline: none;
   border-color: var(--color-accent);
   box-shadow: var(--shadow-focus), 0 0 20px var(--color-accent-faint);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--glass-bg-active);
 }
 .input:disabled {
   opacity: 0.5;
@@ -386,7 +386,7 @@ select.input {
 
 /* ── Glass overlay (for modals) ─────────────────────────── */
 .glass-overlay {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(20, 17, 11, 0.45);
   backdrop-filter: blur(8px) saturate(1.2);
   -webkit-backdrop-filter: blur(8px) saturate(1.2);
 }

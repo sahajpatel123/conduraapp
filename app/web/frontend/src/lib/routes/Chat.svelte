@@ -430,7 +430,7 @@
   }
 
   .tool-call {
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -439,7 +439,7 @@
 
   .tool-call:hover {
     border-color: var(--glass-border-hover);
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--glass-bg-hover);
   }
 
   .tool-call.streaming {
@@ -500,7 +500,7 @@
   .tool-args {
     padding: var(--space-3);
     margin: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--color-bg-elevated);
     border-top: 1px solid var(--glass-border);
     font-family: var(--font-mono);
     font-size: 11px;
@@ -652,7 +652,7 @@
     color: var(--color-bg);
     cursor: pointer;
     transition: all var(--transition-spring);
-    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(20, 17, 11, 0.18);
     position: relative;
     overflow: hidden;
   }
@@ -692,8 +692,8 @@
   }
 
   .btn-send:disabled {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.25);
+    background: var(--color-bg-hover);
+    color: var(--color-text-dim);
     cursor: not-allowed;
     box-shadow: none;
   }
@@ -752,7 +752,7 @@
   .empty-icon svg {
     width: 56px;
     height: 56px;
-    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
+    filter: drop-shadow(0 10px 30px rgba(20, 17, 11, 0.18));
     animation: breathe-soft 4s ease-in-out infinite;
   }
 

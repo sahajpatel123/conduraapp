@@ -169,8 +169,8 @@
     border-radius: 50%;
     background: var(--color-accent);
     cursor: pointer;
-    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(0, 0, 0, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(20, 17, 11, 0.18);
+    border: 2px solid var(--color-border-strong);
     transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
   .slider::-webkit-slider-thumb:hover {
@@ -187,7 +187,7 @@
     border-radius: 50%;
     background: var(--color-accent);
     cursor: pointer;
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    border: 2px solid var(--color-border-strong);
     box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(0, 0, 0, 0.3);
     transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
