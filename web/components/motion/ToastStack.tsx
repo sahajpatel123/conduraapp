@@ -5,9 +5,15 @@ import { useToast } from "@/context/ToastContext";
 import { springSnappy } from "@/lib/motion";
 
 const toneBorder = {
-  default: "border-white/10",
-  success: "border-white/20",
-  error: "border-[#ff6b6b]/30",
+  default: "border-[rgba(20,17,11,0.12)]",
+  success: "border-[rgba(11,61,46,0.35)]",
+  error: "border-[rgba(163,49,42,0.4)]",
+};
+
+const toneDot = {
+  default: "bg-[var(--color-ink-faint)]",
+  success: "bg-[var(--color-synapse)]",
+  error: "bg-[var(--color-danger)]",
 };
 
 export default function ToastStack() {
@@ -28,19 +34,22 @@ export default function ToastStack() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 24, scale: 0.95 }}
             transition={springSnappy}
-            className={`pointer-events-auto rounded-xl border bg-[#111113]/95 p-3 shadow-xl backdrop-blur-xl ${toneBorder[toast.tone ?? "default"]}`}
+            className={`pointer-events-auto rounded-xl border bg-[var(--color-paper-warm)] p-3 shadow-[var(--shadow-card)] backdrop-blur-xl ${toneBorder[toast.tone ?? "default"]}`}
           >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white">{toast.title}</p>
-                {toast.description && (
-                  <p className="mt-0.5 text-xs text-white/45">{toast.description}</p>
-                )}
+              <div className="flex items-start gap-2.5">
+                <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[toast.tone ?? "default"]}`} />
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-ink)]">{toast.title}</p>
+                  {toast.description && (
+                    <p className="mt-0.5 text-xs text-[var(--color-ink-mute)]">{toast.description}</p>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
-                className="text-xs text-white/35 hover:text-white/70"
+                className="text-xs text-[var(--color-ink-faint)] hover:text-[var(--color-ink)]"
                 aria-label="Dismiss notification"
               >
                 ✕

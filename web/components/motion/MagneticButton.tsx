@@ -1,100 +1,61 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type MouseEvent } from "react";
-import { motion, useMotionValue, useSpring } from "motion/react";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { springSnappy } from "@/lib/motion";
+import { useRef, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
 
-interface MagneticButtonProps {
-  children: ReactNode;
-  className?: string;
-  onClick?: () => void;
-  href?: string;
-  type?: "button" | "submit";
-  disabled?: boolean;
-  "aria-label"?: string;
-}
-
-const MAGNET = 18;
-
+/**
+ * MagneticButton — a wrapper that pulls its child gently toward the
+ * pointer when the pointer is within `radius` px of the element center.
+ * The pull is strongest at the center and fades to zero at the edge.
+ *
+ * The child should be the interactive element (a Next <Link> or <button>
+ * with .btn classes). This wrapper only provides the magnetic motion.
+ *
+ * Respects reduced motion (no pull, just the child's own hover styles).
+ */
 export default function MagneticButton({
   children,
+  radius = 80,
+  strength = 0.35,
   className = "",
-  onClick,
-  href,
-  type = "button",
-  disabled,
-  "aria-label": ariaLabel,
-}: MagneticButtonProps) {
-  const reduced = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const sx = useSpring(x, springSnappy);
-  const sy = useSpring(y, springSnappy);
-  const [pressed, setPressed] = useState(false);
+}: {
+  children: ReactNode;
+  radius?: number;
+  strength?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  const onMove = (e: MouseEvent) => {
-    if (reduced || disabled || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    x.set((dx / rect.width) * MAGNET);
-    y.set((dy / rect.height) * MAGNET);
+  const onMove = (e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > radius) {
+      setOffset({ x: 0, y: 0 });
+      return;
+    }
+    const pull = (1 - dist / radius) * strength;
+    setOffset({ x: dx * pull, y: dy * pull });
   };
 
-  const reset = () => {
-    x.set(0);
-    y.set(0);
-    setPressed(false);
-  };
-
-  const body = (
-    <motion.span
-      style={reduced ? undefined : { x: sx, y: sy }}
-      animate={{ scale: pressed ? 0.96 : 1 }}
-      transition={{ duration: 0.12 }}
-      className={`relative inline-flex items-center justify-center gap-2 ${className}`}
-    >
-      {children}
-    </motion.span>
-  );
-
-  if (href) {
-    return (
-      <div
-        ref={ref}
-        className="inline-block"
-        onMouseMove={onMove}
-        onMouseLeave={reset}
-        onMouseDown={() => setPressed(true)}
-        onMouseUp={() => setPressed(false)}
-      >
-        <a href={href} aria-label={ariaLabel} className="block">
-          {body}
-        </a>
-      </div>
-    );
-  }
+  const onLeave = () => setOffset({ x: 0, y: 0 });
 
   return (
-    <div
+    <motion.div
       ref={ref}
-      className="inline-block"
-      onMouseMove={onMove}
-      onMouseLeave={reset}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
+      animate={{ x: offset.x, y: offset.y }}
+      transition={{ type: "spring", stiffness: 260, damping: 22, mass: 0.6 }}
+      className={`inline-block ${className}`}
     >
-      <button
-        type={type}
-        disabled={disabled}
-        aria-label={ariaLabel}
-        onClick={onClick}
-        className="block disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {body}
-      </button>
-    </div>
+      {children}
+    </motion.div>
   );
 }

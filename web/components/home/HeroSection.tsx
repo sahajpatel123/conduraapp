@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion, useInView } from "motion/react";
 import { useRef } from "react";
 import SynapseGarden from "./SynapseGarden";
+import MagneticButton from "@/components/motion/MagneticButton";
 import { SITE } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -78,16 +79,18 @@ export default function HeroSection() {
           transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.75 }}
           className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
         >
-          <Link href="/download" prefetch className="btn btn-primary group">
-            <span className="relative h-1.5 w-1.5">
-              <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
-              <span className="absolute inset-0 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-[var(--color-synapse-glow)]" />
-            </span>
-            Download for free
-            <svg width="13" height="13" viewBox="0 0 12 12" fill="none" className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]">
-              <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
+          <MagneticButton strength={0.4}>
+            <Link href="/download" prefetch className="btn btn-primary group">
+              <span className="relative h-1.5 w-1.5">
+                <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
+                <span className="absolute inset-0 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-[var(--color-synapse-glow)]" />
+              </span>
+              Download for free
+              <svg width="13" height="13" viewBox="0 0 12 12" fill="none" className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]">
+                <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          </MagneticButton>
           <Link href="/orchestration" prefetch className="btn btn-ghost">
             See how it works
           </Link>

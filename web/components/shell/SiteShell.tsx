@@ -8,6 +8,7 @@ import CommandPalette from "@/components/shell/CommandPalette";
 import DynamicIsland from "@/components/motion/DynamicIsland";
 import ToastStack from "@/components/motion/ToastStack";
 import Cursor from "@/components/shell/Cursor";
+import ScrollThread from "@/components/shell/ScrollThread";
 
 export default function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Cursor />
+      <ScrollThread />
       <RouteProgress />
       <DynamicIsland />
       <CommandPalette />

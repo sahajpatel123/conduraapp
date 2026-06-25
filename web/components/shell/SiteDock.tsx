@@ -4,31 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { LayoutGroup, motion, AnimatePresence } from "motion/react";
-import Tooltip from "@/components/motion/Tooltip";
 import { Icon, type IconKey } from "@/components/motion/Icon";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { SITE } from "@/lib/site";
 import { springSnappy } from "@/lib/motion";
 
-/* ────────────────────────────────────────────────────────────
-   SiteDock — quick-access only. Bottom-center, every page.
-
-   Philosophy: the dock is for things a user reaches for
-   constantly. Reference pages (How it works, Security,
-   Mission, Changelog, Legal) live in the footer — they're
-   for browsing, not quick access.
-
-   Five things, nothing more:
-     Home · Download · ⌘K · GitHub · Discord
-
-   Interaction:
-   - Magnify-on-hover with distance falloff.
-   - Shared-layout active pill glides to the current route.
-   - Active dot under the current page's icon.
-   - Tooltips on every item (hover + keyboard focus).
-   - Scroll-to-top slides in on the far left after first viewport.
-   - Reduced-motion: instant, no magnify, instant scroll.
-   ──────────────────────────────────────────────────────────── */
+/* SiteDock — quick-access only. Bottom-center, every page.
+ * Five things: Home · Download · ⌘K · GitHub · Discord. */
 
 type Entry = {
   href: string;
@@ -38,7 +20,6 @@ type Entry = {
   target?: string;
 };
 
-// Only quick-access actions. Reference content is in the footer.
 const ENTRIES: Entry[] = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/download", label: "Download", icon: "download" },
@@ -61,69 +42,37 @@ export default function SiteDock() {
   }, []);
 
   const openCommandPalette = () => {
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "k",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true,
-      })
-    );
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true, cancelable: true }));
   };
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-  };
-
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav
-      aria-label="Quick access"
-      className="fixed bottom-5 left-1/2 z-[160] flex -translate-x-1/2 items-end gap-2"
-    >
-      {/* Scroll-to-top — slides in only after the user scrolls down. */}
+    <nav aria-label="Quick access" className="fixed bottom-5 left-1/2 z-[160] flex -translate-x-1/2 items-end gap-2">
       <LayoutGroup id="dock-top">
         <motion.button
           type="button"
           onClick={scrollToTop}
           aria-label="Scroll to top"
           initial={false}
-          animate={{
-            width: showTop ? 40 : 0,
-            opacity: showTop ? 1 : 0,
-            marginRight: showTop ? 8 : 0,
-          }}
+          animate={{ width: showTop ? 40 : 0, opacity: showTop ? 1 : 0, marginRight: showTop ? 8 : 0 }}
           transition={reduced ? { duration: 0 } : springSnappy}
-          className="flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111113]/92 text-white/55 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl hover:text-white"
+          className="flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[rgba(20,17,11,0.12)] bg-[var(--color-paper-warm)] text-[var(--color-ink-mute)] shadow-[var(--shadow-paper)] backdrop-blur-xl hover:text-[var(--color-ink)]"
         >
           <Icon name="arrowUp" size={18} />
         </motion.button>
       </LayoutGroup>
 
-      {/* Main dock surface */}
       <LayoutGroup id="site-dock">
-        <div className="flex items-center gap-1 rounded-3xl border border-white/[0.08] bg-[#111113]/92 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <div className="flex items-center gap-1 rounded-3xl border border-[rgba(20,17,11,0.12)] bg-[var(--color-paper-warm)] p-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl">
           {ENTRIES.map((entry, index) => {
             const active = !entry.action && isActive(entry.href);
             const distance = hovered === null ? null : Math.abs(hovered - index);
-            const scale = reduced
-              ? 1
-              : distance === null
-                ? 1
-                : distance === 0
-                  ? 1.2
-                  : distance === 1
-                    ? 1.08
-                    : 1;
-
+            const scale = reduced ? 1 : distance === null ? 1 : distance === 0 ? 1.2 : distance === 1 ? 1.08 : 1;
             const handleClick =
               entry.action === "command"
-                ? (e: React.MouseEvent) => {
-                    e.preventDefault();
-                    openCommandPalette();
-                  }
+                ? (e: React.MouseEvent) => { e.preventDefault(); openCommandPalette(); }
                 : undefined;
 
             const inner = (
@@ -132,7 +81,6 @@ export default function SiteDock() {
                 transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 30 }}
                 className="relative flex h-11 w-11 items-center justify-center"
               >
-                {/* Liquid-glass hover pill — glides between items */}
                 <AnimatePresence>
                   {hovered === index && !active && (
                     <motion.span
@@ -141,65 +89,63 @@ export default function SiteDock() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0 }}
                       transition={reduced ? { duration: 0 } : { type: "spring", bounce: 0.2, duration: 0.6 }}
-                      className="absolute inset-0 rounded-2xl border border-white/[0.12] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                      className="absolute inset-0 rounded-2xl border border-[rgba(20,17,11,0.10)] bg-[rgba(20,17,11,0.06)]"
                     />
                   )}
                 </AnimatePresence>
-
-                {/* Active pill — stays for the current route */}
                 {active && (
                   <motion.span
                     layoutId="dock-active"
-                    className="absolute inset-0 rounded-2xl bg-white/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]"
+                    className="absolute inset-0 rounded-2xl bg-[rgba(20,17,11,0.08)]"
                     transition={reduced ? { duration: 0 } : springSnappy}
                   />
                 )}
                 {active && (
-                  <span className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white/60 shadow-[0_0_6px_rgba(255,255,255,0.5)]" />
+                  <span className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[var(--color-synapse)] shadow-[0_0_6px_rgba(11,61,46,0.6)]" />
                 )}
                 <Icon
                   name={entry.icon}
                   size={20}
-                  className={`relative z-10 transition-colors ${
-                    active ? "text-white" : "text-white/55"
-                  }`}
+                  className={`relative z-10 transition-colors ${active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-mute)]"}`}
                 />
               </motion.span>
             );
 
-            return (
-              <Tooltip key={entry.href + entry.label} label={entry.label} side="top">
-                {entry.action === "external" ? (
-                  <a
-                    href={entry.href}
-                    target={entry.target}
-                    rel="noopener noreferrer"
-                    aria-label={entry.label}
-                    onMouseEnter={() => setHovered(index)}
-                    onMouseLeave={() => setHovered(null)}
-                    onFocus={() => setHovered(index)}
-                    onBlur={() => setHovered(null)}
-                    className="relative flex items-center justify-center rounded-2xl text-white/55 transition-colors hover:text-white"
-                  >
-                    {inner}
-                  </a>
-                ) : (
-                  <Link
-                    href={entry.href}
-                    prefetch
-                    aria-label={entry.label}
-                    aria-current={active ? "page" : undefined}
-                    onClick={handleClick}
-                    onMouseEnter={() => setHovered(index)}
-                    onMouseLeave={() => setHovered(null)}
-                    onFocus={() => setHovered(index)}
-                    onBlur={() => setHovered(null)}
-                    className="relative flex items-center justify-center rounded-2xl text-white/55 transition-colors hover:text-white"
-                  >
-                    {inner}
-                  </Link>
-                )}
-              </Tooltip>
+            const cls = "relative flex items-center justify-center rounded-2xl text-[var(--color-ink-mute)] transition-colors hover:text-[var(--color-ink)]";
+
+            return entry.action === "external" ? (
+              <a
+                key={entry.href + entry.label}
+                href={entry.href}
+                target={entry.target}
+                rel="noopener noreferrer"
+                aria-label={entry.label}
+                title={entry.label}
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
+                onFocus={() => setHovered(index)}
+                onBlur={() => setHovered(null)}
+                className={cls}
+              >
+                {inner}
+              </a>
+            ) : (
+              <Link
+                key={entry.href + entry.label}
+                href={entry.href}
+                prefetch
+                aria-label={entry.label}
+                aria-current={active ? "page" : undefined}
+                title={entry.label}
+                onClick={handleClick}
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
+                onFocus={() => setHovered(index)}
+                onBlur={() => setHovered(null)}
+                className={cls}
+              >
+                {inner}
+              </Link>
             );
           })}
         </div>

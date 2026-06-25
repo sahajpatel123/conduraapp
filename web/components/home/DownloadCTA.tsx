@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useRef } from "react";
 import Reveal from "@/components/motion/Reveal";
+import MagneticButton from "@/components/motion/MagneticButton";
 import { SITE, PLATFORMS } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -106,20 +107,22 @@ export default function DownloadCTA() {
           {/* big single CTA */}
           <Reveal delay={0.2}>
             <div className="flex flex-col items-center gap-5 md:items-end">
-              <Link
-                href="/download"
-                prefetch
-                className="group relative inline-flex items-center gap-3 rounded-full bg-[var(--color-pollen)] px-7 py-4 text-[16px] font-semibold text-[var(--color-ink)] transition-all hover:-translate-y-0.5 hover:bg-[var(--color-pollen-deep)] hover:text-[var(--color-paper)]"
-              >
-                <span className="relative h-2 w-2">
-                  <span className="absolute inset-0 rounded-full bg-[var(--color-ink)]" />
-                  <span className="absolute inset-0 animate-[breathe_2s_ease-in-out_infinite] rounded-full bg-[var(--color-paper)]" />
-                </span>
-                Download Condura
-                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]">
-                  <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </Link>
+              <MagneticButton strength={0.45} radius={120}>
+                <Link
+                  href="/download"
+                  prefetch
+                  className="group relative inline-flex items-center gap-3 rounded-full bg-[var(--color-pollen)] px-7 py-4 text-[16px] font-semibold text-[var(--color-ink)] transition-all hover:-translate-y-0.5 hover:bg-[var(--color-pollen-deep)] hover:text-[var(--color-paper)]"
+                >
+                  <span className="relative h-2 w-2">
+                    <span className="absolute inset-0 rounded-full bg-[var(--color-ink)]" />
+                    <span className="absolute inset-0 animate-[breathe_2s_ease-in-out_infinite] rounded-full bg-[var(--color-paper)]" />
+                  </span>
+                  Download Condura
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]">
+                    <path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              </MagneticButton>
               <p className="text-mono-label !text-[rgba(244,239,228,0.5)]">
                 v0.1.1 · ~12 MB · signed + notarized
               </p>

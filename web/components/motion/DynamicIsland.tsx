@@ -6,30 +6,25 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { springSoft } from "@/lib/motion";
 
 const phaseColor = {
-  idle: "bg-white/10",
-  listening: "bg-white/60",
-  routing: "bg-[#8b7dff]/80",
-  download: "bg-[#64c8ff]/80",
+  idle: "bg-[var(--color-ink-faint)]",
+  listening: "bg-[var(--color-synapse)]",
+  routing: "bg-[var(--color-synapse-glow)]",
+  download: "bg-[var(--color-pollen)]",
 };
 
 export default function DynamicIsland() {
   const { state } = useIsland();
   const reduced = useReducedMotion();
   const expanded = state.phase !== "idle";
-
   if (!expanded) return null;
 
   return (
     <div className="pointer-events-none fixed left-1/2 top-[88px] z-[180] -translate-x-1/2">
       <motion.div
         layout
-        animate={{
-          width: 280,
-          height: 52,
-          borderRadius: 22,
-        }}
+        animate={{ width: 280, height: 52, borderRadius: 22 }}
         transition={reduced ? { duration: 0 } : springSoft}
-        className="flex items-center justify-center gap-2 border border-white/[0.08] bg-[#111113]/92 px-4 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+        className="flex items-center justify-center gap-2 border border-[rgba(20,17,11,0.12)] bg-[var(--color-paper)] px-4 shadow-[var(--shadow-float)] backdrop-blur-xl"
         aria-live="polite"
         aria-atomic="true"
       >
@@ -39,9 +34,9 @@ export default function DynamicIsland() {
           }`}
         />
         <motion.div layout className="min-w-0 text-center">
-          <p className="truncate text-[12px] font-medium text-white/90">{state.label}</p>
+          <p className="truncate text-[12px] font-medium text-[var(--color-ink)]">{state.label}</p>
           {state.detail && expanded && (
-            <p className="truncate text-[10px] text-white/40">{state.detail}</p>
+            <p className="truncate text-[10px] text-[var(--color-ink-mute)]">{state.detail}</p>
           )}
         </motion.div>
       </motion.div>
