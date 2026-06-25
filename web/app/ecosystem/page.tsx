@@ -1,14 +1,16 @@
 "use client";
 
-import PageChrome from "@/components/shell/PageChrome";
 import { motion } from "motion/react";
-import { TOOL_ROSTER, SITE } from "@/lib/site";
+import Link from "next/link";
+import PageHeader from "@/components/shell/PageHeader";
+import Reveal from "@/components/motion/Reveal";
+import { TOOL_ROSTER } from "@/lib/site";
 
 const LLM_PROVIDERS = [
-  { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key or Claude Pro OAuth" },
-  { name: "OpenAI", models: "GPT-5.5, o3, o4-mini, gpt-image-2", auth: "API key or ChatGPT Plus OAuth" },
-  { name: "Google", models: "Gemini 3.5 Flash, 2.5 Pro", auth: "API key or Google AI Pro OAuth" },
-  { name: "xAI", models: "Grok-4.3, Grok-4.3-fast", auth: "API key or SuperGrok OAuth" },
+  { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key or Claude Pro OAuth*" },
+  { name: "OpenAI", models: "GPT-5.5, o3, o4-mini, gpt-image-2", auth: "API key or ChatGPT Plus OAuth*" },
+  { name: "Google", models: "Gemini 3.5 Flash, 2.5 Pro", auth: "API key or Google AI Pro OAuth*" },
+  { name: "xAI", models: "Grok-4.3, Grok-4.3-fast", auth: "API key or SuperGrok OAuth*" },
   { name: "Mistral", models: "Mistral Large 3, Codestral, Pixtral", auth: "API key" },
   { name: "DeepSeek", models: "DeepSeek-V4, R1", auth: "API key" },
   { name: "OpenRouter", models: "300+ models", auth: "API key" },
@@ -27,145 +29,157 @@ const AGENT_CLIS = [
   { name: "Kilo Code", desc: "Agentic coding CLI", cmd: "kilo --json" },
   { name: "Hermes Agent", desc: "Multi-tool autonomous agent", cmd: "hermes --format json" },
   { name: "Gemini CLI", desc: "Google's terminal agent", cmd: "gemini --output-format json" },
-  { name: "Ollama", desc: "Local model runner", cmd: "Direct HTTP — no subprocess needed" },
+  { name: "Ollama", desc: "Local model runner", cmd: "Direct HTTP — no subprocess" },
 ];
 
 export default function EcosystemPage() {
   return (
-    <div className="bg-black text-white min-h-screen">
-      <PageChrome
-        eyebrow="Integrations"
-        title="Works with every AI you already use."
-        description={`Condura doesn't replace your tools — it conducts them. One hotkey routes work across ${LLM_PROVIDERS.length} LLM providers and ${AGENT_CLIS.length} agent CLIs. Bring your own keys, your own models, your own workflow.`}
-        badge="Ecosystem"
-      >
-        {/* --- LLM Provider Grid --- */}
-        <div className="mt-24">
-          <div className="max-w-6xl mx-auto px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-semibold tracking-tight mb-4 text-white">
-                AI providers
-              </h2>
-              <p className="text-lg text-white/50 max-w-2xl mx-auto">
-                Connect your existing subscriptions — API keys or OAuth. Condura never stores keys on a server; they stay encrypted on your machine.
-              </p>
-            </div>
+    <PageHeader
+      eyebrow="Integrations"
+      title="Works with every AI"
+      titleAccent="you already use."
+      description={`Condura doesn't replace your tools — it conducts them. One hotkey routes work across ${LLM_PROVIDERS.length} LLM providers and ${AGENT_CLIS.length} agent CLIs. Bring your own keys, your own models, your own workflow.`}
+    >
+      {/* ── LLM provider grid ── */}
+      <section className="mt-8">
+        <Reveal>
+          <p className="text-eyebrow mb-4">— AI providers</p>
+          <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Connect what you have.</h2>
+          <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
+            Use API keys or, where supported, your existing subscriptions. Condura never stores keys on a server — they stay encrypted on your machine.
+          </p>
+        </Reveal>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {LLM_PROVIDERS.map((provider, i) => (
-                <motion.div
-                  key={provider.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05, duration: 0.5 }}
-                  className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 hover:border-white/[0.15] transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-white font-medium text-[15px]">{provider.name}</h3>
-                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">{provider.auth}</span>
-                  </div>
-                  <p className="text-white/50 text-[13px] leading-relaxed font-mono">{provider.models}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        <div className="mt-10 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {LLM_PROVIDERS.map((provider, i) => (
+            <motion.div
+              key={provider.name}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-10%" }}
+              transition={{ delay: i * 0.04, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="surface-card p-5 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-paper-deep)]"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-[16px] text-[var(--color-ink)]">{provider.name}</h3>
+                <span className="font-mono text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faint)]">{provider.auth}</span>
+              </div>
+              <p className="font-mono text-[12.5px] leading-relaxed text-[var(--color-ink-mute)]">{provider.models}</p>
+            </motion.div>
+          ))}
         </div>
+        <p className="mt-5 text-small text-[var(--color-ink-faint)]">* Subscription OAuth is on the v0.2.0 roadmap. v0.1.x uses API keys.</p>
+      </section>
 
-        {/* --- Agent CLI Section --- */}
-        <div className="mt-40 mb-32">
-          <div className="max-w-6xl mx-auto px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-semibold tracking-tight mb-4 text-white">
-                Agent CLIs
-              </h2>
-              <p className="text-lg text-white/50 max-w-2xl mx-auto">
-                Condura auto-detects every agent CLI on your <code className="text-white/70">$PATH</code> and spawns them as sub-agents. Each runs in its own sandbox with model isolation.
-              </p>
-            </div>
+      {/* ── Agent CLIs ── */}
+      <section className="mt-28">
+        <Reveal>
+          <p className="text-eyebrow mb-4">— Agent CLIs</p>
+          <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Sub-agents on your $PATH.</h2>
+          <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
+            Condura auto-detects every agent CLI you have installed and spawns them as sub-agents. Each runs in its own sandbox with model isolation. Missing a CLI? It simply doesn&apos;t appear — no installs forced.
+          </p>
+        </Reveal>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {AGENT_CLIS.map((cli, i) => (
-                <motion.div
-                  key={cli.name}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.08, duration: 0.4 }}
-                  className="rounded-xl border border-white/[0.06] bg-[#050505] p-4"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center mb-3 border border-white/[0.06]">
-                    <span className="text-white/70 text-[11px] font-mono font-medium">{cli.name[0]}</span>
-                  </div>
-                  <h3 className="text-white text-[14px] font-medium mb-1">{cli.name}</h3>
-                  <p className="text-white/40 text-[12px] leading-relaxed mb-2">{cli.desc}</p>
-                  <code className="block text-[10px] font-mono text-white/25 truncate">{cli.cmd}</code>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {AGENT_CLIS.map((cli, i) => (
+            <motion.div
+              key={cli.name}
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-10%" }}
+              transition={{ delay: i * 0.06, duration: 0.4 }}
+              className="surface-card p-4"
+            >
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg border border-[rgba(20,17,11,0.12)] bg-[var(--color-paper)]">
+                <span className="font-mono text-[12px] font-medium text-[var(--color-ink-soft)]">{cli.name[0]}</span>
+              </div>
+              <h3 className="text-[14.5px] font-semibold text-[var(--color-ink)]">{cli.name}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-ink-mute)]">{cli.desc}</p>
+              <code className="mt-2 block truncate font-mono text-[10px] text-[var(--color-ink-faint)]">{cli.cmd}</code>
+            </motion.div>
+          ))}
         </div>
+      </section>
 
-        {/* --- How Routing Works --- */}
-        <div className="mt-32 max-w-5xl mx-auto px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight mb-4 text-white">
-              Every model. One interface.
-            </h2>
-            <p className="text-lg text-white/50 max-w-2xl mx-auto">
-              Condura's hybrid router learns which model works best for each task. Start with the cheapest, escalate on failure, and bias toward what has worked before.
+      {/* ── Routing ── */}
+      <section className="mt-28">
+        <Reveal>
+          <div className="mb-12 text-center">
+            <p className="text-eyebrow mb-3">— Routing</p>
+            <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] mx-auto text-balance">Every model. One interface.</h2>
+            <p className="text-lead mt-5 max-w-2xl mx-auto text-[var(--color-ink-soft)] text-pretty">
+              The hybrid router learns which model works best for each task. Start with the cheapest, escalate on failure, bias toward what has worked before.
             </p>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="p-8 rounded-[32px] bg-[#050505] border border-white/10">
-              <div className="w-10 h-10 mb-6 rounded-full bg-white/10 flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/60"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </Reveal>
+        <div className="grid gap-5 md:grid-cols-3">
+          {[
+            { title: "Cascade", desc: "Try the cheapest model first. If it fails the quality gate, escalate to the next tier. No wasted spend on trivial tasks.", icon: "cascade" },
+            { title: "Memory bias", desc: "After enough samples, the router learns which model succeeds most for your specific coding, writing, or research patterns.", icon: "memory" },
+            { title: "User override", desc: "Pin specific providers to specific task types. Claude for code, Gemini for research, local for drafts — your preference wins.", icon: "lock" },
+          ].map((card, i) => (
+            <Reveal key={card.title} delay={i * 0.1}>
+              <div className="surface-card h-full p-7">
+                <div className="mb-5 grid h-10 w-10 place-items-center rounded-full border border-[rgba(11,61,46,0.3)] bg-[rgba(11,61,46,0.08)] text-[var(--color-synapse)]">
+                  <RouteIcon name={card.icon} />
+                </div>
+                <h3 className="font-display text-[20px] leading-tight text-[var(--color-ink)]">{card.title}</h3>
+                <p className="mt-2.5 text-body text-[var(--color-ink-mute)]">{card.desc}</p>
               </div>
-              <h3 className="text-xl font-medium text-white mb-3">Cascade</h3>
-              <p className="text-white/40 text-sm leading-relaxed">Try the cheapest model first. If it fails the quality gate, escalate to the next tier. No wasted spend on trivial tasks.</p>
-            </div>
-            <div className="p-8 rounded-[32px] bg-[#050505] border border-white/10">
-              <div className="w-10 h-10 mb-6 rounded-full bg-white/10 flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/60"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              </div>
-              <h3 className="text-xl font-medium text-white mb-3">Memory bias</h3>
-              <p className="text-white/40 text-sm leading-relaxed">After enough samples, the router learns which model succeeds most for your specific coding, writing, or research patterns.</p>
-            </div>
-            <div className="p-8 rounded-[32px] bg-[#050505] border border-white/10">
-              <div className="w-10 h-10 mb-6 rounded-full bg-white/10 flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/60"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              </div>
-              <h3 className="text-xl font-medium text-white mb-3">User override</h3>
-              <p className="text-white/40 text-sm leading-relaxed">Pin specific providers to specific task types. Claude for code, Gemini for research, local for drafts — your preference is the strongest signal.</p>
-            </div>
-          </div>
+            </Reveal>
+          ))}
         </div>
+      </section>
 
-        {/* --- Bring your own --- */}
-        <div className="mt-40 mb-32 max-w-5xl mx-auto px-8 text-center">
-          <div className="rounded-[32px] border border-white/[0.08] bg-[#050505] p-12">
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-6 text-white">
-              Bring your own everything
+      {/* ── Bring your own ── */}
+      <Reveal>
+        <section className="mt-28">
+          <div className="surface-ink p-10 text-center sm:p-14">
+            <p className="text-mono-label !text-[var(--color-pollen)]">— Bring your own everything</p>
+            <h2 className="mt-4 font-display text-[clamp(28px,4vw,44px)] leading-tight text-[var(--color-paper)] text-balance">
+              Run entirely offline. Or point it at a custom endpoint.
             </h2>
-            <p className="text-lg text-white/50 max-w-2xl mx-auto mb-8">
-              Run entirely offline with Ollama. Point Condura at a custom endpoint. Bring your own API keys from any provider. The choice is yours — and yours alone.
+            <p className="text-lead mt-5 max-w-2xl mx-auto text-[rgba(244,239,228,0.7)] text-pretty">
+              Bring your own API keys from any provider. Use Ollama for everything. The choice is yours — and yours alone.
             </p>
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="mt-9 flex flex-wrap justify-center gap-2.5">
               {TOOL_ROSTER.map((tool) => (
-                <span
-                  key={tool}
-                  className="rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-[13px] text-white/60 font-mono"
-                >
+                <span key={tool} className="rounded-full border border-[rgba(244,239,228,0.16)] bg-[rgba(244,239,228,0.06)] px-4 py-2 font-mono text-[12.5px] text-[rgba(244,239,228,0.8)]">
                   {tool}
                 </span>
               ))}
             </div>
-            <p className="mt-6 text-[13px] text-white/30 font-mono">
-              Auto-detected on your <code className="text-white/50">$PATH</code> — no config needed
+            <p className="mt-6 font-mono text-[12px] text-[rgba(244,239,228,0.45)]">
+              Auto-detected on your <span className="text-[rgba(244,239,228,0.7)]">$PATH</span> — no config needed
             </p>
+            <Link href="/download" prefetch className="btn btn-pollen mt-9 inline-flex">
+              Download Condura
+              <span aria-hidden>→</span>
+            </Link>
           </div>
-        </div>
+        </section>
+      </Reveal>
+    </PageHeader>
+  );
+}
 
-      </PageChrome>
-    </div>
+function RouteIcon({ name }: { name: string }) {
+  if (name === "cascade")
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+      </svg>
+    );
+  if (name === "memory")
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+      </svg>
+    );
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+    </svg>
   );
 }
