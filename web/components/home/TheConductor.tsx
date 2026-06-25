@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "motion/react";
 import Reveal from "@/components/motion/Reveal";
+import WordReveal from "@/components/motion/WordReveal";
 import { EASE_OUT } from "@/lib/motion";
 
 /**
@@ -29,9 +30,7 @@ export default function TheConductor() {
       <Reveal>
         <p className="text-eyebrow mb-4">— How it works</p>
       </Reveal>
-      <Reveal as="h2" className="text-display text-[var(--color-ink)] max-w-[18ch] text-balance">
-        Three moves. Then it gets out of your way.
-      </Reveal>
+      <WordReveal as="h2" text="Three moves. Then it gets out of your way." className="text-display text-[var(--color-ink)] max-w-[18ch] text-balance" />
 
       <div className="mt-14 grid gap-10 md:grid-cols-[1.1fr_1fr] md:gap-16">
         {/* ── Stage ── */}

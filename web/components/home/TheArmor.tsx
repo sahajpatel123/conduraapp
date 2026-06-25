@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import Reveal from "@/components/motion/Reveal";
+import WordReveal from "@/components/motion/WordReveal";
 import { INVARIANTS } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -20,9 +21,7 @@ export default function TheArmor() {
       <Reveal>
         <p className="text-eyebrow mb-4">— The armor</p>
       </Reveal>
-      <Reveal as="h2" className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">
-        A feature without armor under it is the wrong feature.
-      </Reveal>
+      <WordReveal as="h2" text="A feature without armor under it is the wrong feature." className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance" />
 
       <div className="mt-12 grid gap-10 md:grid-cols-[1.3fr_1fr] md:gap-16">
         {/* ── Invariants ledger ── */}

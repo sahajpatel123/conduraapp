@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion, useInView } from "motion/react";
 import { useRef } from "react";
 import SynapseGarden from "./SynapseGarden";
+import HeroThread from "./HeroThread";
 import MagneticButton from "@/components/motion/MagneticButton";
 import { SITE } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
@@ -32,6 +33,7 @@ export default function HeroSection() {
       className="relative min-h-[100svh] w-full overflow-hidden"
     >
       <SynapseGarden />
+      <HeroThread />
 
       {/* Top eyebrow */}
       <motion.div
