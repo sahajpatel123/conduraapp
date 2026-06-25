@@ -234,7 +234,7 @@
   .icon-rail {
     width: var(--sidebar-rail-width);
     min-width: var(--sidebar-rail-width);
-    background: rgba(5, 5, 8, 0.5);
+    background: var(--glass-bg);
     backdrop-filter: var(--glass-blur-heavy);
     -webkit-backdrop-filter: var(--glass-blur-heavy);
     display: flex;
@@ -243,7 +243,7 @@
     padding: var(--space-4) 0;
     z-index: 2;
     position: relative;
-    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    border-right: 1px solid var(--color-border);
   }
 
   /* Ambient glow at the top of the rail */
@@ -332,11 +332,11 @@
 
   .rail-icon.active {
     color: var(--color-text);
-    background: linear-gradient(90deg, rgba(0, 223, 216, 0.08) 0%, transparent 100%);
+    background: linear-gradient(90deg, var(--color-accent-soft) 0%, transparent 100%);
   }
 
   .rail-icon.active svg {
-    filter: drop-shadow(0 0 8px var(--color-glow));
+    filter: drop-shadow(0 0 6px var(--color-glow));
   }
 
   .rail-icon.active:hover {
@@ -348,7 +348,7 @@
   .drawer {
     width: var(--sidebar-drawer-width);
     min-width: var(--sidebar-drawer-width);
-    background: rgba(8, 8, 12, 0.35);
+    background: var(--glass-bg-solid);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-right: 1px solid var(--color-border);
@@ -587,7 +587,7 @@
   .btn-delete:hover {
     color: var(--color-error);
     background: var(--color-error-soft);
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(163, 49, 42, 0.25);
   }
 
   .btn-delete:active {
@@ -605,7 +605,7 @@
   .account-footer {
     padding: var(--space-3);
     border-top: 1px solid var(--color-border);
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--glass-bg);
   }
 
   .signin-link {
@@ -676,7 +676,7 @@
     align-items: center;
     justify-content: center;
     background: var(--color-accent-gradient);
-    color: white;
+    color: var(--color-paper);
     font-weight: var(--weight-bold);
     font-size: var(--size-sm);
     box-shadow: var(--shadow-sm), 0 0 16px var(--color-glow);

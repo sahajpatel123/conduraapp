@@ -20,9 +20,9 @@ body {
   overflow: hidden;
 }
 
-/* ── Living ambient background ──────────────────────────── */
-/* Two drifting gradient blobs + grain texture. The app feels
-   alive even when nothing is happening. */
+/* ── Living ambient background — Synapse Garden ─────────── */
+/* Warm paper wash + two drifting synapse/pollen blooms + grain.
+   The app feels alive even when nothing is happening. */
 body::before {
   content: '';
   position: fixed;
@@ -30,9 +30,9 @@ body::before {
   z-index: var(--z-ambient);
   pointer-events: none;
   background:
-    radial-gradient(ellipse 50% 50% at 15% 15%, rgba(0, 223, 216, 0.06), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 85% 85%, rgba(0, 124, 240, 0.05), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0, 223, 216, 0.02), transparent 70%);
+    radial-gradient(ellipse 50% 50% at 15% 15%, rgba(26, 138, 106, 0.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 85%, rgba(201, 123, 46, 0.08), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(11, 61, 46, 0.04), transparent 70%);
   animation: mesh-drift 20s ease-in-out infinite;
 }
 
@@ -44,8 +44,8 @@ body::after {
   z-index: var(--z-ambient);
   pointer-events: none;
   background:
-    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(0, 124, 240, 0.04), transparent 50%),
-    radial-gradient(ellipse 35% 35% at 20% 80%, rgba(0, 223, 216, 0.03), transparent 50%);
+    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(201, 123, 46, 0.06), transparent 50%),
+    radial-gradient(ellipse 35% 35% at 20% 80%, rgba(26, 138, 106, 0.05), transparent 50%);
   animation: mesh-drift-alt 25s ease-in-out infinite;
   opacity: 0.7;
 }
@@ -57,27 +57,30 @@ body::after {
   position: relative;
 }
 
-/* ── Scrollbar — minimal, almost invisible ──────────────── */
+/* ── Scrollbar — warm, inked, almost invisible ──────────── */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(20, 17, 11, 0.14);
+  border: 2px solid transparent;
+  background-clip: padding-box;
   border-radius: var(--radius-pill);
   transition: background var(--transition-fast);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(20, 17, 11, 0.26);
+  background-clip: padding-box;
 }
 
 /* Selection */
 ::selection {
-  background: rgba(0, 223, 216, 0.25);
-  color: var(--color-text);
+  background: var(--color-synapse);
+  color: var(--color-paper);
 }
 
 /* Link defaults */
@@ -94,8 +97,8 @@ a:hover {
 code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(20, 17, 11, 0.05);
+  border: 1px solid rgba(20, 17, 11, 0.08);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
 }

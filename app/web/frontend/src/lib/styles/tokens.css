@@ -1,75 +1,78 @@
-/* Design tokens — Condura Living Design System.
-   The app should feel alive: ambient motion, breathing surfaces,
-   tactile responses. Every value here serves that goal. */
+/* Design tokens — Condura "Synapse Garden" design system.
+   Warm paper canvas. Ink type. A living synapse thread. Pollen sparks.
+   The app should feel like a quiet, premium tool — alive but never loud.
+   These tokens map the Synapse Garden palette onto the variable names
+   the existing components already use, so the whole GUI reskins at once. */
 
 :root {
-  /* ── Colors — OLED Dark Theme ─────────────────────── */
-  --color-bg: #030305;
-  --color-bg-elevated: #0a0a0e;
-  --color-bg-overlay: rgba(15, 15, 20, 0.85);
-  --color-bg-hover: rgba(255, 255, 255, 0.04);
-  --color-bg-active: rgba(255, 255, 255, 0.08);
+  /* ── Colors — Warm Paper ─────────────────────────────── */
+  --color-bg: #f4efe4;            /* paper */
+  --color-bg-elevated: #ece5d4;   /* paper-warm */
+  --color-bg-overlay: rgba(244, 239, 228, 0.92);
+  --color-bg-hover: rgba(20, 17, 11, 0.04);
+  --color-bg-active: rgba(20, 17, 11, 0.08);
 
-  --color-border: rgba(255, 255, 255, 0.05);
-  --color-border-strong: rgba(255, 255, 255, 0.1);
-  --color-border-accent: rgba(0, 223, 216, 0.4);
+  --color-border: rgba(20, 17, 11, 0.10);
+  --color-border-strong: rgba(20, 17, 11, 0.18);
+  --color-border-accent: rgba(11, 61, 46, 0.4);   /* synapse */
 
-  --color-text: #ffffff;
-  --color-text-muted: #a1a1aa;
-  --color-text-faint: #71717a;
-  --color-text-dim: #52525b;
+  --color-text: #14110b;          /* ink */
+  --color-text-muted: #5c5443;    /* ink-soft */
+  --color-text-faint: #8a8169;    /* ink-faint */
+  --color-text-dim: #b8af98;      /* ink-ghost */
 
-  /* Accent — Cyber Cyan to Deep Blue (the soul of the app) */
-  --color-accent: #00DFD8;
-  --color-accent-hover: #4dfffa;
-  --color-accent-active: #00b3ad;
-  --color-accent-soft: rgba(0, 223, 216, 0.15);
-  --color-accent-faint: rgba(0, 223, 216, 0.05);
-  --color-accent-glow: rgba(0, 223, 216, 0.3);
+  /* Accent — Synapse green (the living thread) */
+  --color-accent: #0b3d2e;        /* synapse-deep */
+  --color-accent-hover: #06241b;  /* synapse-deeper */
+  --color-accent-active: #1a8a6a; /* synapse-glow */
+  --color-accent-soft: rgba(11, 61, 46, 0.12);
+  --color-accent-faint: rgba(11, 61, 46, 0.05);
+  --color-accent-glow: rgba(26, 138, 106, 0.3);
 
-  --color-accent-secondary: #007CF0;
-  --color-accent-secondary-hover: #3399ff;
-  --color-accent-gradient: linear-gradient(135deg, #00DFD8, #007CF0);
-  --color-accent-gradient-reverse: linear-gradient(225deg, #00DFD8, #007CF0);
-  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(0, 223, 216, 0.15), rgba(0, 124, 240, 0.15));
-  --color-accent-gradient-glow: linear-gradient(135deg, rgba(0, 223, 216, 0.2), rgba(0, 124, 240, 0.2));
+  /* Secondary — Pollen (the warm spark) */
+  --color-accent-secondary: #c97b2e;  /* pollen */
+  --color-accent-gradient: linear-gradient(135deg, #0b3d2e, #1a8a6a);
+  --color-accent-gradient-reverse: linear-gradient(225deg, #0b3d2e, #1a8a6a);
+  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(11,61,46,0.10), rgba(201,123,46,0.10));
+  --color-accent-gradient-glow: linear-gradient(135deg, rgba(26,138,106,0.18), rgba(201,123,46,0.18));
 
-  --color-glow: rgba(0, 223, 216, 0.2);
-  --color-glow-strong: rgba(0, 223, 216, 0.4);
+  --color-glow: rgba(26, 138, 106, 0.18);
+  --color-glow-strong: rgba(26, 138, 106, 0.35);
 
-  /* Semantic colors */
-  --color-success: #10b981;
-  --color-success-soft: rgba(16, 185, 129, 0.15);
-  --color-success-glow: rgba(16, 185, 129, 0.3);
-  --color-warn: #f59e0b;
-  --color-warn-soft: rgba(245, 158, 11, 0.15);
-  --color-warn-glow: rgba(245, 158, 11, 0.3);
-  --color-error: #ef4444;
-  --color-error-soft: rgba(239, 68, 68, 0.15);
-  --color-error-glow: rgba(239, 68, 68, 0.3);
-  --color-info: #3b82f6;
-  --color-info-soft: rgba(59, 130, 246, 0.15);
+  /* Semantic colors — retinted to sit on paper */
+  --color-success: #2e7d4f;
+  --color-success-soft: rgba(46, 125, 79, 0.14);
+  --color-success-glow: rgba(46, 125, 79, 0.3);
+  --color-warn: #c97b2e;          /* pollen = warn */
+  --color-warn-soft: rgba(201, 123, 46, 0.14);
+  --color-warn-glow: rgba(201, 123, 46, 0.3);
+  --color-error: #a3312a;
+  --color-error-soft: rgba(163, 49, 42, 0.12);
+  --color-error-glow: rgba(163, 49, 42, 0.28);
+  --color-info: #3a6a8a;
+  --color-info-soft: rgba(58, 106, 138, 0.12);
 
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-danger-soft: rgba(239, 68, 68, 0.1);
-  --color-danger-gradient: linear-gradient(135deg, #ef4444, #dc2626);
+  --color-danger: #a3312a;
+  --color-danger-hover: #7d2520;
+  --color-danger-soft: rgba(163, 49, 42, 0.10);
+  --color-danger-gradient: linear-gradient(135deg, #a3312a, #7d2520);
 
-  /* ── Glassmorphism — living surfaces ─────────────── */
-  --glass-bg: rgba(12, 12, 16, 0.55);
-  --glass-bg-hover: rgba(20, 20, 28, 0.65);
-  --glass-bg-active: rgba(28, 28, 36, 0.75);
-  --glass-bg-solid: rgba(10, 10, 14, 0.9);
-  --glass-border: rgba(255, 255, 255, 0.07);
-  --glass-border-hover: rgba(255, 255, 255, 0.14);
-  --glass-border-active: rgba(0, 223, 216, 0.3);
-  --glass-blur: blur(24px) saturate(1.5);
-  --glass-blur-heavy: blur(48px) saturate(2);
-  --glass-blur-light: blur(12px) saturate(1.2);
-  --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 50%);
+  /* ── Surfaces — paper cards, not glass ─────────────── */
+  --glass-bg: rgba(236, 229, 212, 0.82);        /* paper-warm translucent */
+  --glass-bg-hover: rgba(226, 218, 198, 0.9);   /* paper-deep */
+  --glass-bg-active: rgba(216, 207, 184, 0.95); /* paper-shadow */
+  --glass-bg-solid: rgba(236, 229, 212, 0.96);
+  --glass-border: rgba(20, 17, 11, 0.10);
+  --glass-border-hover: rgba(20, 17, 11, 0.18);
+  --glass-border-active: rgba(11, 61, 46, 0.35);
+  --glass-blur: blur(20px) saturate(1.3);
+  --glass-blur-heavy: blur(40px) saturate(1.6);
+  --glass-blur-light: blur(10px) saturate(1.1);
+  --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 50%);
 
   /* ── Typography ───────────────────────────────────────── */
-  --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Inter', ui-serif, Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --size-2xs: 11px;
@@ -98,7 +101,7 @@
   --leading-normal: 1.6;
   --leading-relaxed: 1.8;
 
-  /* ── Spacing scale ─────────────────────────── */
+  /* ── Spacing scale ─────────────────────────────────── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
@@ -110,27 +113,27 @@
   --space-12: 128px;
 
   /* ── Radii ────────────────────────────────────────────── */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-2xl: 32px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
   --radius-pill: 9999px;
 
-  /* ── Shadows — cinematic depth ──────────────────────── */
-  --shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 32px 80px rgba(0, 0, 0, 0.8), 0 16px 32px rgba(0, 0, 0, 0.6);
-  --shadow-2xl: 0 48px 120px rgba(0, 0, 0, 0.9), 0 24px 48px rgba(0, 0, 0, 0.7);
+  /* ── Shadows — warm paper depth, not cinematic black ─── */
+  --shadow-xs: 0 1px 2px rgba(20, 17, 11, 0.06);
+  --shadow-sm: 0 2px 8px rgba(20, 17, 11, 0.08), 0 1px 2px rgba(20, 17, 11, 0.04);
+  --shadow-md: 0 8px 24px rgba(20, 17, 11, 0.10), 0 2px 6px rgba(20, 17, 11, 0.05);
+  --shadow-lg: 0 16px 48px rgba(20, 17, 11, 0.14), 0 4px 12px rgba(20, 17, 11, 0.06);
+  --shadow-xl: 0 24px 60px rgba(20, 17, 11, 0.18), 0 8px 20px rgba(20, 17, 11, 0.08);
+  --shadow-2xl: 0 40px 90px rgba(20, 17, 11, 0.24), 0 12px 28px rgba(20, 17, 11, 0.10);
   --shadow-focus: 0 0 0 3px var(--color-accent-soft);
-  --shadow-glow: 0 0 30px var(--color-glow);
-  --shadow-glow-strong: 0 0 50px var(--color-glow-strong);
-  --shadow-glow-accent: 0 0 40px rgba(0, 223, 216, 0.25), 0 0 80px rgba(0, 124, 240, 0.15);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 24px var(--color-glow);
+  --shadow-glow-strong: 0 0 40px var(--color-glow-strong);
+  --shadow-glow-accent: 0 0 32px rgba(26, 138, 106, 0.20), 0 0 64px rgba(201, 123, 46, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  --shadow-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(20, 17, 11, 0.06);
 
   /* ── Motion — spring physics + cinematic easing ────── */
   --transition-instant: 50ms linear;
@@ -144,10 +147,11 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --thread-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Layout ───────────────────────────────────────────── */
   --sidebar-rail-width: 64px;
-  --sidebar-drawer-width: 260px;
+  --sidebar-drawer-width: 280px;
   --content-max-width: 800px;
   --content-max-width-wide: 1200px;
 
@@ -160,56 +164,79 @@
   --z-toast: 500;
   --z-ambient: -1;
   --z-max: 9999;
+
+  /* ── Synapse Garden extras ───────────────────────────── */
+  --color-paper: #f4efe4;
+  --color-paper-warm: #ece5d4;
+  --color-paper-deep: #e2dac6;
+  --color-ink: #14110b;
+  --color-synapse: #0b3d2e;
+  --color-synapse-deep: #06241b;
+  --color-synapse-glow: #1a8a6a;
+  --color-synapse-light: #9ce8c8;
+  --color-pollen: #c97b2e;
+  --color-pollen-deep: #9a5a1a;
+  --color-pollen-light: #f0c082;
 }
 
-/* ── Light theme ─────────────────────────────────────────── */
-:root[data-theme='light'] {
-  --color-bg: #fafafc;
-  --color-bg-elevated: #ffffff;
-  --color-bg-overlay: rgba(255, 255, 255, 0.9);
-  --color-bg-hover: rgba(0, 0, 0, 0.03);
-  --color-bg-active: rgba(0, 0, 0, 0.06);
+/* ── Ink theme (the rare dark moment — night mode) ──────── */
+:root[data-theme='ink'] {
+  --color-bg: #14110b;
+  --color-bg-elevated: #1c1810;
+  --color-bg-overlay: rgba(20, 17, 11, 0.92);
+  --color-bg-hover: rgba(244, 239, 228, 0.04);
+  --color-bg-active: rgba(244, 239, 228, 0.08);
 
-  --color-border: #e8e8ec;
-  --color-border-strong: #d4d4d8;
-  --color-border-accent: rgba(0, 124, 240, 0.2);
+  --color-border: rgba(244, 239, 228, 0.08);
+  --color-border-strong: rgba(244, 239, 228, 0.14);
+  --color-border-accent: rgba(156, 232, 200, 0.4);
 
-  --color-text: #09090b;
-  --color-text-muted: #52525b;
-  --color-text-faint: #71717a;
-  --color-text-dim: #a1a1aa;
+  --color-text: #f4efe4;
+  --color-text-muted: #b8af98;
+  --color-text-faint: #8a8169;
+  --color-text-dim: #5c5443;
 
-  --color-accent: #007CF0;
-  --color-accent-hover: #005bb5;
-  --color-accent-soft: rgba(0, 124, 240, 0.1);
-  --color-accent-faint: rgba(0, 124, 240, 0.04);
-  --color-accent-glow: rgba(0, 124, 240, 0.2);
+  --color-accent: #9ce8c8;        /* synapse-light */
+  --color-accent-hover: #1a8a6a;
+  --color-accent-soft: rgba(156, 232, 200, 0.12);
+  --color-accent-faint: rgba(156, 232, 200, 0.05);
+  --color-accent-glow: rgba(26, 138, 106, 0.3);
 
-  --color-accent-secondary: #00DFD8;
-  --color-accent-gradient: linear-gradient(135deg, #007CF0, #00DFD8);
-  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(0, 124, 240, 0.08), rgba(0, 223, 216, 0.08));
-  --color-accent-gradient-glow: linear-gradient(135deg, rgba(0, 124, 240, 0.12), rgba(0, 223, 216, 0.12));
+  --color-accent-secondary: #f0c082;  /* pollen-light */
+  --color-accent-gradient: linear-gradient(135deg, #9ce8c8, #1a8a6a);
+  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(156,232,200,0.10), rgba(240,192,130,0.10));
+  --color-accent-gradient-glow: linear-gradient(135deg, rgba(156,232,200,0.18), rgba(240,192,130,0.18));
 
-  --color-glow: rgba(0, 124, 240, 0.15);
-  --color-glow-strong: rgba(0, 124, 240, 0.3);
+  --color-glow: rgba(26, 138, 106, 0.22);
+  --color-glow-strong: rgba(26, 138, 106, 0.4);
 
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-bg-hover: rgba(255, 255, 255, 0.8);
-  --glass-bg-active: rgba(255, 255, 255, 0.9);
-  --glass-bg-solid: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-border-hover: rgba(0, 0, 0, 0.1);
-  --glass-border-active: rgba(0, 124, 240, 0.3);
-  --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, transparent 50%);
+  --color-success: #9ce8c8;
+  --color-success-soft: rgba(156, 232, 200, 0.14);
+  --color-success-glow: rgba(156, 232, 200, 0.3);
+  --color-warn: #f0c082;
+  --color-warn-soft: rgba(240, 192, 130, 0.14);
+  --color-warn-glow: rgba(240, 192, 130, 0.3);
+  --color-error: #e88a7e;
+  --color-error-soft: rgba(232, 138, 126, 0.14);
+  --color-error-glow: rgba(232, 138, 126, 0.3);
 
-  --shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.02);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 32px 80px rgba(0, 0, 0, 0.12), 0 16px 32px rgba(0, 0, 0, 0.06);
-  --shadow-2xl: 0 48px 120px rgba(0, 0, 0, 0.14), 0 24px 48px rgba(0, 0, 0, 0.08);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --shadow-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  --glass-bg: rgba(28, 24, 16, 0.82);
+  --glass-bg-hover: rgba(36, 31, 20, 0.9);
+  --glass-bg-active: rgba(44, 38, 24, 0.95);
+  --glass-bg-solid: rgba(28, 24, 16, 0.96);
+  --glass-border: rgba(244, 239, 228, 0.08);
+  --glass-border-hover: rgba(244, 239, 228, 0.16);
+  --glass-border-active: rgba(156, 232, 200, 0.35);
+  --glass-highlight: linear-gradient(180deg, rgba(244, 239, 228, 0.06) 0%, transparent 50%);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6);
+  --shadow-2xl: 0 40px 90px rgba(0, 0, 0, 0.9), 0 12px 28px rgba(0, 0, 0, 0.7);
+  --shadow-inset: inset 0 1px 0 rgba(244, 239, 228, 0.08);
+  --shadow-inset-strong: inset 0 1px 0 rgba(244, 239, 228, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* ── Reduced motion — respect the user ───────────────────── */
