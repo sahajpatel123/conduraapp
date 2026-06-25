@@ -86,7 +86,7 @@ export default function SecurityPage() {
           {[
             { title: "Deterministic Rules", desc: "Security rules are hard-coded in TypeScript, not written in a prompt. A model cannot convince the Gatekeeper to drop its guard using clever linguistics." },
             { title: "Air-gapped Memory", desc: "Your vector store, embeddings, and workspace memory live entirely on your local SSD. No proprietary code is ever indexed in the cloud." },
-            { title: "Kill Switches", desc: "Four independent kill switches: a hard hotkey, a watchdog timer, process isolation, and a UI menu-bar kill button." }
+            { title: "Kill Switches", desc: "Four independent kill switches: a hard hotkey, a watchdog timer, a network guard that blocks all non-allow-listed egress, and a UI menu-bar kill button." }
           ].map((feat, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="p-8 rounded-[32px] border border-white/10 bg-white/[0.02]">
               <h4 className="text-white text-xl font-medium mb-4">{feat.title}</h4>

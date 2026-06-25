@@ -88,3 +88,20 @@ test/fixtures/generated/
 /app/web/frontend/package.json.md5
 
 # Wails generated Go bindings (regenerated on `wails build`)
+/app/web/frontend/wailsjs/
+
+# Built binaries (Condura rebrand)
+condurad
+condura
+condura-tui
+condurad.exe
+condura.exe
+condura-tui.exe
+
+# Agent artifacts
+.commandcode/
+.commandbar/
+
+# Marketing film / demo HTML files
+condura-*.html
+condura_*.html

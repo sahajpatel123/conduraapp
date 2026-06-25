@@ -147,7 +147,7 @@ export default function EcosystemPage() {
               Bring your own everything
             </h2>
             <p className="text-lg text-white/50 max-w-2xl mx-auto mb-8">
-              Run entirely offline with Ollama. Use your ChatGPT Plus or Claude Pro subscription instead of API keys. Point Condura at a custom endpoint. The choice is yours — and yours alone.
+              Run entirely offline with Ollama. Point Condura at a custom endpoint. Bring your own API keys from any provider. The choice is yours — and yours alone.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {TOOL_ROSTER.map((tool) => (

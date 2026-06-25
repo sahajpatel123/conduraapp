@@ -12,7 +12,6 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/conductor"
 	"github.com/sahajpatel123/synapticapp/internal/daemon"
 	"github.com/sahajpatel123/synapticapp/internal/hotkey"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
 	"github.com/sahajpatel123/synapticapp/internal/presence"
 )
 
@@ -34,6 +33,10 @@ type App struct {
 	// conductor is the hotkey → overlay toggle. Started once the
 	// daemon is ready. Nil until then.
 	conductor *conductor.Conductor
+
+	// presenceOrch is shared with the conductor so menu/tray/JS can
+	// open the quick prompt through the same summon/dismiss path.
+	presenceOrch *presence.Orchestrator
 
 	// quitCancel triggers a clean shutdown. Wired in main.go
 	// to the same context the daemon goroutine runs under.
@@ -118,35 +121,15 @@ type DaemonStatusResult struct {
 	Addr  string `json:"addr"`
 }
 
-// ShowOverlay switches the main window into overlay mode:
-// compact (620x88), always-on-top, semi-transparent. Delegates
-// to the wailsController so the resize + always-on-top +
-// background-color + (optional) center-on-screen all happen
-// in one place. The frontend (Svelte) is also responsible for
-// collapsing its own UI to the compact prompt bar via the
-// OverlayPrompt component.
-//
-// Safe to call from any goroutine.
+// ShowOverlay opens the quick prompt. Kept for backward-compatible
+// Wails bindings and tray wiring.
 func (a *App) ShowOverlay() {
-	a.overlay.Store(true)
-	if a.overlayCtrl != nil {
-		// AtCursor=false → keep the window at its previous
-		// position. The Svelte-initiated toggle path is
-		// "I'm already at the spot I want"; the conductor
-		// uses AtCursor=true so it appears at a consistent
-		// location each press.
-		_ = a.overlayCtrl.Show(context.Background(), overlay.ShowOpts{AtCursor: false})
-	}
+	a.OpenQuickPrompt()
 }
 
-// HideOverlay switches the main window back to normal mode:
-// 1200x800, not always-on-top, fully opaque. Delegates to the
-// controller for symmetry with ShowOverlay.
+// HideOverlay closes the quick prompt.
 func (a *App) HideOverlay() {
-	a.overlay.Store(false)
-	if a.overlayCtrl != nil {
-		_ = a.overlayCtrl.Hide()
-	}
+	a.CloseQuickPrompt()
 }
 
 // IsOverlay reports whether the window is currently in overlay
@@ -157,11 +140,7 @@ func (a *App) IsOverlay() bool {
 
 // ToggleOverlay flips between main-window and overlay mode.
 func (a *App) ToggleOverlay() {
-	if a.IsOverlay() {
-		a.HideOverlay()
-	} else {
-		a.ShowOverlay()
-	}
+	a.ToggleQuickPrompt()
 }
 
 // startConductor wires the hotkey → conductor → overlay chain once
@@ -183,10 +162,14 @@ func (a *App) startConductor(subs *daemon.Subsystems, hkSpec string) {
 	// will route through the Wails window methods instead.
 	orch := presence.NewOrchestrator(subs.Overlay, subs.Halt, nil)
 
-	// Create the conductor with Wails-backed callbacks.
+	a.presenceOrch = orch
+
+	// Create the conductor with Wails-backed callbacks. The
+	// orchestrator already resized the window; callbacks only sync
+	// frontend state and focus.
 	c, err := conductor.New(hk, orch,
-		func() { a.ShowOverlay() },
-		func() { a.HideOverlay() },
+		func() { a.syncQuickPromptOpen() },
+		func() { a.syncQuickPromptClosed() },
 	)
 	if err != nil {
 		slog.Warn("conductor init failed", "err", err)

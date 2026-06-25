@@ -2,7 +2,7 @@
 
 > A free, OS-native AI agent that lives on your computer, orchestrates every AI tool you have, and costs you nothing.
 
-Condura is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent with a custom hotkey to control your computer — clicking, scrolling, typing, running sub-agents across Claude Code, Codex, Antigravity, OpenCode, Kilo, Hermes, and any ChatGPT Plus / Claude Pro / Gemini AI Pro / SuperGrok subscription you already have.
+Condura is a desktop app (Mac, Windows, Linux) that lets you summon an AI agent with a custom hotkey to control your computer — clicking, scrolling, typing, running sub-agents across Claude Code, Codex, Antigravity, OpenCode, Kilo, Hermes, and connecting to 12+ LLM providers via your own API keys.
 
 **Free forever. No lock-in. No tracking. No compromise on speed or safety.**
 

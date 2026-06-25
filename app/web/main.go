@@ -107,11 +107,7 @@ func main() {
 		// daemon is ready. The conductor's onShow/onHide callbacks
 		// route through the Wails window methods so the overlay
 		// is a real frameless/always-on-top mode, not a noop.
-		hkSpec := cfg.Hotkey.Overlay
-		if hkSpec == "" {
-			hkSpec = "Cmd+Shift+Space"
-		}
-		appInstance.startConductor(subs, hkSpec)
+		appInstance.startConductor(subs, resolveOverlayHotkey(cfg.Hotkey.Overlay))
 	}()
 
 	// Start the Wails app. The Wails runtime takes over the main
@@ -122,6 +118,7 @@ func main() {
 		Height:    800,
 		MinWidth:  800,
 		MinHeight: 500,
+		Menu:      buildApplicationMenu(appInstance),
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

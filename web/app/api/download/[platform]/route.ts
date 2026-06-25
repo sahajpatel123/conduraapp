@@ -123,7 +123,7 @@ export async function GET(
   const platform = platformParam.toLowerCase();
 
   // Look up the artifact filename
-  let artifact = ARTIFACTS[platform];
+  let artifact: string | undefined = ARTIFACTS[platform];
   if (!artifact && VERSIONED_PREFIXES[platform]) {
     // Resolve versioned artifact dynamically from GitHub API
     artifact =

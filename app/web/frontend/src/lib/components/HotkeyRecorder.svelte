@@ -33,8 +33,8 @@
     /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
 
   const suggestions = isMac
-    ? ['Cmd+Shift+Space', 'Ctrl+Space', 'Cmd+Shift+K']
-    : ['Ctrl+Shift+Space', 'Ctrl+Space', 'Ctrl+Shift+K']
+    ? ['Ctrl+S', 'Cmd+Shift+Space', 'Ctrl+Space', 'Cmd+Shift+K']
+    : ['Ctrl+S', 'Ctrl+Shift+Space', 'Ctrl+Space', 'Ctrl+Shift+K']
 
   // Map a KeyboardEvent's main key to a parser-compatible name.
   // Returns '' when the key is a bare modifier (ignored).

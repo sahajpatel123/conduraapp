@@ -2,6 +2,12 @@
 // (frameless, always-on-top, transparent) or normal mode.
 // Handles Esc key and ~5s inactivity auto-dismiss.
 
+import { EventsOn } from '../../../wailsjs/runtime/runtime'
+import {
+  CloseQuickPrompt,
+  OpenQuickPrompt,
+  ToggleQuickPrompt,
+} from '../../../wailsjs/go/main/App'
 import { ipc } from '../ipc/client'
 
 class OverlayStore {
@@ -15,11 +21,23 @@ class OverlayStore {
   private static readonly INACTIVITY_MS = 5000
 
   start(): void {
+    // Go → JS sync when menu bar, tray, or global hotkey opens the prompt.
+    try {
+      const off = EventsOn('condura:overlay', (data: { active?: boolean }) => {
+        if (typeof data?.active === 'boolean') {
+          this.setFromHost(data.active)
+        }
+      })
+      this.cleanups.push(off)
+    } catch {
+      // Not running inside Wails (unit tests / static preview).
+    }
+
     // Listen for overlay show/hide events from the daemon.
     this.cleanups.push(
       ipc.on('connected', () => {
         void ipc.call('presence.state', {}).then((state: unknown) => {
-          this.active = state === 'active'
+          this.setFromHost(state === 'active')
         }).catch(() => {})
       }),
       ipc.on('disconnected', () => {
@@ -34,6 +52,18 @@ class OverlayStore {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.active) {
         this.hide()
+        return
+      }
+      // Linux has no global hotkey yet — Ctrl+S toggles when the app
+      // is focused (matches the default overlay hotkey).
+      if (this.isQuickPromptShortcut(e)) {
+        const target = e.target as HTMLElement | null
+        const tag = target?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) {
+          return
+        }
+        e.preventDefault()
+        void this.toggleFromBackend()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -64,23 +94,58 @@ class OverlayStore {
   }
 
   show(): void {
-    this.active = true
-    this.lastActivity = Date.now()
-    this.resetInactivityTimer()
-    void ipc.overlayShow().catch(() => {})
+    this.setFromHost(true)
+    void this.openFromBackend()
   }
 
   hide(): void {
-    this.active = false
-    this.clearInactivityTimer()
-    void ipc.overlayHide().catch(() => {})
+    this.setFromHost(false)
+    void this.closeFromBackend()
   }
 
   toggle(): void {
-    if (this.active) {
-      this.hide()
+    void this.toggleFromBackend()
+  }
+
+  setFromHost(active: boolean): void {
+    this.active = active
+    if (active) {
+      this.lastActivity = Date.now()
+      this.resetInactivityTimer()
     } else {
-      this.show()
+      this.clearInactivityTimer()
+    }
+  }
+
+  private isQuickPromptShortcut(e: KeyboardEvent): boolean {
+    return e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 's'
+  }
+
+  private async openFromBackend(): Promise<void> {
+    try {
+      await OpenQuickPrompt()
+    } catch {
+      await ipc.overlayShow().catch(() => {})
+    }
+  }
+
+  private async closeFromBackend(): Promise<void> {
+    try {
+      await CloseQuickPrompt()
+    } catch {
+      await ipc.overlayHide().catch(() => {})
+    }
+  }
+
+  private async toggleFromBackend(): Promise<void> {
+    try {
+      await ToggleQuickPrompt()
+    } catch {
+      if (this.active) {
+        await this.closeFromBackend()
+      } else {
+        await this.openFromBackend()
+      }
     }
   }
 

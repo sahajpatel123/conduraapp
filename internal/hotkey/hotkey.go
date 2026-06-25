@@ -1,8 +1,8 @@
-// Package hotkey registers a global keyboard shortcut (Cmd+Shift+Space
-// on macOS, Ctrl+Shift+Space on Win/Linux) that toggles the Synaptic
-// overlay. The implementation is cross-platform via
-// golang.design/x/hotkey; on macOS it uses Carbon's RegisterEventHotKey
-// (so it works even when the Synaptic window is not focused).
+// Package hotkey registers a global keyboard shortcut (default
+// Ctrl+S) that toggles the Condura quick prompt. The implementation
+// is cross-platform via golang.design/x/hotkey; on macOS it uses
+// Carbon's RegisterEventHotKey (so it works even when the app window
+// is not focused).
 //
 // Usage:
 //
@@ -24,8 +24,6 @@ import (
 	"time"
 
 	xhotkey "golang.design/x/hotkey"
-
-	"github.com/sahajpatel123/synapticapp/internal/config"
 )
 
 // Manager wraps a single registered hotkey and the callback fired
@@ -303,12 +301,8 @@ func (m *Manager) PressCount() uint64 {
 	return m.presses.Load()
 }
 
-// DefaultOverlay returns the platform-appropriate default for the
-// overlay hotkey. On macOS it's Cmd+Shift+Space; on Win/Linux it's
-// Ctrl+Shift+Space. The user can override in settings.
+// DefaultOverlay returns the default quick-prompt hotkey (Ctrl+S on
+// every OS). The user can override in onboarding/settings.
 func DefaultOverlay() string {
-	if config.PlatformIsMac() {
-		return "Cmd+Shift+Space"
-	}
-	return "Ctrl+Shift+Space"
+	return "Ctrl+S"
 }

@@ -14,24 +14,24 @@ export default function HeroDownload() {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 max-w-[420px]">
-      {/* Platform Selector Tabs */}
-      <div className="flex p-1 rounded-xl border border-white/10 bg-[#0a0a0a] w-fit">
+    <div className="w-full flex flex-col items-center gap-8 max-w-[500px]">
+      {/* Platform Selector Tabs - Premium Glass */}
+      <div className="flex p-1.5 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-2xl w-fit">
         {PLATFORMS.map((p) => {
           const isActive = activePlatform === p.key;
           return (
             <button
               key={p.key}
               onClick={() => setActivePlatform(p.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm transition-colors ${
+              className={`flex items-center justify-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                 isActive 
-                  ? "bg-white/[0.08] text-white" 
-                  : "text-white/40 hover:text-white/80 hover:bg-white/[0.02]"
+                  ? "bg-white text-black shadow-[0_4px_12px_rgba(255,255,255,0.3)]" 
+                  : "text-white/40 hover:text-white/90 hover:bg-white/[0.06]"
               }`}
             >
-              {p.key === "mac" && <Icon name="mac" size={14} />}
-              {p.key === "windows" && <Icon name="windows" size={14} />}
-              {p.key === "linux" && <Icon name="linux" size={14} />}
+              {p.key === "mac" && <Icon name="mac" size={16} />}
+              {p.key === "windows" && <Icon name="windows" size={16} />}
+              {p.key === "linux" && <Icon name="linux" size={16} />}
               {p.name}
             </button>
           );
@@ -39,42 +39,24 @@ export default function HeroDownload() {
       </div>
 
       {/* Buttons */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
         <button
           onClick={handleDownload}
-          className="flex-1 bg-[#D97757] hover:bg-[#eb8867] text-black font-medium py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_40px_rgba(217,119,87,0.2)]"
+          className="flex-1 bg-gradient-to-r from-[#00DFD8] to-[#007CF0] hover:from-[#33e8e2] hover:to-[#3399ff] text-white font-semibold py-4 px-8 rounded-full flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_8px_30px_rgba(0,124,240,0.4)] hover:shadow-[0_12px_40px_rgba(0,124,240,0.6)] transform hover:-translate-y-1"
         >
-          <Icon name="download" size={18} />
-          Download for {PLATFORMS.find(p => p.key === activePlatform)?.name}
+          <Icon name="download" size={20} />
+          Download Condura
         </button>
         
         <a 
           href="https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0"
           target="_blank"
           rel="noreferrer"
-          className="px-6 py-3.5 rounded-xl border border-white/10 text-white/70 hover:text-white hover:bg-white/[0.02] transition-colors flex items-center gap-2 text-sm font-medium"
+          className="px-8 py-4 rounded-full border border-white/20 text-white/80 hover:text-white hover:bg-white/[0.05] hover:border-white/40 transition-all duration-300 flex items-center gap-2 text-sm font-medium backdrop-blur-sm"
         >
-          Release notes
-          <Icon name="arrowRight" size={14} />
+          View Source
+          <Icon name="arrowRight" size={16} />
         </a>
-      </div>
-
-      {/* Info Footer */}
-      <div className="flex border-t border-white/10 mt-4 pt-6">
-        <div className="flex-1 pr-4 border-r border-white/10">
-          <div className="text-[10px] text-white/30 uppercase tracking-widest font-mono mb-1.5">Account</div>
-          <div className="text-[13px] text-white/70">Not required</div>
-        </div>
-        <div className="flex-1 px-4 border-r border-white/10">
-          <div className="text-[10px] text-white/30 uppercase tracking-widest font-mono mb-1.5">License</div>
-          <div className="text-[13px] text-white/70">Free</div>
-        </div>
-        <div className="flex-1 pl-4">
-          <div className="text-[10px] text-white/30 uppercase tracking-widest font-mono mb-1.5">Build</div>
-          <div className="text-[13px] text-white/70">
-            {activePlatform === 'mac' ? '.dmg installer' : activePlatform === 'windows' ? '.exe installer' : '.AppImage'}
-          </div>
-        </div>
       </div>
     </div>
   );

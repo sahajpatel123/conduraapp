@@ -25,25 +25,13 @@ import { EASE_OUT } from "@/lib/motion";
 
 type Lane = {
   tag: string;
-  tagTone: "sky" | "violet" | "amber";
+  tagTone: "amber" | "violet";
   headline: string;
   sub: string;
   items: { name: string; note: string }[];
 };
 
 const LANES: Lane[] = [
-  {
-    tag: "Subscriptions you already pay for",
-    tagTone: "sky",
-    headline: "Use the Pro plan you're already paying for",
-    sub: "Condura drives your existing ChatGPT Plus, Claude Pro, Gemini Advanced, or SuperGrok subscription — no new monthly bill, no second account.",
-    items: [
-      { name: "ChatGPT Plus / Pro", note: "GPT-5.5, o3, Codex" },
-      { name: "Claude Pro", note: "Opus, Sonnet, Haiku" },
-      { name: "Gemini Advanced", note: "3.5 Flash, 3.1 Pro" },
-      { name: "SuperGrok", note: "Grok-4.3, Grok-4.3-fast" },
-    ],
-  },
   {
     tag: "API keys",
     tagTone: "amber",
@@ -71,12 +59,6 @@ const LANES: Lane[] = [
 ];
 
 const TONE: Record<Lane["tagTone"], { dot: string; text: string; border: string; bg: string }> = {
-  sky: {
-    dot: "bg-sky-400/70",
-    text: "text-sky-400/80",
-    border: "border-sky-400/20",
-    bg: "bg-sky-400/10",
-  },
   amber: {
     dot: "bg-amber-400/70",
     text: "text-amber-400/80",
@@ -117,14 +99,14 @@ export default function BringYourOwnAI() {
             <span className="text-white/40">Every model you already have.</span>
           </h2>
           <p className="mt-5 font-body-mature text-[15px] text-white/45 leading-relaxed max-w-xl">
-            Condura doesn't sell you a model. It drives the ones you're already
-            paying for — or the ones running free on your own machine. No new
-            subscription. No second account. No vendor lock-in.
+            Condura doesn't sell you a model. It drives the ones you already
+            have — or the ones running free on your own machine. Bring your own
+            API keys. No second account. No vendor lock-in.
           </p>
         </motion.div>
 
-        {/* ── Three lanes ── */}
-        <div className="grid md:grid-cols-3 gap-5">
+        {/* ── Two lanes ── */}
+        <div className="grid md:grid-cols-2 gap-5">
           {LANES.map((lane, li) => {
             const tone = TONE[lane.tagTone];
             return (

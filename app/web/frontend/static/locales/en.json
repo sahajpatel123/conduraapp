@@ -175,6 +175,7 @@
   "sidebar.nav.sync": "P2P Sync",
   "sidebar.nav.channels": "Channels",
   "sidebar.nav.delegation": "Sub-agents",
+  "sidebar.nav.quick_prompt": "Quick Prompt (Ctrl+S)",
   "sidebar.nav.settings": "Settings",
   "sidebar.nav.about": "About",
 

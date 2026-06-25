@@ -1,6 +1,7 @@
 <script lang="ts">
   import { conversation } from '../stores/conversation.svelte'
   import { account } from '../stores/account.svelte'
+  import { overlay } from '../stores/overlay.svelte'
   import { onMount } from 'svelte'
   import SignInPanel from './SignInPanel.svelte'
   import AccountMenu from './AccountMenu.svelte'
@@ -112,6 +113,14 @@
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
       </a>
+      <button
+        type="button"
+        class="rail-icon"
+        title={t('sidebar.nav.quick_prompt')}
+        onclick={() => overlay.toggle()}
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 14l4-8 4 4 4-6"/><path d="M3 17h14"/></svg>
+      </button>
       <div class="rail-spacer"></div>
       <a
         href="#/settings"

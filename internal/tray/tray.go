@@ -189,8 +189,8 @@ func (m *Menu) onReady() {
 	systray.SetTitle(m.title)
 	systray.SetTooltip(m.tooltip)
 
-	m.mShow = systray.AddMenuItem("Show Synaptic", "Bring the window to the front")
-	m.mHide = systray.AddMenuItem("Hide Synaptic", "Hide the main window")
+	m.mShow = systray.AddMenuItem("Open Quick Prompt", "Open the compact prompt (Ctrl+S)")
+	m.mHide = systray.AddMenuItem("Close Quick Prompt", "Dismiss the prompt and restore the main window")
 	systray.AddSeparator()
 	m.mHalt = systray.AddMenuItem("Pause (kill switch)", "Halt all agent activity")
 	systray.AddSeparator()
