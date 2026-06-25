@@ -74,7 +74,7 @@
     z-index: -1;
     background:
       radial-gradient(560px circle at 50% 42%, var(--color-glow) 0%, transparent 65%),
-      radial-gradient(420px circle at 30% 70%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+      radial-gradient(420px circle at 30% 70%, rgba(201, 123, 46, 0.10) 0%, transparent 70%);
     animation: breathe-soft 9s ease-in-out infinite;
   }
   .step-indicator {

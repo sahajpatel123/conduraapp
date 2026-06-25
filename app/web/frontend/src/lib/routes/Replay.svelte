@@ -188,7 +188,7 @@
     background: var(--color-accent);
     cursor: pointer;
     border: 2px solid var(--color-border-strong);
-    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(20, 17, 11, 0.18);
     transition: transform var(--transition-base), box-shadow var(--transition-base);
   }
   .slider::-moz-range-thumb:hover {
