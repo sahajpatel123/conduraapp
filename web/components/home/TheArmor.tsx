@@ -16,7 +16,7 @@ export default function TheArmor() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section className="relative mx-auto max-w-[1180px] px-6 py-28 sm:py-36">
+    <section data-section="armor" className="relative mx-auto max-w-[1180px] px-6 py-28 sm:py-36">
       <Reveal>
         <p className="text-eyebrow mb-4">— The armor</p>
       </Reveal>

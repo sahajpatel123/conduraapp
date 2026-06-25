@@ -89,13 +89,21 @@ body {
   text-shadow: none;
 }
 
-/* Hide default cursor on pointer-fine devices — custom cursor takes over */
+/* ── Custom pixel cursor (OS-level, zero lag, no double-dot) ──
+   The SVG quill is the real cursor via CSS cursor: url(...). The
+   .condura-halo is a decorative trailing ring added by JS, only
+   visible over interactive elements. */
 @media (pointer: fine) {
-  body { cursor: none; }
-  a, button, [role="button"], .clickable, input, textarea, select { cursor: none; }
+  body,
+  a, button, [role="button"], .clickable, input, textarea, select, [data-cursor="hover"] {
+    cursor: url("/cursor.svg") 4 4, auto;
+  }
+  a, button, [role="button"], .clickable, [data-cursor="hover"] {
+    cursor: url("/cursor-hover.svg") 20 20, pointer;
+  }
 }
 @media (pointer: coarse) {
-  .condura-cursor { display: none !important; }
+  .condura-halo { display: none !important; }
 }
 
 /* ── Scrollbar (warm, thin, inked) ── */
@@ -353,43 +361,49 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   CUSTOM CURSOR — a small ink dot with a pollen spark and a trailing thread
+   CURSOR HALO — a quiet trailing synapse ring that follows the pointer
+   and only becomes visible over interactive elements. The actual cursor
+   is the OS-level SVG quill (see cursor rules above); this is decorative.
    ═══════════════════════════════════════════════════════════════════════ */
-.condura-cursor {
+.condura-halo {
   position: fixed;
   top: 0; left: 0;
-  width: 10px; height: 10px;
+  width: 0; height: 0;
   pointer-events: none;
   z-index: 9999;
-  mix-blend-mode: multiply;
-  transition: transform 0.08s linear, width 0.2s var(--thread-ease), height 0.2s var(--thread-ease);
+  opacity: 0;
+  transition: opacity 0.3s var(--thread-ease);
   will-change: transform;
 }
-.condura-cursor-dot {
-  width: 100%; height: 100%;
-  border-radius: 999px;
-  background: var(--color-ink);
-}
-.condura-cursor.hovering {
-  width: 38px; height: 38px;
-  mix-blend-mode: normal;
-}
-.condura-cursor.hovering .condura-cursor-dot {
-  background: transparent;
-  border: 1.5px solid var(--color-synapse);
-}
-.condura-cursor-spark {
+.condura-halo-ring {
   position: absolute;
   top: 50%; left: 50%;
-  width: 4px; height: 4px;
+  width: 34px; height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-synapse);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.25s var(--thread-ease), transform 0.25s var(--thread-ease);
+}
+.condura-halo-core {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 5px; height: 5px;
+  margin: -2.5px 0 0 -2.5px;
   border-radius: 999px;
   background: var(--color-pollen);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 8px rgba(201,123,46,0.8);
+  box-shadow: 0 0 10px rgba(201,123,46,0.7);
   opacity: 0;
-  transition: opacity 0.2s var(--thread-ease);
+  transition: opacity 0.25s var(--thread-ease);
 }
-.condura-cursor.hovering .condura-cursor-spark { opacity: 1; }
+.condura-halo.is-hovering .condura-halo-ring {
+  opacity: 0.55;
+  transform: scale(1);
+}
+.condura-halo.is-hovering .condura-halo-core {
+  opacity: 0.9;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    KEYFRAMES
@@ -459,7 +473,7 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .condura-cursor { display: none !important; }
+  .condura-halo { display: none !important; }
   body { cursor: auto; }
   .reveal-init { opacity: 1; transform: none; filter: none; }
 }

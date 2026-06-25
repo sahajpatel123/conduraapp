@@ -9,6 +9,7 @@ import DynamicIsland from "@/components/motion/DynamicIsland";
 import ToastStack from "@/components/motion/ToastStack";
 import Cursor from "@/components/shell/Cursor";
 import ScrollThread from "@/components/shell/ScrollThread";
+import KbdHint from "@/components/shell/KbdHint";
 
 export default function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       </a>
       <Cursor />
       <ScrollThread />
+      <KbdHint />
       <RouteProgress />
       <DynamicIsland />
       <CommandPalette />

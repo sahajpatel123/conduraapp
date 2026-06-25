@@ -47,6 +47,7 @@ export default function ManifestoOpening() {
     <section
       ref={sectionRef}
       id="manifesto-start"
+      data-section="manifesto"
       className="relative mx-auto max-w-[1100px] px-6 py-32 sm:py-44"
     >
       <Reveal>

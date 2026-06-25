@@ -36,7 +36,7 @@ export default function DownloadCTA() {
   }, []);
 
   return (
-    <section className="relative mx-auto max-w-[1180px] px-6 py-28 sm:py-36">
+    <section data-section="download" className="relative mx-auto max-w-[1180px] px-6 py-28 sm:py-36">
       <div className="surface-ink relative overflow-hidden p-8 sm:p-14 lg:p-20">
         {/* breathing knot in the corner */}
         <svg
