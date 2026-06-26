@@ -43,8 +43,8 @@ export default function PageHeader({
             — {eyebrow}
           </motion.p>
 
-          <h1 className="text-hero mt-6 text-[var(--color-ink)] text-balance">
-            <span className="block overflow-hidden">
+          <h1 className="page-header-hero text-hero mt-6 text-[var(--color-ink)] text-balance">
+            <span className="page-header-reveal">
               <motion.span
                 className="block"
                 initial={{ y: "110%" }}
@@ -55,7 +55,7 @@ export default function PageHeader({
               </motion.span>
             </span>
             {titleAccent && (
-              <span className="block overflow-hidden">
+              <span className="page-header-reveal">
                 <motion.span
                   className="block italic text-[var(--color-synapse)]"
                   initial={{ y: "110%" }}
