@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import Reveal from "@/components/motion/Reveal";
-import MagneticButton from "@/components/motion/MagneticButton";
 import { Icon, type IconKey } from "@/components/motion/Icon";
 import { usePlatform } from "@/hooks/usePlatform";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -33,14 +32,12 @@ const TRUST_PILLS = [
 
 /**
  * DownloadCTA — closing call to action on an ink panel.
- * Detected platform spotlight + three clean download tiles.
+ * Trust chips + three platform download tiles.
  */
 export default function DownloadCTA() {
   const knotRef = useRef<SVGGElement | null>(null);
   const detected = usePlatform();
   const reduced = useReducedMotion();
-  const spotlight = PLATFORMS.find((p) => p.key === detected)!;
-  const spotlightDownload = DOWNLOADS[detected];
 
   useEffect(() => {
     if (reduced) return;
@@ -123,65 +120,9 @@ export default function DownloadCTA() {
             </ul>
           </Reveal>
 
-          {/* Detected-platform spotlight */}
-          <Reveal delay={0.22}>
-            <div className="download-cta-spotlight mt-10 lg:mt-12">
-              <div className="download-cta-spotlight__copy">
-                <p className="text-on-ink-meta">Recommended for your machine</p>
-                <div className="mt-3 flex items-center gap-3">
-                  <span className="download-cta-spotlight__icon" aria-hidden>
-                    <Icon name={PLATFORM_ICONS[detected]} size={22} />
-                  </span>
-                  <div>
-                    <p className="font-display text-[28px] leading-none tracking-[-0.02em] text-on-ink-headline sm:text-[32px]">
-                      {spotlight.name}
-                    </p>
-                    <p className="text-on-ink-body mt-1 text-[15px]">{PLATFORM_SPECS[detected]}</p>
-                  </div>
-                </div>
-                <p className="text-on-ink-meta mt-4">v0.1.1 · ~12 MB · signed + notarized</p>
-              </div>
-
-              <div className="download-cta-spotlight__actions">
-                <MagneticButton strength={0.5} radius={140}>
-                  <a
-                    href={spotlightDownload.primary.href}
-                    className="btn btn-pollen download-cta-spotlight__btn group"
-                  >
-                    <Icon name="download" size={18} strokeWidth={2} />
-                    Download {spotlightDownload.primary.label}
-                  </a>
-                </MagneticButton>
-                <Link
-                  href="/download"
-                  prefetch
-                  className="download-cta-spotlight__secondary group"
-                >
-                  Compare all builds
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    className="transition-transform duration-300 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
-                    aria-hidden
-                  >
-                    <path
-                      d="M3 9L9 3M9 3H4M9 3V8"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-
           {/* All platforms */}
-          <Reveal delay={0.28}>
-            <div className="mt-10 lg:mt-12">
+          <Reveal delay={0.22}>
+            <div className="mt-8">
               <p className="text-on-ink-meta mb-4">All platforms</p>
               <ul className="grid gap-3 sm:grid-cols-3 sm:gap-4">
                 {PLATFORMS.map((p, i) => {
