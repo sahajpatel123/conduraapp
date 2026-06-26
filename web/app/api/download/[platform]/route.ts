@@ -33,31 +33,29 @@ const API_BASE = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 // (e.g., condurad-v0.1.0-darwin-arm64.tar.gz), so we use a
 // prefix-based lookup via the GitHub API.
 const ARTIFACTS: Record<string, string> = {
-  // macOS GUI installers (built by build-gui.sh, no version in name)
+  // macOS GUI installer (built by build-gui.sh, Apple silicon only, no version in name)
   mac: "condura-gui-darwin-arm64.dmg",
-  "mac-intel": "condura-gui-darwin-amd64.dmg",
 
-  // Windows GUI installers
-  windows: "condura-gui-windows-amd64-setup.exe",
-  "windows-portable": "condura-gui-windows-amd64.exe",
+  // Windows GUI artifact (Wails produces a zip, not a signed installer)
+  windows: "condura-gui-windows-amd64.zip",
 
   // Linux packages (GoReleaser nfpms uses underscores, no v prefix)
-  linux: "condurad_0.1.0_linux_amd64.deb",
-  "linux-rpm": "condura-0.1.0-1.x86_64.rpm",
+  linux: "condurad_0.1.1_linux_amd64.deb",
   "linux-appimage": "condura-gui-linux-amd64",
 };
 
 // Daemon/CLI archives use GoReleaser versioned names.
 // We store a prefix and match dynamically from release assets.
+// Note: GoReleaser names use "0.1.1" not "v0.1.1".
 const VERSIONED_PREFIXES: Record<string, string> = {
-  "daemon-mac": "condurad-v",
-  "daemon-mac-intel": "condurad-v",
-  "daemon-windows": "condurad-v",
-  "daemon-linux": "condurad-v",
-  "cli-mac": "condura-cli-v",
-  "cli-mac-intel": "condura-cli-v",
-  "cli-windows": "condura-cli-v",
-  "cli-linux": "condura-cli-v",
+  "daemon-mac": "condurad-",
+  "daemon-mac-intel": "condurad-",
+  "daemon-windows": "condurad-",
+  "daemon-linux": "condurad-",
+  "cli-mac": "condura-cli-",
+  "cli-mac-intel": "condura-cli-",
+  "cli-windows": "condura-cli-",
+  "cli-linux": "condura-cli-",
 };
 
 // Suffix patterns to match the correct OS/arch from versioned names
@@ -75,19 +73,16 @@ const VERSIONED_SUFFIXES: Record<string, string> = {
 // Human-readable filenames for Content-Disposition
 const FILENAMES: Record<string, string> = {
   mac: "condura-installer-mac.dmg",
-  "mac-intel": "condura-installer-mac-intel.dmg",
-  windows: "condura-setup.exe",
-  "windows-portable": "condura-portable.exe",
+  windows: "condura-windows.zip",
   linux: "condura.deb",
-  "linux-rpm": "condura.rpm",
-  "linux-appimage": "condura.AppImage",
+  "linux-appimage": "condura-gui-linux-amd64",
   "daemon-mac": "condura-daemon-mac.tar.gz",
   "daemon-mac-intel": "condura-daemon-mac-intel.tar.gz",
-  "daemon-windows": "condura-daemon-windows.tar.gz",
+  "daemon-windows": "condura-daemon-windows.zip",
   "daemon-linux": "condura-daemon-linux.tar.gz",
   "cli-mac": "condura-cli-mac.tar.gz",
   "cli-mac-intel": "condura-cli-mac-intel.tar.gz",
-  "cli-windows": "condura-cli-windows.tar.gz",
+  "cli-windows": "condura-cli-windows.zip",
   "cli-linux": "condura-cli-linux.tar.gz",
 };
 

@@ -42,7 +42,7 @@ export const PLATFORMS = [
   {
     key: "mac",
     name: "macOS",
-    requirement: "macOS 13+, Apple silicon & Intel",
+    requirement: "macOS 13+, Apple silicon (Intel via Rosetta)",
     artifact: "condura.dmg",
   },
   {

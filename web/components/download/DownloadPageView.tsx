@@ -19,7 +19,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
   ],
   windows: [
-    { title: "Run the installer", desc: "Open the setup file and follow the installer prompts." },
+    { title: "Extract the archive", desc: "Open the zip and run the Condura executable inside." },
     { title: "Choose your hotkey", desc: "Record a shortcut that summons Condura from anywhere." },
     { title: "Approve permissions", desc: "Review each requested capability. Every grant is reversible." },
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
@@ -34,7 +34,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
 
 const VERIFY_COMMANDS: Record<PlatformKey, string> = {
   mac: `shasum -a 256 condura-installer-mac.dmg`,
-  windows: `Get-FileHash condura-setup.exe -Algorithm SHA256`,
+  windows: `Get-FileHash condura-windows.zip -Algorithm SHA256`,
   linux: `sha256sum condura.deb`,
 };
 
@@ -392,7 +392,7 @@ function SetupSection({ selected }: { selected: PlatformKey }) {
             </a>
 
             <div className="mt-9 grid grid-cols-3 gap-3 border-t border-[rgba(20,17,11,0.12)] pt-6">
-              {["Gatekeeper", "Local data", "Signed updates"].map((label) => (
+              {["Gatekeeper", "Local data", "Signed manifest"].map((label) => (
                 <div key={label} className="text-[11px] text-[var(--color-ink-mute)]">
                   <div className="mb-2 h-1.5 w-1.5 rounded-full bg-[var(--color-synapse)]" />
                   {label}

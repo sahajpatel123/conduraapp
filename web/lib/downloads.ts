@@ -19,8 +19,8 @@ export const DOWNLOADS = {
     secondary: { label: "Daemon only", href: `${DOWNLOAD_BASE}/daemon-mac` },
   },
   windows: {
-    primary: { label: "Setup .exe", href: `${DOWNLOAD_BASE}/windows` },
-    secondary: { label: "Portable .exe", href: `${DOWNLOAD_BASE}/windows-portable` },
+    primary: { label: "Windows .zip", href: `${DOWNLOAD_BASE}/windows` },
+    secondary: { label: "Daemon .zip", href: `${DOWNLOAD_BASE}/daemon-windows` },
   },
   linux: {
     primary: { label: ".deb (daemon only)", href: `${DOWNLOAD_BASE}/linux` },

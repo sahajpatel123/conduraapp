@@ -3269,3 +3269,38 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 ### Next steps
 - Commit and push these follow-up fixes to origin/main.
 - Monitor CI until green.
+
+---
+
+## [2026-06-26 19:10 IST] AI Model: kimi-k2.7-code
+**Session ID:** website-download-route-fix
+**Branch:** main
+**Task:** Fix the download proxy route and download page so the central CTA actually resolves to real release artifacts.
+
+### Files modified
+- `web/app/api/download/[platform]/route.ts` — updated artifact names to match v0.1.1 release; removed non-existent `mac-intel` GUI, `windows-portable` exe, and `linux-rpm`; fixed GoReleaser versioned prefixes from `condurad-v` to `condurad-` (no "v"); updated `FILENAMES` for Windows zip and Linux deb.
+- `web/components/download/DownloadPageView.tsx` — Windows install step now says "Extract the archive"; verify command uses `.zip`; trust tile changed from "Signed updates" to "Signed manifest".
+- `web/lib/downloads.ts` — Windows primary label changed to "Windows .zip", secondary to "Daemon .zip".
+- `web/lib/site.ts` — macOS requirement changed to "Apple silicon (Intel via Rosetta)" to match the single arm64 GUI dmg.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Removed download-slug options that point to artifacts that do not exist in the v0.1.1 release, rather than redirecting users to GitHub releases.
+- Kept `linux-appimage` slug even though the artifact is a raw binary, not an AppImage, because changing the public URL would require a coordinated frontend + route change; noted for a future cleanup.
+- Did not rewrite the route to consume `manifest.json` because the current static map is sufficient for v0.1.1 and a dynamic lookup is v0.2.0 polish.
+
+### Verification
+- `curl` HEAD checks against `github.com/.../releases/latest/download/<artifact>` returned 302 for all four primary artifacts (mac dmg, windows zip, linux deb, linux gui binary).
+- GitHub API asset list confirms `condurad-0.1.1-*` and `condura-cli-0.1.1-*` names match the route's new prefixes.
+- `cd web && npm run build` — ✅ 14 routes, 0 errors.
+- `cd web && npm run lint` — ✅ 0 errors, 17 pre-existing warnings.
+- `cd app/web/frontend && npm run check` — ✅ 0 errors, 0 warnings.
+- `go build ./...` and `go vet ./...` — ✅ clean.
+
+### Open questions for next session
+- Should the Linux GUI artifact URL slug change from `linux-appimage` to `linux-gui` since the file is a binary, not an AppImage?
+- Should the download route consume `manifest.json` at runtime to avoid manual artifact-name updates per release?
+
+### Next steps
+- Commit and push to origin/main.
+- Monitor CI until green.
