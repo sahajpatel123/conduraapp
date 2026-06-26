@@ -17,7 +17,6 @@ const NAV_ITEMS = [
 export default function GlobalNav() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const reduced = useReducedMotion();
 
@@ -40,8 +39,6 @@ export default function GlobalNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [reduced]);
-
-  useEffect(() => setMobileOpen(false), [pathname]);
 
   return (
     <motion.nav
@@ -124,29 +121,56 @@ export default function GlobalNav() {
           </Link>
 
           {/* Mobile menu toggle */}
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileOpen}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.06)] md:hidden"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              {mobileOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-            </svg>
-          </button>
+          <MobileMenu />
         </div>
       </div>
+    </motion.nav>
+  );
+}
 
-      {/* ── Mobile panel ── */}
+function MobileMenu() {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Reset menu state whenever the route changes by remounting.
+  return (
+    <MobileMenuPanel
+      key={pathname}
+      open={open}
+      setOpen={setOpen}
+    />
+  );
+}
+
+function MobileMenuPanel({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
+  return (
+    <>
+      <button
+        onClick={() => setOpen(!open)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={open}
+        className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.06)] md:hidden"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          {open ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+        </svg>
+      </button>
+
       <AnimatePresence>
-        {mobileOpen && (
+        {open && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-[rgba(20,17,11,0.35)] backdrop-blur-[2px] md:hidden"
-              onClick={() => setMobileOpen(false)}
+              onClick={() => setOpen(false)}
             />
             <motion.div
               initial={{ opacity: 0, y: -10, scale: 0.97 }}
@@ -160,7 +184,7 @@ export default function GlobalNav() {
                   key={item.href}
                   href={item.href}
                   prefetch
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => setOpen(false)}
                   className="block rounded-2xl px-4 py-3 text-[15px] font-semibold text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
                 >
                   {item.label}
@@ -171,7 +195,7 @@ export default function GlobalNav() {
                 href={SITE.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setMobileOpen(false)}
+                onClick={() => setOpen(false)}
                 className="block rounded-2xl px-4 py-3 text-[15px] font-semibold text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
               >
                 GitHub
@@ -180,7 +204,7 @@ export default function GlobalNav() {
           </>
         )}
       </AnimatePresence>
-    </motion.nav>
+    </>
   );
 }
 

@@ -18,16 +18,16 @@ import { useEffect, useRef, useState } from "react";
  */
 export default function Cursor() {
   const ringRef = useRef<HTMLDivElement | null>(null);
-  const [enabled, setEnabled] = useState(false);
+  const [enabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+      window.matchMedia("(pointer: fine)").matches
+    );
+  });
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    const fine = window.matchMedia("(pointer: fine)").matches;
-    if (prefersReduced || !fine) return;
-    setEnabled(true);
-
+    if (!enabled) return;
     const ring = ringRef.current;
     if (!ring) return;
 
@@ -82,7 +82,7 @@ export default function Cursor() {
       document.removeEventListener("pointerleave", onLeave);
       document.removeEventListener("pointerenter", onEnter);
     };
-  }, []);
+  }, [enabled]);
 
   if (!enabled) return null;
 

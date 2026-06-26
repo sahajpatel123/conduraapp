@@ -156,7 +156,6 @@ export default function BrandSurface() {
         className="absolute inset-0 h-full w-full"
         style={{ width: "100%", height: "100%" }}
       />
-      {/* global thread — one continuous synapse across the whole page */}
       <svg
         ref={threadRef}
         className="absolute inset-0 h-full w-full"

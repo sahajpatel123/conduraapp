@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import PageHeader from "@/components/shell/PageHeader";
 import Reveal from "@/components/motion/Reveal";
-import { EASE_OUT } from "@/lib/motion";
 
 export default function SecurityPage() {
   const [unlocked, setUnlocked] = useState(false);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { SITE, NAV_LINKS } from "@/lib/site";
+import { SITE } from "@/lib/site";
 
 /**
  * Footer — a quiet editorial sign-off. The Condura wordmark set large,

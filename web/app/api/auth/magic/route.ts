@@ -1,7 +1,7 @@
 // POST /api/auth/magic
 //
 // Validates the user's email, generates a one-time magic-link
-// token, stores it in Vercel KV with a 5-minute TTL, and sends
+// token, stores it in Upstash Redis with a 5-minute TTL, and sends
 // the link via Resend. The token is the single-use proof that
 // the user controls the email address; it expires on first
 // use or after 5 minutes, whichever comes first.
@@ -20,14 +20,13 @@
 //
 // KV key format: "magic:<token>". Value: JSON-encoded
 // { email, created_at, redirect_url }. The TTL is enforced
-// by Vercel KV, not by us; if KV is down, the route fails
+// by Upstash Redis, not by us; if Redis is down, the route fails
 // closed (5xx) rather than issuing a never-expiring token.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import {
   generateMagicToken,
   storeMagicToken,
-  hasKV,
   IS_DEV,
 } from '@/lib/kv'
 
@@ -176,7 +175,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 503 }
       )
     }
-  } catch (e) {
+  } catch {
     // Email dispatch failed: the token is still in KV
     // (or dev map) and will expire on its own. Return
     // 503 so the GUI can retry.

@@ -1,25 +1,30 @@
 // Shared KV helper for the Next.js web app.
 //
-// In production we use Vercel KV. In local development (when
-// @vercel/kv is not installed / not configured) we fall back to
-// an in-process Map. The Map is exported as a singleton so that
-// all API routes share the same ephemeral store.
+// In production we use Upstash Redis (the successor to the deprecated
+// Vercel KV). In local development (when Upstash is not configured) we
+// fall back to an in-process Map. The Map is exported as a singleton so
+// that all API routes share the same ephemeral store.
 
 import { randomBytes } from 'node:crypto'
 
 type KV = {
   set: (key: string, value: string, opts?: { ex?: number }) => Promise<unknown>
-  get: (key: string) => Promise<{ value: string } | null>
+  get: (key: string) => Promise<string | null>
   del: (key: string) => Promise<unknown>
 }
 
 let kv: KV | null = null
 
 try {
-  const mod = (await import('@vercel/kv')) as { kv: KV }
-  kv = mod.kv
+  const { Redis } = (await import('@upstash/redis')) as { Redis: typeof import('@upstash/redis').Redis }
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (url && token) {
+    // Redis satisfies our minimal KV contract: set/get/del.
+    kv = new Redis({ url, token }) as KV
+  }
 } catch {
-  // @vercel/kv not installed. Will fall back to the dev store.
+  // @upstash/redis not installed or env vars missing. Will fall back to dev store.
 }
 
 interface DevRecord {
@@ -51,7 +56,7 @@ export function generateMagicToken(): string {
 }
 
 // storeMagicToken persists a magic-link record. Handles both
-// Vercel KV and the dev fallback.
+// Upstash Redis and the dev fallback.
 export async function storeMagicToken(
   token: string,
   value: string,
@@ -65,7 +70,7 @@ export async function storeMagicToken(
       expiresAt: Date.now() + ttlSeconds * 1000,
     })
   } else {
-    throw new Error('Token store not configured. Set KV_URL/KV_REST_API_URL or add @vercel/kv.')
+    throw new Error('Token store not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.')
   }
 }
 
@@ -78,8 +83,7 @@ export async function fetchMagicToken(
   let raw: string | null = null
 
   if (kv) {
-    const v = await kv.get(key)
-    raw = v?.value ?? null
+    raw = (await kv.get(key)) as string | null
   } else if (IS_DEV) {
     const v = devStore.get(key)
     if (v && v.expiresAt > Date.now()) {

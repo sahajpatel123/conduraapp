@@ -48,7 +48,6 @@ export default function TheConductor() {
                 key={act.id}
                 act={act}
                 active={active === i}
-                index={i}
               />
             ))}
           </div>
@@ -127,11 +126,9 @@ function AnimateHeight({ open, children }: { open: boolean; children: React.Reac
 function ActScene({
   act,
   active,
-  index,
 }: {
   act: (typeof ACTS)[number];
   active: boolean;
-  index: number;
 }) {
   return (
     <motion.div
