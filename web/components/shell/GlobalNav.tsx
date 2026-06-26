@@ -18,7 +18,6 @@ export default function GlobalNav() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const reduced = useReducedMotion();
 
@@ -31,7 +30,6 @@ export default function GlobalNav() {
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        setScrolled(y > 24);
         if (y < 80) setHidden(false);
         else if (y > lastY + 6) setHidden(true);
         else if (y < lastY - 6) setHidden(false);
@@ -57,13 +55,7 @@ export default function GlobalNav() {
       aria-label="Primary"
       aria-hidden={hidden}
     >
-      <div
-        className={`relative grid h-[58px] w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden rounded-full px-2.5 sm:px-3 transition-all duration-300 ${
-          scrolled
-            ? "border border-[rgba(20,17,11,0.12)] bg-[rgba(244,239,228,0.82)] backdrop-blur-xl shadow-[0_12px_40px_-18px_rgba(20,17,11,0.25)]"
-            : "border border-transparent bg-transparent"
-        }`}
-      >
+      <div className="relative grid h-[58px] w-full grid-cols-[auto_1fr_auto] items-center overflow-hidden rounded-full border border-transparent bg-transparent px-2.5 sm:px-3">
         {/* ── Wordmark ── */}
         <Link
           href="/"
