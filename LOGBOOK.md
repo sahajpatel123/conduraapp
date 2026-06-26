@@ -3340,3 +3340,21 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 ### Next steps
 - Commit and push to origin/main.
 - Monitor CI until green.
+
+## [2026-06-24] AI Model: minimax-m3
+**Session ID:** production-readiness-tier4plus
+**Task:** The user asked "is everything green? is Condura production-ready? could it deploy itself?" — answer with a single authoritative report.
+**Files modified:** docs/analysis/production-readiness-2026-06-24.md (new, 741 lines, 68 findings).
+**Branch:** main (commit 0f845c1).
+**Decisions made:**
+- **Scope:** Tier 4+ — beyond code audit, into CI/CD + supply chain + operational readiness + cross-platform parity + frontend quality + adversarial safety. 4 parallel agents, then merged + re-verified at file:line level.
+- **Verdict:** Not production-ready for public launch. CI is green (12/12 PR #13, 3/3 main, 47/47 test packages, 0/0 svelte-check, 0/0 golangci-lint) and the binary's safety layer is genuinely good. But the CI/CD pipeline that ships the binary is not production-grade: no branch protection, all 5 GitHub security features disabled, UPDATE_SIGNING_KEY has a fail-open mode in release.yml:197-208 AND release-verify.yml:126-128, install.sh has zero signature verification, no SBOM, no SLSA, no binary code-signing.
+- **12 must-fix items before public launch:** 1 P0 + 11 P1, concentrated in 4 areas: CI/supply-chain (5), frontend a11y (3), safety (3), install hardening (1).
+- **"Could Condura deploy itself?":** Partially. The marketing site can be deployed by the user with Condura driving the browser (real, achievable today, ~30 lines of orchestration). The daemon CANNOT be deployed to the cloud — it would lose all value and break the safety model (no screen, no keyboard, no TCC, no physical kill switch). The honest framing is "Condura can act on the user's behalf, on the user's machine, with the user's physical oversight" — NOT "Condura ships to a cloud server."
+- **Single most important action:** Enable Dependabot + secret scanning + push protection + code scanning on the GitHub repo (5 minutes, free) and add branch protection to main (10 minutes). Both are free, both close the most consequential P0s, neither requires any code change. The security audit flagged Dependabot/secret-scan as F-03 24 hours ago and it is still 100% accurate at HEAD.
+- **Closed beta recommendation:** v0.1.1 is sufficient for a closed beta of ≤50 hands-on macOS testers with an "alpha" label. The 12-item punch list is for public release.
+**Bugs/issues encountered:** None. All 4 agent reports came back clean; re-verified at the file:line level before merging.
+**Verification:** Local: 47/47 test packages, svelte-check 0/0, golangci-lint 0/0, go vet clean. CI: 12/12 PR #13 + 3/3 main runs. The Linux GUI build is green again after the tray_wiring build-tag fix in commit 06feee9. The Windows GUI is built and `strings app/web/web.exe` confirms `OpenQuickPrompt` is present.
+**Open questions for next session:** The 12 must-fix items. Specifically: PR-01 (release.yml fail-open) is a 1-line fix; PR-02 (enable GitHub security features) is 5 minutes; PR-03 (branch protection) is 10 minutes; PR-04 (install.sh signature) is the hardest of the 5 "do today" items.
+**Next steps:** None from this session (this was a read-only audit). The user decides whether to action the 12-item punch list, ship the marketing site to Vercel independently, or proceed with the closed beta.
+---
