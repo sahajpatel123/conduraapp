@@ -13,7 +13,7 @@ import { EASE_OUT } from "@/lib/motion";
 /**
  * HeroSection — minimal opening.
  *
- * Headline in the sky, two breaths of copy, a synapse pulse, two buttons.
+ * Headline in the sky, one line of copy, a synapse pulse, two buttons.
  * The garden does the storytelling; nothing else competes with it.
  */
 export default function HeroSection() {
@@ -51,7 +51,7 @@ export default function HeroSection() {
           </h1>
         </div>
 
-        <motion.div
+        <motion.p
           initial={{ opacity: 0, y: 12, filter: "blur(5px)" }}
           animate={
             inView
@@ -59,15 +59,11 @@ export default function HeroSection() {
               : { opacity: 0, y: 12, filter: "blur(5px)" }
           }
           transition={{ duration: 0.85, ease: EASE_OUT, delay: 0.48 }}
-          className="mt-7 max-w-[46ch] space-y-2"
+          className="text-lead mt-7 max-w-[48ch] text-[var(--color-ink-soft)] text-pretty"
         >
-          <p className="text-lead text-[var(--color-ink-soft)] text-pretty">
-            One hotkey summons every AI tool on your machine.
-          </p>
-          <p className="text-[15px] leading-relaxed tracking-[-0.01em] text-[var(--color-ink-mute)] sm:text-[16px]">
-            Condura conducts them — you stay in control. Free, local, private.
-          </p>
-        </motion.div>
+          One hotkey summons every AI tool on your machine — free, local, and
+          under your control.
+        </motion.p>
 
         <HeroPulse inView={inView} delay={0.62} />
 
