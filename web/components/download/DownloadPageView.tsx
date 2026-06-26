@@ -8,7 +8,7 @@ import { useToast } from "@/context/ToastContext";
 import { useIsland } from "@/context/IslandContext";
 import { usePlatform } from "@/hooks/usePlatform";
 import { DOWNLOADS, RELEASE_TAG } from "@/lib/downloads";
-import { PLATFORMS, SITE, type PlatformKey } from "@/lib/site";
+import { PLATFORMS, type PlatformKey } from "@/lib/site";
 import { EASE_OUT } from "@/lib/motion";
 
 const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
@@ -93,7 +93,6 @@ export default function DownloadPageView() {
         <BuildChooser selected={selected} onSelect={setSelected} onDownload={triggerDownload} detected={detected} />
         <SetupSection selected={selected} />
         <FAQSection />
-        <FinalCTA selected={selected} onDownload={triggerDownload} />
       </PageHeader>
     </div>
   );
@@ -451,53 +450,6 @@ function FAQSection() {
             })}
           </div>
         </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ── Final CTA ── */
-function FinalCTA({
-  selected,
-  onDownload,
-}: {
-  selected: PlatformKey;
-  onDownload: (href: string, label: string) => void;
-}) {
-  const platform = PLATFORMS.find((item) => item.key === selected)!;
-  const current = DOWNLOADS[selected];
-  return (
-    <section className="mt-28">
-      <Reveal>
-        <div className="surface-ink relative overflow-hidden p-8 sm:p-12 lg:p-14">
-          <div className="relative z-10 grid items-end gap-8 lg:grid-cols-[1fr_auto]">
-            <div>
-              <div className="text-mono-label !text-[var(--color-pollen)]">Ready when you are</div>
-              <h2 className="mt-4 max-w-2xl font-display text-[clamp(32px,5vw,56px)] leading-[0.98] tracking-[-0.04em] text-[var(--color-paper)] text-balance">
-                Put your AI tools behind one hotkey.
-              </h2>
-              <p className="mt-5 max-w-xl text-[14px] leading-6 text-[rgba(244,239,228,0.65)]">
-                Condura v0.1.1 for {platform.name}. Free for personal and commercial use.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-              <button
-                type="button"
-                onClick={() => onDownload(current.primary.href, current.primary.label)}
-                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--color-pollen)] px-6 text-[14px] font-semibold text-[var(--color-ink)] transition-all hover:-translate-y-0.5 hover:bg-[var(--color-pollen-deep)] hover:text-[var(--color-paper)]"
-              >
-                <DownloadGlyph size={16} />
-                Download for {platform.name}
-              </button>
-              <a href="/legal" className="inline-flex min-h-11 items-center justify-center text-[12px] text-[rgba(244,239,228,0.5)] transition-colors hover:text-[var(--color-paper)]">
-                Review the EULA
-              </a>
-            </div>
-          </div>
-        </div>
-      </Reveal>
-      <div className="mt-8 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-ink-faint)]">
-        {SITE.name} · Release 0.1.1 · Local-first desktop intelligence
       </div>
     </section>
   );
