@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -13,12 +13,10 @@ import { EASE_OUT } from "@/lib/motion";
 export default function NotFound() {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true });
-  const [mounted, setMounted] = useState(false);
   const pathRef = useRef<SVGPathElement | null>(null);
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!inView) return;
     const p = pathRef.current;
     if (!p) return;
     const len = p.getTotalLength();
@@ -27,7 +25,7 @@ export default function NotFound() {
     p.getBoundingClientRect();
     p.style.transition = "stroke-dashoffset 2.6s cubic-bezier(0.22,1,0.36,1)";
     p.style.strokeDashoffset = "0";
-  }, [mounted]);
+  }, [inView]);
 
   return (
     <div ref={ref} className="surface-paper relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">

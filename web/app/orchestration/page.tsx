@@ -27,15 +27,17 @@ export default function OrchestrationPage() {
       { text: "[SYS] commit successful. hash: 8f4a2b1", tone: "sys" },
     ];
     let i = 0;
-    const id = setInterval(() => {
-      if (i < messages.length) {
-        setLogs((prev) => [...prev, messages[i]]);
-        i++;
-      } else {
-        clearInterval(id);
+    const id = window.setInterval(() => {
+      if (i >= messages.length) {
+        window.clearInterval(id);
+        return;
       }
+      const entry = messages[i];
+      i += 1;
+      setLogs((prev) => [...prev, entry]);
+      if (i >= messages.length) window.clearInterval(id);
     }, 780);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, []);
 
   return (
@@ -69,7 +71,9 @@ export default function OrchestrationPage() {
               </span>
             </div>
             <div className="relative h-[400px] overflow-y-auto p-6 font-mono text-[13px] leading-relaxed">
-              {logs.map((log, i) => (
+              {logs.map((log, i) => {
+                if (!log?.text) return null;
+                return (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }}
@@ -81,7 +85,8 @@ export default function OrchestrationPage() {
                   </span>
                   {log.text}
                 </motion.div>
-              ))}
+                );
+              })}
               {logs.length < 14 && (
                 <motion.div
                   animate={{ opacity: [1, 0] }}

@@ -326,13 +326,12 @@ function useTypewriter(text: string, speed = 30) {
   const [out, setOut] = useState("");
   useEffect(() => {
     let i = 0;
-    setOut("");
-    const id = setInterval(() => {
+    const id = window.setInterval(() => {
       i += 1;
       setOut(text.slice(0, i));
-      if (i >= text.length) clearInterval(id);
+      if (i >= text.length) window.clearInterval(id);
     }, speed);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, [text, speed]);
   return out;
 }

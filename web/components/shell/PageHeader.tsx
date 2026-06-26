@@ -1,9 +1,8 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import GlobalNav from "@/components/shell/GlobalNav";
 import { motion, useInView } from "motion/react";
-import { useRef, useEffect, useState } from "react";
 import { EASE_OUT } from "@/lib/motion";
 
 /**
@@ -26,8 +25,6 @@ export default function PageHeader({
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "-10%" });
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   return (
     <div className="relative min-h-screen w-full">
@@ -87,7 +84,7 @@ export default function PageHeader({
           )}
 
           {/* self-drawing thread divider */}
-          <ThreadDivider active={mounted && inView} />
+          <ThreadDivider active={inView} />
         </div>
 
         {children}

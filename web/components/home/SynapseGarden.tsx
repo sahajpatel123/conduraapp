@@ -28,19 +28,24 @@ export default function SynapseGarden({
   const hillsRef = useRef<SVGGElement | null>(null);
   const treeRef = useRef<SVGGElement | null>(null);
 
-  // Stable random pollen positions
+  // Stable pollen positions (deterministic — no Math.random during render)
   const pollen = useMemo(
-    () =>
-      Array.from({ length: 14 }, (_, i) => ({
+    () => {
+      const rand = (seed: number) => {
+        const x = Math.sin(seed * 12.9898) * 43758.5453;
+        return x - Math.floor(x);
+      };
+      return Array.from({ length: 14 }, (_, i) => ({
         id: i,
-        left: 4 + Math.random() * 92,
-        top: 50 + Math.random() * 40,
-        delay: Math.random() * 8,
-        dur: 9 + Math.random() * 7,
-        size: 2 + Math.random() * 3,
-        dx: (Math.random() - 0.5) * 60,
-        dy: -80 - Math.random() * 80,
-      })),
+        left: 4 + rand(i * 4 + 1) * 92,
+        top: 50 + rand(i * 4 + 2) * 40,
+        delay: rand(i * 4 + 3) * 8,
+        dur: 9 + rand(i * 4 + 4) * 7,
+        size: 2 + rand(i * 4 + 5) * 3,
+        dx: (rand(i * 4 + 6) - 0.5) * 60,
+        dy: -80 - rand(i * 4 + 7) * 80,
+      }));
+    },
     []
   );
 
@@ -258,7 +263,7 @@ export default function SynapseGarden({
         <g stroke="#3a6a48" strokeWidth="0.18" opacity="0.6" strokeLinecap="round">
           {Array.from({ length: 26 }).map((_, i) => {
             const x = 2 + i * 3.8;
-            const h = 1 + Math.random() * 1.4;
+            const h = 1 + ((Math.sin(i * 2.7) + 1) / 2) * 1.4;
             return (
               <path key={i} d={`M ${x} 95 q 0.4 -${h} 0.8 -${h + 0.4}`} fill="none" />
             );

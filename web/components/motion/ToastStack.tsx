@@ -26,7 +26,10 @@ export default function ToastStack() {
       aria-relevant="additions"
     >
       <AnimatePresence initial={false}>
-        {toasts.map((toast) => (
+        {toasts.map((toast) => {
+          if (!toast?.title) return null;
+          const tone = toast.tone ?? "default";
+          return (
           <motion.div
             key={toast.id}
             layout
@@ -34,11 +37,11 @@ export default function ToastStack() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 24, scale: 0.95 }}
             transition={springSnappy}
-            className={`pointer-events-auto rounded-xl border bg-[var(--color-paper-warm)] p-3 shadow-[var(--shadow-card)] backdrop-blur-xl ${toneBorder[toast.tone ?? "default"]}`}
+            className={`pointer-events-auto rounded-xl border bg-[var(--color-paper-warm)] p-3 shadow-[var(--shadow-card)] backdrop-blur-xl ${toneBorder[tone]}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-2.5">
-                <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[toast.tone ?? "default"]}`} />
+                <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[tone]}`} />
                 <div>
                   <p className="text-sm font-medium text-[var(--color-ink)]">{toast.title}</p>
                   {toast.description && (
@@ -56,7 +59,8 @@ export default function ToastStack() {
               </button>
             </div>
           </motion.div>
-        ))}
+          );
+        })}
       </AnimatePresence>
     </div>
   );

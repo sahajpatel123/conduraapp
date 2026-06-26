@@ -20,9 +20,10 @@ export default function KbdHint() {
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const idleTimer = useRef<number | null>(null);
-  const lastActivity = useRef<number>(Date.now());
+  const lastActivity = useRef(0);
 
   useEffect(() => {
+    lastActivity.current = Date.now();
     if (dismissed) return;
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;

@@ -28,7 +28,9 @@ export default function Cursor() {
     if (prefersReduced || !fine) return;
     setEnabled(true);
 
-    const ring = ringRef.current!;
+    const ring = ringRef.current;
+    if (!ring) return;
+
     let tx = window.innerWidth / 2;
     let ty = window.innerHeight / 2;
     let cx = tx;
@@ -43,7 +45,7 @@ export default function Cursor() {
 
     const onOver = (e: PointerEvent) => {
       const target = e.target as Element | null;
-      if (!target) return;
+      if (!target || !ring) return;
       const interactive = target.closest(
         'a, button, [role="button"], input, textarea, select, .clickable, [data-cursor="hover"]'
       );
@@ -59,6 +61,7 @@ export default function Cursor() {
     };
 
     const loop = () => {
+      if (!ring) return;
       // Lerp the halo toward the pointer — a soft, lagging ring
       cx += (tx - cx) * 0.16;
       cy += (ty - cy) * 0.16;

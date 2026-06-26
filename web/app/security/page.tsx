@@ -21,12 +21,17 @@ export default function SecurityPage() {
       { text: "actor=condura    action=WRITE    resource=package.json", tone: "write" },
     ];
     let i = 0;
-    const id = setInterval(() => {
-      setAuditLogs((prev) => [...prev, logs[i]]);
-      i++;
-      if (i >= logs.length) clearInterval(id);
+    const id = window.setInterval(() => {
+      if (i >= logs.length) {
+        window.clearInterval(id);
+        return;
+      }
+      const entry = logs[i];
+      i += 1;
+      setAuditLogs((prev) => [...prev, entry]);
+      if (i >= logs.length) window.clearInterval(id);
     }, 1100);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, []);
 
   return (
@@ -118,12 +123,15 @@ export default function SecurityPage() {
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgba(244,239,228,0.5)]">condura_audit.sqlite</span>
               </div>
               <div className="h-[340px] overflow-y-auto p-5 font-mono text-[12.5px] leading-[1.85]">
-                {auditLogs.map((log, idx) => (
+                {auditLogs.map((log, idx) => {
+                  if (!log?.text) return null;
+                  return (
                   <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="mb-1.5">
                     <span className="mr-3 text-[rgba(244,239,228,0.35)]">{String(idx + 1).padStart(4, "0")}</span>
                     <span className={toneClass(log.tone)}>{log.text}</span>
                   </motion.div>
-                ))}
+                  );
+                })}
                 {auditLogs.length < 7 && (
                   <motion.span animate={{ opacity: [1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="inline-block h-4 w-2 bg-[var(--color-paper)]" />
                 )}

@@ -23,8 +23,6 @@ export default function ManifestoPage() {
 
 /* ════════════ 1. HERO ════════════ */
 function ManifestoHero() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
   const eyeRef = useRef<SVGGElement | null>(null);
 
   useEffect(() => {
@@ -73,7 +71,7 @@ function ManifestoHero() {
       </div>
 
       <div className="relative z-10 max-w-4xl text-center">
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 30 }} transition={{ duration: 1, ease: EASE_OUT }}>
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: EASE_OUT }}>
           <p className="text-eyebrow mb-8">— Manifesto</p>
           <h1 className="text-hero text-[var(--color-ink)] text-balance">
             Your computer should work
@@ -87,7 +85,7 @@ function ManifestoHero() {
 
         <motion.div
           initial={{ opacity: 0 }}
-          animate={{ opacity: mounted ? 1 : 0 }}
+          animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
           className="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2"
         >
