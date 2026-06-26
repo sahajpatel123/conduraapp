@@ -19,7 +19,7 @@ export const DOWNLOADS = {
     secondary: { label: "Daemon only", href: `${DOWNLOAD_BASE}/daemon-mac` },
   },
   windows: {
-    primary: { label: "Windows .zip", href: `${DOWNLOAD_BASE}/windows` },
+    primary: { label: "CLI + TUI .zip", href: `${DOWNLOAD_BASE}/windows` },
     secondary: { label: "Daemon .zip", href: `${DOWNLOAD_BASE}/daemon-windows` },
   },
   linux: {

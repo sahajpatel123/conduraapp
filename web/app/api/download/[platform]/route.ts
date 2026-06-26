@@ -36,8 +36,8 @@ const ARTIFACTS: Record<string, string> = {
   // macOS GUI installer (built by build-gui.sh, Apple silicon only, no version in name)
   mac: "condura-gui-darwin-arm64.dmg",
 
-  // Windows GUI artifact (Wails produces a zip, not a signed installer)
-  windows: "condura-gui-windows-amd64.zip",
+  // Windows CLI+TUI archive (no GUI overlay in v0.1.1)
+  windows: "condura-cli-0.1.1-windows-amd64.zip",
 
   // Linux packages (GoReleaser nfpms uses underscores, no v prefix)
   linux: "condurad_0.1.1_linux_amd64.deb",
@@ -73,7 +73,7 @@ const VERSIONED_SUFFIXES: Record<string, string> = {
 // Human-readable filenames for Content-Disposition
 const FILENAMES: Record<string, string> = {
   mac: "condura-installer-mac.dmg",
-  windows: "condura-windows.zip",
+  windows: "condura-cli-windows.zip",
   linux: "condura.deb",
   "linux-appimage": "condura-gui-linux-amd64",
   "daemon-mac": "condura-daemon-mac.tar.gz",

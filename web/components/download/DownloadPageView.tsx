@@ -19,10 +19,10 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
   ],
   windows: [
-    { title: "Extract the archive", desc: "Open the zip and run the Condura executable inside." },
-    { title: "Choose your hotkey", desc: "Record a shortcut that summons Condura from anywhere." },
-    { title: "Approve permissions", desc: "Review each requested capability. Every grant is reversible." },
-    { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
+    { title: "Extract the archive", desc: "Open the zip to find the condura CLI and condura-tui." },
+    { title: "Start the daemon", desc: "Run condurad or let the CLI start it for you." },
+    { title: "Open the TUI", desc: "Run condura-tui for the terminal interface." },
+    { title: "Run your first task", desc: "Choose a model and send a message. GUI overlay is v0.2.0." },
   ],
   linux: [
     { title: "Install the package", desc: "Install the .deb package, or choose the CLI tarball below." },
@@ -34,7 +34,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
 
 const VERIFY_COMMANDS: Record<PlatformKey, string> = {
   mac: `shasum -a 256 condura-installer-mac.dmg`,
-  windows: `Get-FileHash condura-windows.zip -Algorithm SHA256`,
+  windows: `Get-FileHash condura-cli-windows.zip -Algorithm SHA256`,
   linux: `sha256sum condura.deb`,
 };
 

@@ -358,7 +358,7 @@ const ACTS = [
     numeral: "01",
     title: "Summon it with one hotkey.",
     body:
-      "On macOS and Windows, pick a combo on first run. Tap it anywhere and the overlay appears. Screen-aware context is on the v0.2.0 roadmap.",
+      "On macOS, pick a combo on first run. Tap it anywhere and the overlay appears. Windows and Linux use the terminal UI today; GUI overlays are v0.2.0.",
   },
   {
     id: "overlay" as const,

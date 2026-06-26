@@ -3304,3 +3304,39 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 ### Next steps
 - Commit and push to origin/main.
 - Monitor CI until green.
+
+---
+
+## [2026-06-26 19:22 IST] AI Model: kimi-k2.7-code
+**Session ID:** website-windows-cli-only-fix
+**Branch:** main
+**Task:** Correct the Windows story after the final analysis revealed v0.1.1 ships no Windows GUI overlay.
+
+### Files modified
+- `web/components/home/HeroSection.tsx` — hero now says macOS GUI overlay today; Windows/Linux use terminal UI; GUI overlays are v0.2.0.
+- `web/components/home/TheConductor.tsx` — ACT 01 body scoped to macOS overlay; Windows/Linux TUI noted.
+- `web/lib/site.ts` — Windows platform requirement updated to "Windows 10+, x64 (CLI + TUI today; GUI v0.2.0)"; artifact renamed to `condura-cli-windows.zip`.
+- `web/lib/downloads.ts` — Windows primary label changed to "CLI + TUI .zip".
+- `web/app/api/download/[platform]/route.ts` — Windows slug now proxies the real `condura-cli-0.1.1-windows-amd64.zip`; user-facing filename updated.
+- `web/components/download/DownloadPageView.tsx` — Windows install steps rewritten for CLI/TUI; verify command uses the CLI zip name.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Chose to serve the Windows CLI+TUI zip as the primary Windows artifact because it is the only user-facing Windows binary in the v0.1.1 release.
+- Kept Windows in the platform selector rather than hiding it, because the CLI/TUI is a real, usable artifact.
+- Did not hide the macOS-only GUI reality; the hero now says so explicitly.
+
+### Verification
+- `curl -s -o /dev/null -w "%{http_code}" https://github.com/sahajpatel123/conduraapp/releases/latest/download/condura-cli-0.1.1-windows-amd64.zip` returned 302.
+- `cd web && npm run build` — ✅ 14 routes, 0 errors.
+- `cd web && npm run lint` — ✅ 0 errors, 17 pre-existing warnings.
+- `cd app/web/frontend && npm run check` — ✅ 0 errors, 0 warnings.
+- `go build ./... && go vet ./...` — ✅ clean.
+
+### Open questions for next session
+- Should the Windows download page eventually offer separate `condura` CLI and `condura-tui` downloads, or is the combined zip sufficient?
+- When the Wails Windows GUI build is ready, revert these changes for Windows.
+
+### Next steps
+- Commit and push to origin/main.
+- Monitor CI until green.

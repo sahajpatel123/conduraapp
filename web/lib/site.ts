@@ -48,8 +48,8 @@ export const PLATFORMS = [
   {
     key: "windows",
     name: "Windows",
-    requirement: "Windows 10+, x64",
-    artifact: "condura-setup.exe",
+    requirement: "Windows 10+, x64 (CLI + TUI today; GUI v0.2.0)",
+    artifact: "condura-cli-windows.zip",
   },
   {
     key: "linux",
