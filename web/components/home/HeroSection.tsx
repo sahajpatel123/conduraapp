@@ -35,16 +35,6 @@ export default function HeroSection() {
       <SynapseGarden />
       <HeroThread />
 
-      {/* Top eyebrow */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-        transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.1 }}
-        className="absolute left-1/2 top-[18vh] z-10 -translate-x-1/2 px-6 text-center"
-      >
-        <span className="text-eyebrow">Condura · v0.1.1 · Free forever</span>
-      </motion.div>
-
       {/* Headline block — set into the sky */}
       <div className="absolute inset-x-0 top-[26vh] z-10 mx-auto flex max-w-[1100px] flex-col items-center px-6 text-center">
         <h1 className="text-hero text-[var(--color-ink)] text-balance">
