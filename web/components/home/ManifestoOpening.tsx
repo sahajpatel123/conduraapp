@@ -61,7 +61,7 @@ export default function ManifestoOpening() {
             other.{" "}
             <span className="text-[var(--color-ink-mute)]">
               They live in separate tabs, separate subscriptions, separate
-              silos — and none of them can touch your computer.
+              silos — and few can actually touch your computer.
             </span>
           </Reveal>
 
@@ -82,11 +82,11 @@ export default function ManifestoOpening() {
           </svg>
 
           <Reveal delay={0.15} as="p" className="text-lead text-[var(--color-ink-soft)] text-pretty">
-            Condura is the missing conductor. One hotkey opens it. It sees
-            your screen, clicks, types, and delegates long work to the AI
-            CLIs you already have — Claude Code, Codex, Antigravity, Ollama,
-            and the rest. It costs nothing, runs on your machine, and every
-            destructive move stops at a real human &ldquo;allow.&rdquo;
+            Condura is the missing conductor. On macOS and Windows, one
+            hotkey opens a local chat overlay. Computer-use actions reach a
+            gated, audited pipeline when you explicitly invoke them. Sub-agent
+            delegation works for single spawns today; parallel orchestration
+            is v0.2.0.
           </Reveal>
 
           <Reveal delay={0.3} as="p" className="text-body mt-6 text-[var(--color-ink-mute)] max-w-[58ch]">

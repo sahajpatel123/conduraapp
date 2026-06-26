@@ -5,15 +5,15 @@ import PageHeader from "@/components/shell/PageHeader";
 import Reveal from "@/components/motion/Reveal";
 
 const LLM_PROVIDERS = [
-  { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key or Claude Pro OAuth*" },
-  { name: "OpenAI", models: "GPT-5.5, o3, o4-mini, gpt-image-2", auth: "API key or ChatGPT Plus OAuth*" },
-  { name: "Google", models: "Gemini 3.5 Flash, 2.5 Pro", auth: "API key or Google AI Pro OAuth*" },
-  { name: "xAI", models: "Grok-4.3, Grok-4.3-fast", auth: "API key or SuperGrok OAuth*" },
-  { name: "Mistral", models: "Mistral Large 3, Codestral, Pixtral", auth: "API key" },
+  { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key (Claude Pro OAuth: v0.2.0)" },
+  { name: "OpenAI", models: "GPT-5.5, o3, o4-mini", auth: "API key (ChatGPT Plus OAuth: v0.2.0)" },
+  { name: "Google", models: "Gemini 3.5 Flash, 3.1 Pro", auth: "API key (Google AI Pro OAuth: v0.2.0)" },
+  { name: "xAI", models: "Grok-4.3, Grok-4.3-fast", auth: "API key (SuperGrok OAuth: v0.2.0)" },
+  { name: "Mistral", models: "Mistral Large 3, Codestral", auth: "API key" },
   { name: "DeepSeek", models: "DeepSeek-V4, R1", auth: "API key" },
   { name: "OpenRouter", models: "300+ models", auth: "API key" },
   { name: "Together", models: "Llama, Qwen, Mixtral", auth: "API key" },
-  { name: "Groq", models: "Llama 4, Mixtral, Whisper", auth: "API key" },
+  { name: "Groq", models: "Llama 4 (70B, 8B)", auth: "API key" },
   { name: "Fireworks", models: "Llama, Qwen, DeepSeek", auth: "API key" },
   { name: "Local", models: "Ollama, LM Studio, vLLM, llama.cpp", auth: "None — runs locally" },
   { name: "Custom", models: "Any OpenAI-compatible endpoint", auth: "API key + base URL" },
@@ -36,7 +36,7 @@ export default function EcosystemPage() {
       eyebrow="Integrations"
       title="Works with every AI"
       titleAccent="you already use."
-      description={`Condura doesn't replace your tools — it conducts them. One hotkey routes work across ${LLM_PROVIDERS.length} LLM providers and ${AGENT_CLIS.length} agent CLIs. Bring your own keys, your own models, your own workflow.`}
+      description={`Condura doesn't replace your tools — it conducts them. One hotkey opens Condura. Today you use one configured provider at a time. Routing across providers and CLIs is v0.2.0.`}
     >
       {/* ── LLM provider grid ── */}
       <section className="mt-8">
@@ -44,7 +44,7 @@ export default function EcosystemPage() {
           <p className="text-eyebrow mb-4">— AI providers</p>
           <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Connect what you have.</h2>
           <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
-            Use API keys or, where supported, your existing subscriptions. Condura never stores keys on a server — they stay encrypted on your machine.
+            Use API keys today. Subscription OAuth is on the v0.2.0 roadmap.
           </p>
         </Reveal>
 
@@ -75,7 +75,7 @@ export default function EcosystemPage() {
           <p className="text-eyebrow mb-4">— Agent CLIs</p>
           <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Sub-agents on your $PATH.</h2>
           <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
-            Condura auto-detects every agent CLI you have installed and spawns them as sub-agents. Each runs in its own sandbox with model isolation. Missing a CLI? It simply doesn&apos;t appear — no installs forced.
+            Condura auto-detects every agent CLI you have installed and can spawn them as sub-agents. Each spawn is gated by the deterministic Gatekeeper and its output is sanitized before execution. Missing a CLI? It simply doesn&apos;t appear — no installs forced.
           </p>
         </Reveal>
 
@@ -104,18 +104,18 @@ export default function EcosystemPage() {
       <section className="mt-28">
         <Reveal>
           <div className="mb-12 text-center">
-            <p className="text-eyebrow mb-3">— Routing</p>
+            <p className="text-eyebrow mb-3">— Routing · v0.2.0</p>
             <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] mx-auto text-balance">Every model. One interface.</h2>
             <p className="text-lead mt-5 max-w-2xl mx-auto text-[var(--color-ink-soft)] text-pretty">
-              The hybrid router learns which model works best for each task. Start with the cheapest, escalate on failure, bias toward what has worked before.
+              In v0.1.1, you pick one configured provider and Condura uses it for every request. The hybrid router — cheap-first cascade, learned memory bias, per-task-type overrides — is on the v0.2.0 roadmap.
             </p>
           </div>
         </Reveal>
         <div className="grid gap-5 md:grid-cols-3">
           {[
-            { title: "Cascade", desc: "Try the cheapest model first. If it fails the quality gate, escalate to the next tier. No wasted spend on trivial tasks.", icon: "cascade" },
-            { title: "Memory bias", desc: "After enough samples, the router learns which model succeeds most for your specific coding, writing, or research patterns.", icon: "memory" },
-            { title: "User override", desc: "Pin specific providers to specific task types. Claude for code, Gemini for research, local for drafts — your preference wins.", icon: "lock" },
+            { title: "Cascade", desc: "Coming in v0.2.0: try the cheapest model first, escalate on failure. The algorithm and persistence are specified in docs/architecture/01-router.md.", icon: "cascade" },
+            { title: "Memory bias", desc: "Coming in v0.2.0: after enough samples, the router learns which model succeeds most for your specific patterns. Today's daemon uses the model you configured.", icon: "memory" },
+            { title: "User override", desc: "Today: pick a single provider in Settings. Coming in v0.2.0: pin specific providers to specific task types — Claude for code, Gemini for research, local for drafts.", icon: "lock" },
           ].map((card, i) => (
             <Reveal key={card.title} delay={i * 0.1}>
               <div className="surface-card h-full p-7">

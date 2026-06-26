@@ -40,9 +40,9 @@ export default function TheRoster() {
         <p className="text-eyebrow mb-4">— The roster</p>
       </Reveal>
       <div className="grid gap-6 md:grid-cols-[1fr_1.4fr] md:gap-16">
-        <WordReveal as="h2" text="It conducts the tools you already have." className="text-display text-[var(--color-ink)] text-balance" />
+        <WordReveal as="h2" text="The tools Condura can connect to as v0.2.0 wiring lands." className="text-display text-[var(--color-ink)] text-balance" />
         <Reveal delay={0.1} as="p" className="text-lead text-[var(--color-ink-soft)] max-w-[52ch] text-pretty md:pt-3">
-          Condura auto-detects the AI CLIs in your <span className="font-mono text-[var(--color-ink)]">$PATH</span> and the API keys you give it. The ones you don&apos;t have simply don&apos;t appear. No installs forced. No vendor lock-in. Bring your own everything.
+          Condura auto-detects the AI CLIs in your <span className="font-mono text-[var(--color-ink)]">$PATH</span> and the API keys you give it. The ones you don&apos;t have simply don&apos;t appear. Routing work across them is coming in v0.2.0.
         </Reveal>
       </div>
 

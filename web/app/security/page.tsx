@@ -101,8 +101,8 @@ export default function SecurityPage() {
       <div className="mt-20 grid gap-5 md:grid-cols-3">
         {[
           { title: "Deterministic rules", desc: "Security rules are hard-coded, not written in a prompt. A model cannot talk the Gatekeeper into dropping its guard — it isn't a model." },
-          { title: "Air-gapped memory", desc: "Your vector store, embeddings, and workspace memory live on your local SSD. No proprietary code is ever indexed in the cloud." },
-          { title: "Four kill switches", desc: "A hard hotkey, a watchdog timer, a network guard that blocks all non-allow-listed egress, and a menu-bar kill button. The agent can disable none of them." },
+          { title: "Air-gapped memory", desc: "Your workspace memory and skills live on your local SSD. No proprietary code is ever indexed in the cloud. (Vector embeddings are on the v0.2.0 roadmap.)" },
+          { title: "Three kill switches", desc: "Three kill switches: a hard hotkey, a watchdog timer, and a network guard. The guard is in-process in v0.1.x; a hard separate-process guard is planned for v0.2.0. The agent cannot disable the hotkey or watchdog." },
         ].map((feat, i) => (
           <Reveal key={feat.title} delay={i * 0.1}>
             <div className="surface-card h-full p-7">
@@ -145,7 +145,7 @@ export default function SecurityPage() {
               Trust requires verification. Every action Condura takes — from reading a file to spawning a subprocess to hitting an API — is logged locally in an SQLite database.
             </p>
             <p className="text-body mt-4 max-w-[48ch] text-[var(--color-ink-mute)]">
-              These logs are HMAC-chained. If you ever need to know exactly what the agent did while you were away, the proof is mathematically guaranteed to be accurate and untampered.
+              These logs are HMAC-chained and append-only. If the key on your machine stays secret, the log is tamper-evident.
             </p>
           </div>
         </div>

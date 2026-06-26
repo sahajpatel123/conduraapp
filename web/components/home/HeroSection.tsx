@@ -61,8 +61,9 @@ export default function HeroSection() {
           transition={{ duration: 0.85, ease: EASE_OUT, delay: 0.48 }}
           className="text-lead mt-7 max-w-[48ch] text-[var(--color-ink-soft)] text-pretty"
         >
-          One hotkey summons every AI tool on your machine — free, local, and
-          under your control.
+          A local chat overlay on macOS and Windows — free, private, and under
+          your control. Linux uses the terminal UI today; global hotkey support
+          is v0.2.0.
         </motion.p>
 
         <HeroPulse inView={inView} delay={0.62} />

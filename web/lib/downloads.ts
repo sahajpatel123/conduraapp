@@ -23,13 +23,15 @@ export const DOWNLOADS = {
     secondary: { label: "Portable .exe", href: `${DOWNLOAD_BASE}/windows-portable` },
   },
   linux: {
-    primary: { label: ".deb package", href: `${DOWNLOAD_BASE}/linux` },
-    secondary: { label: "CLI tarball", href: `${DOWNLOAD_BASE}/cli-linux` },
+    primary: { label: ".deb (daemon only)", href: `${DOWNLOAD_BASE}/linux` },
+    secondary: { label: "GUI binary", href: `${DOWNLOAD_BASE}/linux-appimage` },
   },
 } as const satisfies Record<
   PlatformKey,
   { primary: { label: string; href: string }; secondary: { label: string; href: string } }
 >;
 
+// NOTE: This release tag is manually pinned and must be bumped for each
+// release. The download API routes derive the artifact names from it.
 export const RELEASE_TAG =
-  "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0";
+  "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.1";
