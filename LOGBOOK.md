@@ -3230,3 +3230,42 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 - Commit and push to origin/main.
 - Monitor GitHub Actions until all checks are green.
 - Run final production-readiness analysis.
+
+---
+
+## [2026-06-26 18:55 IST] AI Model: kimi-k2.7-code
+**Session ID:** website-honesty-and-ci-verification-follow-up
+**Branch:** main
+**Task:** Close the remaining marketing-site drift identified in the final production-readiness analysis.
+
+### Files modified
+- `web/components/home/TheArmor.tsx` — qualified twin-snapshot claim: "engine built; wiring into every click is v0.2.0".
+- `web/lib/site.ts` — changed `description` from "summons every AI tool" to "opens the AI tools you have installed".
+- `web/app/layout.tsx` — changed metadata title/openGraph title from "Every AI you own" to "Your AI tools".
+- `web/app/ecosystem/page.tsx` — changed page title from "Works with every AI" to "Works with the AI".
+- `web/components/orchestration/OrchestrationScrollStage.tsx` — qualified Phase 2 "Parallel fan-out" as v0.2.0.
+- `web/app/orchestration/page.tsx` — changed "highly-concurrent local SQLite database" to "local SQLite database in WAL mode".
+- `web/components/home/ManifestoOpening.tsx` — softened "finally work together" to "with real orchestration coming in v0.2.0".
+- `web/app/api/auth/magic/route.ts` — production without `RESEND_API_KEY` now returns HTTP 503 instead of 200 with `sent: false`.
+- `LOGBOOK.md` — this entry.
+
+### Decisions made
+- Tightened the Resend production-fallback behavior because returning HTTP 200 with `sent: false` would mislead the GUI into showing a success message when no email was sent.
+- Kept the site deployable to Vercel despite the `@vercel/kv` deprecation; migrating to Upstash Redis is a v0.2.0 task.
+- Did not patch the transitive `postcss` moderate vulnerability because it requires a Next.js update and is not exploitable on a static marketing site with no user-generated CSS.
+
+### Bugs / issues encountered
+- None.
+
+### Verification
+- `cd web && npm run build` — ✅ 14 static routes, 0 errors.
+- `cd web && npm run lint` — ✅ 0 errors, 17 pre-existing warnings (all in `web/components/shell/`).
+- `cd app/web/frontend && npm run check` — ✅ 0 errors, 0 warnings.
+
+### Open questions for next session
+- Should we migrate `web/app/api/auth/*` from deprecated `@vercel/kv` to Upstash Redis now, or defer to v0.2.0?
+- Should we update Next.js to a version that patches the `postcss` advisory?
+
+### Next steps
+- Commit and push these follow-up fixes to origin/main.
+- Monitor CI until green.

@@ -7,7 +7,7 @@ export const SITE = {
   name: "Condura",
   tagline: "Your AI tools, one hotkey. Free. Local. Private.",
   description:
-    "A free desktop app that summons every AI tool on your computer with one hotkey. No account needed, no data leaves your machine.",
+    "A free desktop app that opens the AI tools you have installed with one hotkey. No account needed, no data leaves your machine.",
   url: "https://condura.app",
   github: "https://github.com/sahajpatel123/conduraapp",
   discord: "https://condura.app/discord",

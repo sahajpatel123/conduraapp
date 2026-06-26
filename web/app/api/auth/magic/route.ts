@@ -168,6 +168,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // The user can copy it from the dev server console.
       console.log(`[magic-link] ${email} → ${link}`)
       sent = true
+    } else {
+      // Production without Resend: email cannot be sent.
+      // Return 503 so the GUI can show a proper error.
+      return NextResponse.json(
+        { error: 'email provider not configured' },
+        { status: 503 }
+      )
     }
   } catch (e) {
     // Email dispatch failed: the token is still in KV

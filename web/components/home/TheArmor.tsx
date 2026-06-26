@@ -112,7 +112,7 @@ export default function TheArmor() {
             <ul className="space-y-3">
               {[
                 "HMAC-chained audit log of every action",
-                "Twin-snapshot verification before every click",
+                "Twin-snapshot verification engine built; wiring it into every click is v0.2.0",
                 "3-layer kill switch you control",
                 "Deterministic Gatekeeper — never a model",
               ].map((x) => (

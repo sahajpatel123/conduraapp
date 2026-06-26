@@ -58,7 +58,7 @@ export default function OrchestrationPage() {
             </h2>
             <p className="text-lead mx-auto mt-5 max-w-2xl text-pretty text-[var(--color-ink-soft)]">
               Agents don&apos;t just talk to each other in a vacuum. Every thought, state change, and
-              action is written to a highly-concurrent local SQLite database. This creates a
+              action is written to a local SQLite database in WAL mode. This creates a
               permanent, auditable state.
             </p>
           </div>

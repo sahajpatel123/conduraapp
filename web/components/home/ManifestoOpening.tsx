@@ -91,8 +91,8 @@ export default function ManifestoOpening() {
 
           <Reveal delay={0.3} as="p" className="text-body mt-6 text-[var(--color-ink-mute)] max-w-[58ch]">
             Not a cloud. Not a subscription. Not another tab. A guest on your
-            computer that makes the tools you already pay for finally work
-            together.
+            computer that puts the tools you already pay for behind one hotkey —
+            with real orchestration coming in v0.2.0.
           </Reveal>
         </div>
 

@@ -21,8 +21,8 @@ const PHASES = [
   {
     id: "fan-out",
     label: "Phase 2",
-    title: "Parallel fan-out",
-    body: "Condura spawns lightweight sub-agents for each task, running them concurrently to slash execution time.",
+    title: "Parallel fan-out · v0.2.0",
+    body: "Condura will spawn lightweight sub-agents for each task and run them concurrently. Single sub-agent spawns work today; orchestrated fan-out is on the roadmap.",
   },
   {
     id: "resolution",

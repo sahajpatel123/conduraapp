@@ -34,7 +34,7 @@ export default function EcosystemPage() {
   return (
     <PageHeader
       eyebrow="Integrations"
-      title="Works with every AI"
+      title="Works with the AI"
       titleAccent="you already use."
       description={`Condura doesn't replace your tools — it conducts them. One hotkey opens Condura. Today you use one configured provider at a time. Routing across providers and CLIs is v0.2.0.`}
     >

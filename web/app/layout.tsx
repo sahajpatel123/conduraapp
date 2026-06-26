@@ -25,12 +25,12 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${SITE.name} — One hotkey. Every AI you own. Free.`,
+  title: `${SITE.name} — One hotkey. Your AI tools. Free.`,
   description:
-    "A free desktop app that summons every AI tool on your computer with one hotkey. No account, no data leaves your machine. The conductor for your own machine.",
+    "A free desktop app that opens the AI tools you have installed with one hotkey. No account, no data leaves your machine. The conductor for your own machine.",
   metadataBase: new URL(SITE.url),
   openGraph: {
-    title: `${SITE.name} — One hotkey. Every AI you own. Free.`,
+    title: `${SITE.name} — One hotkey. Your AI tools. Free.`,
     description: "Your AI tools, one hotkey. Free. Local. Private.",
     url: SITE.url,
     siteName: SITE.name,
