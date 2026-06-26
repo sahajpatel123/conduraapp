@@ -105,12 +105,8 @@ export default function SiteDock() {
                 )}
                 <Icon
                   name={entry.icon}
-                  size={20}
-                  className={
-                    entry.icon === "discord"
-                      ? "relative z-10"
-                      : `relative z-10 transition-colors ${active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-mute)]"}`
-                  }
+                  size={entry.icon === "discord" ? 18 : 20}
+                  className={`relative z-10 transition-colors ${active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-mute)]"}`}
                 />
               </motion.span>
             );

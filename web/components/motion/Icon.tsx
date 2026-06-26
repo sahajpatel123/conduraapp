@@ -261,17 +261,26 @@ export function IconHeart(props: IconProps) {
 }
 
 export function IconDiscord({ size = 20, className }: IconProps) {
-  /* Official Discord blurple mark — raster asset for brand-accurate dock display. */
+  /* Thick-outline Clyde mark — masked so it inherits dock ink colors like sibling icons. */
+  const glyph = Math.round(size * 0.82);
+
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/brand/discord.png"
-      alt=""
-      width={size}
-      height={size}
-      draggable={false}
+    <span
       aria-hidden="true"
-      className={`relative z-10 block shrink-0 rounded-[5px] object-cover ${className ?? ""}`}
+      className={`relative z-10 block shrink-0 ${className ?? ""}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: "currentColor",
+        WebkitMaskImage: "url(/brand/discord-outline.png)",
+        maskImage: "url(/brand/discord-outline.png)",
+        WebkitMaskSize: `${glyph}px ${glyph}px`,
+        maskSize: `${glyph}px ${glyph}px`,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+      }}
     />
   );
 }
