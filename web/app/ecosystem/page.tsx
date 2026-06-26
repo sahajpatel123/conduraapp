@@ -1,10 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import Link from "next/link";
 import PageHeader from "@/components/shell/PageHeader";
 import Reveal from "@/components/motion/Reveal";
-import { TOOL_ROSTER } from "@/lib/site";
 
 const LLM_PROVIDERS = [
   { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key or Claude Pro OAuth*" },
@@ -131,35 +129,6 @@ export default function EcosystemPage() {
           ))}
         </div>
       </section>
-
-      {/* ── Bring your own ── */}
-      <Reveal>
-        <section className="mt-28">
-          <div className="surface-ink p-10 text-center sm:p-14">
-            <p className="text-mono-label !text-[var(--color-pollen)]">— Bring your own everything</p>
-            <h2 className="mt-4 font-display text-[clamp(28px,4vw,44px)] leading-tight text-[var(--color-paper)] text-balance">
-              Run entirely offline. Or point it at a custom endpoint.
-            </h2>
-            <p className="text-lead mt-5 max-w-2xl mx-auto text-[rgba(244,239,228,0.7)] text-pretty">
-              Bring your own API keys from any provider. Use Ollama for everything. The choice is yours — and yours alone.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-2.5">
-              {TOOL_ROSTER.map((tool) => (
-                <span key={tool} className="rounded-full border border-[rgba(244,239,228,0.16)] bg-[rgba(244,239,228,0.06)] px-4 py-2 font-mono text-[12.5px] text-[rgba(244,239,228,0.8)]">
-                  {tool}
-                </span>
-              ))}
-            </div>
-            <p className="mt-6 font-mono text-[12px] text-[rgba(244,239,228,0.45)]">
-              Auto-detected on your <span className="text-[rgba(244,239,228,0.7)]">$PATH</span> — no config needed
-            </p>
-            <Link href="/download" prefetch className="btn btn-pollen mt-9 inline-flex">
-              Download Condura
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
-        </section>
-      </Reveal>
     </PageHeader>
   );
 }
