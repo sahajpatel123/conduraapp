@@ -24,6 +24,8 @@ export default function SynapseGarden({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const trail1Ref = useRef<SVGPathElement | null>(null);
   const trail2Ref = useRef<SVGPathElement | null>(null);
+  const trail1GlowRef = useRef<SVGPathElement | null>(null);
+  const trail2GlowRef = useRef<SVGPathElement | null>(null);
   const sunRef = useRef<SVGGElement | null>(null);
   const hillsRef = useRef<SVGGElement | null>(null);
   const treeRef = useRef<SVGGElement | null>(null);
@@ -57,16 +59,18 @@ export default function SynapseGarden({
 
     const trail1 = trail1Ref.current;
     const trail2 = trail2Ref.current;
+    const trail1Glow = trail1GlowRef.current;
+    const trail2Glow = trail2GlowRef.current;
     if (!trail1 || !trail2) return;
 
     // Initial draw-in
-    [trail1, trail2].forEach((p) => {
-      const len = p.getTotalLength();
-      p.style.strokeDasharray = `${len}`;
-      p.style.strokeDashoffset = `${len}`;
-      p.getBoundingClientRect(); // reflow
-      p.style.transition = "stroke-dashoffset 2.4s cubic-bezier(0.22,1,0.36,1)";
-      p.style.strokeDashoffset = "0";
+    [trail1, trail2, trail1Glow, trail2Glow].filter(Boolean).forEach((p) => {
+      const len = p!.getTotalLength();
+      p!.style.strokeDasharray = `${len}`;
+      p!.style.strokeDashoffset = `${len}`;
+      p!.getBoundingClientRect(); // reflow
+      p!.style.transition = "stroke-dashoffset 2.4s cubic-bezier(0.22,1,0.36,1)";
+      p!.style.strokeDashoffset = "0";
     });
 
     let raf = 0;
@@ -84,6 +88,14 @@ export default function SynapseGarden({
         `M -2 78 C 20 ${cy - 6}, 35 ${72 - (py * 8)}, ${cx} ${cy}`
       );
       trail2.setAttribute(
+        "d",
+        `M ${cx} ${cy} C 70 ${cy + 8}, 82 ${58 - (py * 6)}, 102 42`
+      );
+      trail1Glow?.setAttribute(
+        "d",
+        `M -2 78 C 20 ${cy - 6}, 35 ${72 - (py * 8)}, ${cx} ${cy}`
+      );
+      trail2Glow?.setAttribute(
         "d",
         `M ${cx} ${cy} C 70 ${cy + 8}, 82 ${58 - (py * 6)}, 102 42`
       );
@@ -228,12 +240,12 @@ export default function SynapseGarden({
 
         {/* ── Light trails (the synapse threads) ── */}
         <path
-          ref={trail1Ref}
+          ref={trail1GlowRef}
           className="synapse-thread-glow"
           d="M -2 78 C 20 54, 35 64, 50 60"
         />
         <path
-          ref={trail2Ref}
+          ref={trail2GlowRef}
           className="synapse-thread-glow"
           d="M 50 60 C 70 68, 82 52, 102 42"
         />
