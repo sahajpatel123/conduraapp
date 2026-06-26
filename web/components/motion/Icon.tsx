@@ -260,12 +260,19 @@ export function IconHeart(props: IconProps) {
   );
 }
 
-export function IconDiscord(props: IconProps) {
+export function IconDiscord({ size = 20, className }: IconProps) {
+  /* Official Discord blurple mark — raster asset for brand-accurate dock display. */
   return (
-    <svg {...base(props)}>
-      <path d="M8.5 8.5c-.7 0-1.3.6-1.3 1.4 0 .7.6 1.3 1.3 1.3.8 0 1.4-.6 1.4-1.3 0-.8-.6-1.4-1.4-1.4zm7 0c-.7 0-1.3.6-1.3 1.4 0 .7.6 1.3 1.3 1.3.8 0 1.4-.6 1.4-1.3 0-.8-.6-1.4-1.4-1.4z" />
-      <path d="M18.5 6c-1-.5-2.2-.8-3.4-1l-.3.5c-1-.2-2-.3-3-.3s-2 .1-3 .3l-.3-.5C7.4 5.2 6.2 5.5 5.2 6 3 9.5 2.4 13 2.7 16.4c1.3 1 2.6 1.6 3.9 2l.5-.7c-.6-.2-1.2-.5-1.7-.8l.4-.3c2.3 1.1 4.7 1.6 7.1 1.6s4.8-.5 7.1-1.6l.4.3c-.5.3-1.1.6-1.7.8l.5.7c1.3-.4 2.6-1 3.9-2 .3-3.9-.7-7.4-2.6-10.4z" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/brand/discord.png"
+      alt=""
+      width={size}
+      height={size}
+      draggable={false}
+      aria-hidden="true"
+      className={`relative z-10 block shrink-0 rounded-[5px] object-cover ${className ?? ""}`}
+    />
   );
 }
 
