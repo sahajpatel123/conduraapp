@@ -27,12 +27,18 @@ export default function TheConductor() {
 
   return (
     <section ref={ref} data-section="conductor" className="relative mx-auto max-w-[1180px] px-6 py-28 sm:py-36">
-      <Reveal>
-        <p className="text-eyebrow mb-4">— How it works</p>
-      </Reveal>
-      <WordReveal as="h2" text="Three moves. Then it gets out of your way." className="text-display text-[var(--color-ink)] max-w-[18ch] text-balance" />
+      <header className="mb-16 sm:mb-20">
+        <Reveal>
+          <p className="text-eyebrow mb-6 sm:mb-8">— How it works</p>
+        </Reveal>
+        <WordReveal
+          as="h2"
+          text="Three moves. Then it gets out of your way."
+          className="text-display max-w-[18ch] text-balance leading-[1.12] text-[var(--color-ink)]"
+        />
+      </header>
 
-      <div className="mt-14 grid gap-10 md:grid-cols-[1.1fr_1fr] md:gap-16">
+      <div className="grid gap-10 md:grid-cols-[1.1fr_1fr] md:gap-16">
         {/* ── Stage ── */}
         <div className="surface-card relative aspect-[4/3] overflow-hidden md:aspect-auto md:min-h-[440px]">
           <div className="paper-grain absolute inset-0" />
