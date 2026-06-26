@@ -11,7 +11,7 @@ export default function OrchestrationPage() {
 
   useEffect(() => {
     const messages: { text: string; tone: string }[] = [
-      { text: "[SYS] initializing SQLite event bus…", tone: "sys" },
+      { text: "[SYS] initializing SQLite state tables…", tone: "sys" },
       { text: "[SYS] memory mapped to ~/.condura/synaptic.db", tone: "sys" },
       { text: "[AGENT:strategist] received intent: 'Refactor auth module'", tone: "agent" },
       { text: "[AGENT:strategist] decomposing into 3 subtasks.", tone: "agent" },
@@ -45,16 +45,16 @@ export default function OrchestrationPage() {
       eyebrow="Engine"
       title="Massive parallel"
       titleAccent="workflows."
-      description="Condura doesn't just run agents sequentially. It spins up highly concurrent, local swarms that communicate through a fast SQLite event bus. This is the story of how it thinks."
+      description="Condura doesn't just run agents sequentially. It spins up highly concurrent, local sub-agents that share state through SQLite-backed pending-action, audit, and memory tables. This is the story of how it thinks."
     >
       <OrchestrationScrollStage />
 
       <Reveal>
         <div className="mt-32">
           <div className="mb-12 text-center">
-            <p className="text-eyebrow mb-3">— The event bus</p>
+            <p className="text-eyebrow mb-3">— Shared state</p>
             <h2 className="text-display mx-auto max-w-[18ch] text-balance text-[var(--color-ink)]">
-              The SQLite event bus.
+              One SQLite. Every agent.
             </h2>
             <p className="text-lead mx-auto mt-5 max-w-2xl text-pretty text-[var(--color-ink-soft)]">
               Agents don&apos;t just talk to each other in a vacuum. Every thought, state change, and
@@ -116,13 +116,13 @@ export default function OrchestrationPage() {
           {[
             {
               stat: "< 50ms",
-              label: "Agent spawn time",
-              desc: "Lightweight goroutines instead of heavy system processes.",
+              label: "Agent spawn time (design target)",
+              desc: "Lightweight goroutines instead of heavy system processes. The sub-agent spawn path is in-process; no formal benchmark has been published yet.",
             },
             {
-              stat: "100k+",
-              label: "Events per second",
-              desc: "SQLite WAL mode handles massive concurrent write loads effortlessly.",
+              stat: "High write throughput",
+              label: "SQLite WAL concurrency",
+              desc: "SQLite in WAL mode supports high concurrent write rates. Specific event/sec numbers vary by workload; no formal benchmark has been published yet.",
             },
             {
               stat: "0 bytes",

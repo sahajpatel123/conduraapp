@@ -101,7 +101,7 @@ export default function SecurityPage() {
       <div className="mt-20 grid gap-5 md:grid-cols-3">
         {[
           { title: "Deterministic rules", desc: "Security rules are hard-coded, not written in a prompt. A model cannot talk the Gatekeeper into dropping its guard — it isn't a model." },
-          { title: "Air-gapped memory", desc: "Your vector store, embeddings, and workspace memory live on your local SSD. No proprietary code is ever indexed in the cloud." },
+          { title: "Air-gapped memory", desc: "Your workspace memory and skills live on your local SSD. No proprietary code is ever indexed in the cloud. (Vector embeddings are on the v0.2.0 roadmap.)" },
           { title: "Four kill switches", desc: "A hard hotkey, a watchdog timer, a network guard that blocks all non-allow-listed egress, and a menu-bar kill button. The agent can disable none of them." },
         ].map((feat, i) => (
           <Reveal key={feat.title} delay={i * 0.1}>

@@ -32,4 +32,4 @@ export const DOWNLOADS = {
 >;
 
 export const RELEASE_TAG =
-  "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0";
+  "https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.1";

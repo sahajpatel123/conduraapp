@@ -234,7 +234,7 @@ function InvariantsScrollSection() {
 function ThePromiseSection() {
   const promises = [
     { title: "Free forever", desc: "No feature gates. No premium tier. No nags. A donate button in the menu bar — that's it." },
-    { title: "Local-first", desc: "Memory, skills, audit log, embeddings — all on disk, encrypted. The only network calls are to your LLM provider." },
+    { title: "Local-first", desc: "Memory, skills, and the audit log — all on disk, encrypted. The only network calls are to your LLM provider. (Vector embeddings arrive in v0.2.0.)" },
     { title: "Your keys, your models", desc: "API keys live encrypted on your device. Never logged, never sent anywhere except the provider you configured." },
     { title: "Open ecosystem", desc: "12+ LLM providers. 8 CLI sub-agents. Any local model. No vendor lock-in, ever." },
     { title: "Auditable by design", desc: "Every action logged in an HMAC-chained, append-only trail. You can prove what happened." },
