@@ -110,11 +110,7 @@ export default function HeroSection() {
         transition={{ duration: 1, ease: EASE_OUT, delay: 0.95 }}
         className="absolute inset-x-0 bottom-0 z-10"
       >
-        <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-4 px-6 pb-7">
-          <p className="max-w-[52ch] text-center font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-[var(--color-ink-faint)] sm:text-[11px]">
-            Claude Code · Codex · Ollama · Gemini · OpenCode · Hermes · Kilo ·
-            Antigravity
-          </p>
+        <div className="mx-auto flex max-w-[1100px] flex-col items-center px-6 pb-7">
           <ScrollCue />
         </div>
       </motion.div>
