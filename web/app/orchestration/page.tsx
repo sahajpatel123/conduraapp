@@ -43,9 +43,9 @@ export default function OrchestrationPage() {
   return (
     <PageHeader
       eyebrow="Engine"
-      title="Massive parallel"
-      titleAccent="workflows."
-      description="Condura doesn't just run agents sequentially. It spins up highly concurrent, local sub-agents that share state through SQLite-backed pending-action, audit, and memory tables. This is the story of how it thinks."
+      title="Sub-agent delegation with a safety gate."
+      titleAccent=""
+      description="Condura can spawn the AI CLIs you have installed and gate each action through the deterministic Gatekeeper. Orchestrated parallel workflows are on the v0.2.0 roadmap."
     >
       <OrchestrationScrollStage />
 
@@ -59,7 +59,7 @@ export default function OrchestrationPage() {
             <p className="text-lead mx-auto mt-5 max-w-2xl text-pretty text-[var(--color-ink-soft)]">
               Agents don&apos;t just talk to each other in a vacuum. Every thought, state change, and
               action is written to a highly-concurrent local SQLite database. This creates a
-              permanent, auditable, replayable state.
+              permanent, auditable state.
             </p>
           </div>
 
@@ -71,6 +71,9 @@ export default function OrchestrationPage() {
               </span>
             </div>
             <div className="relative h-[400px] overflow-y-auto p-6 font-mono text-[13px] leading-relaxed">
+              <div className="absolute right-4 top-3 z-10 rounded-full border border-[rgba(244,239,228,0.15)] bg-[rgba(244,239,228,0.08)] px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[rgba(244,239,228,0.65)]">
+                Illustrative sequence — full orchestration is v0.2.0
+              </div>
               {logs.map((log, i) => {
                 if (!log?.text) return null;
                 return (

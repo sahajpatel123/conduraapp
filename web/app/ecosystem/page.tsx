@@ -36,7 +36,7 @@ export default function EcosystemPage() {
       eyebrow="Integrations"
       title="Works with every AI"
       titleAccent="you already use."
-      description={`Condura doesn't replace your tools — it conducts them. One hotkey routes work across ${LLM_PROVIDERS.length} LLM providers and ${AGENT_CLIS.length} agent CLIs. Bring your own keys, your own models, your own workflow.`}
+      description={`Condura doesn't replace your tools — it conducts them. One hotkey opens Condura. Today you use one configured provider at a time. Routing across providers and CLIs is v0.2.0.`}
     >
       {/* ── LLM provider grid ── */}
       <section className="mt-8">
@@ -44,7 +44,7 @@ export default function EcosystemPage() {
           <p className="text-eyebrow mb-4">— AI providers</p>
           <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Connect what you have.</h2>
           <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
-            Use API keys or, where supported, your existing subscriptions. Condura never stores keys on a server — they stay encrypted on your machine.
+            Use API keys today. Subscription OAuth is on the v0.2.0 roadmap.
           </p>
         </Reveal>
 
@@ -75,7 +75,7 @@ export default function EcosystemPage() {
           <p className="text-eyebrow mb-4">— Agent CLIs</p>
           <h2 className="text-display text-[var(--color-ink)] max-w-[16ch] text-balance">Sub-agents on your $PATH.</h2>
           <p className="text-lead mt-5 max-w-[54ch] text-[var(--color-ink-soft)] text-pretty">
-            Condura auto-detects every agent CLI you have installed and spawns them as sub-agents. Each runs in its own Gatekeeper-isolated process with shell command sanitization. Missing a CLI? It simply doesn&apos;t appear — no installs forced.
+            Condura auto-detects every agent CLI you have installed and can spawn them as sub-agents. Each spawn is gated by the deterministic Gatekeeper and its output is sanitized before execution. Missing a CLI? It simply doesn&apos;t appear — no installs forced.
           </p>
         </Reveal>
 

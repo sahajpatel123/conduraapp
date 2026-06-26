@@ -27,7 +27,7 @@ const TRUST_PILLS = [
   "No account",
   "No subscription",
   "Local-first",
-  "Signed & notarized",
+  "Unsigned preview builds",
 ] as const;
 
 /**
@@ -104,8 +104,8 @@ export default function DownloadCTA() {
               <span className="italic text-on-ink-emphasis">It&apos;s yours.</span>
             </Reveal>
             <Reveal delay={0.12} as="p" className="text-on-ink-caption mt-6 text-pretty">
-              No account. No subscription. No telemetry by default. One download, one hotkey,
-              and every AI you own finally talks to each other.
+              No account. No subscription. Local-first. One download, one hotkey on macOS
+              and Windows, and a single chat window for the provider you configure.
             </Reveal>
           </div>
 

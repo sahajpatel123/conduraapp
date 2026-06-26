@@ -19,7 +19,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
   ],
   windows: [
-    { title: "Run the installer", desc: "Open the setup file and follow the signed installer prompts." },
+    { title: "Run the installer", desc: "Open the setup file and follow the installer prompts." },
     { title: "Choose your hotkey", desc: "Record a shortcut that summons Condura from anywhere." },
     { title: "Approve permissions", desc: "Review each requested capability. Every grant is reversible." },
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
@@ -28,7 +28,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Install the package", desc: "Install the .deb package, or choose the CLI tarball below." },
     { title: "Start the daemon", desc: "Confirm the user service is running with condura status." },
     { title: "Choose your hotkey", desc: "Record a shortcut during onboarding for fast access." },
-    { title: "Open Condura", desc: "Launch the overlay or run condura-tui from your terminal." },
+    { title: "Open Condura", desc: "Launch condura-tui or the Wails GUI binary or run condura-tui from your terminal." },
   ],
 };
 
@@ -40,7 +40,7 @@ const VERIFY_COMMANDS: Record<PlatformKey, string> = {
 
 const VERSIONS = [
   { version: "v0.1.1", badge: "Latest", date: "June 24, 2026", desc: "Audit-driven fix bundle: autonomy + perception wiring, encrypted secrets, wake word rename, shell sanitize, audit prune." },
-  { version: "v0.1.0", badge: "Stable", date: "June 19, 2026", desc: "First signed release. Local orchestration, deterministic gatekeeper, 8 sub-agents, 12 LLM providers." },
+  { version: "v0.1.0", badge: "Stable", date: "June 19, 2026", desc: "First public release. Deterministic gatekeeper, 8 optional sub-agents, 12 LLM providers." },
   { version: "v0.0.9", badge: "Preview", date: "May 28, 2026", desc: "Initial beta rollout. Improved model context parsing." },
 ];
 
@@ -48,9 +48,9 @@ const FAQ_ITEMS = [
   { id: "free", title: "Is Condura really free?", body: "Yes. Condura is free for personal and commercial use under the Condura Freeware EULA. There is no account requirement, no premium tier, and no feature gate. A donate button in the menu bar is the whole business model." },
   { id: "keys", title: "Do I need an API key?", body: "Not for local models. Condura auto-detects a local Ollama installation and fills a sentinel key for you. Add provider credentials only when you choose to use a cloud model." },
   { id: "privacy", title: "Where does my data live?", body: "On your machine. Memory, skills, audit log, and API keys are stored locally, encrypted at rest. Requests leave your device only when the model or service you configure requires a network call." },
-  { id: "safety", title: "How are computer actions controlled?", body: "A deterministic Gatekeeper — not a model — evaluates every action before execution. Sensitive or destructive actions require a native dialog that blocks until you click Allow. You can always stop the agent with one hotkey." },
-  { id: "uninstall", title: "Can I remove it cleanly?", body: "Yes. Uninstall auto-backs-up your data to ~/Documents/condura-backups/ before removing. No cloud account to cancel, no data on someone else's server." },
-  { id: "update", title: "How do updates work?", body: "Condura checks published releases and supports signed update packages (Ed25519) with rollback protection. Release details and checksums are on GitHub." },
+  { id: "safety", title: "How are computer actions controlled?", body: "A deterministic Gatekeeper — not a model — evaluates every action before execution. Sensitive or destructive actions require an in-app consent dialog that blocks until you click Allow. A native OS dialog is planned for v0.2.0. You can always stop the agent with one hotkey." },
+  { id: "uninstall", title: "Can I remove it cleanly?", body: "Backup is created before uninstall to ~/Documents/condura-backups/. Full restore and clean uninstall are being verified for v0.2.0. No cloud account to cancel, no data on someone else's server." },
+  { id: "update", title: "How do updates work?", body: "Condura checks published releases. Signed delta updates with rollback protection are implemented but not yet end-to-end tested. Release details and checksums are on GitHub." },
 ];
 
 export default function DownloadPageView() {
@@ -82,7 +82,7 @@ export default function DownloadPageView() {
         eyebrow="Download"
         title="Condura,"
         titleAccent="on your machine."
-        description="A local-first intelligence layer for your OS. Free forever. Signed and notarized. Current and previous builds for every supported architecture."
+        description="A local-first intelligence layer for your OS. Free forever. Unsigned preview builds — real signing and notarization are in progress."
       >
         <Hero
           selected={selected}

@@ -358,20 +358,20 @@ const ACTS = [
     numeral: "01",
     title: "Summon it with one hotkey.",
     body:
-      "You pick the combo on first run. Tap it anywhere — over Figma, in your terminal, mid-spreadsheet — and a quiet prompt rises at your cursor. Type or speak. It already knows what's on your screen.",
+      "On macOS and Windows, pick a combo on first run. Tap it anywhere and the overlay appears. Screen-aware context is on the v0.2.0 roadmap.",
   },
   {
     id: "overlay" as const,
     numeral: "02",
     title: "It conducts the tools you have.",
     body:
-      "Condura delegates to the AI CLIs you already installed — Claude Code, Codex, Antigravity, Ollama — and routes each task to the right one. Long work happens in parallel. You watch it think.",
+      "Condura can spawn individual sub-agents you have installed. Orchestrated parallel waves are coming in v0.2.0.",
   },
   {
     id: "gatekeeper" as const,
     numeral: "03",
     title: "Nothing dangerous happens without you.",
     body:
-      "A deterministic Gatekeeper — not a model — vets every click, keystroke, and shell command. Destructive moves stop at a native dialog until you physically click Allow. You can always stop the whole agent with one key.",
+      "A deterministic Gatekeeper vets every computer-use action. Destructive moves stop at an in-app consent dialog until you click Allow. A native OS dialog is planned for v0.2.0.",
   },
 ] as const;

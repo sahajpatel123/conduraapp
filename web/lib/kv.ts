@@ -65,7 +65,7 @@ export async function storeMagicToken(
       expiresAt: Date.now() + ttlSeconds * 1000,
     })
   } else {
-    throw new Error('token store not configured')
+    throw new Error('Token store not configured. Set KV_URL/KV_REST_API_URL or add @vercel/kv.')
   }
 }
 

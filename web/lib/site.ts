@@ -10,7 +10,7 @@ export const SITE = {
     "A free desktop app that summons every AI tool on your computer with one hotkey. No account needed, no data leaves your machine.",
   url: "https://condura.app",
   github: "https://github.com/sahajpatel123/conduraapp",
-  discord: "https://discord.gg/condura",
+  discord: "https://condura.app/discord",
 } as const;
 
 // Reference / informational destinations. These live in the footer,
@@ -76,12 +76,12 @@ export const INVARIANTS = [
   {
     numeral: "III",
     title: "Destructive actions require a real human at the keyboard.",
-    body: "A native modal dialog that blocks until clicked. No exceptions. No “trust me, the model said it’s safe.”",
+    body: "An in-app consent dialog that blocks until clicked. A native OS dialog is planned for v0.2.0. No exceptions. No “trust me, the model said it’s safe.”",
   },
   {
     numeral: "IV",
     title: "You can always stop the agent.",
-    body: "Hard hotkey, watchdog timer, network isolation, menu-bar kill. Four independent mechanisms. The agent can disable none of them.",
+    body: "Hard hotkey, watchdog timer, and network isolation. Three independent mechanisms. The network guard is in-process in v0.1.x; a hard OS-process guard is planned for v0.2.0. The agent can disable none of them.",
   },
   {
     numeral: "V",
