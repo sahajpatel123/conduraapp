@@ -244,10 +244,17 @@ export function IconLayers(props: IconProps) {
   );
 }
 
-export function IconGithub(props: IconProps) {
+export function IconGithub({ size = 20, className }: IconProps) {
   return (
-    <svg {...base(props)}>
-      <path d="M9 19c-4 1.5-4-2-6-2.5M15 22v-3.5c0-1 .3-1.8-.5-2.5 2.5-.3 5-1.2 5-5.5 0-1.2-.4-2.2-1-3 .1-.3.5-1.5-.1-3 0 0-1-.3-3.3 1a11 11 0 0 0-6 0C6 3 5 3.3 5 3.3c-.6 1.5-.2 2.7-.1 3-.6.8-1 1.8-1 3 0 4.3 2.5 5.2 5 5.5-.5.5-.8 1.2-.6 2V22" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.13-.02-2.22-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.35-1.76-1.35-1.76-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.08 1.83 2.82 1.3 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4 1.02 0 2.04.13 3 .4 2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.22.7.83.58C20.56 21.8 24 17.3 24 12 24 5.37 18.63 0 12 0z" />
     </svg>
   );
 }
@@ -260,28 +267,30 @@ export function IconHeart(props: IconProps) {
   );
 }
 
-export function IconDiscord({ size = 20, className }: IconProps) {
-  /* Thick-outline Clyde mark — masked so it inherits dock ink colors like sibling icons. */
-  const glyph = Math.round(size * 0.82);
-
+export function IconDiscord({ size = 20, strokeWidth = 2.1, className }: IconProps) {
+  /* Thick-outline Clyde — matches dock stroke weight, uses currentColor like sibling icons. */
   return (
-    <span
-      aria-hidden="true"
-      className={`relative z-10 block shrink-0 ${className ?? ""}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: "currentColor",
-        WebkitMaskImage: "url(/brand/discord-outline.png)",
-        maskImage: "url(/brand/discord-outline.png)",
-        WebkitMaskSize: `${glyph}px ${glyph}px`,
-        maskSize: `${glyph}px ${glyph}px`,
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        maskPosition: "center",
-      }}
-    />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M9.2 10.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z" />
+      <path d="M14.8 10.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z" />
+      <path d="M6.4 8.4c2.8-1.35 8.4-1.35 11.2 0" />
+      <path d="M5.6 8.8c-1.45 2.7-1.65 6.1-.15 8.85" />
+      <path d="M18.4 8.8c1.45 2.7 1.65 6.1.15 8.85" />
+      <path d="M8.6 17c.85.38 2.05.62 3.4.62s2.55-.24 3.4-.62" />
+      <path d="M7.4 16.8l-.75 1.35" />
+      <path d="M16.6 16.8l.75 1.35" />
+    </svg>
   );
 }
 
