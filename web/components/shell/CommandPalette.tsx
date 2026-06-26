@@ -102,12 +102,16 @@ export default function CommandPalette() {
               <span className="text-[var(--color-ink-faint)]" aria-hidden>⌘K</span>
               <input
                 ref={inputRef}
-                type="search"
+                type="text"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                spellCheck={false}
                 placeholder={`Search ${SITE.name}…`}
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
                 onKeyDown={onInputKeyDown}
-                className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[var(--color-ink)] outline-none placeholder:text-[var(--color-ink-faint)]"
+                className="command-palette-input min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-[var(--color-ink)] shadow-none outline-none ring-0 placeholder:text-[var(--color-ink-faint)] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:border-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0"
               />
             </div>
             <LayoutGroup>
