@@ -66,7 +66,7 @@ export default function GlobalNav() {
           onMouseLeave={() => setHovered(null)}
         >
           <Wordmark />
-          <span className="hidden font-display text-[19px] leading-none tracking-[-0.04em] text-[var(--color-ink)] sm:inline">
+          <span className="hidden font-display text-[19px] font-semibold leading-none tracking-[-0.04em] text-[var(--color-ink)] sm:inline">
             {SITE.name}
           </span>
         </Link>
@@ -83,7 +83,7 @@ export default function GlobalNav() {
                 key={item.href}
                 href={item.href}
                 prefetch
-                className="relative rounded-full px-4 py-2 text-[13.5px] font-medium tracking-[-0.005em] text-[var(--color-ink-soft)] transition-colors hover:text-[var(--color-ink)]"
+                className="relative rounded-full px-4 py-2 text-[13.5px] font-semibold tracking-[-0.005em] text-[var(--color-ink-soft)] transition-colors hover:text-[var(--color-ink)]"
                 onMouseEnter={() => setHovered(item.href)}
                 data-active={active}
               >
@@ -109,11 +109,11 @@ export default function GlobalNav() {
             href={SITE.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden rounded-full px-3 py-2 text-[13px] font-medium text-[var(--color-ink-mute)] transition-colors hover:text-[var(--color-ink)] sm:inline"
+            className="hidden rounded-full px-3 py-2 text-[13px] font-semibold text-[var(--color-ink-mute)] transition-colors hover:text-[var(--color-ink)] sm:inline"
           >
             GitHub
           </a>
-          <Link href="/download" prefetch className="group btn btn-primary !px-4 !py-2.5 !text-[13px]">
+          <Link href="/download" prefetch className="group btn btn-primary !px-4 !py-2.5 !text-[13px] !font-semibold">
             <span className="relative h-1.5 w-1.5">
               <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
               <span className="absolute inset-0 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-[var(--color-synapse-glow)]" />
@@ -161,7 +161,7 @@ export default function GlobalNav() {
                   href={item.href}
                   prefetch
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-2xl px-4 py-3 text-[15px] font-medium text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
+                  className="block rounded-2xl px-4 py-3 text-[15px] font-semibold text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
                 >
                   {item.label}
                 </Link>
@@ -172,7 +172,7 @@ export default function GlobalNav() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
-                className="block rounded-2xl px-4 py-3 text-[15px] font-medium text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
+                className="block rounded-2xl px-4 py-3 text-[15px] font-semibold text-[var(--color-ink-soft)] transition-colors hover:bg-[rgba(20,17,11,0.05)] hover:text-[var(--color-ink)]"
               >
                 GitHub
               </a>
