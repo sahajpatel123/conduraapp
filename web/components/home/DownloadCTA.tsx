@@ -245,7 +245,7 @@ export default function DownloadCTA() {
                 rel="noopener noreferrer"
                 className="download-cta-footer-link"
               >
-                <Icon name="discord" size={15} strokeWidth={2.1} />
+                <Icon name="discord" size={15} />
                 Discord
               </a>
               <Link href="/manifesto" prefetch className="download-cta-footer-link">
