@@ -265,6 +265,102 @@ body {
   );
 }
 
+.text-on-ink-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 228, 0.36);
+}
+.text-on-ink-caption {
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.55;
+  letter-spacing: -0.012em;
+  color: rgba(244, 239, 228, 0.5);
+}
+.platform-pick {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(244, 239, 228, 0.08);
+  background: rgba(244, 239, 228, 0.03);
+  text-decoration: none;
+  transition:
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease;
+}
+.platform-pick:hover {
+  border-color: rgba(244, 239, 228, 0.16);
+  background: rgba(244, 239, 228, 0.06);
+  transform: translateY(-1px);
+}
+.platform-pick--detected {
+  border-color: rgba(168, 198, 182, 0.28);
+  background: rgba(244, 239, 228, 0.05);
+}
+.platform-pick__icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 12px;
+  background: rgba(244, 239, 228, 0.06);
+  color: rgba(244, 239, 228, 0.72);
+  flex-shrink: 0;
+}
+.platform-pick__title {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(244, 239, 228, 0.78);
+}
+.platform-pick__sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 12px;
+  color: rgba(244, 239, 228, 0.4);
+}
+.platform-pick__action {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(244, 239, 228, 0.46);
+  white-space: nowrap;
+}
+.platform-pick:hover .platform-pick__action {
+  color: rgba(244, 239, 228, 0.68);
+}
+.btn-on-ink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(244, 239, 228, 0.18);
+  background: rgba(244, 239, 228, 0.9);
+  padding: 1rem 1.75rem;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: none;
+  transition:
+    background-color 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+  box-shadow: 0 14px 40px -18px rgba(0, 0, 0, 0.55);
+}
+.btn-on-ink:hover {
+  background: var(--color-paper);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 48px -16px rgba(0, 0, 0, 0.6);
+}
+
 /* Hairline rule in ink */
 .rule-ink {
   height: 1px;
