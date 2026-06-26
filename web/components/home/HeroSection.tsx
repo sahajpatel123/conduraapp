@@ -5,22 +5,20 @@ import { motion, useInView } from "motion/react";
 import { useRef } from "react";
 import SynapseGarden from "./SynapseGarden";
 import HeroThread from "./HeroThread";
-import HeroConductor from "./HeroConductor";
-import HeroMarginalia from "./HeroMarginalia";
-import HeroProof from "./HeroProof";
+import HeroPulse from "./HeroPulse";
 import MagneticButton from "@/components/motion/MagneticButton";
 import WordReveal from "@/components/motion/WordReveal";
 import { EASE_OUT } from "@/lib/motion";
 
 /**
- * HeroSection — the opening statement.
+ * HeroSection — minimal opening.
  *
- * Editorial stack: headline → living conductor card → proof chips → CTAs.
- * The garden breathes behind; marginalia frames the stage on wide screens.
+ * Headline in the sky, two breaths of copy, a synapse pulse, two buttons.
+ * The garden does the storytelling; nothing else competes with it.
  */
 export default function HeroSection() {
   const ref = useRef<HTMLDivElement | null>(null);
-  const inView = useInView(ref, { once: true, margin: "-8%" });
+  const inView = useInView(ref, { once: true, margin: "-10%" });
 
   return (
     <section
@@ -30,58 +28,56 @@ export default function HeroSection() {
     >
       <SynapseGarden />
       <HeroThread />
-      <HeroMarginalia inView={inView} />
 
-      <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[1100px] flex-col items-center px-6 pb-6 pt-[13vh] sm:pt-[15vh]">
-        {/* ── Headline ── */}
-        <div className="text-center">
+      {/* Copy — set into the sky, lots of air */}
+      <div className="absolute inset-x-0 top-[24vh] z-10 mx-auto flex max-w-[900px] flex-col items-center px-6 text-center sm:top-[26vh]">
+        <div className="text-balance">
           <WordReveal
             as="h1"
             text="Your computer,"
-            className="text-hero text-[var(--color-ink)] leading-[0.95]"
-            delay={0.12}
-            stagger={0.055}
+            className="text-hero text-[var(--color-ink)]"
+            delay={0.15}
+            stagger={0.05}
           />
-          <h1 className="text-hero -mt-[0.08em] overflow-hidden text-[var(--color-ink)] leading-[0.95]">
+          <h1 className="text-hero -mt-[0.06em] overflow-hidden text-[var(--color-ink)]">
             <motion.span
               className="inline-block italic text-[var(--color-synapse)]"
-              initial={{ y: "110%", opacity: 0 }}
-              animate={
-                inView ? { y: "0%", opacity: 1 } : { y: "110%", opacity: 0 }
-              }
-              transition={{ duration: 0.95, ease: EASE_OUT, delay: 0.38 }}
+              initial={{ y: "110%" }}
+              animate={inView ? { y: "0%" } : { y: "110%" }}
+              transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.32 }}
             >
               alive.
             </motion.span>
           </h1>
         </div>
 
-        {/* ── Subhead — sits above the card so CTAs stay in view ── */}
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-          transition={{ duration: 0.85, ease: EASE_OUT, delay: 0.42 }}
-          className="text-lead mt-5 max-w-[40ch] text-center text-[var(--color-ink-soft)] text-pretty sm:mt-6"
+        <motion.div
+          initial={{ opacity: 0, y: 12, filter: "blur(5px)" }}
+          animate={
+            inView
+              ? { opacity: 1, y: 0, filter: "blur(0px)" }
+              : { opacity: 0, y: 12, filter: "blur(5px)" }
+          }
+          transition={{ duration: 0.85, ease: EASE_OUT, delay: 0.48 }}
+          className="mt-7 max-w-[46ch] space-y-2"
         >
-          One hotkey conducts every AI on your desk — local, private, under
-          your control.
-        </motion.p>
+          <p className="text-lead text-[var(--color-ink-soft)] text-pretty">
+            One hotkey summons every AI tool on your machine.
+          </p>
+          <p className="text-[15px] leading-relaxed tracking-[-0.01em] text-[var(--color-ink-mute)] sm:text-[16px]">
+            Condura conducts them — you stay in control. Free, local, private.
+          </p>
+        </motion.div>
 
-        {/* ── Living centerpiece ── */}
-        <div className="mt-5 w-full sm:mt-6">
-          <HeroConductor inView={inView} delay={0.5} />
-        </div>
+        <HeroPulse inView={inView} delay={0.62} />
 
-        <HeroProof inView={inView} delay={0.62} />
-
-        {/* ── CTAs ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-          transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.74 }}
-          className="mt-6 flex flex-col items-center gap-3 sm:mt-7 sm:flex-row"
+          transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.72 }}
+          className="mt-8 flex flex-col items-center gap-3 sm:flex-row"
         >
-          <MagneticButton strength={0.4}>
+          <MagneticButton strength={0.35}>
             <Link href="/download" prefetch className="btn btn-primary group">
               <span className="relative h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-[var(--color-synapse-light)]" />
@@ -109,42 +105,23 @@ export default function HeroSection() {
             See how it works
           </Link>
         </motion.div>
-
-        {/* ── Spacer pushes roster to the foot ── */}
-        <div className="flex-1 min-h-[4vh]" />
-
-        {/* ── Roster + scroll cue ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={inView ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 1, ease: EASE_OUT, delay: 0.95 }}
-          className="flex w-full flex-col items-center gap-4 pb-4"
-        >
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[11px] uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">
-            <span className="font-mono">Conducts</span>
-            {[
-              "Claude Code",
-              "Codex",
-              "Antigravity",
-              "Ollama",
-              "Gemini",
-              "OpenCode",
-              "Hermes",
-              "Kilo",
-            ].map((t, i) => (
-              <span key={t} className="flex items-center gap-2.5">
-                {i > 0 && (
-                  <span className="h-1 w-1 rounded-full bg-[var(--color-ink-faint)]" />
-                )}
-                <span className="font-mono text-[var(--color-ink-soft)]">
-                  {t}
-                </span>
-              </span>
-            ))}
-          </div>
-          <ScrollCue />
-        </motion.div>
       </div>
+
+      {/* Quiet footer strip */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={inView ? { opacity: 1 } : { opacity: 0 }}
+        transition={{ duration: 1, ease: EASE_OUT, delay: 0.95 }}
+        className="absolute inset-x-0 bottom-0 z-10"
+      >
+        <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-4 px-6 pb-7">
+          <p className="max-w-[52ch] text-center font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-[var(--color-ink-faint)] sm:text-[11px]">
+            Claude Code · Codex · Ollama · Gemini · OpenCode · Hermes · Kilo ·
+            Antigravity
+          </p>
+          <ScrollCue />
+        </div>
+      </motion.div>
     </section>
   );
 }

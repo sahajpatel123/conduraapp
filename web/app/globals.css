@@ -818,6 +818,21 @@ body {
   from { clip-path: inset(0 100% 0 0); }
   to   { clip-path: inset(0 0 0 0); }
 }
+@keyframes hero-pulse-travel {
+  0%, 100% { left: 0; opacity: 0.85; }
+  50% { left: calc(100% - 6px); opacity: 1; }
+}
+
+.hero-pulse-dot {
+  animation: hero-pulse-travel 4.2s var(--thread-ease) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-pulse-dot {
+    animation: none;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    UTILITY — text balance, clamp, marquee
