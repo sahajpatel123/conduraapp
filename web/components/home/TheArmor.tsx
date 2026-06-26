@@ -97,22 +97,18 @@ export default function TheArmor() {
         {/* ── The survival rule (ink panel) ── */}
         <Reveal delay={0.1}>
           <div className="surface-ink sticky top-28 p-8 sm:p-10">
-            <p className="text-mono-label !text-[var(--color-paper)] opacity-60">
-              The survival rule
-            </p>
-            <p className="font-display mt-4 text-[28px] leading-tight text-[var(--color-paper)] text-balance">
+            <p className="text-mono-label text-on-ink-eyebrow">The survival rule</p>
+            <p className="font-display mt-4 text-[28px] leading-tight text-on-ink-headline text-balance">
               This is not an optimization problem.{" "}
-              <span className="italic text-[var(--color-synapse-light)]">
-                It is a survival problem.
-              </span>
+              <span className="italic text-on-ink-emphasis">It is a survival problem.</span>
             </p>
-            <p className="text-body mt-5 text-[rgba(244,239,228,0.7)]">
+            <p className="text-on-ink-body mt-5">
               Condura performs physical, often irreversible actions on your
               operating system. A fallible multi-model system, async-supervised,
               operating with stale screen state. Every design decision bends to
               that fact.
             </p>
-            <div className="rule-ink my-7 !bg-[rgba(244,239,228,0.12)]" />
+            <div className="rule-ink-on-ink my-7" />
             <ul className="space-y-3">
               {[
                 "HMAC-chained audit log of every action",
@@ -120,15 +116,15 @@ export default function TheArmor() {
                 "3-layer kill switch you control",
                 "Deterministic Gatekeeper — never a model",
               ].map((x) => (
-                <li key={x} className="flex items-start gap-3 text-[14px] text-[rgba(244,239,228,0.85)]">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-pollen)]" />
+                <li key={x} className="flex items-start gap-3 text-on-ink-list">
+                  <span className="text-on-ink-bullet mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" />
                   <span>{x}</span>
                 </li>
               ))}
             </ul>
             <a
               href="/security"
-              className="thread-link mt-7 inline-flex items-center gap-2 text-[14px] font-medium text-[var(--color-paper)]"
+              className="text-on-ink-link mt-7 inline-flex items-center gap-2 text-[14px] font-medium"
             >
               Read the full security model
               <span aria-hidden>→</span>

@@ -223,6 +223,48 @@ body {
   box-shadow: var(--shadow-float);
 }
 
+/* Muted type hierarchy on ink panels — soft paper tones, no bright accents */
+.text-on-ink-eyebrow {
+  color: rgba(244, 239, 228, 0.38);
+}
+.text-on-ink-headline {
+  color: rgba(244, 239, 228, 0.82);
+}
+.text-on-ink-emphasis {
+  color: rgba(168, 198, 182, 0.72);
+}
+.text-on-ink-body {
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: -0.008em;
+  color: rgba(244, 239, 228, 0.52);
+}
+.text-on-ink-list {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(244, 239, 228, 0.58);
+}
+.text-on-ink-bullet {
+  background: rgba(184, 175, 152, 0.42);
+}
+.text-on-ink-link {
+  color: rgba(244, 239, 228, 0.62);
+  transition: color 0.2s ease;
+}
+.text-on-ink-link:hover {
+  color: rgba(244, 239, 228, 0.78);
+}
+.rule-ink-on-ink {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(244, 239, 228, 0.1) 12%,
+    rgba(244, 239, 228, 0.1) 88%,
+    transparent
+  );
+}
+
 /* Hairline rule in ink */
 .rule-ink {
   height: 1px;
