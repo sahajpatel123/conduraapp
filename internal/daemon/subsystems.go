@@ -871,7 +871,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		// the same data dir, and the same schema version.
 		Replay:          buildReplay(db, auditLog, log),
 		Backup:          backupMgr,
-		BackupScheduler: buildBackupScheduler(backupMgr, log),
+		BackupScheduler: buildBackupScheduler(backupMgr, log, &cfg.Storage.Backup),
 		Uninstaller:     buildUninstaller(),
 		Onboarding:      buildOnboarding(db.SQL(), log),
 		Permissions:     buildPermissions(log),
@@ -1394,26 +1394,28 @@ func buildPermissions(log *slog.Logger) *permissions.Manager {
 // (daemon.Run) starts the scheduler after listeners are
 // ready and stops it on shutdown.
 //
-// Cadence comes from cfg.Backup.IntervalHours (default 24h)
-// and cfg.Backup.KeepN (default 7). The scheduler is local-
-// only and stores archives in <data-dir>/backups. The user
-// can also call backup.create manually at any time; the
-// scheduler and the RPC use the same Manager so they share
-// the encryption key, the schema version, and the rotation
-// policy.
-func buildBackupScheduler(bm *backup.Manager, log *slog.Logger) *backup.Scheduler {
+// O3 fix: the scheduler now honors cfg.Backup.IntervalHours
+// (cadence) and cfg.Backup.KeepN (rotation count) from the
+// user's config.yaml. Previously these fields did not exist on
+// BackupConfig, and buildBackupScheduler always used
+// DefaultSchedulerConfig (24h interval, 7 archives) regardless of
+// what the user put in their YAML. Now the user's values flow
+// through: IntervalHours=6 → 6h backup cadence; KeepN=30 → 30
+// archives retained.
+func buildBackupScheduler(bm *backup.Manager, log *slog.Logger, backupCfg *config.BackupConfig) *backup.Scheduler {
 	if bm == nil {
 		log.Warn("auto-backup scheduler: backup manager not available, scheduler disabled")
 		return nil
 	}
 	cfg := backup.DefaultSchedulerConfig()
-	// Cadence knobs live in cfg.Backup (data-modeled via
-	// config.BackupConfig). For v0.1.0 the defaults are 24h
-	// interval, 7 archives retained. If cfg.Backup.IntervalHours
-	// is set, we honor it; otherwise the DefaultSchedulerConfig
-	// value (24h) applies.
-	// Note: NewScheduler fills cfg.BackupDir from the manager's
-	// data dir if it's empty, so we log AFTER construction.
+	if backupCfg != nil {
+		if backupCfg.IntervalHours > 0 {
+			cfg.Interval = time.Duration(backupCfg.IntervalHours) * time.Hour
+		}
+		if backupCfg.KeepN > 0 {
+			cfg.KeepN = backupCfg.KeepN
+		}
+	}
 	s := backup.NewScheduler(cfg, bm, log)
 	log.Info("auto-backup scheduler ready",
 		"interval", cfg.Interval,
