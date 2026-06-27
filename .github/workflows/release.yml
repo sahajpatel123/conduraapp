@@ -213,7 +213,7 @@ jobs:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
           if [ -z "$UPDATE_SIGNING_KEY" ]; then
-            echo "ERROR: UPDATE_SIGNING_KEY not set — refusing to upload an unsigned manifest as '*.signed.json'." >&2
+            echo "::error::UPDATE_SIGNING_KEY not set — refusing to upload an unsigned manifest as signed" >&2
             echo "Set UPDATE_SIGNING_KEY (Ed25519 hex seed, 64 hex chars) in repo Settings → Secrets." >&2
             echo "Until it is set, this release ships without an update manifest (fail-closed)." >&2
             exit 1
@@ -323,6 +323,17 @@ jobs:
           if [ -z "$APP" ]; then
             echo "::error::no .app found inside $ZIP" >&2
             exit 1
+          fi
+          # Normalize the bundle name to Condura.app. install.sh and the
+          # Homebrew cask both expect /Volumes/Condura/Condura.app (capital C).
+          # Wails builds condura.app (lowercase) per app/web/wails.json
+          # outputfilename; the rename is localized to the macOS notarize flow
+          # so Windows/Linux GUI binary names are unaffected.
+          APP_DIR="$(dirname "$APP")"
+          if [ "$(basename "$APP")" != "Condura.app" ]; then
+            echo "==> Renaming bundle $(basename "$APP") -> Condura.app"
+            mv "$APP" "$APP_DIR/Condura.app"
+            APP="$APP_DIR/Condura.app"
           fi
           echo "==> Codesigning $APP"
           codesign --force --deep --options runtime \
