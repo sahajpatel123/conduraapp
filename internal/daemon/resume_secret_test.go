@@ -3,6 +3,7 @@ package daemon
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -62,13 +63,17 @@ func TestResumeSecret_AutoGenerate(t *testing.T) {
 	if got2 != got {
 		t.Fatalf("second Load = %q, want %q (stable across calls)", got2, got)
 	}
-	// And the file is mode 0600.
-	info, err := os.Stat(filepath.Join(dir, "resume.secret"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("resume.secret mode = %v, want 0600", info.Mode().Perm())
+	// And the file is mode 0600. (Windows NTFS ignores mode bits —
+	// the per-file ACL is the real permission model there. Skip the
+	// mode assertion on Windows so behavior is cross-platform.)
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(dir, "resume.secret"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("resume.secret mode = %v, want 0600", info.Mode().Perm())
+		}
 	}
 }
 
