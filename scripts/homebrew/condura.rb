@@ -1,8 +1,8 @@
 cask "condura" do
-  version "0.1.0"
-  sha256 :no_check
+  version "0.1.1"
+  sha256 "9bce357d396799d7be04e116691fff5fec428cd441145e563df93796e487158f"
 
-  url "https://github.com/sahajpatel123/conduraapp/releases/latest/download/condura-gui-darwin-arm64.dmg",
+  url "https://github.com/sahajpatel123/conduraapp/releases/download/v0.1.1/condura-gui-darwin-arm64.dmg",
       verified: "github.com/sahajpatel123/conduraapp/"
   name "Condura"
   desc "Free, local-first AI agent that lives on your computer and orchestrates every other AI tool"
