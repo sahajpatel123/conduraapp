@@ -28,6 +28,13 @@ type SchedulerConfig struct {
 	// KeepN is the number of recent backups to retain. Older ones
 	// are deleted. Default: 7.
 	KeepN int
+	// RetentionDays is the age-based retention policy: backups older
+	// than this many days are pruned. 0 = no age-prune (forever). O3:
+	// previously this user config knob was ignored; Rotate now honors it
+	// alongside KeepN (a backup is pruned if past KeepN OR older than
+	// RetentionDays). Default: 0 here (the daemon passes the user's
+	// config value, default 30 in config.Default).
+	RetentionDays int
 	// BackupDir is the directory where backups are written. If
 	// empty, defaults to <data-dir>/backups.
 	BackupDir string
@@ -42,11 +49,12 @@ type SchedulerConfig struct {
 // DefaultSchedulerConfig returns the safe defaults.
 func DefaultSchedulerConfig() SchedulerConfig {
 	return SchedulerConfig{
-		Interval:   24 * time.Hour,
-		KeepN:      defaultSchedulerKeepN,
-		BackupDir:  "",
-		FirstRunAt: time.Time{},
-		Now:        time.Now,
+		Interval:      24 * time.Hour,
+		KeepN:         defaultSchedulerKeepN,
+		RetentionDays: 0,
+		BackupDir:     "",
+		FirstRunAt:    time.Time{},
+		Now:           time.Now,
 	}
 }
 
@@ -206,10 +214,22 @@ func (s *Scheduler) Rotate() error {
 	sort.Slice(backups, func(i, j int) bool {
 		return backups[i].modTime.After(backups[j].modTime)
 	})
-	// Delete everything past KeepN.
-	for i := s.cfg.KeepN; i < len(backups); i++ {
-		if err := os.Remove(filepath.Join(dir, backups[i].name)); err != nil {
-			return err
+	// O3: prune by count (KeepN) AND age (RetentionDays). A backup is
+	// pruned if it is past KeepN OR older than RetentionDays. RetentionDays
+	// == 0 means no age-prune (forever). Previously RetentionDays was a
+	// shipped config knob that was read nowhere.
+	now := s.cfg.Now()
+	var cutoff time.Time
+	if s.cfg.RetentionDays > 0 {
+		cutoff = now.Add(-time.Duration(s.cfg.RetentionDays) * 24 * time.Hour)
+	}
+	for i, b := range backups {
+		pruneByCount := i >= s.cfg.KeepN
+		pruneByAge := s.cfg.RetentionDays > 0 && b.modTime.Before(cutoff)
+		if pruneByCount || pruneByAge {
+			if err := os.Remove(filepath.Join(dir, b.name)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

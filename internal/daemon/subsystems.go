@@ -1419,6 +1419,10 @@ func buildBackupScheduler(bm *backup.Manager, log *slog.Logger, backupCfg *confi
 		if backupCfg.KeepN > 0 {
 			cfg.KeepN = backupCfg.KeepN
 		}
+		// O3: honor the user's retention_days (0 = forever). Previously
+		// this shipped config knob was read nowhere; Rotate now prunes
+		// by age alongside the KeepN count cap.
+		cfg.RetentionDays = backupCfg.RetentionDays
 	}
 	s := backup.NewScheduler(cfg, bm, log)
 	log.Info("auto-backup scheduler ready",
