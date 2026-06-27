@@ -15,6 +15,9 @@ const (
 	// halt/resume. A privileged GUI-confirmed resume path (T3b) will
 	// record a "gui-human" actor instead.
 	actorIPC = "ipc"
+	// actorGUIHuman records a resume that was confirmed by a human via
+	// the privileged non-IPC path (T3b sticky resume).
+	actorGUIHuman = "gui-human"
 )
 
 // Audit app strings (which app produced the action).

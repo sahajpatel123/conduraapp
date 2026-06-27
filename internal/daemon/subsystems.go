@@ -103,6 +103,11 @@ type Subsystems struct {
 	Streams       *stream.Manager
 	IPCAddr       string // first listen addr (empty if IPC disabled)
 
+	// T3b sticky-resume: in-memory ticket store + human-only secret
+	// manager. Owned by Subsystems so they share the daemon lifecycle.
+	ResumeTickets *ResumeTicketStore
+	ResumeSecret  *ResumeSecretManager
+
 	// Phase 6: living presence.
 	// Gatekeeper is the canonical deterministic rules engine.
 	// Every physical action goes through it (GatedAgentExecutor,
@@ -550,6 +555,20 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// when Halt is called, all outbound HTTP is denied except to
 	// allow-listed providers. See internal/halt/network.go.
 	netGuard := halt.NewInProcessGuard()
+	// T3b sticky-resume: ticket store + human-only secret manager.
+	// The ticket store lives in-memory (no persistence: a restart
+	// while halted is an acceptable fail-closed outcome — the user
+	// re-mints). The secret lives at <dataDir>/resume.secret
+	// (mode 0600, auto-generated on first start) with an env-var
+	// override for headless deployments.
+	resumeSecret := NewResumeSecretManager(cfg.General.DataDir, "CONDURA_RESUME_SECRET")
+	if sec, secErr := resumeSecret.Load(); secErr != nil {
+		log.Warn("resume secret load failed (un-halt will require the secret to be fixed)", "err", secErr)
+	} else {
+		log.Info("resume secret ready (required to confirm un-halt via `condura resume --confirm` or halt.confirm_resume IPC)")
+		_ = sec // the secret is intentionally not logged
+	}
+	resumeTickets := NewResumeTicketStore()
 	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)
 	tel.SetEnabled(cfg.Telemetry.Enabled)
 	upd := updater.New(db.SQL(), resolveUpdateManifestURL(cfg))
@@ -866,6 +885,10 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Watchdog:                 wdog,
 		Delegation:               buildDelegationBus(gate, mon),
 		Phase12:                  buildPhase12(cfg, log),
+		// T3b sticky-resume. Both live for the daemon's lifetime;
+		// no Shutdown needed (no background goroutines, no IO).
+		ResumeTickets: resumeTickets,
+		ResumeSecret:  resumeSecret,
 		// Phase 11: trust & recovery. See methods_phase11.go
 		// for the RPC surface and the corresponding E2E
 		// test in trust_e2e_test.go.

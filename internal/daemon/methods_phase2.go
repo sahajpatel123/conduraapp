@@ -230,7 +230,7 @@ func handleLLMCancel(
 		return map[string]any{
 			"canceled":   true,
 			"request_id": p.RequestID,
-			"timestamp":  time.Now().UTC().Format(time.RFC3339),
+			"timestamp":  time.Now().UTC().Format(time.RFC3339), //nolint:goconst
 		}, nil
 	}
 
@@ -298,23 +298,43 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 	})
 }
 
-// registerHaltMethods wires daemon.halt + daemon.resume + halt.state.
+// registerHaltMethods wires daemon.halt + daemon.resume_request +
+// halt.confirm_resume + halt.state.
 //
-// N3 fix (production-readiness verdict): daemon.halt now toggles BOTH
-// the halt flag (Layer 1, persisted) AND the network guard (Layer 3,
-// in-process). Without the network guard toggle, a halted agent could
-// still make outbound LLM calls — the flag was set but the transport
-// was still open. Now Halt calls guard.Halt() to deny all connections,
-// and Resume calls guard.Resume() to re-enable the allow-list.
+// T3b sticky resume (P0-1 core): the previous `daemon.resume` IPC
+// handler was unbounded — any IPC token-holder (including a compromised
+// in-process conductor) could silently un-halt the agent. The new
+// flow requires a human-confirmed action the in-process conductor
+// cannot invoke:
 //
-// P0-1 (bounded) fix: the halt/resume audit Actor is now actorIPC
-// (honest: the RPC arrived over the IPC bearer channel; the transport
-// cannot distinguish the GUI from any other token-holder). The
-// watchdog auto-halt path keeps its own "watchdog" actor. A future
-// privileged, human-confirmed resume path (T3b) records actorGUIHuman.
-// The robust sticky-resume (un-halt requires a non-IPC human action the
-// in-process conductor cannot invoke) is T3b.
-func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log, sm *stream.Manager, guard halt.NetworkGuard) {
+//   - `daemon.resume_request` (IPC, this file): mints a one-time ticket
+//     with a 5-min TTL + rate limit. Returns the ticket to the caller.
+//   - `halt.confirm_resume` (IPC, this file): consumes the ticket + a
+//     human-only secret (the CLI prompts the user). Constant-time
+//     secret compare. On success: resumes the flag + the net guard.
+//   - `condura resume --confirm <ticket>` (CLI, separate OS process):
+//     prompts for the secret, opens its own IPC client, calls
+//     halt.confirm_resume. Out of the in-process trust boundary.
+//
+// The OLD `daemon.resume` IPC is kept as a thin deprecation shim that
+// returns a clear migration error pointing at the new flow. Frontend
+// code calling daemonResume() will see the clear error; the new method
+// is daemonResumeRequest() + haltConfirmResume(ticket, secret).
+//
+// The watchdog auto-halt path (which calls HaltFlag.Halt directly,
+// bypassing the RPC handler) is still covered by guardAwareHaltFlag
+// from the N3 fix — its Halt call also toggles the network guard.
+//
+//nolint:goconst // JSON response field keys repeat across the 3 handlers; readability > extracting 4 consts.
+func registerHaltMethods(
+	srv *ipc.Server,
+	haltFlag *halt.Flag,
+	auditLog *audit.Log,
+	sm *stream.Manager,
+	guard halt.NetworkGuard,
+	ticketStore *ResumeTicketStore,
+	resumeSecret *ResumeSecretManager,
+) {
 	srv.Register("daemon.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Reason string `json:"reason"`
@@ -342,17 +362,99 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			"timestamp":               time.Now().UTC().Format(time.RFC3339),
 		}, nil
 	})
-	srv.Register("daemon.resume", func(ctx context.Context, _ json.RawMessage) (any, error) {
+	srv.Register("daemon.resume_request", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		// Must be halted to be resumeable. If not halted, treat as a
+		// no-op so the user-facing flow "click resume" doesn't crash.
+		if !haltFlag.IsHalted() {
+			return map[string]any{
+				"halted": false,
+				"reason": "daemon is not halted",
+				"ticket": "",
+			}, nil
+		}
+		ticket, err := ticketStore.Mint()
+		if err != nil {
+			_ = auditLog.Append(ctx, audit.Event{
+				Actor: actorIPC, Action: "daemon.resume_request", App: appConduraG,
+				Level: auditLevelWarn, Result: auditResultError,
+				Message: err.Error(),
+			})
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		_ = auditLog.Append(ctx, audit.Event{
+			Actor: actorIPC, Action: "daemon.resume_request", App: appConduraG,
+			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "ticket minted; awaiting human confirm",
+		})
+		return map[string]any{
+			"halted":      true,
+			"ticket":      ticket,
+			"ttl_seconds": int(resumeTicketTTL / time.Second),
+			"confirm_via": "condura resume --confirm <ticket>   OR   halt.confirm_resume IPC",
+		}, nil
+	})
+
+	srv.Register("halt.confirm_resume", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			Ticket string `json:"ticket"`
+			Secret string `json:"secret"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		if p.Ticket == "" || p.Secret == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "ticket and secret are required"}
+		}
+		expected, secErr := resumeSecret.Load()
+		if secErr != nil {
+			_ = auditLog.Append(ctx, audit.Event{
+				Actor: actorIPC, Action: "halt.confirm_resume", App: appConduraG,
+				Level: auditLevelError, Result: auditResultError,
+				Message: "secret load failed: " + secErr.Error(),
+			})
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "resume secret unavailable"}
+		}
+		if _, err := ticketStore.Consume(p.Ticket, p.Secret, expected); err != nil {
+			// Audit denial at actorGUIHuman-failed (i.e. someone
+			// attempted the privileged path without a valid secret /
+			// ticket). Treat as suspicious; surface the denial reason
+			// to the caller but do not leak the expected secret.
+			_ = auditLog.Append(ctx, audit.Event{
+				Actor: actorIPC, Action: "halt.confirm_resume", App: appConduraG,
+				Level: auditLevelWarn, Result: auditResultDeny,
+				Message: err.Error(),
+			})
+			return nil, &ipc.Error{Code: ipc.CodeInvalidRequest, Message: err.Error()}
+		}
+		// Valid ticket + matching secret → un-halt.
 		_, _ = haltFlag.Resume(ctx)
-		// N3: re-enable the network guard's allow-list.
 		if guard != nil {
 			_ = guard.Resume()
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorIPC, Action: "daemon.resume", App: appConduraG,
+			Actor: actorGUIHuman, Action: "halt.confirm_resume", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "human-confirmed resume via sticky ticket",
 		})
-		return auditOK(), nil
+		return map[string]any{
+			"resumed":   true,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		}, nil
+	})
+
+	// Deprecation shim for the old IPC name. Returns a clear migration
+	// error so any leftover GUI/CLI client gets a usable message
+	// instead of silently resuming.
+	srv.Register("daemon.resume", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		_ = auditLog.Append(ctx, audit.Event{
+			Actor: actorIPC, Action: "daemon.resume", App: appConduraG,
+			Level: auditLevelWarn, Result: auditResultDeny,
+			Message: "deprecated: use daemon.resume_request + halt.confirm_resume (or `condura resume --confirm`)",
+		})
+		return nil, &ipc.Error{
+			Code:    ipc.CodeInvalidRequest,
+			Message: "daemon.resume is deprecated since T3b sticky-resume; call daemon.resume_request to mint a ticket, then halt.confirm_resume (or `condura resume --confirm <ticket>`) to confirm with the human-confirmation secret",
+		}
 	})
 	srv.Register("halt.state", func(_ context.Context, _ json.RawMessage) (any, error) {
 		s := haltFlag.Halted()

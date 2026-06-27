@@ -314,6 +314,18 @@ export interface DaemonHaltResult {
   timestamp: string
 }
 
+// T3b sticky-resume: daemon.resume_request mints a one-time ticket.
+// The GUI shows the user the instructions to confirm via the CLI in
+// a terminal (out of the in-process trust boundary). When the daemon
+// is not halted, halted=false and ticket="".
+export interface DaemonResumeRequestResult {
+  halted: boolean
+  ticket: string
+  ttl_seconds?: number
+  confirm_via?: string
+  reason?: string
+}
+
 export interface DaemonUpdateResult {
   update_available: boolean
   current_version: string
