@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
+  import { notifications } from '../stores/notifications.svelte'
   import PublishModal from '../components/PublishModal.svelte'
+  import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import { t } from '../i18n'
 
   let showPublish = $state(false)
@@ -10,6 +12,8 @@
   let loading = $state(false)
   let error = $state<string | null>(null)
   let installed = $state<Set<string>>(new Set())
+  let confirmOpen = $state(false)
+  let confirmAction = $state<(() => void) | null>(null)
 
   async function search() {
     if (!query.trim()) return
@@ -30,14 +34,16 @@
   }
 
   async function install(id: string) {
-    if (!confirm(t('hub.install_confirm', id))) return
-    try {
-      await ipc.hubInstall(id)
-      installed.add(id)
-      installed = new Set(installed) // trigger reactivity
-    } catch (e) {
-      error = String(e)
+    confirmAction = async () => {
+      try {
+        await ipc.hubInstall(id)
+        installed.add(id)
+        installed = new Set(installed)
+      } catch (e) {
+        error = String(e)
+      }
     }
+    confirmOpen = true
   }
 
   function onKey(e: KeyboardEvent) {
@@ -115,6 +121,13 @@
 {#if showPublish}
   <PublishModal onClose={() => (showPublish = false)} />
 {/if}
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={t('hub.install')}
+  message={t('hub.install_confirm', '')}
+  onconfirm={() => confirmAction?.()}
+/>
 
 <style>
   .hub-page {

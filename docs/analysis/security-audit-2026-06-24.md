@@ -19,7 +19,7 @@ Condura is an unusually well-defended personal-AI agent project for its maturity
 
 | # | Finding | Severity |
 |---|---|---|
-| F-01 | File-fallback secrets backend stores **all secrets in cleartext JSON** (including the master encryption key) | **CRITICAL** |
+| F-01 | File-fallback secrets backend stores **all secrets in cleartext JSON** (including the master encryption key) | **CRITICAL — CLOSED at cace2a4 (AES-256-GCM + HKDF)** |
 | F-02 | In-process `NetworkGuard` is the **only** Layer 3 kill switch; the agent process can bypass its own transport | **HIGH** |
 | F-03 | Repo has **secret scanning, code scanning, and Dependabot all disabled** | **HIGH** |
 | F-04 | WebSocket `InsecureSkipVerify: true` on `websocket.Accept` (compensated by origin check) | **MEDIUM** |
@@ -135,7 +135,21 @@ code_scanning:                    no analysis found
 
 ### F-01 — CRITICAL — File-fallback secrets backend stores everything in cleartext JSON
 
-**Evidence:** `internal/secrets/manager.go:202-323`
+**Status: CLOSED at cace2a4** (commit landed before this audit doc was
+published; the doc text was stale until now). The current
+`internal/secrets/manager.go` ships AES-256-GCM envelopes (`cipher.NewGCM`
++ `gcm.Seal`/`Open`), HKDF-SHA256 key derivation from `CONDURA_FILE_
+PASSPHRASE` or a machine-bound 32-byte `.key` file (mode 0600), and a
+V2 envelope format with in-place V1-cleartext migration on first read.
+All write paths route through `writeEncrypted`. No cleartext secret is on
+disk after migration. Residual (not F-01): the `.key` file lives next to
+`secrets.json`; exfiltrating both allows decryption — standard
+locally-keyed-encryption trade-off (same class as SSH / age keys);
+`CONDURA_FILE_PASSPHRASE` removes the on-disk key entirely.
+
+The historical evidence below is preserved for the audit trail:
+
+**Evidence (pre-cace2a4):** `internal/secrets/manager.go:202-323`
 
 ```go
 // fileManager stores secrets in a single JSON file with mode 0600.

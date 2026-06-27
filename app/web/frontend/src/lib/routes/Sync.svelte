@@ -7,6 +7,7 @@
   import { sync } from '../stores/sync.svelte'
   import { onMount, onDestroy } from 'svelte'
   import PairingModal from '../components/PairingModal.svelte'
+  import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import type { SyncStatus } from '../ipc/types'
   import { t } from '../i18n'
 
@@ -14,6 +15,8 @@
   let lastAction = $state('')
   let pairing = $state(false)
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let confirmOpen = $state(false)
+  let confirmAction = $state<(() => void) | null>(null)
 
   async function refreshStatus(): Promise<void> {
     try {
@@ -46,8 +49,10 @@
   }
 
   async function revoke(deviceId: string): Promise<void> {
-    if (!confirm(t('sync.revoke_confirm', deviceId))) return
-    if (await sync.revoke(deviceId)) lastAction = t('sync.last_action.revoked', deviceId)
+    confirmAction = async () => {
+      if (await sync.revoke(deviceId)) lastAction = t('sync.last_action.revoked', deviceId)
+    }
+    confirmOpen = true
   }
 
   async function syncWith(deviceId: string): Promise<void> {
@@ -155,6 +160,14 @@
     onCancel={cancelPair}
   />
 {/if}
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={t('sync.revoke')}
+  message={t('sync.revoke_confirm', '')}
+  danger={true}
+  onconfirm={() => confirmAction?.()}
+/>
 
 <style>
   .sync-page {

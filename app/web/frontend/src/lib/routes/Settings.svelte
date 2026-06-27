@@ -7,10 +7,12 @@
   import { trust } from '../stores/trust.svelte'
   import { onboarding } from '../stores/onboarding.svelte'
   import { account } from '../stores/account.svelte'
+  import { notifications } from '../stores/notifications.svelte'
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
   import LocaleSelector from '../components/LocaleSelector.svelte'
   import SignInPanel from '../components/SignInPanel.svelte'
+  import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import { t } from '../i18n'
 
   let hotkeyInput = $state('')
@@ -47,8 +49,14 @@
   let adaptiveError = $state<string | null>(null)
   let rerunning = $state(false)
 
-  // Account (14B)
   let showSignIn = $state(false)
+  let confirmOpen = $state(false)
+  let confirmTitle = $state('')
+  let confirmMessage = $state('')
+  let confirmDanger = $state(false)
+  let confirmAction = $state<(() => void) | null>(null)
+  let confirmLabel = $state('')
+  let cancelLabel = $state('')
 
   // Voice (14H) — read/written via generic config RPCs because the
   // typed AppConfig doesn't model the voice subtree.
@@ -76,7 +84,7 @@
     try {
       await ipc.call('config.update', { voice: { wake: { ...wake } } })
     } catch (err) {
-      alert(t('settings.voice.save_error', err))
+      notifications.push({ kind: 'error', title: t('settings.voice.save_error', err), message: '' })
     }
   }
 
@@ -137,23 +145,35 @@
     const confirmMsg = field === 'pet_peeves'
       ? t('settings.adaptive.forget_dislike', value)
       : t('settings.adaptive.forget_have', value)
-    if (!confirm(confirmMsg)) return
-    try {
-      await ipc.call('adaptive.forget', { field, value })
-      void loadAdaptive()
-    } catch (e) {
-      adaptiveError = String(e)
-    }
+    showConfirm({
+      title: t('settings.adaptive.forget'),
+      message: confirmMsg,
+      danger: true,
+      onconfirm: async () => {
+        try {
+          await ipc.call('adaptive.forget', { field, value })
+          void loadAdaptive()
+        } catch (e) {
+          adaptiveError = String(e)
+        }
+      }
+    })
   }
 
   async function resetAdaptive(): Promise<void> {
-    if (!confirm(t('settings.adaptive.reset_confirm'))) return
-    try {
-      await ipc.call('adaptive.reset', {})
-      void loadAdaptive()
-    } catch (e) {
-      adaptiveError = String(e)
-    }
+    showConfirm({
+      title: t('settings.adaptive.reset'),
+      message: t('settings.adaptive.reset_confirm'),
+      danger: true,
+      onconfirm: async () => {
+        try {
+          await ipc.call('adaptive.reset', {})
+          void loadAdaptive()
+        } catch (e) {
+          adaptiveError = String(e)
+        }
+      }
+    })
   }
 
   function providerLabel(p: string): string {
@@ -173,21 +193,27 @@
       eulaTitle = t('onboarding.eula.title')
       eulaVersion = doc.version
     } catch (err) {
-      alert(t('settings.legal.eula_error', err))
+      notifications.push({ kind: 'error', title: t('settings.legal.eula_error', err), message: '' })
     }
   }
 
   async function rerunSetup(): Promise<void> {
-    if (!confirm(t('settings.setup.rerun_confirm'))) return
-    rerunning = true
-    try {
-      await onboarding.reset()
-      window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
-    } catch (err) {
-      alert(t('settings.setup.rerun_error', err))
-    } finally {
-      rerunning = false
-    }
+    showConfirm({
+      title: t('settings.setup.rerun'),
+      message: t('settings.setup.rerun_confirm'),
+      danger: true,
+      onconfirm: async () => {
+        rerunning = true
+        try {
+          await onboarding.reset()
+          window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
+        } catch (err) {
+          notifications.push({ kind: 'error', title: t('settings.setup.rerun_error', err), message: '' })
+        } finally {
+          rerunning = false
+        }
+      }
+    })
   }
 
   $effect(() => {
@@ -200,7 +226,7 @@
   async function saveHotkey(): Promise<void> {
     if (!settings.config) return
     await settings.save({ hotkey: { ...settings.config.hotkey, overlay: hotkeyInput } })
-    alert(t('settings.hotkey.saved_alert'))
+    notifications.push({ kind: 'success', title: t('settings.hotkey.saved_alert'), message: '' })
   }
 
   async function saveTelemetry(): Promise<void> {
@@ -215,22 +241,34 @@
     try {
       await apiKeys.set(newProvider, newLabel, newSecret)
       newSecret = ''
-      alert(t('settings.apikeys.saved_alert'))
+      notifications.push({ kind: 'success', title: t('settings.apikeys.saved_alert'), message: '' })
     } catch (err) {
-      alert(t('settings.apikeys.failed_alert', err))
+      notifications.push({ kind: 'error', title: t('settings.apikeys.failed_alert', err), message: '' })
     } finally {
       settingAPIKey = false
     }
   }
 
   async function deleteKey(id: number): Promise<void> {
-    if (!confirm(t('settings.apikeys.delete_confirm'))) return
-    await apiKeys.remove(id)
+    showConfirm({
+      title: t('settings.apikeys.delete'),
+      message: t('settings.apikeys.delete_confirm'),
+      danger: true,
+      onconfirm: async () => {
+        await apiKeys.remove(id)
+      }
+    })
   }
 
   async function performHalt(): Promise<void> {
-    if (!confirm(t('settings.killswitch.halt_confirm'))) return
-    await halt.halt('user requested from settings')
+    showConfirm({
+      title: t('settings.killswitch.halt'),
+      message: t('settings.killswitch.halt_confirm'),
+      danger: true,
+      onconfirm: async () => {
+        await halt.halt('user requested from settings')
+      }
+    })
   }
 
   async function performResume(): Promise<void> {
@@ -240,10 +278,10 @@
   async function createBackup(): Promise<void> {
     creatingBackup = true
     try {
-      const path = await trust.createBackup()
-      alert(t('settings.backup.created_alert', path))
+      await trust.createBackup()
+      notifications.push({ kind: 'success', title: t('settings.backup.created_alert'), message: '' })
     } catch (err) {
-      alert(t('settings.backup.failed_alert', err))
+      notifications.push({ kind: 'error', title: t('settings.backup.failed_alert', err), message: '' })
     } finally {
       creatingBackup = false
     }
@@ -268,9 +306,9 @@
       // show restored data so the user sees the new state
       // immediately without a daemon restart.
       await trust.refreshBackups()
-      alert(t('settings.backup.restored_alert', target.name))
+      notifications.push({ kind: 'success', title: t('settings.backup.restored_alert', target.name), message: '' })
     } catch (err) {
-      alert(t('settings.backup.restore_failed_alert', err))
+      notifications.push({ kind: 'error', title: t('settings.backup.restore_failed_alert', err), message: '' })
     } finally {
       restoringBackup = null
     }
@@ -281,7 +319,7 @@
       const g = await trust.loadGuide(kind)
       permissionGuide = { kind: g.kind, title: g.title, steps: g.steps }
     } catch (err) {
-      alert(t('settings.permissions.guide_error', err))
+      notifications.push({ kind: 'error', title: t('settings.permissions.guide_error', err), message: '' })
     }
   }
 
@@ -289,6 +327,23 @@
     if (n < 1024) return `${n} B`
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
     return `${(n / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  function showConfirm(opts: {
+    title: string
+    message: string
+    danger?: boolean
+    confirmLabel?: string
+    cancelLabel?: string
+    onconfirm: () => void
+  }): void {
+    confirmTitle = opts.title
+    confirmMessage = opts.message
+    confirmDanger = opts.danger ?? false
+    confirmAction = opts.onconfirm
+    confirmLabel = opts.confirmLabel ?? ''
+    cancelLabel = opts.cancelLabel ?? ''
+    confirmOpen = true
   }
 </script>
 
@@ -659,6 +714,16 @@
 {#if showSignIn}
   <SignInPanel onClose={() => (showSignIn = false)} />
 {/if}
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={confirmTitle}
+  message={confirmMessage}
+  danger={confirmDanger}
+  confirmLabel={confirmLabel}
+  cancelLabel={cancelLabel}
+  onconfirm={() => confirmAction?.()}
+/>
 
 {#if restoreTarget}
   <div

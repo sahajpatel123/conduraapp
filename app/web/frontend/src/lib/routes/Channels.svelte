@@ -6,6 +6,7 @@
   // owns its own contract.
   import { ipc } from '../ipc/client'
   import { onMount, onDestroy } from 'svelte'
+  import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import { t } from '../i18n'
 
   // Mirrors reach.ChannelStatus on the Go side.
@@ -22,6 +23,8 @@
   let token = $state('')
   let connecting = $state(false)
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let confirmOpen = $state(false)
+  let confirmAction = $state<(() => void) | null>(null)
 
   async function refresh(): Promise<void> {
     loading = true
@@ -52,15 +55,17 @@
     }
   }
 
-  async function disconnect(name: string): Promise<void> {
-    if (!confirm(t('channels.disconnect_confirm', name))) return
-    error = null
-    try {
-      await ipc.call('channels.disconnect', { channel: name })
-      await refresh()
-    } catch (e) {
-      error = String(e)
+  function disconnect(name: string): void {
+    confirmAction = async () => {
+      error = null
+      try {
+        await ipc.call('channels.disconnect', { channel: name })
+        await refresh()
+      } catch (e) {
+        error = String(e)
+      }
     }
+    confirmOpen = true
   }
 
   function prettyName(name: string): string {
@@ -136,6 +141,14 @@
     {/if}
   </section>
 </div>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={t('channels.disconnect')}
+  message={t('channels.disconnect_confirm', '')}
+  danger={true}
+  onconfirm={() => confirmAction?.()}
+/>
 
 <style>
   .channels-page {
