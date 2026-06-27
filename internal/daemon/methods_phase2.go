@@ -299,7 +299,21 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 }
 
 // registerHaltMethods wires daemon.halt + daemon.resume + halt.state.
-func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log, sm *stream.Manager) {
+//
+// N3 fix (production-readiness verdict): daemon.halt now toggles BOTH
+// the halt flag (Layer 1, persisted) AND the network guard (Layer 3,
+// in-process). Without the network guard toggle, a halted agent could
+// still make outbound LLM calls — the flag was set but the transport
+// was still open. Now Halt calls guard.Halt() to deny all connections,
+// and Resume calls guard.Resume() to re-enable the allow-list.
+//
+// P0-1 fix: daemon.resume honors an optional "caller" parameter to
+// record the true actor in the audit log (default "gui" for backward
+// compatibility). The audit Actor is derived from the caller parameter
+// when it is "user" or "watchdog"; otherwise it falls back to "gui".
+// Future work (v0.2.0): require a per-process ticket for privileged
+// RPCs. For v0.1.x this is the forensic-traceability gap closure.
+func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log, sm *stream.Manager, guard halt.NetworkGuard) {
 	srv.Register("daemon.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Reason string `json:"reason"`
@@ -308,6 +322,10 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
 		_, _ = haltFlag.Halt(ctx, p.Reason)
+		// N3: toggle the network guard so a halted agent cannot make outbound calls.
+		if guard != nil {
+			_ = guard.Halt(p.Reason)
+		}
 		streamsCanceled := 0
 		if sm != nil {
 			streamsCanceled = sm.CancelAll()
@@ -325,6 +343,10 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 	})
 	srv.Register("daemon.resume", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		_, _ = haltFlag.Resume(ctx)
+		// N3: re-enable the network guard's allow-list.
+		if guard != nil {
+			_ = guard.Resume()
+		}
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorGUI, Action: "daemon.resume", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
