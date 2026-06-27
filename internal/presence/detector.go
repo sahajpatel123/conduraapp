@@ -21,6 +21,7 @@ import (
 	"context"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -120,19 +121,46 @@ func (d *Detector) checkLocked() bool {
 	}
 }
 
-// darwin checks use AppleScript and libc calls.
+// darwin checks use ioreg for real idle-time measurement (no CGO).
 func (d *Detector) checkActiveOnDarwin() bool {
-	// Use ioreg to check for screen state changes and recent events.
-	// This is a heuristic - real implementation would use CGEventSourceSecondsSinceLastEventType.
-	// For now, assume active unless screen is locked.
-	out, err := exec.CommandContext(context.Background(), "ioreg", "-c", "IOHIDSystem").Output()
+	// ioreg reports HIDIdleTime = nanoseconds since the last HID
+	// (keyboard/mouse) input. Present if idle < presenceIdleSeconds.
+	// This is the real macOS idle check (the prior "AppleEvent" substring
+	// grep was effectively always-true). Fail-closed on any error or
+	// parse failure: a broken probe must NOT claim the user is present,
+	// because presence gates DESTRUCTIVE consent.
+	out, err := exec.CommandContext(context.Background(), "ioreg", "-c", "IOHIDSystem", "-r", "-d", "1").Output()
 	if err != nil {
-		// Fail closed: a broken probe must NOT claim the user is
-		// present, because presence gates DESTRUCTIVE consent.
 		return false
 	}
-	// Check for "AppleEventKeyDown" timestamps in the last minute.
-	return strings.Contains(string(out), "AppleEvent")
+	idleNs, ok := parseHIDIdleTime(string(out))
+	if !ok {
+		return false
+	}
+	const presenceIdleSeconds = 60
+	return idleNs/int64(time.Second) < presenceIdleSeconds
+}
+
+// parseHIDIdleTime extracts the HIDIdleTime value (nanoseconds) from
+// ioreg output. Line shape: `      "HIDIdleTime" = 314208851958`.
+// Returns ok=false if not found or unparseable.
+func parseHIDIdleTime(ioregOut string) (int64, bool) {
+	for _, line := range strings.Split(ioregOut, "\n") {
+		if !strings.Contains(line, "HIDIdleTime") {
+			continue
+		}
+		idx := strings.Index(line, "=")
+		if idx < 0 {
+			return 0, false
+		}
+		val := strings.TrimSpace(line[idx+1:])
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return n, true
+	}
+	return 0, false
 }
 
 func (d *Detector) checkLockedDarwin() bool {
@@ -197,9 +225,13 @@ func (d *Detector) checkLockedWindows() bool {
 }
 
 func (d *Detector) checkActiveOnLinux() bool {
-	// Check for X11 idle time or session activity.
-	// This is a placeholder - real implementation uses XScreenSaver.
-	return true
+	// Linux idle probe (XScreenSaver / AT-SPI / systemd-inhibit) is
+	// v0.2.0. Fail-closed here: a DESTRUCTIVE action on Linux must NOT
+	// be auto-allowed by a placeholder that always claims the user is
+	// present. Users who want DESTRUCTIVE on Linux without presence
+	// can set require_user_active: false in policy. Linux is TUI/CLI
+	// beta in v0.1.x (no GUI DESTRUCTIVE surface).
+	return false
 }
 
 // IsPresent returns true if the user is likely present.

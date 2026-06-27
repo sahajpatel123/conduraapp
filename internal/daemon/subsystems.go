@@ -240,6 +240,10 @@ func (s *Subsystems) replaceCloserByType(match func(io.Closer) bool, newCloser i
 // Close releases all resources held by subsystems.
 func (s *Subsystems) Close() error {
 	var errs []error
+	// N1: stop the presence detector's poll goroutine on shutdown.
+	if s.Safety != nil && s.Safety.Presence != nil {
+		s.Safety.Presence.Stop()
+	}
 	for _, c := range s.closers {
 		if err := c.Close(); err != nil {
 			errs = append(errs, err)

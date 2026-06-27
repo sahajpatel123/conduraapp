@@ -11,6 +11,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/halt"
+	"github.com/sahajpatel123/synapticapp/internal/presence"
 	"github.com/sahajpatel123/synapticapp/internal/sanitize"
 	"github.com/sahajpatel123/synapticapp/internal/sensitive"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
@@ -25,6 +26,7 @@ type SafetyComponents struct {
 	Sanitizer []sanitize.Sanitizer
 	Trust     *trust.Store // Phase 16, Rec 5: per-workspace trust
 	Autonomy  *autonomy.Matrix
+	Presence  *presence.Detector // N1: user-presence detector; Stop on shutdown.
 }
 
 // buildSafetyLayer constructs the real safety components and wires all
@@ -117,6 +119,17 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		}
 	}
 
+	// N1: user-presence detector. Polls the OS for input-idle time
+	// (macOS ioreg HIDIdleTime / Windows GetLastInputInfo / Linux
+	// fail-closed) and feeds the gatekeeper's presence gate so
+	// DESTRUCTIVE and require_user_active actions are held while the
+	// user is absent. *presence.Detector satisfies
+	// gatekeeper.PresenceChecker (IsPresent). Started here; the daemon
+	// stops it on shutdown via SafetyComponents.Presence.
+	presenceDetector := presence.NewDetector(5 * time.Second)
+	presenceDetector.Start()
+	engine.SetPresenceChecker(presenceDetector)
+
 	return &SafetyComponents{
 		Engine:    engine,
 		Anomaly:   detector,
@@ -124,6 +137,7 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		Sanitizer: sanitize.DefaultChain(),
 		Trust:     trustStore,
 		Autonomy:  matrix,
+		Presence:  presenceDetector,
 	}
 }
 
