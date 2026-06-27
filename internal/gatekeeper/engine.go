@@ -2,6 +2,8 @@ package gatekeeper
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -168,7 +170,7 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 		Verdict:    v,
 		CreatedAt:  time.Now(),
 		ExpiresAt:  time.Now().Add(time.Duration(v.TimeoutSecs) * time.Second),
-		Nonce:      fmt.Sprintf("%d", time.Now().UnixNano()),
+		Nonce:      generateNonce(),
 		Result:     make(chan bool, 1),
 	}
 
@@ -379,4 +381,16 @@ func removeTicket(tickets []*ConsentTicket, target *ConsentTicket) []*ConsentTic
 		}
 	}
 	return tickets
+}
+
+// generateNonce returns a 16-byte cryptographically random hex string.
+// Replaces the prior UnixNano-based nonce (P3 hygiene fix from the
+// production-readiness audit). The nonce is a server-internal lookup
+// key, not a security token — the real replay defense is ExpiresAt in
+// ApproveTicket/DenyTicket. Using crypto/rand is the right primitive
+// for identifiers that could be mistaken for tokens.
+func generateNonce() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
