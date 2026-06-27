@@ -1,5 +1,4 @@
-"use client";
-
+import type { Metadata } from "next";
 import GlobalNav from "@/components/shell/GlobalNav";
 import HeroSection from "@/components/home/HeroSection";
 import ManifestoOpening from "@/components/home/ManifestoOpening";
@@ -8,6 +7,12 @@ import TheRoster from "@/components/home/TheRoster";
 import TheArmor from "@/components/home/TheArmor";
 import DownloadCTA from "@/components/home/DownloadCTA";
 import Footer from "@/components/home/Footer";
+import { SITE } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: `${SITE.name} — One hotkey. Your AI tools. Free.`,
+  description: SITE.description,
+};
 
 export default function Home() {
   return (

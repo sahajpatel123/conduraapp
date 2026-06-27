@@ -119,7 +119,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ---------------------------------------------------------------
-  # Attach GUI installers (DMG / NSIS / zip / exe) to the release
+  # Attach GUI installers (NSIS / exe / Linux) to the release.
+  # macOS artifacts are owned by the `macos-sign` job below, which
+  # signs + notarizes + staples + repackages the DMG and uploads it
+  # separately. We never upload an unsigned macOS DMG here.
   # ---------------------------------------------------------------
   upload-gui:
     name: Upload GUI installers
@@ -134,17 +137,27 @@ jobs:
           path: dist/prebuilt
           merge-multiple: true
 
-      - name: Upload GUI assets to release
+      - name: Upload non-macOS GUI assets to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           shopt -s nullglob
-          files=(dist/prebuilt/*)
+          files=()
+          for f in dist/prebuilt/*; do
+            case "$(basename "$f")" in
+              *darwin*)
+                echo "skipping macOS artifact (macos-sign owns it): $f"
+                ;;
+              *)
+                files+=("$f")
+                ;;
+            esac
+          done
           if [ ${#files[@]} -eq 0 ]; then
-            echo "no GUI artifacts to upload"
+            echo "no non-macOS GUI artifacts to upload"
             exit 0
           fi
-          gh release upload "${GITHUB_REF_NAME}" dist/prebuilt/* \
+          gh release upload "${GITHUB_REF_NAME}" "${files[@]}" \
             --clobber -R "${{ github.repository }}"
 
   # ---------------------------------------------------------------
@@ -200,9 +213,10 @@ jobs:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
           if [ -z "$UPDATE_SIGNING_KEY" ]; then
-            echo "UPDATE_SIGNING_KEY not set — uploading unsigned manifest"
-            cp dist/update-manifest.json dist/update-manifest.signed.json
-            exit 0
+            echo "::error::UPDATE_SIGNING_KEY not set — refusing to upload an unsigned manifest as signed" >&2
+            echo "Set UPDATE_SIGNING_KEY (Ed25519 hex seed, 64 hex chars) in repo Settings → Secrets." >&2
+            echo "Until it is set, this release ships without an update manifest (fail-closed)." >&2
+            exit 1
           fi
           go run ./cmd/gen-update-manifest sign \
             dist/update-manifest.json dist/update-manifest.signed.json
@@ -219,10 +233,16 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" dist/manifest.json --clobber
 
   # ---------------------------------------------------------------
-  # Optional macOS codesign + notarize (when Apple secrets exist)
+  # macOS codesign + notarize + staple + verify + repackage DMG.
+  # FAIL CLOSED: if ANY Apple secret is missing, the job exits 1 and
+  # NO macOS DMG is published. The rest of the release (CLI/daemon/deb
+  # via GoReleaser, Windows/Linux GUI via upload-gui) still ships.
+  # The notarized DMG's sha256 is appended to the release's
+  # checksums.txt so the T1 installer can verify it (approach (b) in
+  # the T2 brief — GoReleaser does not know about the GUI DMG).
   # ---------------------------------------------------------------
   macos-sign:
-    name: macOS sign & notarize
+    name: macOS sign, notarize & staple
     runs-on: macos-latest
     needs: [goreleaser, build-gui]
     if: ${{ !cancelled() && needs.goreleaser.result == 'success' }}
@@ -230,41 +250,156 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Apple secrets present (fail-closed)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+        run: |
+          set -u
+          missing=()
+          [ -z "${APPLE_CERTIFICATE:-}" ] && missing+=(APPLE_CERTIFICATE) || true
+          [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] && missing+=(APPLE_CERTIFICATE_PASSWORD) || true
+          [ -z "${APPLE_DEVELOPER_ID_APPLICATION:-}" ] && missing+=(APPLE_DEVELOPER_ID_APPLICATION) || true
+          [ -z "${APPLE_ID:-}" ] && missing+=(APPLE_ID) || true
+          [ -z "${APPLE_TEAM_ID:-}" ] && missing+=(APPLE_TEAM_ID) || true
+          [ -z "${APPLE_NOTARY_PASSWORD:-}" ] && missing+=(APPLE_NOTARY_PASSWORD) || true
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required Apple secrets: ${missing[*]}"
+            echo "Set them in repo Settings → Secrets and variables → Actions → Actions secrets."
+            echo "Required:"
+            echo "  APPLE_CERTIFICATE              — base64-encoded .p12 signing certificate"
+            echo "  APPLE_CERTIFICATE_PASSWORD      — password for the .p12"
+            echo "  APPLE_DEVELOPER_ID_APPLICATION  — 'Developer ID Application: Name (TEAMID)'"
+            echo "  APPLE_ID                        — Apple ID email for notarytool"
+            echo "  APPLE_TEAM_ID                   — Apple team ID"
+            echo "  APPLE_NOTARY_PASSWORD           — app-specific password (appleid.apple.com)"
+            echo "Until all are set, this job fails and NO macOS DMG is published (fail-closed)."
+            echo "The CLI/daemon/deb still publish via GoReleaser; Windows/Linux GUI via upload-gui."
+            exit 1
+          fi
+          echo "All Apple secrets present — proceeding to sign + notarize."
+
       - name: Download GUI artifact
         uses: actions/download-artifact@v4
         with:
           name: gui-darwin-arm64
           path: dist/prebuilt
-        continue-on-error: true
 
       - name: Import signing certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "APPLE_CERTIFICATE not set — skipping"
-            exit 0
-          fi
+          set -euo pipefail
           echo "$APPLE_CERTIFICATE" | base64 --decode > signing.p12
           security create-keychain -p actions build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p actions build.keychain
-          security import signing.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security import signing.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
 
-      - name: Codesign GUI bundle
+      - name: Codesign, notarize, staple & verify
         env:
           APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ZIP="dist/prebuilt/condura-gui-darwin-arm64.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::$ZIP not found in gui-darwin-arm64 artifact" >&2
+            exit 1
+          fi
+          rm -rf dist/signed
+          mkdir -p dist/signed
+          unzip -q "$ZIP" -d dist/signed
+          APP="$(find dist/signed -maxdepth 2 -name '*.app' -print -quit)"
+          if [ -z "$APP" ]; then
+            echo "::error::no .app found inside $ZIP" >&2
+            exit 1
+          fi
+          # Normalize the bundle name to Condura.app. install.sh and the
+          # Homebrew cask both expect /Volumes/Condura/Condura.app (capital C).
+          # Wails builds condura.app (lowercase) per app/web/wails.json
+          # outputfilename; the rename is localized to the macOS notarize flow
+          # so Windows/Linux GUI binary names are unaffected.
+          APP_DIR="$(dirname "$APP")"
+          if [ "$(basename "$APP")" != "Condura.app" ]; then
+            echo "==> Renaming bundle $(basename "$APP") -> Condura.app"
+            mv "$APP" "$APP_DIR/Condura.app"
+            APP="$APP_DIR/Condura.app"
+          fi
+          echo "==> Codesigning $APP"
+          codesign --force --deep --options runtime \
+            --sign "$APPLE_DEVELOPER_ID_APPLICATION" --timestamp "$APP"
+
+          echo "==> Submitting to notarytool (this can take several minutes)"
+          SUBMIT_ZIP="dist/condura-gui-notarysubmit.zip"
+          ditto -c -k --keepParent "$APP" "$SUBMIT_ZIP"
+          xcrun notarytool submit "$SUBMIT_ZIP" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_NOTARY_PASSWORD" \
+            --wait
+
+          echo "==> Stapling notarization ticket"
+          xcrun stapler staple "$APP"
+
+          echo "==> Verifying codesign + spctl (fail-closed)"
+          codesign --verify --deep --strict "$APP"
+          spctl -a -vv --type execute "$APP"
+
+      - name: Repackage DMG, upload, and update checksums.txt
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ZIP=$(ls dist/prebuilt/condura-gui-darwin-arm64.zip 2>/dev/null || true)
-          if [ -z "$ZIP" ] || [ -z "$APPLE_DEVELOPER_ID_APPLICATION" ]; then
-            echo "nothing to sign"
-            exit 0
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          APP="$(find dist/signed -maxdepth 2 -name '*.app' -print -quit)"
+          if [ -z "$APP" ]; then
+            echo "::error::no signed .app to package" >&2
+            exit 1
           fi
-          unzip -q "$ZIP" -d dist/signed
-          APP=$(find dist/signed -name '*.app' | head -1)
-          codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" --timestamp "$APP"
-          ditto -c -k --keepParent "$APP" dist/condura-gui-signed.zip
-          gh release upload "${GITHUB_REF_NAME}" dist/condura-gui-signed.zip --clobber
+
+          echo "==> Repackaging signed+notarized app into DMG"
+          STAGING="$(mktemp -d)"
+          trap 'rm -rf "$STAGING"' EXIT
+          VOL="$STAGING/vol"
+          mkdir -p "$VOL"
+          cp -R "$APP" "$VOL/"
+          ln -s /Applications "$VOL/Applications"
+          DMG="dist/condura-gui-darwin-arm64.dmg"
+          rm -f "$DMG"
+          hdiutil create -volname "Condura" -srcfolder "$VOL" \
+            -fs HFS+ -format UDZO "$DMG" >/dev/null
+
+          echo "==> Uploading notarized DMG to release $TAG"
+          gh release upload "$TAG" "$DMG" --clobber -R "${{ github.repository }}"
+
+          echo "==> Appending DMG sha256 to release checksums.txt"
+          CS="dist/checksums.txt"
+          for i in $(seq 1 36); do
+            if gh release download "$TAG" --pattern 'checksums.txt' --dir dist 2>/dev/null; then
+              break
+            fi
+            echo "waiting for checksums.txt (attempt $i)..."
+            sleep 10
+          done
+          if [ ! -f "$CS" ]; then
+            echo "::error::checksums.txt not on release after wait" >&2
+            exit 1
+          fi
+          SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          # Idempotent: drop any prior line for this DMG, then append.
+          grep -v 'condura-gui-darwin-arm64\.dmg$' "$CS" > "$CS.tmp" || true
+          printf '%s  %s\n' "$SHA" "condura-gui-darwin-arm64.dmg" >> "$CS.tmp"
+          mv "$CS.tmp" "$CS"
+          gh release upload "$TAG" "$CS" --clobber -R "${{ github.repository }}"
+          echo "checksums.txt now contains:"
+          cat "$CS"

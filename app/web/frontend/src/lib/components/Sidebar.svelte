@@ -2,6 +2,7 @@
   import { conversation } from '../stores/conversation.svelte'
   import { account } from '../stores/account.svelte'
   import { overlay } from '../stores/overlay.svelte'
+  import { notifications } from '../stores/notifications.svelte'
   import { onMount } from 'svelte'
   import SignInPanel from './SignInPanel.svelte'
   import AccountMenu from './AccountMenu.svelte'
@@ -10,6 +11,8 @@
   let currentHash: string = $state('')
   let showSignIn = $state(false)
   let showAccountMenu = $state(false)
+  let pendingDeleteId: number | null = $state(null)
+  let deleteTimer: ReturnType<typeof setTimeout> | null = $state(null)
 
   onMount(() => {
     currentHash = window.location.hash || '#/'
@@ -18,7 +21,10 @@
     }
     window.addEventListener('hashchange', onHashChange)
     void account.checkStatus()
-    return () => window.removeEventListener('hashchange', onHashChange)
+    return () => {
+      window.removeEventListener('hashchange', onHashChange)
+      if (deleteTimer) clearTimeout(deleteTimer)
+    }
   })
 
   async function startNew(): Promise<void> {
@@ -29,16 +35,38 @@
     await conversation.open(id)
   }
 
-  async function deleteCurrent(): Promise<void> {
-    if (confirm(t('sidebar.delete_confirm'))) {
-      await conversation.deleteCurrent()
-    }
+  function deleteCurrent(): void {
+    const id = conversation.currentID
+    if (id === null) return
+    pendingDeleteId = id
+    notifications.push({
+      kind: 'warn',
+      title: t('sidebar.delete_current'),
+      message: t('sidebar.delete_confirm'),
+      sticky: false
+    })
+    deleteTimer = setTimeout(async () => {
+      if (pendingDeleteId === id) {
+        await conversation.deleteCurrent()
+        pendingDeleteId = null
+      }
+    }, 5000)
+  }
+
+  function undoDelete(): void {
+    if (deleteTimer) clearTimeout(deleteTimer)
+    pendingDeleteId = null
+    notifications.push({
+      kind: 'info',
+      title: t('sidebar.delete_current'),
+      message: t('sidebar.delete_cancelled')
+    })
   }
 </script>
 
 <aside class="sidebar">
   <!-- Icon Rail -->
-  <nav class="icon-rail">
+  <nav class="icon-rail" aria-label="Primary navigation">
     <div class="rail-glow"></div>
     <div class="rail-top">
       <a
@@ -46,6 +74,7 @@
         class="rail-icon"
         class:active={currentHash === '#/' || currentHash === '#' || currentHash === ''}
         title={t('sidebar.nav.chat')}
+        aria-label={t('sidebar.nav.chat')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h12a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V6a2 2 0 012-2z"/></svg>
@@ -55,6 +84,7 @@
         class="rail-icon"
         class:active={currentHash === '#/audit'}
         title={t('sidebar.nav.audit')}
+        aria-label={t('sidebar.nav.audit')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 3v5c0 4-3 6.5-7 8-4-1.5-7-4-7-8V5l7-3z"/></svg>
@@ -64,6 +94,7 @@
         class="rail-icon"
         class:active={currentHash === '#/replay'}
         title={t('sidebar.nav.replay')}
+        aria-label={t('sidebar.nav.replay')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
@@ -73,6 +104,7 @@
         class="rail-icon"
         class:active={currentHash === '#/hub'}
         title={t('sidebar.nav.skills_hub')}
+        aria-label={t('sidebar.nav.skills_hub')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l7-4 7 4-7 4-7-4zM3 7v6l7 4M17 7v6l-7 4"/></svg>
@@ -82,6 +114,7 @@
         class="rail-icon"
         class:active={currentHash === '#/skills'}
         title={t('sidebar.nav.skills')}
+        aria-label={t('sidebar.nav.skills')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l6 2 6-2-2 12-4 2-4-2L4 4z"/><path d="M10 6v12"/></svg>
@@ -91,6 +124,7 @@
         class="rail-icon"
         class:active={currentHash === '#/sync'}
         title={t('sidebar.nav.sync')}
+        aria-label={t('sidebar.nav.sync')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
@@ -100,6 +134,7 @@
         class="rail-icon"
         class:active={currentHash === '#/channels'}
         title={t('sidebar.nav.channels')}
+        aria-label={t('sidebar.nav.channels')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
@@ -109,6 +144,7 @@
         class="rail-icon"
         class:active={currentHash === '#/delegation'}
         title={t('sidebar.nav.delegation')}
+        aria-label={t('sidebar.nav.delegation')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
@@ -117,6 +153,7 @@
         type="button"
         class="rail-icon"
         title={t('sidebar.nav.quick_prompt')}
+        aria-label={t('sidebar.nav.quick_prompt')}
         onclick={() => overlay.toggle()}
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 14l4-8 4 4 4-6"/><path d="M3 17h14"/></svg>
@@ -127,6 +164,7 @@
         class="rail-icon"
         class:active={currentHash === '#/settings'}
         title={t('sidebar.nav.settings')}
+        aria-label={t('sidebar.nav.settings')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 1v2m0 14v2m-7-9h2m14 0h2m-3.5-5.5-1.4 1.4m-8.2 8.2-1.4 1.4m0-11-1.4 1.4m8.2 8.2 1.4 1.4"/></svg>
@@ -136,6 +174,7 @@
         class="rail-icon"
         class:active={currentHash === '#/about'}
         title={t('sidebar.nav.about')}
+        aria-label={t('sidebar.nav.about')}
       >
         <span class="active-indicator"></span>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 9v4m0-7h0"/></svg>
@@ -144,7 +183,7 @@
   </nav>
 
   <!-- Conversation Drawer -->
-  <div class="drawer">
+  <div class="drawer" role="complementary" aria-label="Conversations">
     <div class="drawer-header">
       <button class="new-conv-btn" onclick={startNew}>
         <div class="new-conv-bg"></div>
@@ -181,10 +220,17 @@
 
     {#if conversation.currentID}
       <div class="drawer-footer">
-        <button class="btn-delete" onclick={deleteCurrent}>
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
-          <span>{t('sidebar.delete_current')}</span>
-        </button>
+        {#if pendingDeleteId !== null}
+          <button class="btn-undo" onclick={undoDelete} aria-label="Undo delete conversation">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 10h12M4 10l4-4M4 10l4 4"/></svg>
+            <span>{t('sidebar.undo_delete')}</span>
+          </button>
+        {:else}
+          <button class="btn-delete" onclick={deleteCurrent} aria-label={t('sidebar.delete_current')}>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
+            <span>{t('sidebar.delete_current')}</span>
+          </button>
+        {/if}
       </div>
     {/if}
 
@@ -591,6 +637,34 @@
   }
 
   .btn-delete:active {
+    transform: scale(0.97);
+    transition-duration: var(--transition-instant);
+  }
+
+  .btn-undo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    font-size: var(--size-xs);
+    font-weight: var(--weight-medium);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    border: 1px solid rgba(11, 61, 46, 0.25);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .btn-undo:hover {
+    background: var(--color-accent);
+    color: var(--color-paper);
+    border-color: var(--color-accent);
+  }
+
+  .btn-undo:active {
     transform: scale(0.97);
     transition-duration: var(--transition-instant);
   }

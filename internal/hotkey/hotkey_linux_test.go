@@ -11,17 +11,21 @@ func TestLinuxStart_NilHandler(t *testing.T) {
 	}
 }
 
-func TestLinuxStartOK(t *testing.T) {
+// TestLinuxStart_ErrorsUnsupported: O4 — Start on Linux must return
+// errLinuxUnsupported (not nil) so callers fall back honestly instead
+// of silently believing a global hotkey is registered. Started() must
+// stay false (no real hotkey).
+func TestLinuxStart_ErrorsUnsupported(t *testing.T) {
 	m := New("Cmd+K")
-	if err := m.Start(func() {}); err != nil {
-		t.Fatalf("Start: %v", err)
+	err := m.Start(func() {})
+	if err == nil {
+		t.Fatal("Start on Linux must return errLinuxUnsupported, not nil")
 	}
-	if !m.Started() {
-		t.Fatal("Started should be true after Start")
+	if err != errLinuxUnsupported {
+		t.Fatalf("Start error = %v, want errLinuxUnsupported", err)
 	}
-	m.Stop()
 	if m.Started() {
-		t.Fatal("Started should be false after Stop")
+		t.Fatal("Started must be false — no real hotkey was registered")
 	}
 }
 

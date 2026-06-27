@@ -103,6 +103,11 @@ type Subsystems struct {
 	Streams       *stream.Manager
 	IPCAddr       string // first listen addr (empty if IPC disabled)
 
+	// T3b sticky-resume: in-memory ticket store + human-only secret
+	// manager. Owned by Subsystems so they share the daemon lifecycle.
+	ResumeTickets *ResumeTicketStore
+	ResumeSecret  *ResumeSecretManager
+
 	// Phase 6: living presence.
 	// Gatekeeper is the canonical deterministic rules engine.
 	// Every physical action goes through it (GatedAgentExecutor,
@@ -240,6 +245,10 @@ func (s *Subsystems) replaceCloserByType(match func(io.Closer) bool, newCloser i
 // Close releases all resources held by subsystems.
 func (s *Subsystems) Close() error {
 	var errs []error
+	// N1: stop the presence detector's poll goroutine on shutdown.
+	if s.Safety != nil && s.Safety.Presence != nil {
+		s.Safety.Presence.Stop()
+	}
 	for _, c := range s.closers {
 		if err := c.Close(); err != nil {
 			errs = append(errs, err)
@@ -546,6 +555,20 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// when Halt is called, all outbound HTTP is denied except to
 	// allow-listed providers. See internal/halt/network.go.
 	netGuard := halt.NewInProcessGuard()
+	// T3b sticky-resume: ticket store + human-only secret manager.
+	// The ticket store lives in-memory (no persistence: a restart
+	// while halted is an acceptable fail-closed outcome — the user
+	// re-mints). The secret lives at <dataDir>/resume.secret
+	// (mode 0600, auto-generated on first start) with an env-var
+	// override for headless deployments.
+	resumeSecret := NewResumeSecretManager(cfg.General.DataDir, "CONDURA_RESUME_SECRET")
+	if sec, secErr := resumeSecret.Load(); secErr != nil {
+		log.Warn("resume secret load failed (un-halt will require the secret to be fixed)", "err", secErr)
+	} else {
+		log.Info("resume secret ready (required to confirm un-halt via `condura resume --confirm` or halt.confirm_resume IPC)")
+		_ = sec // the secret is intentionally not logged
+	}
+	resumeTickets := NewResumeTicketStore()
 	tel := telemetry.New(db.SQL(), cfg.Telemetry.Endpoint)
 	tel.SetEnabled(cfg.Telemetry.Enabled)
 	upd := updater.New(db.SQL(), resolveUpdateManifestURL(cfg))
@@ -829,7 +852,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		wdog = watchdog.New(
 			cfg.Daemon.Watchdog.Timeout,
 			cfg.Daemon.Watchdog.CheckInterval,
-			haltFlag,
+			guardAwareHaltFlag{flag: haltFlag, guard: netGuard},
 			watchdogAuditAdapter{log: auditLog, appName: appCondurad},
 			log,
 		)
@@ -862,6 +885,10 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Watchdog:                 wdog,
 		Delegation:               buildDelegationBus(gate, mon),
 		Phase12:                  buildPhase12(cfg, log),
+		// T3b sticky-resume. Both live for the daemon's lifetime;
+		// no Shutdown needed (no background goroutines, no IO).
+		ResumeTickets: resumeTickets,
+		ResumeSecret:  resumeSecret,
 		// Phase 11: trust & recovery. See methods_phase11.go
 		// for the RPC surface and the corresponding E2E
 		// test in trust_e2e_test.go.
@@ -871,7 +898,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		// the same data dir, and the same schema version.
 		Replay:          buildReplay(db, auditLog, log),
 		Backup:          backupMgr,
-		BackupScheduler: buildBackupScheduler(backupMgr, log),
+		BackupScheduler: buildBackupScheduler(backupMgr, log, &cfg.Storage.Backup),
 		Uninstaller:     buildUninstaller(),
 		Onboarding:      buildOnboarding(db.SQL(), log),
 		Permissions:     buildPermissions(log),
@@ -892,6 +919,10 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	if cuComps != nil {
 		subs.Executor = executor.New(gate, cuComps.resolver)
 	}
+	// N2: wire the executor into the session factory so chat tool_use
+	// blocks dispatch through the gated executor (act mode). nil if
+	// cuComps is nil (chat stays talk-only via the streaming path).
+	sessionFactory.SetExecutor(subs.Executor)
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.
 	if cuComps != nil && cuComps.resolver != nil && subs.Replay != nil {
@@ -1394,26 +1425,32 @@ func buildPermissions(log *slog.Logger) *permissions.Manager {
 // (daemon.Run) starts the scheduler after listeners are
 // ready and stops it on shutdown.
 //
-// Cadence comes from cfg.Backup.IntervalHours (default 24h)
-// and cfg.Backup.KeepN (default 7). The scheduler is local-
-// only and stores archives in <data-dir>/backups. The user
-// can also call backup.create manually at any time; the
-// scheduler and the RPC use the same Manager so they share
-// the encryption key, the schema version, and the rotation
-// policy.
-func buildBackupScheduler(bm *backup.Manager, log *slog.Logger) *backup.Scheduler {
+// O3 fix: the scheduler now honors cfg.Backup.IntervalHours
+// (cadence) and cfg.Backup.KeepN (rotation count) from the
+// user's config.yaml. Previously these fields did not exist on
+// BackupConfig, and buildBackupScheduler always used
+// DefaultSchedulerConfig (24h interval, 7 archives) regardless of
+// what the user put in their YAML. Now the user's values flow
+// through: IntervalHours=6 → 6h backup cadence; KeepN=30 → 30
+// archives retained.
+func buildBackupScheduler(bm *backup.Manager, log *slog.Logger, backupCfg *config.BackupConfig) *backup.Scheduler {
 	if bm == nil {
 		log.Warn("auto-backup scheduler: backup manager not available, scheduler disabled")
 		return nil
 	}
 	cfg := backup.DefaultSchedulerConfig()
-	// Cadence knobs live in cfg.Backup (data-modeled via
-	// config.BackupConfig). For v0.1.0 the defaults are 24h
-	// interval, 7 archives retained. If cfg.Backup.IntervalHours
-	// is set, we honor it; otherwise the DefaultSchedulerConfig
-	// value (24h) applies.
-	// Note: NewScheduler fills cfg.BackupDir from the manager's
-	// data dir if it's empty, so we log AFTER construction.
+	if backupCfg != nil {
+		if backupCfg.IntervalHours > 0 {
+			cfg.Interval = time.Duration(backupCfg.IntervalHours) * time.Hour
+		}
+		if backupCfg.KeepN > 0 {
+			cfg.KeepN = backupCfg.KeepN
+		}
+		// O3: honor the user's retention_days (0 = forever). Previously
+		// this shipped config knob was read nowhere; Rotate now prunes
+		// by age alongside the KeepN count cap.
+		cfg.RetentionDays = backupCfg.RetentionDays
+	}
 	s := backup.NewScheduler(cfg, bm, log)
 	log.Info("auto-backup scheduler ready",
 		"interval", cfg.Interval,

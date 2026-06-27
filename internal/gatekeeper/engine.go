@@ -2,6 +2,8 @@ package gatekeeper
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +25,19 @@ type ConsentProvider interface {
 // HaltChecker is the subset of halt.Flag the Engine needs.
 type HaltChecker interface {
 	IsHalted() bool
+}
+
+// PresenceChecker reports whether the user is present at the machine.
+// The Engine consults it before showing a consent modal for actions
+// that require an active user (RequirePresenceAndConsent, or any rule
+// with require_user_active:true). nil means presence-gating is not
+// configured; the Engine then falls back to the consent modal's
+// timeout-queue backstop (the modal blocks until clicked; on timeout
+// the action queues and does not execute) — safe, just less
+// immediate. N1: previously the presence detector was dead code and
+// require_user_active was parsed but never read.
+type PresenceChecker interface {
+	IsPresent() bool
 }
 
 // Engine implements gatekeeper.Gatekeeper with a real policy engine.
@@ -54,6 +69,12 @@ type Engine struct {
 	// given a "first-encounter" flag so the engine can build the
 	// consent ticket that lets the user pick "Always allow".
 	TrustHook func(workspaceID, app string) (entry any, ok bool)
+	// PresenceChecker (N1): if non-nil, the Engine consults it before
+	// showing the consent modal for RequirePresenceAndConsent or
+	// require_user_active actions; an absent user is denied (action
+	// held for safety). nil → fall back to the modal-timeout-queue
+	// backstop (safe). Set via SetPresenceChecker.
+	PresenceChecker PresenceChecker
 }
 
 // NewEngine creates the real Gatekeeper engine.
@@ -151,10 +172,46 @@ func (e *Engine) applyWorkspaceTrust(a blastradius.Action) (string, bool) {
 	return "workspace trust: always-allow in this folder", true
 }
 
+// presenceDenied implements the N1 presence gate. It returns
+// (true, reason) when the action must be denied because the user is
+// absent; (false, "") to proceed to the consent modal.
+//
+// Presence is required when the decision is RequirePresenceAndConsent
+// (DESTRUCTIVE) or the rule set require_user_active:true. If a
+// PresenceChecker is wired and reports the user absent, the action is
+// denied immediately (held for safety; true auto-re-prompt-on-return
+// is v0.2.0). If no checker is wired, it returns false so the caller
+// falls back to the consent modal's timeout-queue backstop — safe, and
+// keeps existing tests that don't wire a checker on the unchanged modal
+// path.
+func (e *Engine) presenceDenied(v Verdict) (bool, string) {
+	presenceRequired := v.Decision == RequirePresenceAndConsent || v.RequireActive
+	if !presenceRequired || e.PresenceChecker == nil {
+		return false, ""
+	}
+	if e.PresenceChecker.IsPresent() {
+		return false, ""
+	}
+	if v.OnUserAbsent == onUserAbsentQueue {
+		return true, "queued: user absent — action held; retry when present"
+	}
+	return true, "user absent: action held for safety"
+}
+
 func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Verdict) (Decision, string) {
 	// Halt check.
 	if e.halt != nil && e.halt.IsHalted() {
 		return Deny, "halted: consent not available"
+	}
+
+	// N1: presence gate. presenceDenied denies immediately when a
+	// checker is wired and the user is absent; when no checker is
+	// wired it returns false so we fall back to the consent modal's
+	// timeout-queue backstop (the modal blocks until a human clicks,
+	// and on timeout the action queues and does not execute) — safe,
+	// and keeps existing tests (which don't wire a checker) unchanged.
+	if denied, reason := e.presenceDenied(v); denied {
+		return Deny, reason
 	}
 
 	// No consent provider → deny (fail-closed).
@@ -168,7 +225,7 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 		Verdict:    v,
 		CreatedAt:  time.Now(),
 		ExpiresAt:  time.Now().Add(time.Duration(v.TimeoutSecs) * time.Second),
-		Nonce:      fmt.Sprintf("%d", time.Now().UnixNano()),
+		Nonce:      generateNonce(),
 		Result:     make(chan bool, 1),
 	}
 
@@ -325,6 +382,13 @@ func (e *Engine) SetConsentProvider(c ConsentProvider) {
 	e.consent = c
 }
 
+// SetPresenceChecker wires the user-presence detector (N1). Pass nil
+// to disable presence-gating (falls back to the consent modal's
+// timeout-queue backstop).
+func (e *Engine) SetPresenceChecker(p PresenceChecker) {
+	e.PresenceChecker = p
+}
+
 // workspaceIDFor returns the canonical workspace ID for a path.
 // Walks up from path looking for a .git/ directory; if found,
 // returns its absolute path. Otherwise returns the absolute path
@@ -379,4 +443,16 @@ func removeTicket(tickets []*ConsentTicket, target *ConsentTicket) []*ConsentTic
 		}
 	}
 	return tickets
+}
+
+// generateNonce returns a 16-byte cryptographically random hex string.
+// Replaces the prior UnixNano-based nonce (P3 hygiene fix from the
+// production-readiness audit). The nonce is a server-internal lookup
+// key, not a security token — the real replay defense is ExpiresAt in
+// ApproveTicket/DenyTicket. Using crypto/rand is the right primitive
+// for identifiers that could be mistaken for tokens.
+func generateNonce() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

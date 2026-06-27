@@ -29,6 +29,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
+	"github.com/sahajpatel123/synapticapp/internal/executor"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
@@ -62,6 +63,11 @@ type Config struct {
 	Audit          *audit.Log
 	Memory         MemoryStore
 	Predictor      PredictorStore
+	// Executor dispatches tool_use actions the model emits during a
+	// chat (N2). nil → chat is talk-only (the model's tool_use, if any,
+	// is not executed; only the text reply is returned). When non-nil
+	// AND Gatekeeper is non-nil, Run uses the act-mode tool loop.
+	Executor *executor.Executor
 }
 
 // MemoryStore is the subset of the memory package used by sessions.
@@ -113,6 +119,7 @@ type Factory struct {
 	audit        *audit.Log
 	memory       MemoryStore
 	predictor    PredictorStore
+	executor     *executor.Executor
 
 	mu         sync.Mutex
 	activeSess *Session
@@ -180,6 +187,15 @@ func (f *Factory) SetPredictor(p PredictorStore) {
 	f.predictor = p
 }
 
+// SetExecutor injects the gated executor (N2). When set (and a
+// Gatekeeper is also set), chat runs in act mode: the model's tool_use
+// blocks dispatch through the executor (gated + audited) with a
+// tool_result round-trip. nil → chat is talk-only. Called after
+// subs.Executor is built (the executor needs the CU resolver).
+func (f *Factory) SetExecutor(e *executor.Executor) {
+	f.executor = e
+}
+
 // UpdatePrimary updates the primary provider name and model.
 // Call after enabling a new provider or adding an API key so
 // sessions use the new configuration without daemon restart.
@@ -208,6 +224,7 @@ func (f *Factory) New(conversationID int64) *Session {
 			Audit:          f.audit,
 			Memory:         f.memory,
 			Predictor:      f.predictor,
+			Executor:       f.executor,
 		},
 		OnStatus: f.onStatus,
 	}
@@ -283,42 +300,8 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 		return "", nil
 	}
 
-	// Evaluate the utterance via the gatekeeper (Kind: "chat").
-	if s.cfg.Gatekeeper != nil {
-		action := blastradius.Action{Kind: "chat", Body: query}
-		decision, reason := s.cfg.Gatekeeper.Evaluate(runCtx, action)
-
-		// Audit the gatekeeper decision.
-		if s.cfg.Audit != nil {
-			class := blastradius.Classify(action)
-			level := "info"
-			result := "allow"
-			if decision != gatekeeper.Allow {
-				level = "warn"
-				result = "deny"
-			}
-			_ = s.cfg.Audit.Append(runCtx, audit.Event{
-				Actor:   "gatekeeper",
-				Action:  "utterance",
-				App:     "session",
-				Level:   level,
-				Result:  result,
-				Message: fmt.Sprintf("%s [%s]: text=%q reason=%q", class, decision, query, reason),
-			})
-		}
-
-		if decision != gatekeeper.Allow {
-			s.setStatus(status.StatusError)
-			// Publish a stream.error event to the broker so the frontend knows it was blocked
-			if s.cfg.Broker != nil {
-				s.cfg.Broker.PublishJSON("stream", map[string]any{
-					"conversation_id": s.cfg.ConversationID,
-					"err":             "gatekeeper blocked utterance: " + reason,
-					"done":            true,
-				})
-			}
-			return "", fmt.Errorf("gatekeeper denied utterance: %s", reason)
-		}
+	if err := s.evaluateUtterance(runCtx, query); err != nil {
+		return "", err
 	}
 
 	// Persist the user message first so the next turn's history
@@ -339,49 +322,88 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 		return "", fmt.Errorf("session: build messages: %w", err)
 	}
 
-	// Kick off a streaming LLM call.
-	chatReq := llm.ChatRequest{
-		Model:    s.cfg.Model,
-		Messages: messages,
-		Stream:   true,
+	// N2: act mode. When the executor + gatekeeper are wired, chat runs
+	// the tool-call dispatch loop: the model's tool_use blocks dispatch
+	// through the gated executor (consent + presence apply, same modal
+	// as delegate-spawned actions) with a tool_result round-trip, so
+	// "talk → it clicks/types/runs" works. Talk-only (no executor) keeps
+	// the streaming path below, unchanged. The loop uses non-streaming
+	// Provider.Chat because the Anthropic stream emits tool_use input as
+	// text deltas (input_json_delta), not as Delta.ToolCalls, so
+	// tool_calls are only available on ChatResponse.Message.ToolCalls.
+	if s.cfg.Executor != nil && s.cfg.Gatekeeper != nil {
+		return s.runToolLoop(runCtx, messages)
 	}
 
-	streamReq := stream.Request{
-		ProviderName: s.cfg.ProviderName,
-		Chat:         chatReq,
+	// Talk-only: stream a reply and persist it.
+	return s.streamTalkOnlyReply(runCtx, messages)
+}
+
+// evaluateUtterance runs the gatekeeper against the chat utterance.
+// Returns a non-nil error when the gatekeeper denies (so the caller
+// can return early); emits a gatekeeper-error event on the broker so
+// the frontend can show the denial.
+func (s *Session) evaluateUtterance(runCtx context.Context, query string) error {
+	if s.cfg.Gatekeeper == nil {
+		return nil
 	}
+	action := blastradius.Action{Kind: "chat", Body: query}
+	decision, reason := s.cfg.Gatekeeper.Evaluate(runCtx, action)
+	if s.cfg.Audit != nil {
+		class := blastradius.Classify(action)
+		level, result := "info", "allow"
+		if decision != gatekeeper.Allow {
+			level, result = "warn", "deny"
+		}
+		_ = s.cfg.Audit.Append(runCtx, audit.Event{
+			Actor:   "gatekeeper",
+			Action:  "utterance",
+			App:     "session",
+			Level:   level,
+			Result:  result,
+			Message: fmt.Sprintf("%s [%s]: text=%q reason=%q", class, decision, query, reason),
+		})
+	}
+	if decision != gatekeeper.Allow {
+		s.setStatus(status.StatusError)
+		if s.cfg.Broker != nil {
+			s.cfg.Broker.PublishJSON("stream", map[string]any{
+				"conversation_id": s.cfg.ConversationID,
+				"err":             "gatekeeper blocked utterance: " + reason,
+				"done":            true,
+			})
+		}
+		return fmt.Errorf("gatekeeper denied utterance: %s", reason)
+	}
+	return nil
+}
+
+// streamTalkOnlyReply runs the streaming talk-only path and persists
+// the assistant reply. Extracted from Run to keep Run's cyclomatic
+// complexity under the 15 gocyclo cap.
+func (s *Session) streamTalkOnlyReply(runCtx context.Context, messages []llm.Message) (string, error) {
+	chatReq := llm.ChatRequest{Model: s.cfg.Model, Messages: messages, Stream: true}
+	streamReq := stream.Request{ProviderName: s.cfg.ProviderName, Chat: chatReq}
 	if s.cfg.ConversationID != 0 {
 		streamReq.ConversationID = s.cfg.ConversationID
 	}
-
-	// Subscribe to the broker BEFORE starting the stream, so we don't miss
-	// any deltas. The stream manager publishes each token as a
-	// stream.delta event; we accumulate those and stop when we
-	// see stream.finished / stream.error / stream.cancelled.
 	sub := s.cfg.Broker.Subscribe()
 	defer s.cfg.Broker.Unsubscribe(sub)
-
 	requestID, err := s.cfg.StreamMgr.Start(runCtx, streamReq)
 	if err != nil {
 		s.setStatus(status.StatusError)
 		return "", fmt.Errorf("session: stream start: %w", err)
 	}
-
 	full, err := s.collectAndSpeak(runCtx, requestID, sub)
 	if err != nil {
 		s.setStatus(status.StatusError)
 		return full, err
 	}
-
-	// Persist the assistant response so the next turn's history
-	// includes this reply. Without this, buildMessages would only
-	// see the user message and the LLM would lose multi-turn context.
 	if full != "" {
 		if persistErr := s.persistAssistantMessage(runCtx, full); persistErr != nil {
 			slog.Warn("session: persist assistant message failed", "err", persistErr)
 		}
 	}
-
 	s.setStatus(status.StatusIdle)
 	return full, nil
 }

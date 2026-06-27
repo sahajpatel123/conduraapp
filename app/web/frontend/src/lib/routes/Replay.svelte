@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { replay } from '../stores/replay.svelte'
+  import { notifications } from '../stores/notifications.svelte'
   import { t } from '../i18n'
 
   onMount(() => {
@@ -18,9 +19,9 @@
   async function exportVideo(): Promise<void> {
     try {
       const path = await replay.exportMP4()
-      alert(t('replay.exported_alert', path))
+      notifications.push({ kind: 'success', title: t('replay.exported_alert', path), message: '' })
     } catch {
-      alert(replay.lastError || t('replay.export_failed'))
+      notifications.push({ kind: 'error', title: replay.lastError || t('replay.export_failed'), message: '' })
     }
   }
 </script>

@@ -37,6 +37,7 @@ import type {
   AuditListParams,
   AppConfig,
   DaemonHaltResult,
+  DaemonResumeRequestResult,
   DaemonUpdateResult,
   HaltState,
   LLMStreamParams,
@@ -211,8 +212,14 @@ class IPCClient {
   daemonHalt(reason: string): Promise<DaemonHaltResult> {
     return this.call<DaemonHaltResult>('daemon.halt', { reason })
   }
-  daemonResume(): Promise<void> {
-    return this.call<void>('daemon.resume', {})
+  // T3b sticky resume (P0-1 core). The GUI shows the user a code or
+  // an instruction to confirm un-halt via `condura resume confirm
+  // --ticket T` from a terminal. The GUI itself only mints the ticket
+  // (via daemonResumeRequest); it does NOT hold the resume secret and
+  // does NOT call halt.confirm_resume. The human-confirmation path is
+  // out of the in-process trust boundary.
+  daemonResumeRequest(): Promise<DaemonResumeRequestResult> {
+    return this.call<DaemonResumeRequestResult>('daemon.resume_request', {})
   }
   haltState(): Promise<HaltState> {
     return this.call<HaltState>('halt.state', {})

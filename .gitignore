@@ -105,3 +105,6 @@ condura-tui.exe
 # Marketing film / demo HTML files
 condura-*.html
 condura_*.html
+
+# Superpowers SDD scratch (progress ledger, briefs, review packages)
+.superpowers/

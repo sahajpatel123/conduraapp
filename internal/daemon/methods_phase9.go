@@ -70,7 +70,7 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		return auditOK(), nil
 	})
 
-	// safety.halt: trigger the kill switch.
+	// safety.halt: trigger the kill switch (Layer 1 flag + Layer 3 network guard).
 	srv.Register("safety.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Reason string `json:"reason"`
@@ -80,6 +80,10 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if _, err := subs.Halt.Halt(ctx, p.Reason); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		// N3: also toggle the network guard so the agent's HTTP is blocked.
+		if subs.NetGuard != nil {
+			_ = subs.NetGuard.Halt(p.Reason)
 		}
 		return auditOK(), nil
 	})

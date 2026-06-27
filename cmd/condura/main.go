@@ -99,6 +99,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdSync(gf, subargs)
 	case "skills":
 		return cmdSkills(gf, subargs)
+	case "resume":
+		return cmdResume(gf, subargs)
 	case "i18n":
 		return cmdI18n(gf, subargs)
 	case "help", "-h", "--help":
@@ -126,6 +128,7 @@ Commands:
   hub           Manage Skills Hub (search/get/install/publish/serve).
   sync          Manage P2P encrypted sync (peers/pair/revoke/status).
   skills        Manage locally installed skills (list/get/delete).
+  resume        T3b sticky human-confirmed resume (request/confirm/cancel).
   i18n          Manage locale catalogs (locales/locale).
 
 Global flags:

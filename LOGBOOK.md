@@ -3405,3 +3405,84 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 - Commit and push to origin/main.
 - Monitor CI until green.
 - Run final production-readiness analysis.
+
+---
+
+## [2026-06-28] AI Model: Claude (MiniMax-M3 / claude-opus-4.8 family)
+
+**Session ID:** pr-audit-t1-t9-finalize
+**Branch:** `fix/production-readiness-v0.1.x` (17 commits ahead of `b27b53d`)
+**Task:** Address every material finding from `docs/analysis/production-readiness-2026-06-24.md` — close all P0 + P1 audit items, then ship a small macOS-only closed beta with honest marketing and a working "talk → act" chat loop.
+
+### Files touched (summary)
+
+**Backend (Go) — internal/**
+- `daemon/methods_phase2.go`, `daemon/methods.go`, `daemon/subsystems.go`, `daemon/audit_consts.go` — T3 (N3 net-guard wiring + N3-complete via `guardAwareHaltFlag`), T3-bounded (honest `actorIPC` audit actor), T3b (sticky human-confirmed resume: `daemon.resume_request` + `halt.confirm_resume` + `daemon.resume` deprecation shim).
+- `daemon/resume_secret.go` + `resume_secret_test.go` — auto-generated 32-byte hex secret at `<data-dir>/resume.secret` (mode 0600) with `CONDURA_RESUME_SECRET` env override. Windows-aware mode assertion (skipped on NTFS).
+- `daemon/resume_tickets.go` + `resume_tickets_test.go` — ticket store with per-ticket TTL, 5-min default, max 3 pending, 10s rate limit, constant-time secret compare.
+- `daemon/resume_e2e_test.go` — full IPC E2E: halt → ticket → confirm (happy + bad-secret + deprecation + not-halted paths).
+- `daemon/halt_adapter.go` + `halt_adapter_test.go` — watchdog-path toggle of the network guard (completeness fix).
+- `gatekeeper/engine.go`, `gatekeeper/policy.go`, `gatekeeper/presence_test.go` — T4 (N1): `Verdict.RequireActive`/`OnUserAbsent` carried through; `engine.presenceDenied` denies DESTRUCTIVE on absent user with checker wired (fall-back to modal-timeout backstop if no checker wired).
+- `presence/detector.go`, `presence/detector_idle_test.go` — Linux fail-closed false; macOS uses real `ioreg HIDIdleTime`; Windows unchanged (already correct).
+- `daemon/safety_wiring.go` — wires presence detector + stops on shutdown.
+- `session/session.go`, `session/tools.go` — T7 (N2 Path A): chat tool_use → CU executor dispatch loop with Gatekeeper-gated dispatch + tool_result round-trip + 8-iter cap + audit. condura_bash/click/type/scroll tool set. `evaluateUtterance` + `streamTalkOnlyReply` extracted from `Run` for cyclomatic complexity. JSON-schema + audit string constants.
+- `backup/scheduler.go`, `backup/scheduler_retention_test.go` — T5 (O3): scheduler prunes by `KeepN` OR age (`RetentionDays`).
+- `hotkey/hotkey_linux.go`, `hotkey/hotkey_linux_test.go` — T5 (O4): Linux `Start` returns `errLinuxUnsupported` (was silently nil).
+- `config/loader.go`, `config/config.go` — T5 (O1+O3-wiring): watchdog default `Enabled:true` with 2h timeout; `BackupConfig.IntervalHours`/`KeepN`.
+- `daemon/methods_phase2.go` (NONCE) — `crypto/rand` 16-byte hex nonce replaces `time.Now().UnixNano()`.
+
+**CLI (Go) — cmd/condura/**
+- `resume.go` (new) + `main.go` — T3b: `condura resume {request,confirm,cancel}` subcommand. Prompts the human at a terminal, opens its own IPC client, calls `halt.confirm_resume` — out-of-process confirmation path.
+
+**Web marketing (Next.js) — web/**
+- `scripts/install.sh`, `web/public/install.sh`, `scripts/homebrew/condura.rb` — T1 (P0-2): installer verifies SHA-256 + `codesign --verify --deep --strict` + `spctl --assess --type execute`. Fails closed. Cask pinned with ground-truth-verified sha256.
+- `web/app/api/download/[platform]/route.ts` — artifact names match v0.1.1 release.
+- `web/app/{ecosystem,legal,manifesto,orchestration,privacy,security,page}.tsx` + `*PageClient.tsx` (new) — T6 (META): per-page metadata server wrappers for the 7 `use client` pages.
+- `web/lib/site.ts`, `web/components/download/DownloadPageView.tsx`, `web/components/home/*` (done by previous session) — honest per-platform scoping.
+- `README.md` — T6 (N4): rewritten to scope per-platform honestly; removed overclaims.
+
+**Svelte/Wails frontend — app/web/frontend**
+- `src/lib/ipc/client.ts`, `src/lib/ipc/types.ts`, `src/lib/stores/halt.svelte.ts` — T3b: renamed `daemonResume()` → `daemonResumeRequest()`; new `DaemonResumeRequestResult` type; surface ticket + CLI hint to user.
+- `src/lib/components/ConfirmDialog.svelte` (new) — T6 (a11y): alertdialog + tabindex + keydown handler for destructive confirmations.
+- `src/lib/routes/Settings.svelte` — T6: fixed undefined-`path` bug blocking svelte-check.
+
+**CI/CD — .github/workflows**
+- `release.yml` — T2 (NOTARIZE+SIGN+GOV): rewrote `macos-sign` job with `notarytool submit --wait` + `stapler staple` + `spctl -a -vv` + `codesign --verify --deep --strict`; renamed `condura.app` → `Condura.app`; fail-closed on missing Apple secrets; `sign-manifest` exits 1 on missing key. `upload-gui` no longer uploads macOS DMG.
+- `release-verify.yml` — T2 (SIGN): `embedded-key-check` exits 1 on missing signing key.
+- `dependabot.yml` (new), `codeql.yml` (new) — T2 (GOV).
+
+**Audit docs**
+- `docs/analysis/backend-audit-2026-06-24.md`, `docs/analysis/security-audit-2026-06-24.md` — F-01/B-12 marked CLOSED at cace2a4 (AES-256-GCM + HKDF shipped since 2026-06-22).
+
+### Decisions made
+- **Subagent-Driven Development** for T1–T2; subagent dispatch became rate-limited (429) midway through T3, so remaining tasks (T3-remainder, T4, T5, T7-refactor, T7-fixup, T6-pieces, T3b) were executed directly by me with rigorous verification. Recovery from the interrupted T3: fixed the broken `buildBackupScheduler` call site, verified green, committed in logical commits.
+- **T3b design (the most contested):** IPC token alone is insufficient (a compromised in-process conductor can read any in-process token). The robust sticky-resume requires a human-confirmed action the in-process conductor CANNOT invoke. Chose: in-memory ticket + `condura resume --confirm <ticket>` CLI subcommand (separate OS process, prompts human at terminal, calls IPC `halt.confirm_resume` with constant-time secret compare). The GUI only mints the ticket and surfaces the CLI hint — it never holds the secret. Old `daemon.resume` is a deprecation shim returning a clear migration error (no silent security regression).
+- **N1 presence:** took the user-aligned "good intent" path — wire the detector fail-closed (don't remove the knob) so the contract becomes real; default-deny on Linux (no real probe yet) so DESTRUCTIVE on Linux is never auto-allowed.
+- **N2 Path A over Path B:** grew the tool-call dispatch loop (`session.Run` + `condura_*` tools) so the conductor's "talk → act" promise is real, not just copy-removed. Safer than Path B because it ships the gated feature the user asked for.
+- **T6 docs honesty:** removed ALL overclaims in README (signed-update, smart-router, subscription OAuth, public Skills Hub, hardware kill switch, Win/Linux GUI today, "hey synaptic", 12+ providers→14 honest count). Added per-page metadata (META). Marked F-01 CLOSED at cace2a4 in both audit docs.
+- **Marketing site deploy gate (decided for user):** the `/download` page serves the unsigned v0.1.1 DMG via a live button. For a small closed-beta test the user should either gate the buttons or accept this is an unsigned-preview distribution to trusted testers only. The actual production-launch block is still notarization (T2 wiring is in place; fails closed until Apple secrets are set).
+
+### Bugs / issues encountered
+- **T3 subagent 429 outage:** mid-edit, left build broken (subsystems.go:874 call site mismatch). Recovered by fixing the call site, verifying green, and committing in three logical commits.
+- **gocyclo/goconst on T7:** `Run` cyclomatic 17 (> 15); JSON-schema + audit magic strings repeated. Refactored: extracted `evaluateUtterance` + `streamTalkOnlyReply` helpers; lifted JSON-schema strings + audit constants. Re-lint: 0 issues.
+- **Windows test failure on PR #14:** `TestResumeSecret_AutoGenerate` asserted `info.Mode().Perm() == 0o600` — NTFS ignores unix mode bits and reports 0666. Fixed by mirroring the existing `secrets/manager_test.go` `runtime.GOOS != "windows"` guard. Pushed fix `368bb39`; CI green.
+- **Pre-existing latent bug (caught incidentally):** `secrets/manager_test.go` had the same Windows-mode issue already guarded — discovered while diagnosing my own.
+
+### Verification
+- `go build ./...` — ✅ 0 errors.
+- `go test -count=1 -short ./...` — ✅ all 50+ packages, 0 failures (local).
+- `golangci-lint run ./...` — ✅ 0 issues.
+- `web build` + `lint` + `svelte-check` (288 files) — ✅ 0 errors.
+- CI on PR #14 (`fix/production-readiness-v0.1.x` → `main`) — ✅ all 14 checks pass: 6 builds (darwin amd64/arm64, linux amd64/arm64, windows amd64/arm64), 5 tests, Lint, CodeQL, Security Scan, Analyze (Go). Integration Tests + GUI Build skipped (expected for PR; release-tag-only).
+
+### Open questions for next session
+- **Notarization secret configuration:** T2 wiring is in place; until the user sets the 7 Apple secrets in repo Settings (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_DEVELOPER_ID_APPLICATION`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_NOTARY_PASSWORD`) + `UPDATE_SIGNING_KEY`, the release pipeline correctly fails closed. Next session: configure these, then trigger a release tag to validate end-to-end notarized + checksummed + signed macOS DMG.
+- **Frontend svelte-check shows 0 errors but `app/web/frontend/vite.config.ts` CJS warning** is suppressed at the script level; same as last session — leave or rename to `.mts` next session.
+- **Hard Layer 3** (real `pf`/`netsh` separate-process guard) is still v0.2.0. In-process guard is the maximum safe default until v0.2.0.
+- **Real Linux hotkey** (X11 Record Extension / Wayland portal) is still v0.2.0.
+- **Subscription OAuth, hybrid router, DAG scheduler, public Skills Hub, web dashboard, MCP UI** — all v0.2.0+ per CLAUDE.md.
+
+### Next steps
+- Merge `fix/production-readiness-v0.1.x` into `main` (this session).
+- For the user's closed-beta test, gate the website's `/download` button OR explicitly disclose "unsigned preview" to the ~50 trusted testers.
+- Schedule a 2-week hardening sprint for v0.1.2 → v0.2.0 public launch (Phase 3 of the audit verdict): Apple notarization secrets, Dependabot PRs reviewed, on-device Phase-15 verification on a clean Mac, end-to-end installer integrity test, then a real public release tag.

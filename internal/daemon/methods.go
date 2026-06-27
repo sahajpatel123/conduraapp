@@ -61,7 +61,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerSpendMethods(srv, subs.Spend)
 	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM, subs.Anomaly, subs.Watchdog)
 	registerAuditMethods(srv, subs.Audit)
-	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams)
+	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams, subs.NetGuard, subs.ResumeTickets, subs.ResumeSecret)
 	registerControlMethods(srv, cfg, subs)
 	registerFirstRunMethods(srv, subs.Audit)
 	registerUpdateMethods(srv, subs.Updater, subs.Audit)

@@ -177,6 +177,10 @@ type BackupConfig struct {
 	RetentionDays int `yaml:"retention_days"`
 	// RollbackWindow is how far back RevertLastSession looks. 0 = 1h default.
 	RollbackWindow time.Duration `yaml:"rollback_window"`
+	// IntervalHours: auto-backup cadence in hours. 0 = default (24h).
+	IntervalHours int `yaml:"interval_hours"`
+	// KeepN: max number of backup archives to retain. 0 = default (7).
+	KeepN int `yaml:"keep_n"`
 }
 
 // EncryptionConfig controls column-level encryption.

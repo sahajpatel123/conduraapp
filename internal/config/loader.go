@@ -90,14 +90,15 @@ func Default() *Config {
 			AutoStart:          true,
 			IdleTimeoutMinutes: 15,
 			DefaultAutonomy:    AutonomyWarn,
-			// Watchdog defaults to opt-in (Enabled=false). Users
-			// who want a hard inactivity timeout must enable it
-			// explicitly in config.yaml because a too-short
-			// Timeout can interrupt long-running unattended jobs
-			// (backup, restore, sync).
+			// Watchdog defaults to ENABLED with a generous 2h timeout.
+			// This ensures an out-of-control agent that the user
+			// walked away from will auto-halt after 2 hours of
+			// inactivity. Users who need unattended long-running
+			// jobs (backup, restore, sync) can disable it in
+			// config.yaml (watchdog.enabled: false).
 			Watchdog: WatchdogConfig{
-				Enabled:       false,
-				Timeout:       watchdog.DefaultTimeout,
+				Enabled:       true,
+				Timeout:       2 * time.Hour,
 				CheckInterval: watchdog.DefaultCheckInterval,
 			},
 		},

@@ -1,12 +1,15 @@
 <script lang="ts">
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
+  import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import { t } from '../i18n'
 
   let skills = $state<Array<{ id: string; name: string; version: string; trust: string; source?: string; description?: string }>>([])
   let cursor = $state(0)
   let loading = $state(false)
   let error = $state<string | null>(null)
+  let confirmOpen = $state(false)
+  let confirmAction = $state<(() => void) | null>(null)
 
   async function refresh() {
     loading = true
@@ -21,14 +24,16 @@
     }
   }
 
-  async function remove(id: string) {
-    if (!confirm(t('skills.delete_confirm', id))) return
-    try {
-      await ipc.skillsDelete(id)
-      await refresh()
-    } catch (e) {
-      error = String(e)
+  function remove(id: string) {
+    confirmAction = async () => {
+      try {
+        await ipc.skillsDelete(id)
+        await refresh()
+      } catch (e) {
+        error = String(e)
+      }
     }
+    confirmOpen = true
   }
 
   onMount(refresh)
@@ -74,6 +79,14 @@
     <button class="btn btn-ghost" onclick={refresh} disabled={loading}>{loading ? t('skills.refreshing') : t('skills.refresh')}</button>
   </div>
 </div>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={t('skills.delete')}
+  message={t('skills.delete_confirm', '')}
+  danger={true}
+  onconfirm={() => confirmAction?.()}
+/>
 
 <style>
   .skills-page {

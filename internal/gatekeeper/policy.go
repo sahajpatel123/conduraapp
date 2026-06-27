@@ -37,6 +37,12 @@ type ConsentSpec struct {
 	OnUserAbsent   string `yaml:"on_user_absent"`
 }
 
+// onUserAbsentQueue is the OnUserAbsent policy value meaning "hold the
+// action and re-prompt when the user returns." v0.1.x denies for
+// safety (the action does not execute); true auto-re-prompt-on-return
+// is v0.2.0.
+const onUserAbsentQueue = "queue"
+
 // policyYAML is the top-level structure.
 type policyYAML struct {
 	Version string `yaml:"version"`
@@ -53,6 +59,17 @@ type Verdict struct {
 	RequiresModal bool
 	TimeoutSecs   int
 	OnTimeout     string
+	// RequireActive: the action must not execute while the user is
+	// absent. Carried from ConsentSpec.require_user_active. Also
+	// implicitly true for Decision == RequirePresenceAndConsent (the
+	// decision's whole point is presence). N1: previously parsed but
+	// never read — the dead knob. Now consulted by evaluateConsent.
+	RequireActive bool
+	// OnUserAbsent: what to do when RequireActive and the user is
+	// absent. Carried from ConsentSpec.on_user_absent ("queue" or
+	// "deny"). v0.1.x treats both as "deny the action (held for
+	// safety)"; true auto-re-prompt-on-return is v0.2.0.
+	OnUserAbsent string
 }
 
 // Policy is the pure, stateless rules engine. All methods are
@@ -106,11 +123,17 @@ func (p *Policy) Evaluate(a blastradius.Action) Verdict {
 				RequiresModal: true,
 				TimeoutSecs:   timeout,
 				OnTimeout:     r.Consent.OnTimeout,
+				RequireActive: r.Consent.RequireActive,
+				OnUserAbsent:  r.Consent.OnUserAbsent,
 			}
 		case "require_presence_and_consent":
 			timeout := r.Consent.TimeoutSeconds
 			if timeout <= 0 {
 				timeout = 300
+			}
+			absent := r.Consent.OnUserAbsent
+			if absent == "" {
+				absent = onUserAbsentQueue
 			}
 			return Verdict{
 				Decision:      RequirePresenceAndConsent,
@@ -119,12 +142,17 @@ func (p *Policy) Evaluate(a blastradius.Action) Verdict {
 				RequiresModal: true,
 				TimeoutSecs:   timeout,
 				OnTimeout:     r.Consent.OnTimeout,
+				// The decision itself implies presence; RequireActive
+				// is true regardless of the ConsentSpec flag.
+				RequireActive: true,
+				OnUserAbsent:  absent,
 			}
 		}
 	}
 
-	// Default-deny: no rule matched.
-	return Verdict{Decision: RequirePresenceAndConsent, Reason: "default-deny: no policy rule matched", RuleID: "default-deny"}
+	// Default-deny: no rule matched. Safest posture: require presence
+	// and consent, queue-on-absent.
+	return Verdict{Decision: RequirePresenceAndConsent, Reason: "default-deny: no policy rule matched", RuleID: "default-deny", RequireActive: true, OnUserAbsent: onUserAbsentQueue}
 }
 
 func (r *Rule) matches(class blastradius.Class, a blastradius.Action) bool {

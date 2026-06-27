@@ -46,7 +46,7 @@ v0.1.0 ships to the public:
 | **B-09** | `internal/executor.execShell` runs `sh -c <user-string>` and **bypasses `internal/sanitize`** — the §5.5 model-isolation invariant is violated for shell-kind pending actions. The Gatekeeper approves policy; the sanitizer is never called. | **P1** | **Yes — route through sanitize** |
 | **B-10** | `internal/presence/detector.go:145-154` Windows "user active" check is **wrong**: it counts network adapters (`Get-NetAdapter | Where Status -eq 'Up'`) and returns `true` if any adapter is up — i.e. any Wi-Fi-connected Windows machine always reports "user present." The `require_user_active` consent gate is defeated on Windows. | **P1** | **Yes — fix or stub to false** |
 | **B-11** | `osascript` injection in `computeruse/backends/macosmcp_darwin.go` — `escapeAppleScript` only escapes `\` and `"`, not backticks. Model-controlled `action.Value` can inject `` `do shell script "..."` ``. Also `reach/imessage_darwin.go:52` uses Go's `%q` (not AppleScript-safe). Security audit F-11 — **still open**. | **P1** | **Yes — escape backticks or block** |
-| **B-12** | `internal/secrets` file-fallback backend writes the **master AES key + every secret as cleartext JSON** when the OS keyring is unavailable. Security audit F-01 (CRITICAL) — **still open**. | **P0** | **Yes — encrypt the file or refuse to boot** |
+| **B-12** | `internal/secrets` file-fallback backend writes the **master AES key + every secret as cleartext JSON** when the OS keyring is unavailable. Security audit F-01 (CRITICAL) — **CLOSED** at `cace2a4`. `internal/secrets/manager.go` now ships AES-256-GCM envelopes (`cipher.NewGCM`+`gcm.Seal`/`Open`), HKDF-SHA256 key derivation from `CONDURA_FILE_PASSPHRASE` or a machine-bound 32-byte `.key` file, and a V2 envelope format with in-place V1-cleartext migration. All write paths route through `writeEncrypted`; cleartext v1 files are migrated to v2 on first read. No cleartext secret is on disk after migration. Residual (not F-01): the `.key` file lives next to `secrets.json` (mode 0600); exfiltrating both allows decryption — standard locally-keyed-encryption trade-off (same class as SSH / age keys); `CONDURA_FILE_PASSPHRASE` removes the on-disk key entirely. | **NONE** | **Closed** |
 | B-13 | `internal/router` package **does not exist** (§12 hybrid router). v0.1.0 uses a single hardcoded `providerName + model`. | INFO | Already documented in roadmap |
 | B-14 | Subscription OAuth (ChatGPT Plus, Claude Pro, SuperGrok) — `internal/subscription` does not exist. | INFO | Already documented in roadmap |
 | B-15 | Execution Waves / DAG scheduler (§13.6) — not implemented. Single-spawn only. | INFO | Already documented in roadmap |
@@ -379,8 +379,7 @@ unavailable"), but the spec describes cascade.
 ## 6. Recommended action plan before v0.1.0 public launch
 
 **Must fix (P0/P1):**
-1. **B-12 (F-01)** — encrypt the secrets file backend, or refuse to boot
-   when the keyring is unavailable. This is the only P0.
+1. **B-12 (F-01) — CLOSED at cace2a4** — AES-256-GCM file backend (see row above). No action.
 2. **B-01** — wire `internal/autonomy` into the Gatekeeper, or remove the
    §27 "user dials each cell" claim from the spec/marketing.
 3. **B-02** — wire `internal/perception` into the CU capture path, or
@@ -490,9 +489,9 @@ sed -n '145,154p' internal/presence/detector.go
 sed -n '190,194p' internal/computeruse/backends/macosmcp_darwin.go
 # Expect: only \\ and \" escaped.
 
-# Confirm B-12 (F-01 still open).
-sed -n '216,279p' internal/secrets/manager.go
-# Expect: json.Marshal of cleartext fileData.
+# Confirm B-12 (F-01 CLOSED at cace2a4): AES-256-GCM envelope, no cleartext.
+sed -n '481,505p' internal/secrets/manager.go
+# Expect: cipher.NewGCM, gcm.Seal/Open, HKDF-SHA256, no cleartext write path.
 
 # Confirm dead code (B-23).
 grep -rn "NewExpandedLoop\|NewSimplePlanner" internal/ app/ cmd/ | grep -v _test.go
