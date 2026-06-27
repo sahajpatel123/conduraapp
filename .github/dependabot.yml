@@ -1,0 +1,32 @@
+# Dependabot configuration for Condura.
+# Keeps Go modules and the two npm workspaces (marketing site + Wails
+# frontend) up to date. Reviewer assignment is left to CODEOWNERS
+# (/@synaptic/core covers everything by default).
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - go
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - npm
+
+  - package-ecosystem: npm
+    directory: /app/web/frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - npm

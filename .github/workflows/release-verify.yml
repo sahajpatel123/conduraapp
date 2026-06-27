@@ -124,8 +124,9 @@ jobs:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
           if [ -z "$UPDATE_SIGNING_KEY" ]; then
-            echo "UPDATE_SIGNING_KEY not set — skip (set before v0.1.0 tag)"
-            exit 0
+            echo "::error::UPDATE_SIGNING_KEY not set — required for signed release manifests." >&2
+            echo "Set it in repo Settings → Secrets and variables → Actions before the next release." >&2
+            exit 1
           fi
           mkdir -p dist
           printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
