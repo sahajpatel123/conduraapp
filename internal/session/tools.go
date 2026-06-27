@@ -34,6 +34,27 @@ import (
 // multi-step tasks; the cap is audited when hit.
 const maxToolIterations = 8
 
+// Audit-payload constants for the tool loop's audit events. Lifted
+// so goconst doesn't flag the repeated magic strings.
+const (
+	auditApp   = "session"
+	auditWarn  = "warn"
+	auditAllow = "allow"
+	auditDeny  = "deny"
+)
+
+// JSON-schema string literals used in tool definitions. Lifted to
+// consts so the linter catches typos and the schema stays consistent.
+const (
+	jsonSchemaObject      = "object"
+	jsonSchemaString      = "string"
+	jsonSchemaInteger     = "integer"
+	jsonSchemaProperties  = "properties"
+	jsonSchemaType        = "type"
+	jsonSchemaDescription = "description"
+	jsonSchemaRequired    = "required"
+)
+
 // runToolLoop is the act-mode chat loop (N2). It is non-streaming
 // (Provider.Chat) because the Anthropic stream emits tool_use input as
 // text deltas, not as Delta.ToolCalls, so tool_calls are only available
@@ -80,8 +101,8 @@ func (s *Session) runToolLoop(ctx context.Context, messages []llm.Message) (stri
 	s.persistActAssistant(ctx, lastText)
 	if s.cfg.Audit != nil {
 		_ = s.cfg.Audit.Append(ctx, audit.Event{
-			Actor: "session", Action: "tool_loop_cap", App: "session",
-			Level: "warn", Result: "warn",
+			Actor: auditApp, Action: "tool_loop_cap", App: auditApp,
+			Level: auditWarn, Result: auditWarn,
 			Message: fmt.Sprintf("act tool loop hit %d-iteration cap", maxToolIterations),
 		})
 	}
@@ -113,12 +134,12 @@ func (s *Session) dispatchTool(ctx context.Context, tc llm.ToolCall) string {
 	// granted (or not required). Never bypass.
 	decision, reason := s.cfg.Gatekeeper.Evaluate(ctx, blast)
 	if s.cfg.Audit != nil {
-		level, result := "info", "allow"
+		level, result := "info", auditAllow
 		if decision != gatekeeper.Allow {
-			level, result = "warn", "deny"
+			level, result = auditWarn, auditDeny
 		}
 		_ = s.cfg.Audit.Append(ctx, audit.Event{
-			Actor: "session", Action: "tool_dispatch", App: "session",
+			Actor: auditApp, Action: "tool_dispatch", App: auditApp,
 			Level: level, Result: result,
 			Message: fmt.Sprintf("tool=%s kind=%s decision=%s reason=%q", tc.Function.Name, pa.Kind, decision, reason),
 		})
@@ -186,39 +207,60 @@ func conduraTools() []llm.ToolDefinition {
 		toolDef("condura_bash",
 			"Run a sandboxed shell command on the user's machine. The command is validated against a binary allowlist and the user must approve dangerous operations. Use for read-only inspection, git, and build tools.",
 			map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{"type": "string", "description": "The shell command to run."},
+				jsonSchemaType: jsonSchemaObject,
+				jsonSchemaProperties: map[string]any{
+					"command": map[string]any{
+						jsonSchemaType:        jsonSchemaString,
+						jsonSchemaDescription: "The shell command to run.",
+					},
 				},
-				"required": []string{"command"},
+				jsonSchemaRequired: []string{"command"},
 			}),
 		toolDef("condura_click",
 			"Click a UI element on the screen by its accessible name (and optional coordinates).",
 			map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"target": map[string]any{"type": "string", "description": "Human-readable name of the element to click."},
-					"x":      map[string]any{"type": "integer", "description": "Optional x coordinate."},
-					"y":      map[string]any{"type": "integer", "description": "Optional y coordinate."},
+				jsonSchemaType: jsonSchemaObject,
+				jsonSchemaProperties: map[string]any{
+					"target": map[string]any{
+						jsonSchemaType:        jsonSchemaString,
+						jsonSchemaDescription: "Human-readable name of the element to click.",
+					},
+					"x": map[string]any{
+						jsonSchemaType:        jsonSchemaInteger,
+						jsonSchemaDescription: "Optional x coordinate.",
+					},
+					"y": map[string]any{
+						jsonSchemaType:        jsonSchemaInteger,
+						jsonSchemaDescription: "Optional y coordinate.",
+					},
 				},
-				"required": []string{"target"},
+				jsonSchemaRequired: []string{"target"},
 			}),
 		toolDef("condura_type",
 			"Type text into the currently focused element.",
 			map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"text": map[string]any{"type": "string", "description": "The text to type."},
+				jsonSchemaType: jsonSchemaObject,
+				jsonSchemaProperties: map[string]any{
+					"text": map[string]any{
+						jsonSchemaType:        jsonSchemaString,
+						jsonSchemaDescription: "The text to type.",
+					},
 				},
-				"required": []string{"text"},
+				jsonSchemaRequired: []string{"text"},
 			}),
 		toolDef("condura_scroll",
 			"Scroll the focused window by dx, dy pixels.",
 			map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"dx": map[string]any{"type": "integer", "description": "Horizontal scroll delta in pixels."},
-					"dy": map[string]any{"type": "integer", "description": "Vertical scroll delta in pixels."},
+				jsonSchemaType: jsonSchemaObject,
+				jsonSchemaProperties: map[string]any{
+					"dx": map[string]any{
+						jsonSchemaType:        jsonSchemaInteger,
+						jsonSchemaDescription: "Horizontal scroll delta in pixels.",
+					},
+					"dy": map[string]any{
+						jsonSchemaType:        jsonSchemaInteger,
+						jsonSchemaDescription: "Vertical scroll delta in pixels.",
+					},
 				},
 			}),
 	}
