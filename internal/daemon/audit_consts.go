@@ -9,6 +9,12 @@ const (
 	actorGUI    = "gui"
 	actorUser   = "user"
 	actorSystem = "system"
+	// actorIPC records that an RPC arrived over the IPC bearer channel.
+	// The transport cannot distinguish the GUI from any other
+	// token-holder, so "ipc" is the honest label for RPC-initiated
+	// halt/resume. A privileged GUI-confirmed resume path (T3b) will
+	// record a "gui-human" actor instead.
+	actorIPC = "ipc"
 )
 
 // Audit app strings (which app produced the action).

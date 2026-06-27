@@ -829,7 +829,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		wdog = watchdog.New(
 			cfg.Daemon.Watchdog.Timeout,
 			cfg.Daemon.Watchdog.CheckInterval,
-			haltFlag,
+			guardAwareHaltFlag{flag: haltFlag, guard: netGuard},
 			watchdogAuditAdapter{log: auditLog, appName: appCondurad},
 			log,
 		)

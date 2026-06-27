@@ -307,12 +307,13 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 // was still open. Now Halt calls guard.Halt() to deny all connections,
 // and Resume calls guard.Resume() to re-enable the allow-list.
 //
-// P0-1 fix: daemon.resume honors an optional "caller" parameter to
-// record the true actor in the audit log (default "gui" for backward
-// compatibility). The audit Actor is derived from the caller parameter
-// when it is "user" or "watchdog"; otherwise it falls back to "gui".
-// Future work (v0.2.0): require a per-process ticket for privileged
-// RPCs. For v0.1.x this is the forensic-traceability gap closure.
+// P0-1 (bounded) fix: the halt/resume audit Actor is now actorIPC
+// (honest: the RPC arrived over the IPC bearer channel; the transport
+// cannot distinguish the GUI from any other token-holder). The
+// watchdog auto-halt path keeps its own "watchdog" actor. A future
+// privileged, human-confirmed resume path (T3b) records actorGUIHuman.
+// The robust sticky-resume (un-halt requires a non-IPC human action the
+// in-process conductor cannot invoke) is T3b.
 func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.Log, sm *stream.Manager, guard halt.NetworkGuard) {
 	srv.Register("daemon.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
@@ -331,7 +332,7 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			streamsCanceled = sm.CancelAll()
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "daemon.halt", App: appConduraG,
+			Actor: actorIPC, Action: "daemon.halt", App: appConduraG,
 			Level: auditLevelWarn, Result: auditResultAllow,
 			Message: p.Reason,
 		})
@@ -348,7 +349,7 @@ func registerHaltMethods(srv *ipc.Server, haltFlag *halt.Flag, auditLog *audit.L
 			_ = guard.Resume()
 		}
 		_ = auditLog.Append(ctx, audit.Event{
-			Actor: actorGUI, Action: "daemon.resume", App: appConduraG,
+			Actor: actorIPC, Action: "daemon.resume", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
 		})
 		return auditOK(), nil
