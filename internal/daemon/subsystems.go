@@ -896,6 +896,10 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	if cuComps != nil {
 		subs.Executor = executor.New(gate, cuComps.resolver)
 	}
+	// N2: wire the executor into the session factory so chat tool_use
+	// blocks dispatch through the gated executor (act mode). nil if
+	// cuComps is nil (chat stays talk-only via the streaming path).
+	sessionFactory.SetExecutor(subs.Executor)
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.
 	if cuComps != nil && cuComps.resolver != nil && subs.Replay != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/sahajpatel123/synapticapp/internal/audit"
 	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/conversation"
+	"github.com/sahajpatel123/synapticapp/internal/executor"
 	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
 	"github.com/sahajpatel123/synapticapp/internal/llm"
 	"github.com/sahajpatel123/synapticapp/internal/sse"
@@ -62,6 +63,11 @@ type Config struct {
 	Audit          *audit.Log
 	Memory         MemoryStore
 	Predictor      PredictorStore
+	// Executor dispatches tool_use actions the model emits during a
+	// chat (N2). nil → chat is talk-only (the model's tool_use, if any,
+	// is not executed; only the text reply is returned). When non-nil
+	// AND Gatekeeper is non-nil, Run uses the act-mode tool loop.
+	Executor *executor.Executor
 }
 
 // MemoryStore is the subset of the memory package used by sessions.
@@ -113,6 +119,7 @@ type Factory struct {
 	audit        *audit.Log
 	memory       MemoryStore
 	predictor    PredictorStore
+	executor    *executor.Executor
 
 	mu         sync.Mutex
 	activeSess *Session
@@ -180,6 +187,15 @@ func (f *Factory) SetPredictor(p PredictorStore) {
 	f.predictor = p
 }
 
+// SetExecutor injects the gated executor (N2). When set (and a
+// Gatekeeper is also set), chat runs in act mode: the model's tool_use
+// blocks dispatch through the executor (gated + audited) with a
+// tool_result round-trip. nil → chat is talk-only. Called after
+// subs.Executor is built (the executor needs the CU resolver).
+func (f *Factory) SetExecutor(e *executor.Executor) {
+	f.executor = e
+}
+
 // UpdatePrimary updates the primary provider name and model.
 // Call after enabling a new provider or adding an API key so
 // sessions use the new configuration without daemon restart.
@@ -208,6 +224,7 @@ func (f *Factory) New(conversationID int64) *Session {
 			Audit:          f.audit,
 			Memory:         f.memory,
 			Predictor:      f.predictor,
+			Executor:       f.executor,
 		},
 		OnStatus: f.onStatus,
 	}
@@ -337,6 +354,19 @@ func (s *Session) Run(ctx context.Context, query string) (string, error) {
 	if err != nil {
 		s.setStatus(status.StatusError)
 		return "", fmt.Errorf("session: build messages: %w", err)
+	}
+
+	// N2: act mode. When the executor + gatekeeper are wired, chat runs
+	// the tool-call dispatch loop: the model's tool_use blocks dispatch
+	// through the gated executor (consent + presence apply, same modal
+	// as delegate-spawned actions) with a tool_result round-trip, so
+	// "talk → it clicks/types/runs" works. Talk-only (no executor) keeps
+	// the streaming path below, unchanged. The loop uses non-streaming
+	// Provider.Chat because the Anthropic stream emits tool_use input as
+	// text deltas (input_json_delta), not as Delta.ToolCalls, so
+	// tool_calls are only available on ChatResponse.Message.ToolCalls.
+	if s.cfg.Executor != nil && s.cfg.Gatekeeper != nil {
+		return s.runToolLoop(runCtx, messages)
 	}
 
 	// Kick off a streaming LLM call.
