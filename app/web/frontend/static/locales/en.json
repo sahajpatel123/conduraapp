@@ -153,6 +153,7 @@
   "common.loading": "Loading…",
   "common.close": "Close",
   "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
 
   "locale.selector.aria_label": "Select language",
 
@@ -162,6 +163,8 @@
   "sidebar.new_conversation": "New conversation",
   "sidebar.delete_confirm": "Delete this conversation? This cannot be undone.",
   "sidebar.delete_current": "Delete current",
+  "sidebar.delete_cancelled": "Deletion cancelled.",
+  "sidebar.undo_delete": "Undo",
   "sidebar.history": "History",
   "sidebar.empty": "No conversations yet.<br />Click <strong>+</strong> to start.",
   "sidebar.msg_count": "{0} msg",

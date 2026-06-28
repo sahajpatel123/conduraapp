@@ -38,6 +38,10 @@
   function deleteCurrent(): void {
     const id = conversation.currentID
     if (id === null) return
+    // Clear any pending timer from a prior delete click so we don't
+    // leak stale setTimeouts on rapid double-clicks (each click used
+    // to start a fresh timer without clearing the previous).
+    if (deleteTimer) clearTimeout(deleteTimer)
     pendingDeleteId = id
     notifications.push({
       kind: 'warn',
@@ -46,9 +50,16 @@
       sticky: false
     })
     deleteTimer = setTimeout(async () => {
-      if (pendingDeleteId === id) {
-        await conversation.deleteCurrent()
+      // Use the pending id (NOT conversation.currentID): if the user
+      // opened a different conversation during the undo window, the
+      // store's currentID now points to that other conversation, and
+      // calling conversation.deleteCurrent() would delete the wrong
+      // one. deleteById targets the conversation the user actually
+      // clicked on. See internal audit fix: undo-delete wrong-target.
+      if (pendingDeleteId !== null) {
+        const target = pendingDeleteId
         pendingDeleteId = null
+        await conversation.deleteById(target)
       }
     }, 5000)
   }

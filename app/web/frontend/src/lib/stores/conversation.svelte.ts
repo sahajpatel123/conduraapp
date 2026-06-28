@@ -64,6 +64,22 @@ class ConversationStore {
   }
 
   /**
+   * deleteById removes the conversation with the given id WITHOUT
+   * touching the currently-open conversation. Used by the Sidebar
+   * undo-delete flow: the timer must delete the conversation the user
+   * actually clicked on, not whatever conversation is current when
+   * the timer fires (which could be a different one the user opened
+   * in the undo window).
+   */
+  async deleteById(id: number): Promise<void> {
+    if (!id) {
+      return
+    }
+    await ipc.conversationsDelete(id)
+    this.conversations = this.conversations.filter((c) => c.id !== id)
+  }
+
+  /**
    * Send a user message; start streaming the assistant reply.
    * Subscribes to SSE stream events; on Done, persists the
    * assistant's full reply via conversations.append.
