@@ -17,6 +17,10 @@
     await onboarding.setHotkey(combo)
   }
 
+  async function skip(): Promise<void> {
+    await onboarding.setHotkey('')
+  }
+
   async function back(): Promise<void> {
     await onboarding.back()
   }
@@ -38,9 +42,14 @@
 
   <div class="actions">
     <button class="btn btn-ghost" onclick={back} disabled={onboarding.busy}>← {t('onboarding.hotkey.back')}</button>
-    <button class="btn btn-primary" onclick={cont} disabled={!canContinue}>
-      {onboarding.busy ? t('onboarding.hotkey.saving') : t('onboarding.hotkey.continue')}
-    </button>
+    <div class="actions-right">
+      <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>
+        {t('onboarding.hotkey.skip', 'Set later')}
+      </button>
+      <button class="btn btn-primary" onclick={cont} disabled={!canContinue}>
+        {onboarding.busy ? t('onboarding.hotkey.saving') : t('onboarding.hotkey.continue')}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -71,6 +80,10 @@
     display: flex;
     justify-content: space-between;
     margin-top: var(--space-5);
+  }
+  .actions-right {
+    display: flex;
+    gap: var(--space-2);
   }
   .error {
     color: var(--color-error);

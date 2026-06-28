@@ -5,15 +5,15 @@ import PageHeader from "@/components/shell/PageHeader";
 import Reveal from "@/components/motion/Reveal";
 
 const LLM_PROVIDERS = [
-  { name: "Anthropic", models: "Claude Opus 4.7, Sonnet 4.5, Haiku 4.5", auth: "API key (Claude Pro OAuth: v0.2.0)" },
-  { name: "OpenAI", models: "GPT-5.5, o3, o4-mini", auth: "API key (ChatGPT Plus OAuth: v0.2.0)" },
-  { name: "Google", models: "Gemini 3.5 Flash, 3.1 Pro", auth: "API key (Google AI Pro OAuth: v0.2.0)" },
-  { name: "xAI", models: "Grok-4.3, Grok-4.3-fast", auth: "API key (SuperGrok OAuth: v0.2.0)" },
-  { name: "Mistral", models: "Mistral Large 3, Codestral", auth: "API key" },
-  { name: "DeepSeek", models: "DeepSeek-V4, R1", auth: "API key" },
+  { name: "Anthropic", models: "Claude Sonnet 4.5, Haiku 4.5, Opus 4.7", auth: "API key (Claude Pro OAuth: v0.2.0)" },
+  { name: "OpenAI", models: "GPT-4o, o3, o4-mini", auth: "API key (ChatGPT Plus OAuth: v0.2.0)" },
+  { name: "Google", models: "Gemini 2.0 Flash, 1.5 Pro", auth: "API key (Google AI Pro OAuth: v0.2.0)" },
+  { name: "xAI", models: "Grok 2, Grok 2 mini", auth: "API key (SuperGrok OAuth: v0.2.0)" },
+  { name: "Mistral", models: "Mistral Large, Codestral", auth: "API key" },
+  { name: "DeepSeek", models: "DeepSeek-V3, R1", auth: "API key" },
   { name: "OpenRouter", models: "300+ models", auth: "API key" },
   { name: "Together", models: "Llama, Qwen, Mixtral", auth: "API key" },
-  { name: "Groq", models: "Llama 4 (70B, 8B)", auth: "API key" },
+  { name: "Groq", models: "Llama 3.3 70B, 8B", auth: "API key" },
   { name: "Fireworks", models: "Llama, Qwen, DeepSeek", auth: "API key" },
   { name: "Local", models: "Ollama, LM Studio, vLLM, llama.cpp", auth: "None — runs locally" },
   { name: "Custom", models: "Any OpenAI-compatible endpoint", auth: "API key + base URL" },

@@ -12,6 +12,59 @@ before:
     - go mod download
 
 builds:
+  # ── macOS builds with CGO (required for native computer-use, voice, permissions) ──
+  - id: condurad-darwin
+    main: ./cmd/condurad
+    binary: condurad
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura-darwin
+    main: ./cmd/condura
+    binary: condura
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura-tui-darwin
+    main: ./cmd/condura-tui
+    binary: condura-tui
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  # ── Linux/Windows builds without CGO (native backends are macOS-only) ──
   - id: condurad
     main: ./cmd/condurad
     binary: condurad
@@ -23,7 +76,6 @@ builds:
       - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
       - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
-      - darwin
       - linux
       - windows
     goarch:
@@ -42,7 +94,6 @@ builds:
       - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
       - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
-      - darwin
       - linux
       - windows
     goarch:
@@ -61,7 +112,6 @@ builds:
       - -X github.com/sahajpatel123/synapticapp/internal/version.Commit={{.ShortCommit}}
       - -X github.com/sahajpatel123/synapticapp/internal/version.BuildDate={{.Date}}
     goos:
-      - darwin
       - linux
       - windows
     goarch:
@@ -73,6 +123,7 @@ archives:
   - id: condurad-archive
     ids:
       - condurad
+      - condurad-darwin
     formats:
       - tar.gz
       - zip
@@ -90,6 +141,7 @@ archives:
   - id: condura-archive
     ids:
       - condura
+      - condura-darwin
     formats:
       - tar.gz
       - zip
@@ -99,6 +151,24 @@ archives:
           - zip
     name_template: >-
       condura-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - EULA.md
+
+  - id: condura-tui-archive
+    ids:
+      - condura-tui
+      - condura-tui-darwin
+    formats:
+      - tar.gz
+      - zip
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      condura-tui-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
       - LICENSE

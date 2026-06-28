@@ -13,7 +13,7 @@ import { EASE_OUT } from "@/lib/motion";
 
 const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
   mac: [
-    { title: "Open the disk image", desc: "Open the .dmg, then move Condura into Applications." },
+    { title: "Extract the archive", desc: "Unzip the .tar.gz and move condurad into /usr/local/bin or your preferred location." },
     { title: "Approve system access", desc: "Grant Accessibility and Screen Recording from Privacy & Security." },
     { title: "Choose your hotkey", desc: "Record a shortcut that summons Condura from anywhere." },
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
@@ -25,7 +25,7 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Run your first task", desc: "Choose a model and send a message. GUI overlay is v0.2.0." },
   ],
   linux: [
-    { title: "Install the package", desc: "Install the .deb package, or choose the CLI tarball below." },
+    { title: "Extract the archive", desc: "Extract the tarball and move binaries to /usr/local/bin." },
     { title: "Start the daemon", desc: "Confirm the user service is running with condura status." },
     { title: "Choose your hotkey", desc: "Record a shortcut during onboarding for fast access." },
     { title: "Open Condura", desc: "Launch condura-tui or the Wails GUI binary or run condura-tui from your terminal." },
@@ -33,9 +33,9 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
 };
 
 const VERIFY_COMMANDS: Record<PlatformKey, string> = {
-  mac: `shasum -a 256 condura-installer-mac.dmg`,
-  windows: `Get-FileHash condura-cli-windows.zip -Algorithm SHA256`,
-  linux: `sha256sum condura.deb`,
+  mac: `shasum -a 256 condurad-*-darwin-*.tar.gz`,
+  windows: `Get-FileHash condura-*-windows-*.zip -Algorithm SHA256`,
+  linux: `sha256sum condurad-*-linux-*.tar.gz`,
 };
 
 const VERSIONS = [
