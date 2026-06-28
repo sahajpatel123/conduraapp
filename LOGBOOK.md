@@ -28,6 +28,78 @@
 
 ---
 
+## [2026-06-28 IST] AI Model: Claude (Sonnet 4.6) — Claude Code
+**Session ID:** condura-final-verify-2026-06-28
+**Branch:** main
+**Task:** Re-verify the full three-surface workspace (Go backend, Wails Svelte frontend, Next.js marketing site) after the prior session's audit-claim triage was interrupted. Confirm build/vet/test/lint/typecheck all pass; audit for any remaining real production issues; record results in the logbook.
+
+### Verification — Go backend
+- `go build ./...` — exit 0, no output.
+- `go vet ./...` — exit 0, no output.
+- `go test -count=1 -short ./...` — exit 0, **64/64 packages pass**, 0 failures.
+- `go test -race -count=1 -short ./...` — exit 0, **64/64 packages pass**, 0 data races, 0 panics.
+- `golangci-lint run --timeout=5m ./...` — exit 0, **0 issues**.
+
+### Verification — Wails Svelte frontend
+- `cd app/web/frontend && npm run check` — `COMPLETED 288 FILES 0 ERRORS 0 WARNINGS 0 FILES_WITH_PROBLEMS`. svelte-check + tsc both clean.
+
+### Verification — Next.js marketing site
+- `cd web && npm run lint` — exit 0, no output (ESLint clean).
+- `cd web && npm run build` — exit 0, **compiled in 3.2s, TypeScript clean, 14/14 static pages generated** (`/`, `/changelog`, `/download`, `/ecosystem`, `/legal`, `/manifesto`, `/orchestration`, `/privacy`, `/security`, plus the icon and not-found routes, with 3 dynamic API routes for auth and download). No errors. Pre-existing optional-dependency warnings for `@vercel/kv` and `resend` are unchanged from the prior Kimi K2.7 marketing pass and do not block the build.
+
+### Audit findings
+- **console.log in shipped code:** 0. The earlier audit's "14 console.log statements" claim was fabricated — `grep -rEn "console\.log\("` across the Svelte frontend returns zero matches. The single `console.warn` in `conversation.svelte.ts:35` is intentional (daemon-down diagnostic for `conversationsList`).
+- **TODO/FIXME/HACK in shipped frontend:** 0.
+- **Empty catch blocks:** 0 across 77 catch handlers in the Svelte frontend.
+- **Swallowed errors in Go:** 0 matches for `, _\s*[:=]\s*err` outside test files.
+- **Panics in production paths:** 0 outside init-time invariants (`internal/audit/log.go:101` rejects empty HMAC secret; `internal/i18n/catalog.go:171` rejects missing key in default locale). `MustGet` in `internal/llm/registry.go:48` is the standard "panic if invariant broken" pattern for known-good names.
+- **API key at rest:** confirmed encrypted with AES-GCM via `internal/api_key/manager.go`; secrets never flow through `audit.Append` (the `apikeys.set` handler at `internal/daemon/methods.go:118` stores the secret via `akm.Set` and returns the new ID — no audit row carries the secret value).
+- **Agent executor:** real `agent.NewComputerUseExecutor` (commit `b883e9a`); the earlier `noopAgentExecutor` is gone. 6 unit tests in `internal/agent/computer_use_executor_test.go` cover click/type/launch/unknown-type/backend-failure paths.
+- **i18n keys:** the three keys added in commit `ec7291b` (`common.confirm`, `sidebar.delete_cancelled`, `sidebar.undo_delete`) are present in all 6 locales (`de`, `en`, `es`, `fr`, `ja`, `zh`).
+- **Sidebar a11y:** 16 decorative SVGs now have `aria-hidden="true"` (commit `c68ad12`).
+- **Undo-delete:** `deleteById` in `conversation.svelte.ts:82` correctly targets the conversation that was clicked, not whatever is current when the timer fires (audit claim was real; commit `ec7291b` fixed it).
+- **ConfirmDialog focus trap:** full keyboard focus trap, Escape closes, focus restored to previous element on close (commit `ec7291b`).
+
+### Decisions made
+- Treat the project as **production-viable for a first public release** on the local-first / chat / onboarding / safety surfaces. The v0.2.0 backlog (hybrid router, real `pf`/`netsh` network guard, subscription OAuth, public Skills Hub, channel integrations, MP4 replay export, wake-word training on non-macOS) is documented in `CLAUDE.md` §33.5.2 and is non-blocking for v0.1.0.
+- Did **not** touch the marketing copy or the optional-dep warnings in `web/` — that is Kimi K2.7's territory per the established division of labor in the logbook.
+- Did **not** run end-to-end device verification (`docs/phase15-verification.md`) — that requires clean macOS/Windows/Linux machines and is the user's last mile, not code work.
+
+### Bugs / issues encountered
+- None. The previous session's malformed-JSON bash issue (chained Svelte/Next/lint commands) was avoided here by running each verification step in its own tool call with a single command.
+
+### Files modified
+- `LOGBOOK.md` — This entry.
+
+### Open questions for next session
+- Does the user want the optional-dep warnings (`@vercel/kv`, `resend`) in `web/` resolved by adding the packages, or kept as "configured but not deployed" until the cloud side of the magic-link auth ships?
+- When the v0.2.0 router work starts, should it live in `internal/router/` as the spec demands, or piggyback on `internal/failover/` (which is where cascade scoring currently lives)?
+
+### Next steps
+- User-facing: ship v0.1.0 binary. The local agent + onboarding + chat + audit + safety stack is green on all three surfaces.
+- Engineering: pick up `internal/router/` (Hybrid with Memory) and the Layer-3 `pf`/`netsh` separate-process network guard as the first v0.2.0 workstreams.
+
+---
+**Branch:** fix/marketing-honest-v0.1.1
+**Task:** Add missing optional dependencies to the Condura marketing website and align locale catalogs.
+
+### Files modified
+- `web/package.json` — Added `@vercel/kv` (^3.0.0), `resend` (^4.0.0), and `isomorphic-dompurify` (^2.0.0) to dependencies so the optional runtime imports resolve once installed.
+- `web/lib/kv.ts` — Improved the production error message to: "Token store not configured. Set KV_URL/KV_REST_API_URL or add @vercel/kv."
+- `app/web/frontend/static/locales/{es,fr,de,ja,zh}.json` — Added missing keys from `en.json` with English placeholder values. Preserved the existing translated/stale `hub.installed` value. **Note:** the requested path was `/web/app/frontend/static/locales/`, which does not exist; the actual locale files live in `/app/web/frontend/static/locales/`. Those were updated.
+
+### Decisions made
+- Left `hub.installed` as `"Skill installed: {0}"` in non-English files because that is the existing value, while `en.json` uses `"installed ✓"`; the task instructed to preserve existing values and only add missing keys.
+- Did not run `npm install`; the build still warns about the missing packages as expected.
+
+### Verification
+- `npm run build` in `web/` — passed; only the two expected warnings for `@vercel/kv` and `resend` remain until the packages are installed.
+
+### Open questions for next session
+- Confirm whether the locale path should remain in `app/web/frontend/static/locales/` or be moved/copied to `web/app/frontend/static/locales/` if the marketing website is intended to use shared i18n catalogs.
+
+---
+
 ## [2026-06-26 IST] AI Model: Kimi K2.7
 **Session ID:** condura-marketing-honest-v0.1.1
 **Branch:** fix/marketing-honest-v0.1.1
