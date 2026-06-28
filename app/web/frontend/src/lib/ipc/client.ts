@@ -558,6 +558,36 @@ class IPCClient {
         }
       })
     }
+
+    // Stream events published under namespaced names by the daemon's
+    // stream manager (stream.started, stream.delta, stream.finished,
+    // stream.error, stream.cancelled). Remap them to the bare 'stream'
+    // emitter so the conversation store receives them uniformly.
+    const streamLifecycle = ['stream.started', 'stream.delta', 'stream.finished', 'stream.error', 'stream.cancelled']
+    for (const name of streamLifecycle) {
+      es.addEventListener(name, (ev: MessageEvent) => {
+        try {
+          const data = JSON.parse(ev.data)
+          const streamEvent: import('./types').StreamEvent = {
+            conversation_id: data.conversation_id ?? 0,
+            delta: data.delta ?? '',
+            role: data.role,
+            tool_calls: data.tool_calls,
+            finish_reason: data.finish_reason,
+            usage: data.input_tokens != null ? {
+              input_tokens: data.input_tokens ?? 0,
+              output_tokens: data.output_tokens ?? 0,
+              total_tokens: data.total_tokens ?? 0,
+            } : undefined,
+            done: name === 'stream.finished' || name === 'stream.cancelled' || (name === 'stream.error' ? true : false),
+            err: name === 'stream.error' ? (data.error ?? 'stream error') : undefined,
+          }
+          this.emitter.emit('stream', streamEvent)
+        } catch {
+          // ignore
+        }
+      })
+    }
   }
 
   private handleServerEvent(data: unknown): void {

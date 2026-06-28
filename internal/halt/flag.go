@@ -11,6 +11,7 @@ package halt
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,15 +26,24 @@ type State struct {
 
 // Flag is the kill-switch.
 type Flag struct {
-	mu    sync.RWMutex
-	state State
-	atom  atomic.Bool
-	db    *sql.DB
+	mu       sync.RWMutex
+	state    State
+	atom     atomic.Bool
+	db       *sql.DB
+	cooldown time.Duration // minimum time halt must persist before resume
 }
 
 // New returns a Flag backed by the given database.
 func New(db *sql.DB) *Flag {
-	return &Flag{db: db}
+	return &Flag{db: db, cooldown: 5 * time.Minute}
+}
+
+// SetCooldown overrides the default resume cooldown (5 minutes). A
+// zero or negative value disables the cooldown entirely (tests and admin).
+func (f *Flag) SetCooldown(d time.Duration) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cooldown = d
 }
 
 // Halted returns the current in-memory state. Safe for concurrent use.
@@ -81,9 +91,39 @@ func (f *Flag) Halt(ctx context.Context, reason string) (State, error) {
 	return f.Set(ctx, true, reason)
 }
 
-// Resume is a convenience for Set(ctx, false, "").
+// Resume is a convenience for Set(ctx, false, ""). It enforces a
+// cooldown: if the halt flag has been active for less than the
+// configured duration, resume is rejected with ErrNotYetResumable.
 func (f *Flag) Resume(ctx context.Context) (State, error) {
+	f.mu.RLock()
+	cooldown := f.cooldown
+	halted := f.state.Halted
+	since := f.state.Since
+	f.mu.RUnlock()
+
+	if halted && cooldown > 0 {
+		if elapsed := time.Since(since); elapsed < cooldown {
+			remaining := cooldown - elapsed
+			return f.state, &NotYetResumableError{Remaining: remaining, Since: since, Cooldown: cooldown}
+		}
+	}
 	return f.Set(ctx, false, "")
+}
+
+// NotYetResumableError is returned by Resume when the halt flag has
+// not been active long enough for the cooldown to expire.
+type NotYetResumableError struct {
+	Remaining time.Duration
+	Since     time.Time
+	Cooldown  time.Duration
+}
+
+func (e *NotYetResumableError) Error() string {
+	return fmt.Sprintf("halt: resume not yet allowed (halted %s ago, cooldown %s, %s remaining)",
+		time.Since(e.Since).Round(time.Second),
+		e.Cooldown.Round(time.Second),
+		e.Remaining.Round(time.Second),
+	)
 }
 
 // Refresh re-reads the on-disk state into the in-memory value.

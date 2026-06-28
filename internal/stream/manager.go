@@ -325,6 +325,7 @@ func (m *Manager) Cancel(requestID string) error {
 		return ErrNotFound
 	}
 	delete(m.active, requestID)
+	conversationID := s.conversationID
 	m.mu.Unlock()
 
 	s.cancel()
@@ -343,7 +344,8 @@ func (m *Manager) Cancel(requestID string) error {
 	}
 
 	m.broker.PublishJSON(EventCancelled, map[string]any{
-		fieldRequestID: requestID,
+		fieldRequestID:      requestID,
+		fieldConversationID: conversationID,
 	})
 
 	return nil
@@ -434,8 +436,9 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 				s.breakerResult(s.providerName, false)
 			}
 			m.broker.PublishJSON(EventError, map[string]any{
-				fieldRequestID: requestID,
-				fieldError:     ev.Err.Error(),
+				fieldRequestID:      requestID,
+				fieldConversationID: s.conversationID,
+				fieldError:          ev.Err.Error(),
 			})
 			return
 		}
@@ -445,24 +448,27 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 				s.breakerResult(s.providerName, true)
 			}
 			m.broker.PublishJSON(EventFinished, map[string]any{
-				fieldRequestID:    requestID,
-				fieldFinishReason: string(ev.FinishReason),
+				fieldRequestID:      requestID,
+				fieldConversationID: s.conversationID,
+				fieldFinishReason:   string(ev.FinishReason),
 			})
 			if ev.Usage.TotalTokens > 0 || ev.Usage.InputTokens > 0 {
 				m.broker.PublishJSON(EventUsage, map[string]any{
-					fieldRequestID:    requestID,
-					fieldInputTokens:  ev.Usage.InputTokens,
-					fieldOutputTokens: ev.Usage.OutputTokens,
-					fieldTotalTokens:  ev.Usage.TotalTokens,
+					fieldRequestID:      requestID,
+					fieldConversationID: s.conversationID,
+					fieldInputTokens:    ev.Usage.InputTokens,
+					fieldOutputTokens:   ev.Usage.OutputTokens,
+					fieldTotalTokens:    ev.Usage.TotalTokens,
 				})
 			}
 			return
 		}
 		if ev.Delta.Content != "" {
 			m.broker.PublishJSON(EventDelta, map[string]any{
-				fieldRequestID: requestID,
-				fieldDelta:     ev.Delta.Content,
-				fieldRole:      string(ev.Delta.Role),
+				fieldRequestID:      requestID,
+				fieldConversationID: s.conversationID,
+				fieldDelta:          ev.Delta.Content,
+				fieldRole:           string(ev.Delta.Role),
 			})
 		}
 		if len(ev.Delta.ToolCalls) > 0 {
@@ -470,18 +476,20 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 			// GUI can apply them incrementally. Each call
 			// carries id+name+args, even if args is partial.
 			m.broker.PublishJSON(EventDelta, map[string]any{
-				fieldRequestID: requestID,
-				fieldToolCalls: ev.Delta.ToolCalls,
+				fieldRequestID:      requestID,
+				fieldConversationID: s.conversationID,
+				fieldToolCalls:      ev.Delta.ToolCalls,
 			})
 		}
 		// If the final event of a non-`Done` stream carries usage,
 		// surface it so the spend monitor can update.
 		if ev.Usage.TotalTokens > 0 {
 			m.broker.PublishJSON(EventUsage, map[string]any{
-				fieldRequestID:    requestID,
-				fieldInputTokens:  ev.Usage.InputTokens,
-				fieldOutputTokens: ev.Usage.OutputTokens,
-				fieldTotalTokens:  ev.Usage.TotalTokens,
+				fieldRequestID:      requestID,
+				fieldConversationID: s.conversationID,
+				fieldInputTokens:    ev.Usage.InputTokens,
+				fieldOutputTokens:   ev.Usage.OutputTokens,
+				fieldTotalTokens:    ev.Usage.TotalTokens,
 			})
 		}
 	}
@@ -489,8 +497,9 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 	// Channel closed without a Done event. Treat as a clean finish.
 	m.markState(s, StateFinished)
 	m.broker.PublishJSON(EventFinished, map[string]any{
-		fieldRequestID:    requestID,
-		fieldFinishReason: "channel_closed",
+		fieldRequestID:      requestID,
+		fieldConversationID: s.conversationID,
+		fieldFinishReason:   "channel_closed",
 	})
 }
 

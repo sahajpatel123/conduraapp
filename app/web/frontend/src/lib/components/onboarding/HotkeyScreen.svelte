@@ -14,11 +14,13 @@
 
   async function cont(): Promise<void> {
     if (!combo) return
-    await onboarding.setHotkey(combo)
+    onboarding.setHotkey(combo)
+    await onboarding.saveHotkey()
   }
 
   async function skip(): Promise<void> {
-    await onboarding.setHotkey('')
+    onboarding.setHotkey('')
+    await onboarding.skipStep('hotkey')
   }
 
   async function back(): Promise<void> {
