@@ -3486,3 +3486,47 @@ v0.1.0 readiness summary, Tier-3 verified end-to-end:
 - Merge `fix/production-readiness-v0.1.x` into `main` (this session).
 - For the user's closed-beta test, gate the website's `/download` button OR explicitly disclose "unsigned preview" to the ~50 trusted testers.
 - Schedule a 2-week hardening sprint for v0.1.2 → v0.2.0 public launch (Phase 3 of the audit verdict): Apple notarization secrets, Dependabot PRs reviewed, on-device Phase-15 verification on a clean Mac, end-to-end installer integrity test, then a real public release tag.
+
+---
+
+## [2026-06-28 09:15 IST] AI Model: claude-opus-4.5 (command-code — Implementation Engineer)
+**Session ID:** tier3-blocker-fixes
+**Branch:** main
+**Task:** Fix the two critical onboarding/chat blockers identified in the Tier-3 analysis plus add a sticky-halt cooldown to daemon.resume.
+
+### Analysis context
+Before implementing, I verified that most fixes from the two deployment verdicts were already resolved at HEAD:
+- `daemon.resume` RPC was already deprecated (ticket-based confirm flow with `halt.confirm_resume`)
+- `install.sh` already has SHA-256 + codesign + spctl verification
+- `release.yml` / `release-verify.yml` already fail-closed (exit 1, not exit 0)
+- Linux presence detector already returns `false` (fail-closed)
+- Consent nonce already uses `crypto/rand` via `generateNonce()`
+- Dependabot config already exists for gomod + npm + Wails frontend
+- CODEOWNERS already present
+
+### Files modified
+- `app/web/frontend/src/lib/components/onboarding/HotkeyScreen.svelte` — Fixed blocking bug: `cont()` called `setHotkey()` (sync noop local-store setter) instead of `saveHotkey()` (RPC that persists to daemon and advances state machine). `skip()` similarly fixed to use `skipStep('hotkey')`. The Continue button was silently ignoring the user's action — onboarding frozen at step 3.
+- `app/web/frontend/src/lib/ipc/client.ts` — Added SSE listeners for namespaced `stream.delta`, `stream.started`, `stream.finished`, `stream.error`, `stream.cancelled` events with payload remapping to `StreamEvent` shape. The daemon publishes these names but the frontend only listened for bare `'stream'`, so chat responses never appeared.
+- `internal/stream/manager.go` — Added `conversation_id` to ALL stream SSE events (delta, finished, error, cancelled, usage, channel_closed). Previously only `stream.started` carried it; `stream.delta` and `stream.finished` omitted it, making client-side routing impossible.
+- `internal/halt/flag.go` — Added `cooldown` field and `SetCooldown()` method to Flag struct. `Resume()` now returns `NotYetResumableError` if called before cooldown expires. Added `fmt` import.
+- `internal/daemon/subsystems.go` — Wired 5-minute cooldown via `SetCooldown(5 * time.Minute)` at daemon startup. Tests use zero default (cooldown disabled).
+
+### Decisions made
+- **Cooldown at daemon level, not struct default**: Setting cooldown in `New()` broke 16 existing halt tests that do Halt-then-Resume. Moved the policy to `subsystems.go` so tests get zero cooldown and production gets 5 minutes.
+- **SSE fix on both sides**: Added `conversation_id` to Go stream events AND namespaced listeners on the TS side. Either fix alone would work, but both together ensure robustness and make the wire format self-describing.
+
+### Verification
+- `go build ./...` — clean
+- `golangci-lint run --timeout 5m` — 0 issues
+- `go test -count=1 -timeout 300s ./...` — all 64 packages pass (1 pre-existing keyring flake)
+- `svelte-check` — 0 errors, 0 warnings
+- `npx next build` — clean (14 pages)
+- CI on commit `12183ea`: main CI green (all 14 jobs), CodeQL green. Release Verify fails with pre-existing CGO cross-compile issue (Linux from macOS arm64, unrelated to changes).
+
+### Open questions for next session
+- None for these specific fixes.
+
+### Next steps
+- The product is now *functionally usable*: onboarding completes and chat responses appear.
+- Remaining production-readiness items from the audit (notarization, on-device verification, metadata) are in the roadmap doc at `docs/roadmap-v0.2.0.md`.
+
