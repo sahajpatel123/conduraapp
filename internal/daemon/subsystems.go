@@ -885,7 +885,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Anomaly:                  safety.Anomaly,
 		Watchdog:                 wdog,
 		Delegation:               buildDelegationBus(gate, mon),
-		Phase12:                  buildPhase12(cfg, log),
+		Phase12:                  buildPhase12(cfg, loader, log),
 		// T3b sticky-resume. Both live for the daemon's lifetime;
 		// no Shutdown needed (no background goroutines, no IO).
 		ResumeTickets: resumeTickets,
@@ -910,6 +910,13 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		cfg:             cfg,
 		Loader:          loader,
 	}
+
+	// Re-wrap all LLM HTTP transports with the real network guard now
+	// that it exists. The initial buildProvidersFromConfig at startup
+	// passed nil because netGuard is constructed later in the init
+	// sequence; this rebuild closes the gap so providers are guarded
+	// from the moment the daemon is ready.
+	subs.RebuildProviders()
 
 	// Phase 18 (v0.2.0): sub-agent ActionRequest queue +
 	// executor. The Pending store is SQLite-backed so rows
@@ -950,8 +957,11 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 // buildPhase12 constructs the Phase 12 components (Hub + Sync + i18n).
 // Each subsystem is built by a dedicated helper; this function
 // orchestrates them in order and logs the result.
-func buildPhase12(cfg *config.Config, log *slog.Logger) *Phase12Components {
-	p12 := &Phase12Components{}
+func buildPhase12(cfg *config.Config, loader *config.Loader, log *slog.Logger) *Phase12Components {
+	p12 := &Phase12Components{
+		Config: cfg,
+		Loader: loader,
+	}
 	p12.Catalog = buildI18nCatalog(log, cfg)
 	p12.SkillStore = buildSkillStore(log, cfg)
 	p12.HubClient = buildHubClient(log, cfg)

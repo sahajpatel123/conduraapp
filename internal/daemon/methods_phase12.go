@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/sahajpatel123/synapticapp/internal/config"
 	"github.com/sahajpatel123/synapticapp/internal/hub"
 	"github.com/sahajpatel123/synapticapp/internal/i18n"
 	"github.com/sahajpatel123/synapticapp/internal/ipc"
@@ -28,6 +29,8 @@ type Phase12Components struct {
 	SkillStore *skills.SQLiteStore
 	SyncEngine *sync.Engine
 	Catalog    *i18n.Catalog
+	Config     *config.Config
+	Loader     *config.Loader
 }
 
 // registerPhase12Methods wires hub.*, sync.*, i18n.*, and skills.* RPC methods.
@@ -412,6 +415,13 @@ func syncStartHandler(p12 *Phase12Components) ipc.HandlerFunc {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotConfigured}
 		}
 		p12.SyncEngine.Start()
+		// Persist so sync state survives daemon restart.
+		if p12.Config != nil {
+			p12.Config.Sync.Enabled = true
+			if p12.Loader != nil {
+				_ = p12.Loader.Save(p12.Config)
+			}
+		}
 		return auditOK(), nil
 	}
 }
@@ -422,6 +432,12 @@ func syncStopHandler(p12 *Phase12Components) ipc.HandlerFunc {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotConfigured}
 		}
 		p12.SyncEngine.Stop()
+		if p12.Config != nil {
+			p12.Config.Sync.Enabled = false
+			if p12.Loader != nil {
+				_ = p12.Loader.Save(p12.Config)
+			}
+		}
 		return auditOK(), nil
 	}
 }

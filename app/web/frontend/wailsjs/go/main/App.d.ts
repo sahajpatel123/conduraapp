@@ -18,6 +18,6 @@ export function Ping(arg1:string):Promise<string>;
 
 export function ShowOverlay():Promise<void>;
 
-export function ToggleQuickPrompt():Promise<void>;
-
 export function ToggleOverlay():Promise<void>;
+
+export function ToggleQuickPrompt():Promise<void>;

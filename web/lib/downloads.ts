@@ -23,8 +23,8 @@ export const DOWNLOADS = {
     secondary: { label: "Daemon .zip", href: `${DOWNLOAD_BASE}/daemon-windows` },
   },
   linux: {
-    primary: { label: ".deb (daemon only)", href: `${DOWNLOAD_BASE}/linux` },
-    secondary: { label: "GUI binary", href: `${DOWNLOAD_BASE}/linux-appimage` },
+    primary: { label: "CLI + TUI .zip", href: `${DOWNLOAD_BASE}/linux` },
+    secondary: { label: "Daemon .deb", href: `${DOWNLOAD_BASE}/linux-appimage` },
   },
 } as const satisfies Record<
   PlatformKey,

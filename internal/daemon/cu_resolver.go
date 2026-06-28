@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/agent"
+	"github.com/sahajpatel123/synapticapp/internal/blastradius"
 	"github.com/sahajpatel123/synapticapp/internal/computeruse"
 	"github.com/sahajpatel123/synapticapp/internal/perception"
 	"github.com/sahajpatel123/synapticapp/internal/replay"
@@ -147,29 +148,23 @@ func (r *CUResolver) Execute(ctx context.Context, a *agent.Action) (*agent.StepR
 
 	pre := r.captureAXSnapshot(ctx)
 
+	// Fail closed for non-READ actions if the AX tree couldn't be
+	// captured (accessibility permission missing, no backends).
+	if err := r.requireAXForNonRead(pre, cuAction); err != nil {
+		return &agent.StepResult{
+			Success: false,
+			Error:   err,
+			Output:  err.Error(),
+		}, err
+	}
+
 	ssBeforeRef := r.captureScreenshot(ctx, "before")
 	result, err := r.gate.Execute(ctx, cuAction)
 	ssAfterRef := r.captureScreenshot(ctx, "after")
 
-	// Post-action snapshot + verify. We do this even if Execute
-	// returned an error because the action may have partially
-	// succeeded (e.g. click registered, but result errored).
-	if pre != nil && r.cu != nil {
-		postTree, perr := r.cu.GetAXTree(ctx)
-		if perr == nil && postTree != nil {
-			post := computeruse.NewSnapshot(postTree, 0)
-			vres := computeruse.VerifySnapshots(pre, post, cuAction)
-			if vres != nil && !vres.Valid && vres.Aborted {
-				return &agent.StepResult{
-					Success:     false,
-					Error:       computeruse.ErrStaleState,
-					Output:      "twin-snapshot verification aborted: " + vres.Reason,
-					Duration:    durationSeconds(result),
-					SSBeforeRef: ssBeforeRef,
-					SSAfterRef:  ssAfterRef,
-				}, computeruse.ErrStaleState
-			}
-		}
+	// Post-action twin-snapshot verification.
+	if aborted := r.verifyPostAction(ctx, pre, cuAction, result, ssBeforeRef, ssAfterRef); aborted != nil {
+		return aborted, computeruse.ErrStaleState
 	}
 
 	// Anomaly recording: real coordinates from CU action.
@@ -414,6 +409,55 @@ func errorText(result *computeruse.ActionResult) string {
 		return ""
 	}
 	return result.Error.Error()
+}
+
+// verifyPostAction runs twin-snapshot verification after the action
+// has executed. Returns nil if verification passed or was skipped
+// (pre is nil = no AX tree available). Returns an abort result if
+// the post-action snapshot shows a critical state change (window
+// focus moved, target node removed).
+func (r *CUResolver) verifyPostAction(
+	ctx context.Context,
+	pre *computeruse.Snapshot,
+	cuAction *computeruse.Action,
+	result *computeruse.ActionResult,
+	ssBeforeRef, ssAfterRef string,
+) *agent.StepResult {
+	if pre == nil || r.cu == nil {
+		return nil
+	}
+	postTree, err := r.cu.GetAXTree(ctx)
+	if err != nil || postTree == nil {
+		return nil
+	}
+	post := computeruse.NewSnapshot(postTree, 0)
+	vres := computeruse.VerifySnapshots(pre, post, cuAction)
+	if vres != nil && !vres.Valid && vres.Aborted {
+		return &agent.StepResult{
+			Success:     false,
+			Error:       computeruse.ErrStaleState,
+			Output:      "twin-snapshot verification aborted: " + vres.Reason,
+			Duration:    durationSeconds(result),
+			SSBeforeRef: ssBeforeRef,
+			SSAfterRef:  ssAfterRef,
+		}
+	}
+	return nil
+}
+
+// requireAXForNonRead checks whether the given pre-action AX snapshot is nil
+// (capture failed — accessibility permission missing, no backends) for a
+// non-READ action. If so, it returns an error because we cannot safely verify
+// what the agent is about to click.
+func (r *CUResolver) requireAXForNonRead(pre *computeruse.Snapshot, cuAction *computeruse.Action) error {
+	if pre != nil || cuAction == nil || cuAction.Type == "" {
+		return nil
+	}
+	ba := cuAction.ToBlastRadius()
+	if blastradius.Classify(ba) <= blastradius.READ {
+		return nil
+	}
+	return fmt.Errorf("%w: AX tree capture failed — refusing to execute %s action without verification; grant Accessibility permission and retry", computeruse.ErrNoBackend, cuAction.Type)
 }
 
 // describeResult produces a human-readable summary of the result.

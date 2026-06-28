@@ -223,8 +223,14 @@ func cmdSkills(gf *globalFlags, args []string) error {
 	case "list":
 		return cmdSyncCall(gf, "skills.list", map[string]any{"limit": 100})
 	case "get":
+		if len(args) < 2 {
+			return fmt.Errorf("skills get: ID is required")
+		}
 		return cmdSyncCall(gf, "skills.get", map[string]any{"id": args[1]})
 	case "delete":
+		if len(args) < 2 {
+			return fmt.Errorf("skills delete: ID is required")
+		}
 		return cmdSyncCall(gf, "skills.delete", map[string]any{"id": args[1]})
 	default:
 		return fmt.Errorf("unknown skills subcommand %q", args[0])
@@ -244,6 +250,9 @@ func cmdI18n(gf *globalFlags, args []string) error {
 	case "locales":
 		return cmdSyncCall(gf, "i18n.locales", nil)
 	case "locale":
+		if len(args) < 2 {
+			return fmt.Errorf("i18n locale: locale code is required (e.g. 'en', 'fr')")
+		}
 		return cmdSyncCall(gf, "i18n.locale", map[string]any{"locale": args[1]})
 	default:
 		return fmt.Errorf("unknown i18n subcommand %q", args[0])

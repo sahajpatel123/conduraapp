@@ -179,6 +179,12 @@ class IPCClient {
   apiKeysDelete(id: number): Promise<void> {
     return this.call<void>('apikeys.delete', { id })
   }
+
+  // ---- Voice ----
+
+  voiceListen(): Promise<{ transcript: string; confidence: number }> {
+    return this.call('voice.listen', {})
+  }
   spendToday(): Promise<SpendSummary> {
     return this.call<SpendSummary>('spend.today', {})
   }

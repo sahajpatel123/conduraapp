@@ -82,7 +82,7 @@ export default function DownloadPageView() {
         eyebrow="Download"
         title="Condura,"
         titleAccent="on your machine."
-        description="A local-first intelligence layer for your OS. Free forever. Unsigned preview builds — real signing and notarization are in progress."
+        description="A local-first intelligence layer for your OS. Free forever. Preview builds — code signing and notarization are in progress."
       >
         <Hero
           selected={selected}

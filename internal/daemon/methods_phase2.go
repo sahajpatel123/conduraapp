@@ -427,7 +427,19 @@ func registerHaltMethods(
 			return nil, &ipc.Error{Code: ipc.CodeInvalidRequest, Message: err.Error()}
 		}
 		// Valid ticket + matching secret → un-halt.
-		_, _ = haltFlag.Resume(ctx)
+		// Enforce cooldown: if the halt flag refuses to resume (e.g.
+		// 5-minute cooldown hasn't elapsed), refuse the entire
+		// operation. Never resume the network guard while the halt
+		// flag is still active — that would create a split-brain
+		// where the flag says "halted" but the guard says "running."
+		if _, err := haltFlag.Resume(ctx); err != nil {
+			_ = auditLog.Append(ctx, audit.Event{
+				Actor: actorGUIHuman, Action: "halt.confirm_resume", App: appConduraG,
+				Level: auditLevelWarn, Result: auditResultDeny,
+				Message: "resume cooldown: " + err.Error(),
+			})
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
 		if guard != nil {
 			_ = guard.Resume()
 		}

@@ -37,18 +37,26 @@ class ConversationStore {
   }
 
   async open(id: number): Promise<void> {
+    // Cancel any active stream on the current conversation before
+    // switching. Otherwise the old stream's events are filtered by
+    // conversation_id and the assistant reply is lost forever, and
+    // isStreaming stays true, locking the UI.
+    await this.cancelActive()
     const c = await ipc.conversationsGet(id)
     this.currentID = c.id
     this.currentTitle = c.title
     this.messages = c.messages
+    this.clearStreamingState()
   }
 
   async createNew(title?: string): Promise<ConversationMeta> {
+    await this.cancelActive()
     const c = await ipc.conversationsCreate({ title: title || 'New conversation' })
     this.conversations = [c, ...this.conversations]
     this.currentID = c.id
     this.currentTitle = c.title
     this.messages = []
+    this.clearStreamingState()
     return c
   }
 
@@ -174,6 +182,29 @@ class ConversationStore {
         }
       })
     )
+  }
+
+  /**
+   * Cancel any active stream on the current conversation and reset
+   * all streaming state. Safe to call when no stream is active
+   * (no-op). Called before switching conversations to prevent
+   * the orphan-stream bug where isStreaming stays true and the UI
+   * locks up.
+   */
+  private async cancelActive(): Promise<void> {
+    if (!this.isStreaming) return
+    try {
+      await this.cancel()
+    } catch {
+      // best-effort; the daemon will eventually clean up stale streams
+    }
+  }
+
+  private clearStreamingState(): void {
+    this.isStreaming = false
+    this.streamingDelta = ''
+    this.streamingError = ''
+    this.streamingToolCalls = []
   }
 
   stopListening(): void {

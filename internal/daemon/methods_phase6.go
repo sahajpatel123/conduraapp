@@ -101,6 +101,30 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		return auditOK(), nil
 	})
+
+	// voice.listen: record mic, transcribe via whisper.cpp or OpenAI,
+	// return text. The caller feeds the transcript into llm.stream or
+	// agent.ask. Only one listen session may be active at a time.
+	srv.Register("voice.listen", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		if subs.Voice == nil {
+			return nil, &ipc.Error{Code: ipc.CodeMethodNotFound, Message: ErrNoVoice.Error()}
+		}
+		result, err := subs.Voice.ListenAndProcess(ctx)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		if subs.Audit != nil && result.Transcript != "" {
+			_ = subs.Audit.Append(ctx, audit.Event{
+				Actor: actorGUI, Action: "voice.listen", App: appConduraG,
+				Level: auditLevelInfo, Result: auditResultAllow,
+				Message: "len=" + itoa(int64(len(result.Transcript))),
+			})
+		}
+		return map[string]any{
+			"transcript": result.Transcript,
+			"confidence": result.Confidence,
+		}, nil
+	})
 }
 
 func registerPresenceMethods(srv *ipc.Server, subs *Subsystems) {

@@ -34,10 +34,10 @@ export function ShowOverlay() {
   return window['go']['main']['App']['ShowOverlay']();
 }
 
-export function ToggleQuickPrompt() {
-  return window['go']['main']['App']['ToggleQuickPrompt']();
-}
-
 export function ToggleOverlay() {
   return window['go']['main']['App']['ToggleOverlay']();
+}
+
+export function ToggleQuickPrompt() {
+  return window['go']['main']['App']['ToggleQuickPrompt']();
 }

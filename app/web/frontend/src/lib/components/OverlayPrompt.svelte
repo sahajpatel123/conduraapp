@@ -10,6 +10,7 @@
   import { overlay } from '../stores/overlay.svelte'
   import { settings } from '../stores/settings.svelte'
   import { t } from '../i18n'
+  import { ipc } from '../ipc/client'
 
   let inputText = $state('')
   let sending = $state(false)
@@ -41,6 +42,25 @@
       await conversation.send(target.name, target.model, text)
     } finally {
       sending = false
+    }
+  }
+
+  let recording = $state(false)
+
+  async function startVoice(): Promise<void> {
+    if (recording || sending || !firstEnabled) return
+    recording = true
+    try {
+      const result = await ipc.voiceListen()
+      const text = result?.transcript?.trim()
+      if (!text) return
+      window.location.hash = '#/'
+      overlay.hide()
+      await conversation.send(firstEnabled.name, firstEnabled.model, text)
+    } catch (err) {
+      console.warn('voice.listen failed', err)
+    } finally {
+      recording = false
     }
   }
 
