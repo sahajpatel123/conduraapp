@@ -33,9 +33,11 @@ type Flag struct {
 	cooldown time.Duration // minimum time halt must persist before resume
 }
 
-// New returns a Flag backed by the given database.
+// New returns a Flag backed by the given database. The default cooldown
+// is zero (no cooldown). The daemon wires a 5-minute cooldown via
+// SetCooldown at startup; zero remains the safe test default.
 func New(db *sql.DB) *Flag {
-	return &Flag{db: db, cooldown: 5 * time.Minute}
+	return &Flag{db: db}
 }
 
 // SetCooldown overrides the default resume cooldown (5 minutes). A

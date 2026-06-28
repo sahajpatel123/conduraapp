@@ -549,6 +549,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	extractor := initExtractor(db.Path(), memMgr, log)
 	auditLog := audit.New(db.SQL(), db.MasterKey())
 	haltFlag := halt.New(db.SQL())
+	haltFlag.SetCooldown(5 * time.Minute) // sticky halt: resume rejected within 5 min
 	_ = haltFlag.Refresh(context.Background())
 	// Phase 14I: Layer 3 of the kill switch — network guard.
 	// The in-process guard wraps the LLM HTTP transports below;
