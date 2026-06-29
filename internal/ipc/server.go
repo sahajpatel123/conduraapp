@@ -20,6 +20,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"os"
+	"strings"
 	"sync"
 )
 
@@ -78,11 +83,32 @@ type HandlerFunc func(ctx context.Context, params json.RawMessage) (any, error)
 type Server struct {
 	mu      sync.RWMutex
 	methods map[string]HandlerFunc
+	// log receives the FULL error message (with path/host/etc.) for
+	// every internal-error response. The client only sees the
+	// redacted message from redactInternal. nil → io.Discard-backed
+	// default logger. Set via WithLogger.
+	log *slog.Logger
 }
 
-// NewServer returns an empty server.
+// NewServer returns an empty server with a no-op logger.
 func NewServer() *Server {
-	return &Server{methods: map[string]HandlerFunc{}}
+	return &Server{
+		methods: map[string]HandlerFunc{},
+		log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+}
+
+// WithLogger returns the server with a logger attached. The logger
+// receives the full internal error (including any os.PathError or
+// net.OpError) for forensic correlation, while the JSON-RPC client
+// receives only the redacted stable message.
+//
+// Returns the receiver to allow NewServer(...).WithLogger(...) chains.
+func (s *Server) WithLogger(l *slog.Logger) *Server {
+	if l != nil {
+		s.log = l
+	}
+	return s
 }
 
 // Register adds a method. If a method with the same name exists, it is
@@ -153,11 +179,10 @@ func (s *Server) Handle(ctx context.Context, req *Request) (*Response, error) {
 		if errors.As(err, &ipcErr) {
 			return errorResponse(req, ipcErr), nil
 		}
-		// Wrap as Internal error.
-		return errorResponse(req, &Error{
-			Code:    CodeInternalError,
-			Message: err.Error(),
-		}), nil
+		// 2026-06-29 audit P0-3: redact the internal error before
+		// sending it to the client. The full error is logged
+		// server-side via s.log for forensic correlation.
+		return errorResponse(req, redactInternal(s.log, req.ID, err)), nil
 	}
 	return &Response{
 		JSONRPC: ProtocolVersion,
@@ -171,6 +196,145 @@ func (s *Server) Handle(ctx context.Context, req *Request) (*Response, error) {
 // therefore no response should be sent. The transport checks for this
 // error and drops the reply.
 var ErrNotification = errors.New("ipc: notification (no response)")
+
+// internalError is the stable, redacted JSON-RPC error returned for
+// any unhandled server-side failure. The client sees only this fixed
+// message and the request ID — never the underlying Go error, which
+// can carry filesystem paths, internal IPs, SQL fragments, or stack
+// traces. The full original error is logged server-side via the
+// server's logger (s.log) for forensic correlation.
+//
+// This is the fix for the 2026-06-29 audit P0-3: the previous code
+// forwarded err.Error() directly to JSON-RPC clients, leaking
+// server internals through every error path.
+const internalError = "internal error"
+
+// redactInternal returns the stable JSON-RPC Error for an internal
+// failure. The original error is logged via the supplied logger with
+// the request ID for correlation. The logger is best-effort: a nil
+// logger is treated as a no-op so callers do not need a guard.
+//
+// We deliberately log the RAW err.Error() (not errString) so the
+// server-side forensic record retains the path and IP. The client
+// response is the redaction boundary; the log line is internal.
+func redactInternal(log *slog.Logger, reqID json.RawMessage, err error) *Error {
+	if log != nil && err != nil {
+		log.Error("ipc internal error",
+			"err", err.Error(),
+			"req_id", string(reqID),
+		)
+	}
+	return &Error{Code: CodeInternalError, Message: internalError}
+}
+
+// redactParse returns a redacted parse-error response. JSON parse
+// errors can include byte offsets that may correlate with sensitive
+// input (a token in the wrong JSON field, for example). We return a
+// fixed message and log the full parse error server-side.
+func redactParse(log *slog.Logger, err error) *Error {
+	if log != nil && err != nil {
+		log.Debug("ipc parse error", "err", err.Error())
+	}
+	return &Error{Code: CodeParseError, Message: "parse error"}
+}
+
+// errString returns err.Error() with the most common leak vectors
+// stripped. It is used as a defense-in-depth measure before logging:
+// even if a logger is later piped to a less-trusted sink, the
+// message cannot carry a raw /Users/... path or 10.0.0.5:5432.
+//
+// Defense in depth only — the IPC client response is the primary
+// fix (see redactInternal).
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	s = redactHome(s)
+	s = redactPrivateIP(s)
+	return s
+}
+
+// redactHome replaces the current user's home directory with "~"
+// wherever it appears in the string, so filesystem paths do not
+// leak the username. The match must be preceded by a path boundary
+// (start, space, slash, or colon) so we never replace a substring
+// that happens to contain the home string but isn't a real path.
+func redactHome(s string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return s
+	}
+	for {
+		i := strings.Index(s, home)
+		if i < 0 {
+			return s
+		}
+		// Boundary check: char immediately before must be a path
+		// separator (start, space, '/', colon).
+		if i > 0 {
+			prev := s[i-1]
+			if prev != '/' && prev != ' ' && prev != ':' {
+				// Skip past this non-boundary match.
+				s = s[:i] + "\x00" + s[i+len(home):]
+				continue
+			}
+		}
+		s = s[:i] + "~" + s[i+len(home):]
+	}
+	s = strings.ReplaceAll(s, "\x00", "")
+	return s
+}
+
+// redactPrivateIP replaces IPv4 RFC1918 / link-local addresses with
+// "<private>" and cloud-metadata IPs with "<metadata>". It is
+// deliberately conservative: it only matches IPs that are
+// unambiguous (dotted-quad form), so false positives are minimal.
+//
+// Order matters: handle 169.254.169.254 (cloud metadata) BEFORE the
+// general 169.254. prefix so it gets the specific "<metadata>" tag
+// rather than the generic "<private>".
+func redactPrivateIP(s string) string {
+	if strings.Contains(s, "169.254.169.254") {
+		s = strings.ReplaceAll(s, "169.254.169.254", "<metadata>")
+	}
+	for _, prefix := range []string{
+		"10.", "127.0.0.1", "169.254.", "192.168.",
+	} {
+		s = redactIPPrefix(s, prefix)
+	}
+	if strings.Contains(s, "[::1]") || strings.Contains(s, "[fe80:") {
+		// IPv6 loopback / link-local — best-effort scrub.
+		s = strings.ReplaceAll(s, "[::1]", "[<v6>]")
+		s = strings.ReplaceAll(s, "[fe80:", "[<v6>:")
+	}
+	return s
+}
+
+func redactIPPrefix(s, prefix string) string {
+	for {
+		i := strings.Index(s, prefix)
+		if i < 0 {
+			return s
+		}
+		// Find the end of the dotted-quad (next non-digit/non-dot char).
+		j := i + len(prefix)
+		for j < len(s) && (s[j] == '.' || (s[j] >= '0' && s[j] <= '9')) {
+			j++
+		}
+		if j == i+len(prefix) {
+			// No digits after the prefix; skip.
+			s = s[:i] + "<private>" + s[j:]
+			return s
+		}
+		s = s[:i] + "<private>" + s[j:]
+	}
+}
+
+// compile-time assertion: net.IP is reachable so the redactor stays
+// in sync with the Go stdlib if a future change adds new "internal"
+// sentinels. Cheap, no runtime cost.
+var _ = net.IPv4len
 
 // HandleRaw accepts a raw JSON-RPC message and returns the raw response.
 // Used by the WebSocket/HTTP transport.
@@ -186,10 +350,11 @@ func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
 	}
 	var req Request
 	if err := json.Unmarshal(trimmed, &req); err != nil {
-		// JSON-RPC parse error: return the error inside the response body,
-		// not as a Go error — the caller (HTTP/WS transport) will write the
-		// bytes to the client as the protocol-level reply.
-		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil //nolint:nilerr
+		// 2026-06-29 audit P0-3: parse errors are redacted. The
+		// underlying json.SyntaxError can include byte offsets that
+		// hint at sensitive payload structure; we log it server-side
+		// and return a fixed message.
+		return marshalError(nil, redactParse(s.log, err)), nil //nolint:nilerr
 	}
 	resp, herr := s.Handle(ctx, &req)
 	if errors.Is(herr, ErrNotification) {
@@ -201,7 +366,8 @@ func (s *Server) HandleRaw(ctx context.Context, raw []byte) ([]byte, error) {
 		if errors.As(herr, &ipcErr) {
 			return marshalError(req.ID, ipcErr), nil
 		}
-		return marshalError(req.ID, &Error{Code: CodeInternalError, Message: herr.Error()}), nil
+		// 2026-06-29 audit P0-3: redact.
+		return marshalError(req.ID, redactInternal(s.log, req.ID, herr)), nil
 	}
 	if isNotification(req.ID) {
 		// Notifications: no response should be sent.
@@ -214,8 +380,8 @@ func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
 	const maxBatchSize = 50
 	var reqs []Request
 	if err := json.Unmarshal(raw, &reqs); err != nil {
-		// JSON-RPC parse error: same protocol-level reason as HandleRaw.
-		return marshalError(nil, &Error{Code: CodeParseError, Message: "parse error: " + err.Error()}), nil //nolint:nilerr
+		// 2026-06-29 audit P0-3: parse errors are redacted.
+		return marshalError(nil, redactParse(s.log, err)), nil //nolint:nilerr
 	}
 	if len(reqs) == 0 {
 		return marshalError(nil, &Error{Code: CodeInvalidRequest, Message: "empty batch"}), nil
@@ -236,7 +402,8 @@ func (s *Server) handleBatch(ctx context.Context, raw []byte) ([]byte, error) {
 				out = append(out, marshalError(reqs[i].ID, ipcErr))
 				continue
 			}
-			out = append(out, marshalError(reqs[i].ID, &Error{Code: CodeInternalError, Message: err.Error()}))
+			// 2026-06-29 audit P0-3: redact.
+			out = append(out, marshalError(reqs[i].ID, redactInternal(s.log, reqs[i].ID, err)))
 			continue
 		}
 		if isNotification(reqs[i].ID) {

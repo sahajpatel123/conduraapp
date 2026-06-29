@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -98,7 +101,119 @@ func TestServer_Handle_InternalError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp.Error)
 	assert.Equal(t, CodeInternalError, resp.Error.Code)
-	assert.Contains(t, resp.Error.Message, "kaboom")
+	// 2026-06-29 audit P0-3: the client must NOT see the raw error.
+	assert.Equal(t, "internal error", resp.Error.Message)
+	assert.NotContains(t, resp.Error.Message, "kaboom")
+}
+
+// TestServer_Handle_InternalError_LogsFullErr pins P0-3: when a
+// handler returns a Go error that contains a path/IP, the JSON-RPC
+// client sees only the redacted stable message, but the server's
+// logger receives the full error for forensic correlation.
+func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
+	var logged atomic.Bool
+	var capturedErr string
+	log := slog.New(slog.NewTextHandler(&captureWriter{onWrite: func(s string) {
+		if strings.Contains(s, "open /Users/sahajpatel/.condura/secrets/api_key.enc") {
+			capturedErr = s
+			logged.Store(true)
+		}
+	}}, nil))
+
+	s := NewServer().WithLogger(log)
+	s.Register("boom", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return nil, fmt.Errorf("open /Users/sahajpatel/.condura/secrets/api_key.enc: permission denied")
+	})
+	resp, err := s.Handle(context.Background(), &Request{JSONRPC: "2.0", Method: "boom", ID: json.RawMessage("7")})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Error)
+
+	// Client gets the redacted message — no path.
+	assert.Equal(t, "internal error", resp.Error.Message)
+	assert.NotContains(t, resp.Error.Message, "/Users/")
+	assert.NotContains(t, resp.Error.Message, "permission denied")
+
+	// Server log got the full error.
+	if !logged.Load() {
+		t.Fatalf("server logger did not receive the full error (got: %q)", capturedErr)
+	}
+}
+
+// TestServer_HandleRaw_ParseErrorRedacted pins that JSON parse
+// errors do not leak json.SyntaxError details to the client.
+func TestServer_HandleRaw_ParseErrorRedacted(t *testing.T) {
+	var logged atomic.Bool
+	log := slog.New(slog.NewTextHandler(&captureWriter{onWrite: func(s string) {
+		// slog emits "level=DEBUG msg=\"ipc parse error\" err=...".
+		if strings.Contains(s, "ipc parse error") {
+			logged.Store(true)
+		}
+	}}, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	s := NewServer().WithLogger(log)
+	out, err := s.HandleRaw(context.Background(), []byte("not json at all"))
+	require.NoError(t, err)
+
+	var resp Response
+	require.NoError(t, json.Unmarshal(out, &resp))
+	require.NotNil(t, resp.Error)
+	assert.Equal(t, CodeParseError, resp.Error.Code)
+	assert.Equal(t, "parse error", resp.Error.Message)
+
+	if !logged.Load() {
+		t.Fatal("server logger did not receive the parse error")
+	}
+}
+
+// TestRedactHome_RedactsUserHome pins that the home directory is
+// scrubbed from any error string before it reaches a downstream sink.
+func TestRedactHome_RedactsUserHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("no home dir available in this environment")
+	}
+	in := "open " + home + "/.condura/secrets/api_key.enc: permission denied"
+	out := redactHome(in)
+	if strings.Contains(out, home) {
+		t.Fatalf("home not redacted: %q -> %q", in, out)
+	}
+	if !strings.HasPrefix(out, "open ~/") {
+		t.Fatalf("expected ~/ prefix, got %q", out)
+	}
+}
+
+// TestRedactPrivateIP_RedactsCommonPrivateIPs pins the IP-redaction
+// table covers RFC1918, loopback, link-local, and cloud metadata.
+func TestRedactPrivateIP_RedactsCommonPrivateIPs(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"dial tcp 10.0.0.5:5432: connection refused", "dial tcp <private>:5432: connection refused"},
+		{"dial tcp 192.168.1.1:80: i/o timeout", "dial tcp <private>:80: i/o timeout"},
+		{"dial tcp 127.0.0.1:9: connection refused", "dial tcp <private>:9: connection refused"},
+		{"metadata: 169.254.169.254/latest/meta-data/", "metadata: <metadata>/latest/meta-data/"},
+	}
+	for _, tc := range cases {
+		got := redactPrivateIP(tc.in)
+		if got != tc.want {
+			t.Errorf("redactPrivateIP(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// captureWriter is an io.Writer that invokes onWrite for each Write.
+// Used in tests that need to inspect what was logged without
+// depending on slog's handler internals.
+type captureWriter struct {
+	onWrite func(string)
+}
+
+func (w *captureWriter) Write(p []byte) (int, error) {
+	if w.onWrite != nil {
+		w.onWrite(string(p))
+	}
+	return len(p), nil
 }
 
 func TestServer_Handle_IPCErrorPassthrough(t *testing.T) {
