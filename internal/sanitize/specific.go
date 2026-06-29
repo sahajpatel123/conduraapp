@@ -2,9 +2,11 @@
 package sanitize
 
 import (
+	"context"
 	"net"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // PathSanitizer blocks traversal and system paths.
@@ -172,8 +174,12 @@ func (s *URLSanitizer) Sanitize(input string) (string, error) {
 
 	// Optional DNS resolution — catches DNS rebinding where the
 	// hostname passes the pattern check but resolves to a private IP.
+	// Use a context-aware resolver so the linter (noctx) is happy and
+	// the lookup can be cancelled by an upstream timeout.
 	if s.ResolveDNS {
-		ips, err := net.LookupIP(host)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ips, err := (&net.Resolver{}).LookupIP(ctx, "ip", host)
+		cancel()
 		if err == nil {
 			for _, ip := range ips {
 				if isBlockedIP(ip) {
