@@ -73,7 +73,7 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	// auto-consent test override. Without this the test hangs on
 	// the 300s consent timeout. See safety_wiring.go for the
 	// env-var guard that protects production from accidental use.
-	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -208,7 +208,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	// auto-consent test override. Without this the test hangs on
 	// the 300s consent timeout. See safety_wiring.go for the
 	// env-var guard that protects production from accidental use.
-	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -344,7 +344,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	// auto-consent test override. Without this the test hangs on
 	// the 300s consent timeout. See safety_wiring.go for the
 	// env-var guard that protects production from accidental use.
-	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)

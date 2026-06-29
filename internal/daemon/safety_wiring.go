@@ -45,16 +45,24 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
 	}}
-	// CONDURA_TEST_AUTO_CONSENT — when set (test runs only), the
-	// gatekeeper approves every consent ticket without going to the
-	// GUI. This is wired so E2E tests that exercise the full
+	// SYNAPTIC_TEST_AUTO_CONSENT — when set (test runs only), the
+	// gatekeeper approves every consent ticket without going to
+	// the GUI. This is wired so E2E tests that exercise the full
 	// ipc.Server → registerMethods → GatekeeperAllow pipeline do
 	// not block on a missing SSE consumer. The flag is gated to
 	// a non-empty env var value so a production daemon (where the
 	// env var is unset) is unaffected. The env-var guard is the
 	// only thing standing between this and a real GUI flow.
-	if os.Getenv("CONDURA_TEST_AUTO_CONSENT") != "" {
-		log.Warn("CONDURA_TEST_AUTO_CONSENT is set — gatekeeper consent will be auto-approved; do not use in production")
+	//
+	// Note on the prefix: we use SYNAPTIC_ rather than CONDURA_
+	// because the config env-override mechanism (applyEnvOverrides
+	// in internal/config/loader.go) treats every CONDURA_* env
+	// var as a section.field override. We need a name that the
+	// override loader will not parse. SYNAPTIC_ is also the
+	// historical prefix for some pre-rename tooling, so it is
+	// already familiar.
+	if os.Getenv("SYNAPTIC_TEST_AUTO_CONSENT") != "" {
+		log.Warn("SYNAPTIC_TEST_AUTO_CONSENT is set — gatekeeper consent will be auto-approved; do not use in production")
 		consent = &autoApproveConsentProvider{log: log}
 	}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
