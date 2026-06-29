@@ -5,7 +5,7 @@ package main
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/internal/daemon"
 )
 
 // startTray is a no-op on macOS when building the Wails GUI.

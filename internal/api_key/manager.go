@@ -28,8 +28,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/secrets"
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/secrets"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 // AuthKind discriminates between API key and OAuth credentials.

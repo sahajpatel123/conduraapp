@@ -3,7 +3,7 @@ package daemon
 import (
 	"runtime"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // isWindows is a small wrapper so the listeners code can use the

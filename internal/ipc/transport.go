@@ -16,7 +16,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // maxBodySize is the maximum allowed size for an HTTP request body or

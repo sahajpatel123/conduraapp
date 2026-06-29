@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/sahajpatel123/synapticapp/internal/health"
+	"github.com/sahajpatel123/conduraapp/internal/health"
 )
 
 var (

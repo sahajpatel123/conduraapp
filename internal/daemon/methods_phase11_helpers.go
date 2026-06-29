@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
 
 	_ "modernc.org/sqlite"
 )

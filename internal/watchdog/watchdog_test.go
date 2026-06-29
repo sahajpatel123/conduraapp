@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
 )
 
 // fakeHalt records Halt calls and reports IsHalted=true after the

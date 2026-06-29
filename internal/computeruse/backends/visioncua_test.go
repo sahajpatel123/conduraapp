@@ -3,7 +3,7 @@ package backends
 import (
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 func TestVisionCUA_Disabled(t *testing.T) {

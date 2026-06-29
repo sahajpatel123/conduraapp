@@ -11,8 +11,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/sahajpatel123/synapticapp/internal/account"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/account"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 func TestDeriveMagicVerifyURL(t *testing.T) {

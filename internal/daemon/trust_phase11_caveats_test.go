@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/backup"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/backup"
 )
 
 // TestTrustE2E_RestoreReturnsDataThroughRPC is the runtime

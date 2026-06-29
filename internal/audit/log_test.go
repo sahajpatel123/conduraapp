@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 func setupTestLog(t *testing.T) *Log {

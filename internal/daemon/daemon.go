@@ -27,13 +27,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/anomaly"
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/crash"
-	"github.com/sahajpatel123/synapticapp/internal/lockfile"
-	"github.com/sahajpatel123/synapticapp/internal/updater"
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/crash"
+	"github.com/sahajpatel123/conduraapp/internal/lockfile"
+	"github.com/sahajpatel123/conduraapp/internal/updater"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // ErrAlreadyRunning is returned by Run if another synaptic instance

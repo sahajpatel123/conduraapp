@@ -17,7 +17,7 @@ import (
 
 	"github.com/getlantern/systray"
 
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // Event is a user-driven action from the tray menu.

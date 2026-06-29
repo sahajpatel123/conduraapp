@@ -3,7 +3,7 @@ package daemon
 import (
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
 )
 
 // TestSubsystems_SetOverlay_NilRevertsToNoop verifies that

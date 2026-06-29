@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/agent"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
-	"github.com/sahajpatel123/synapticapp/internal/perception"
-	"github.com/sahajpatel123/synapticapp/internal/replay"
+	"github.com/sahajpatel123/conduraapp/internal/agent"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/perception"
+	"github.com/sahajpatel123/conduraapp/internal/replay"
 )
 
 // defaultActionTimeout is the fallback timeout for resolved actions.

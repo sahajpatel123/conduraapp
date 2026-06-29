@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/pending"
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/pending"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // maxToolIterations bounds the act tool loop so a model that keeps

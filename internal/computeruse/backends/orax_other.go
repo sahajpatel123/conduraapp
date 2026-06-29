@@ -3,7 +3,7 @@
 package backends
 
 import (
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // noopORAX is the stub implementation for non-darwin platforms.

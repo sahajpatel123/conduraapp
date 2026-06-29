@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 // Planner decomposes tasks into ordered steps.

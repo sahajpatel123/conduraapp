@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 func TestPolicy_DefaultEmbeddedWorks(t *testing.T) {

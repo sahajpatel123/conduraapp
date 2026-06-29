@@ -3,7 +3,7 @@ package mcp
 import (
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 func TestPrefixedName(t *testing.T) {

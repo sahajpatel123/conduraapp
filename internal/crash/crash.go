@@ -16,7 +16,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // Report captures a crash locally.

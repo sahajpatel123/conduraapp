@@ -14,51 +14,51 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/account"
-	"github.com/sahajpatel123/synapticapp/internal/adaptive"
-	"github.com/sahajpatel123/synapticapp/internal/agent"
-	"github.com/sahajpatel123/synapticapp/internal/anomaly"
-	"github.com/sahajpatel123/synapticapp/internal/api_key"
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/backup"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/conversation"
-	"github.com/sahajpatel123/synapticapp/internal/delegation"
-	"github.com/sahajpatel123/synapticapp/internal/executor"
-	"github.com/sahajpatel123/synapticapp/internal/failover"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/health"
-	"github.com/sahajpatel123/synapticapp/internal/hub"
-	"github.com/sahajpatel123/synapticapp/internal/i18n"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/logger"
-	"github.com/sahajpatel123/synapticapp/internal/mcp"
-	"github.com/sahajpatel123/synapticapp/internal/memory"
-	"github.com/sahajpatel123/synapticapp/internal/onboarding"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
-	"github.com/sahajpatel123/synapticapp/internal/pending"
-	"github.com/sahajpatel123/synapticapp/internal/perception"
-	"github.com/sahajpatel123/synapticapp/internal/permissions"
-	"github.com/sahajpatel123/synapticapp/internal/reach"
-	"github.com/sahajpatel123/synapticapp/internal/replay"
-	"github.com/sahajpatel123/synapticapp/internal/secrets"
-	"github.com/sahajpatel123/synapticapp/internal/session"
-	"github.com/sahajpatel123/synapticapp/internal/skills"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/status"
-	"github.com/sahajpatel123/synapticapp/internal/storage"
-	"github.com/sahajpatel123/synapticapp/internal/stream"
-	"github.com/sahajpatel123/synapticapp/internal/sync"
-	"github.com/sahajpatel123/synapticapp/internal/telemetry"
-	"github.com/sahajpatel123/synapticapp/internal/trust"
-	"github.com/sahajpatel123/synapticapp/internal/uninstall"
-	"github.com/sahajpatel123/synapticapp/internal/updater"
-	"github.com/sahajpatel123/synapticapp/internal/voice"
-	"github.com/sahajpatel123/synapticapp/internal/watchdog"
-	"github.com/sahajpatel123/synapticapp/internal/window"
+	"github.com/sahajpatel123/conduraapp/internal/account"
+	"github.com/sahajpatel123/conduraapp/internal/adaptive"
+	"github.com/sahajpatel123/conduraapp/internal/agent"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/api_key"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/backup"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/conversation"
+	"github.com/sahajpatel123/conduraapp/internal/delegation"
+	"github.com/sahajpatel123/conduraapp/internal/executor"
+	"github.com/sahajpatel123/conduraapp/internal/failover"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/health"
+	"github.com/sahajpatel123/conduraapp/internal/hub"
+	"github.com/sahajpatel123/conduraapp/internal/i18n"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/logger"
+	"github.com/sahajpatel123/conduraapp/internal/mcp"
+	"github.com/sahajpatel123/conduraapp/internal/memory"
+	"github.com/sahajpatel123/conduraapp/internal/onboarding"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/pending"
+	"github.com/sahajpatel123/conduraapp/internal/perception"
+	"github.com/sahajpatel123/conduraapp/internal/permissions"
+	"github.com/sahajpatel123/conduraapp/internal/reach"
+	"github.com/sahajpatel123/conduraapp/internal/replay"
+	"github.com/sahajpatel123/conduraapp/internal/secrets"
+	"github.com/sahajpatel123/conduraapp/internal/session"
+	"github.com/sahajpatel123/conduraapp/internal/skills"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/stream"
+	"github.com/sahajpatel123/conduraapp/internal/sync"
+	"github.com/sahajpatel123/conduraapp/internal/telemetry"
+	"github.com/sahajpatel123/conduraapp/internal/trust"
+	"github.com/sahajpatel123/conduraapp/internal/uninstall"
+	"github.com/sahajpatel123/conduraapp/internal/updater"
+	"github.com/sahajpatel123/conduraapp/internal/voice"
+	"github.com/sahajpatel123/conduraapp/internal/watchdog"
+	"github.com/sahajpatel123/conduraapp/internal/window"
 )
 
 // File mode constants. Owner-only for files that contain or refer to
@@ -521,7 +521,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// netGuard is declared later (alongside haltFlag) so it's
 	// available to all subsystem wiring. Until then, pass nil
 	// to the provider build; we'll re-wrap transports below.
-	registered := buildProvidersFromConfig(log, registry, cfg, akm, nil)
+	registered := buildProvidersFromConfig(log, registry, cfg, akm, nil, nil)
 	log.Info("llm registry ready", "registered_providers", registered)
 
 	mon := failover.NewSpendMonitor(failover.SpendCap{USDPerDay: cfg.Security.SpendLimitUSDPerDay})
@@ -717,6 +717,15 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		if cuLoop != nil {
 			cuLoop.OnStart = func() { det.Reset() }
 		}
+	}
+
+	// 2026-06-29 audit (P0-2): wire the anomaly recorder into the
+	// LLM providers' HTTP transports so the fifth §5.6 trigger
+	// (new-endpoint detection) fires on every outbound request.
+	// The recorder wraps OUTSIDE the network guard so a guard-blocked
+	// request is not recorded as "seen host".
+	if safety != nil && safety.Anomaly != nil {
+		wrapProvidersWithRecorder(registry, safety.Anomaly)
 	}
 
 	// Selective Perception (§6): wire the energy-budget capturer
@@ -1126,7 +1135,7 @@ func (s *Subsystems) RebuildProviders() int {
 	if s.LLM == nil || s.cfg == nil {
 		return 0
 	}
-	registered := buildProvidersFromConfig(slog.Default(), s.LLM, s.cfg, s.APIKeys, s.NetGuard)
+	registered := buildProvidersFromConfig(slog.Default(), s.LLM, s.cfg, s.APIKeys, s.NetGuard, s.Anomaly)
 	s.rebuildSessionFactory()
 	return registered
 }

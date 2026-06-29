@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 // DenyBeyondRead must satisfy the Gatekeeper interface.

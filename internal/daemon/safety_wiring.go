@@ -6,17 +6,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/anomaly"
-	"github.com/sahajpatel123/synapticapp/internal/autonomy"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/presence"
-	"github.com/sahajpatel123/synapticapp/internal/sanitize"
-	"github.com/sahajpatel123/synapticapp/internal/sensitive"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/trust"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/autonomy"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
+	"github.com/sahajpatel123/conduraapp/internal/sensitive"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/trust"
 )
 
 // SafetyComponents bundles the real safety layer.

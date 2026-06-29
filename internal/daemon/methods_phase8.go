@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/sahajpatel123/synapticapp/internal/adaptive"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/adaptive"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // registerAdaptiveMethods registers adaptive engine RPC methods.

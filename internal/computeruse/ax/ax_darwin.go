@@ -145,7 +145,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // Backend implements computeruse.Backend using the macOS Accessibility API.

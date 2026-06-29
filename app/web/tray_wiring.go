@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/daemon"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/status"
-	"github.com/sahajpatel123/synapticapp/internal/tray"
+	"github.com/sahajpatel123/conduraapp/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/tray"
 )
 
 // startTray wires the system tray to the running daemon. Called

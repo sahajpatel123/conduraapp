@@ -5,7 +5,7 @@ package tray
 import (
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // TestEventConstants verifies the Event iota is contiguous starting

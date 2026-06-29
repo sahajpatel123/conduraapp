@@ -1,6 +1,6 @@
-# Synaptic Makefile
+# Condura Makefile
 # ------------------------------------------------------------------
-# This Makefile drives the developer workflow for the Synaptic daemon.
+# This Makefile drives the developer workflow for the Condura daemon.
 # Run `make help` to see all targets.
 
 # ------------------------------------------------------------------
@@ -14,9 +14,9 @@ VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || 
 COMMIT           := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 BUILD_DATE       := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS          := -s -w \
-                    -X 'github.com/sahajpatel123/synapticapp/internal/version.Version=$(VERSION)' \
-                    -X 'github.com/sahajpatel123/synapticapp/internal/version.Commit=$(COMMIT)' \
-                    -X 'github.com/sahajpatel123/synapticapp/internal/version.BuildDate=$(BUILD_DATE)'
+                    -X 'github.com/sahajpatel123/conduraapp/internal/version.Version=$(VERSION)' \
+                    -X 'github.com/sahajpatel123/conduraapp/internal/version.Commit=$(COMMIT)' \
+                    -X 'github.com/sahajpatel123/conduraapp/internal/version.BuildDate=$(BUILD_DATE)'
 
 PKG              := ./...
 COVERAGE_FILE    := coverage.out
@@ -36,7 +36,7 @@ GOFUMPT          := gofumpt
 
 .PHONY: help
 help: ## Show this help message
-	@echo "Synaptic — Makefile targets:"
+	@echo "Condura — Makefile targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	  awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
@@ -45,7 +45,7 @@ help: ## Show this help message
 # ------------------------------------------------------------------
 
 .PHONY: build
-build: ## Build synapticd, synaptic, and synaptic-tui into ./bin
+build: ## Build condurad, condura, and condura-tui into ./bin
 	@mkdir -p bin
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./cmd/condura
@@ -53,7 +53,7 @@ build: ## Build synapticd, synaptic, and synaptic-tui into ./bin
 	@echo "Built: bin/$(BINARY_NAME), bin/$(CLI_NAME), bin/$(TUI_NAME)"
 
 .PHONY: build-daemon
-build-daemon: ## Build only synapticd
+build-daemon: ## Build only condurad
 	@mkdir -p bin
 	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
 
@@ -115,7 +115,7 @@ gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
 	go run ./cmd/gen-update-manifest generate --unsigned \
 	  --version $(VERSION) \
 	  --checksums dist/checksums.txt \
-	  --base-url "https://github.com/sahajpatel123/synapticapp/releases/download/$(VERSION)" \
+	  --base-url "https://github.com/sahajpatel123/conduraapp/releases/download/$(VERSION)" \
 	  --out dist/update-manifest.json
 
 # ------------------------------------------------------------------
@@ -160,7 +160,7 @@ lint-fix: ## Run golangci-lint with auto-fix
 .PHONY: fmt
 fmt: ## Format code (gofmt + goimports + gofumpt)
 	$(GO) fmt $(PKG)
-	@which $(GOIMPORTS) >/dev/null 2>&1 && $(GOIMPORTS) -w -local "github.com/sahajpatel123/synapticapp" . || echo "goimports not installed; skipping"
+	@which $(GOIMPORTS) >/dev/null 2>&1 && $(GOIMPORTS) -w -local "github.com/sahajpatel123/conduraapp" . || echo "goimports not installed; skipping"
 	@which $(GOFUMPT) >/dev/null 2>&1 && $(GOFUMPT) -w . || echo "gofumpt not installed; skipping"
 
 .PHONY: vet
@@ -179,7 +179,7 @@ verify: vet fmt lint test ## Run all checks (vet, fmt, lint, test)
 # ------------------------------------------------------------------
 
 .PHONY: run-daemon
-run-daemon: build-daemon ## Run synapticd with default config
+run-daemon: build-daemon ## Run condurad with default config
 	./bin/$(BINARY_NAME)
 
 .PHONY: run-cli
@@ -206,7 +206,7 @@ tools: ## Install dev tools (goimports, gofumpt)
 # ------------------------------------------------------------------
 
 .PHONY: daemon-init
-daemon-init: build-cli ## Initialize ~/.synaptic/ (first-run setup)
+daemon-init: build-cli ## Initialize ~/.condura/ (first-run setup)
 	./bin/$(CLI_NAME) init
 
 .PHONY: daemon-start

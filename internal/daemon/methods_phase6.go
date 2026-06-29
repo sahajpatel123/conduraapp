@@ -18,11 +18,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
-	"github.com/sahajpatel123/synapticapp/internal/session"
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/session"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // ErrNoVoice is returned by voice.* RPCs when voice is disabled

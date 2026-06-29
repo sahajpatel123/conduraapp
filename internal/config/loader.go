@@ -11,7 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/sahajpatel123/synapticapp/internal/watchdog"
+	"github.com/sahajpatel123/conduraapp/internal/watchdog"
 )
 
 // Common YAML field names used across multiple config sections.
@@ -263,7 +263,7 @@ func Default() *Config {
 //   - If the user explicitly set a non-default path in YAML, preserve it.
 func resolveEmptyPaths(c *Config) {
 	if c.Storage.Path == "" {
-		c.Storage.Path = filepath.Join(c.General.DataDir, "synaptic.db")
+		c.Storage.Path = filepath.Join(c.General.DataDir, "condura.db")
 	}
 	if c.Storage.Backup.Dir == "" {
 		c.Storage.Backup.Dir = filepath.Join(c.General.DataDir, "backups")
@@ -283,7 +283,7 @@ func (c *Config) OverrideDataDir(newDir string) {
 	c.General.DataDir = newDir
 	// Re-derive the SQLite path if it was the auto-computed default.
 	if c.Storage.Path == "" || isUnderDir(c.Storage.Path, oldDir) {
-		c.Storage.Path = filepath.Join(newDir, "synaptic.db")
+		c.Storage.Path = filepath.Join(newDir, "condura.db")
 	}
 	if c.Storage.Backup.Dir == "" || isUnderDir(c.Storage.Backup.Dir, oldDir) {
 		c.Storage.Backup.Dir = filepath.Join(newDir, "backups")
@@ -1290,7 +1290,7 @@ func setSync(c *SyncConfig, parts []string, value string) error {
 func (c *Config) ResolveStoragePath() (string, error) {
 	p := c.Storage.Path
 	if p == "" {
-		p = filepath.Join(c.General.DataDir, "synaptic.db")
+		p = filepath.Join(c.General.DataDir, "condura.db")
 	}
 	abs, err := filepath.Abs(p)
 	if err != nil {

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // TestPhase6_VoiceStatusUnavailable verifies voice.status works

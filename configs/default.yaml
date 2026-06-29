@@ -1,8 +1,8 @@
 # Default Condura configuration.
 # Generated on first run; safe to edit. Comments show the YAML key path
-# for use with environment variable overrides (SYNAPTIC_<KEY>=value).
+# for use with environment variable overrides (CONDURA_<KEY>=value).
 #
-# This is the *default* config that gets written to ~/.synaptic/config.yaml
+# This is the *default* config that gets written to ~/.condura/config.yaml
 # when the daemon initializes. Users can override any field in this file
 # or via env vars.
 
@@ -11,10 +11,10 @@ version: 1
 general:
   # install_id: stable UUID per install. Auto-generated on first run.
   install_id: ""
-  # data_dir: root data directory. Default: ~/.synaptic/
-  data_dir: ~/.synaptic
+  # data_dir: root data directory. Default: ~/.condura/
+  data_dir: ~/.condura
   # cache_dir: ephemeral caches.
-  cache_dir: ~/.synaptic/cache
+  cache_dir: ~/.condura/cache
   # language: BCP-47 code. Supported: en-US, en-GB, es-ES, fr-FR, de-DE, hi-IN, ja-JP, zh-CN
   language: en-US
   # first_run: false after onboarding completes.
@@ -42,7 +42,7 @@ logging:
   add_source: false
 
 storage:
-  # path: SQLite file. Empty = use data_dir/synaptic.db.
+  # path: SQLite file. Empty = use data_dir/condura.db.
   path: ""
   backup:
     on_uninstall: true
@@ -181,18 +181,18 @@ telemetry:
 # public hub.condura.app service. All downloaded skills are
 # safety-scanned before install. For private / company hubs, set
 # base_url to your own server and use token for auth.
-# Set token via env SYNAPTIC_HUB__TOKEN=... (do not commit it).
+# Set token via env CONDURA_HUB__TOKEN=... (do not commit it).
 hub:
   enabled: true
   base_url: "https://hub.condura.app"
   auto_update: false
-  # token: ""  # set via env SYNAPTIC_HUB__TOKEN for security
+  # token: ""  # set via env CONDURA_HUB__TOKEN for security
 
 # P2P encrypted sync (Phase 12). Disabled by default — opt-in.
 # When enabled, the daemon generates a device identity (Ed25519)
 # and participates in LAN CRDT sync. Devices must be explicitly
 # paired (QR / 6-digit PIN) before their CRDT entries are accepted.
-# Use `synaptic sync pair <device_id> --pin <pin>` to confirm.
+# Use `condura sync pair <device_id> --pin <pin>` to confirm.
 sync:
   enabled: false
   device_name: ""           # auto-derived from hostname if empty

@@ -3,7 +3,7 @@ package backends
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // MacOSMCPBackend implements computeruse.Backend using AppleScript

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 func setupReporter(t *testing.T) *Reporter {

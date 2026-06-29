@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 // Manager discovers, starts, and manages MCP servers. Never auto-starts

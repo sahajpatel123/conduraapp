@@ -3,8 +3,8 @@ package daemon
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/failover"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/failover"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
 )
 
 // buildFailoverProviders wraps every registered llm.Provider in a

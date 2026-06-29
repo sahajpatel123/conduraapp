@@ -38,7 +38,7 @@ import (
 	// Pure-Go sqlite driver.
 	_ "modernc.org/sqlite"
 
-	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/conduraapp/internal/secrets"
 )
 
 // DB is the storage handle.

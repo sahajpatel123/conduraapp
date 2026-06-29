@@ -26,7 +26,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 const resumeHelp = `condura resume — T3b sticky human-confirmed resume

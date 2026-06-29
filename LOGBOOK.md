@@ -602,7 +602,7 @@ All 10 internal packages exceed the 80% safety/perception/llm/ipc floor.
    main App.svelte shell.
 3. If changes requested to Phase 1: apply them before moving on.
 4. **Create the GitHub repo** when the user is ready
-   (`github.com/sahajpatel123/synapticapp`, private). Push the local
+   (`github.com/sahajpatel123/conduraapp`, private). Push the local
    history. Wire up GitHub branch protection + required CI checks.
 
 ### Notes
@@ -678,18 +678,18 @@ goimports not installed; skipping
 gofumpt not installed; skipping
 golangci-lint run --timeout=5m ./...  [0 issues]
 go test -race -count=1 -timeout=120s ./...
-ok  	github.com/sahajpatel123/synapticapp/cmd/synaptic        16.539s
-ok  	github.com/sahajpatel123/synapticapp/cmd/synapticd       6.676s
-ok  	github.com/sahajpatel123/synapticapp/internal/api_key    3.256s
-ok  	github.com/sahajpatel123/synapticapp/internal/config     1.875s
-ok  	github.com/sahajpatel123/synapticapp/internal/failover   1.949s
-ok  	github.com/sahajpatel123/synapticapp/internal/health     2.133s
-ok  	github.com/sahajpatel123/synapticapp/internal/ipc        2.290s
-ok  	github.com/sahajpatel123/synapticapp/internal/llm        2.465s
-ok  	github.com/sahajpatel123/synapticapp/internal/logger     1.431s
-ok  	github.com/sahajpatel123/synapticapp/internal/secrets    1.698s
-ok  	github.com/sahajpatel123/synapticapp/internal/storage    2.648s
-ok  	github.com/sahajpatel123/synapticapp/internal/version    1.896s
+ok  	github.com/sahajpatel123/conduraapp/cmd/synaptic        16.539s
+ok  	github.com/sahajpatel123/conduraapp/cmd/synapticd       6.676s
+ok  	github.com/sahajpatel123/conduraapp/internal/api_key    3.256s
+ok  	github.com/sahajpatel123/conduraapp/internal/config     1.875s
+ok  	github.com/sahajpatel123/conduraapp/internal/failover   1.949s
+ok  	github.com/sahajpatel123/conduraapp/internal/health     2.133s
+ok  	github.com/sahajpatel123/conduraapp/internal/ipc        2.290s
+ok  	github.com/sahajpatel123/conduraapp/internal/llm        2.465s
+ok  	github.com/sahajpatel123/conduraapp/internal/logger     1.431s
+ok  	github.com/sahajpatel123/conduraapp/internal/secrets    1.698s
+ok  	github.com/sahajpatel123/conduraapp/internal/storage    2.648s
+ok  	github.com/sahajpatel123/conduraapp/internal/version    1.896s
 ```
 
 All 12 packages pass with `-race` enabled. Lint is at 0 issues across all enabled linters.
@@ -705,7 +705,7 @@ All 12 packages pass with `-race` enabled. Lint is at 0 issues across all enable
 `ee31a36` — `style: finish lint cleanup pass (0 issues)`. 27 files changed, 703 insertions, 459 deletions.
 
 ### Open questions for next session
-- **GitHub repo URL**: The local module path is `github.com/sahajpatel123/synapticapp` and the previous-remote from the user is `https://github.com/sahajpatel123/synaptic.git`. We need a final remote URL. Awaiting user confirmation.
+- **GitHub repo URL**: The local module path is `github.com/sahajpatel123/conduraapp` and the previous-remote from the user is `https://github.com/sahajpatel123/synaptic.git`. We need a final remote URL. Awaiting user confirmation.
 - **Phase 2 start command**: User has explicitly stated "Do not move to phase two if everything is working fine. I will command you when to [move to Phase 2]." Phase 1 is now fully ready; awaiting the command.
 
 ---
@@ -718,7 +718,7 @@ All 12 packages pass with `-race` enabled. Lint is at 0 issues across all enable
 ### Starting state
 - Phase 1 fully ready, lint at 0, all 12 packages pass with -race.
 - 24 commits on `main`; Phase 2 not started.
-- Module path: github.com/sahajpatel123/synapticapp
+- Module path: github.com/sahajpatel123/conduraapp
 - 10 locked-in decisions for Phase 2 (per the user-driven Q&A):
   - UI: hand-rolled CSS, no framework
   - Router: svelte-spa-router
@@ -769,19 +769,19 @@ go vet ./...                          [clean]
 go fmt ./...                          [clean]
 golangci-lint run --timeout=5m ./...  [0 issues]
 go test -race -count=1 -timeout=120s ./...
-ok  	github.com/sahajpatel123/synapticapp/cmd/synaptic        16.721s
-ok  	github.com/sahajpatel123/synapticapp/cmd/synapticd        7.155s
-ok  	github.com/sahajpatel123/synapticapp/internal/api_key     3.157s
-ok  	github.com/sahajpatel123/synapticapp/internal/config      1.784s
-ok  	github.com/sahajpatel123/synapticapp/internal/daemon      2.099s  ← NEW
-ok  	github.com/sahajpatel123/synapticapp/internal/failover    2.392s
-ok  	github.com/sahajpatel123/synapticapp/internal/health      2.205s
-ok  	github.com/sahajpatel123/synapticapp/internal/ipc         2.568s
-ok  	github.com/sahajpatel123/synapticapp/internal/llm         2.187s
-ok  	github.com/sahajpatel123/synapticapp/internal/logger      1.646s
-ok  	github.com/sahajpatel123/synapticapp/internal/secrets     1.949s
-ok  	github.com/sahajpatel123/synapticapp/internal/storage     2.628s
-ok  	github.com/sahajpatel123/synapticapp/internal/version     1.799s
+ok  	github.com/sahajpatel123/conduraapp/cmd/synaptic        16.721s
+ok  	github.com/sahajpatel123/conduraapp/cmd/synapticd        7.155s
+ok  	github.com/sahajpatel123/conduraapp/internal/api_key     3.157s
+ok  	github.com/sahajpatel123/conduraapp/internal/config      1.784s
+ok  	github.com/sahajpatel123/conduraapp/internal/daemon      2.099s  ← NEW
+ok  	github.com/sahajpatel123/conduraapp/internal/failover    2.392s
+ok  	github.com/sahajpatel123/conduraapp/internal/health      2.205s
+ok  	github.com/sahajpatel123/conduraapp/internal/ipc         2.568s
+ok  	github.com/sahajpatel123/conduraapp/internal/llm         2.187s
+ok  	github.com/sahajpatel123/conduraapp/internal/logger      1.646s
+ok  	github.com/sahajpatel123/conduraapp/internal/secrets     1.949s
+ok  	github.com/sahajpatel123/conduraapp/internal/storage     2.628s
+ok  	github.com/sahajpatel123/conduraapp/internal/version     1.799s
 
 $ wails build
 Done. Built /Users/sahajpatel/synaptic/app/web/build/bin/synaptic.app/Contents/MacOS/web in 15.445s.
@@ -2099,7 +2099,7 @@ integration tests.
 
 ### 2026-06-15 (final) — v0.1.0 published; Phase 13 complete
 
-**Release:** https://github.com/sahajpatel123/synapticapp/releases/tag/v0.1.0
+**Release:** https://github.com/sahajpatel123/conduraapp/releases/tag/v0.1.0
 
 | Evidence | Result |
 |----------|--------|
@@ -2110,7 +2110,7 @@ integration tests.
 | GUI Linux | ✅ `synaptic-gui-linux-amd64` |
 | `make verify-release TAG=v0.1.0` | ✅ checksums + manifest signature |
 | CI + Release Verify on `main` | ✅ green |
-| Release workflow run | [27557797315](https://github.com/sahajpatel123/synapticapp/actions/runs/27557797315) success |
+| Release workflow run | [27557797315](https://github.com/sahajpatel123/conduraapp/actions/runs/27557797315) success |
 
 **Phase 13 status: COMPLETE** (implementation + published artifacts).
 

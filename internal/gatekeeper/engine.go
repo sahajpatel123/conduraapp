@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 // ConsentProvider drives the OS-level consent dialog. Implementations:

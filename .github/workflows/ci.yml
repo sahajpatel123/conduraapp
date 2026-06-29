@@ -251,7 +251,7 @@ jobs:
           cd app/web
           (cd frontend && npm ci && npm run build)
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
-            -ldflags "-s -w -X github.com/sahajpatel123/synapticapp/internal/version.Version=${VERSION} -X github.com/sahajpatel123/synapticapp/internal/version.Commit=${COMMIT}" || {
+            -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails CLI not installed; falling back to plain Go build"
               go build -trimpath -o /tmp/condura-gui-smoke .
             }

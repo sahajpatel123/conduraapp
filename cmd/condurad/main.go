@@ -26,10 +26,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/crash"
-	"github.com/sahajpatel123/synapticapp/internal/daemon"
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/crash"
+	"github.com/sahajpatel123/conduraapp/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 const addrFilePerm = 0o600

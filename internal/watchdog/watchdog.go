@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
 )
 
 // DefaultTimeout is the inactivity threshold before the watchdog

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/hub"
-	"github.com/sahajpatel123/synapticapp/internal/i18n"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/skills"
-	"github.com/sahajpatel123/synapticapp/internal/sync"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/hub"
+	"github.com/sahajpatel123/conduraapp/internal/i18n"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/skills"
+	"github.com/sahajpatel123/conduraapp/internal/sync"
 )
 
 // Common error messages for Phase 12 RPCs. Defined as constants so

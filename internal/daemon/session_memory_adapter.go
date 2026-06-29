@@ -3,8 +3,8 @@ package daemon
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/memory"
-	"github.com/sahajpatel123/synapticapp/internal/session"
+	"github.com/sahajpatel123/conduraapp/internal/memory"
+	"github.com/sahajpatel123/conduraapp/internal/session"
 )
 
 // sessionMemoryAdapter adapts memory.StoreManager → session.MemoryStore.

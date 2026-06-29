@@ -9,6 +9,12 @@
   import { consent } from '../stores/consent.svelte'
   import { t } from '../i18n'
 
+  let modalEl: HTMLDivElement | null = $state(null)
+  let denyBtn: HTMLButtonElement | null = $state(null)
+  // Element that had focus before the modal opened; restored on close
+  // so keyboard users don't lose their place in the underlying view.
+  let previouslyFocused: HTMLElement | null = null
+
   function formatAction(kind: string): string {
     switch (kind?.toLowerCase()) {
       case 'read':
@@ -30,13 +36,81 @@
     const r = s % 60
     return `${m}:${r.toString().padStart(2, '0')}`
   }
+
+  // Focus management: when a ticket appears, capture the currently-
+  // focused element and move focus to the Deny button (safer default —
+  // user must take an explicit action to approve). When the ticket
+  // clears, restore focus. Matches the pattern in ConfirmDialog.svelte.
+  $effect(() => {
+    if (consent.ticket) {
+      if (typeof document !== 'undefined') {
+        previouslyFocused = (document.activeElement as HTMLElement | null) ?? null
+        // Microtask so the modal element is in the DOM before we focus.
+        queueMicrotask(() => {
+          if (denyBtn) {
+            denyBtn.focus()
+          } else if (modalEl) {
+            modalEl.focus()
+          }
+        })
+      }
+    } else if (previouslyFocused && typeof document !== 'undefined' && document.contains(previouslyFocused)) {
+      previouslyFocused.focus()
+      previouslyFocused = null
+    }
+  })
+
+  function focusableElements(): HTMLElement[] {
+    if (!modalEl) return []
+    const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    return Array.from(modalEl.querySelectorAll<HTMLElement>(sel)).filter(
+      (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1
+    )
+  }
+
+  function handleKeydown(e: KeyboardEvent): void {
+    if (!consent.ticket) return
+    if (e.key === 'Escape') {
+      // Escape = Deny (safer default; matches macOS modal convention).
+      e.preventDefault()
+      consent.deny()
+      return
+    }
+    if (e.key === 'Tab') {
+      // Focus trap: cycle within the modal's focusable elements.
+      const focusables = focusableElements()
+      if (focusables.length === 0) {
+        e.preventDefault()
+        modalEl?.focus()
+        return
+      }
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (e.shiftKey) {
+        if (active === first || !modalEl?.contains(active)) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (active === last || !modalEl?.contains(active)) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if consent.ticket}
   <div class="consent-backdrop" role="presentation">
     <div
+      bind:this={modalEl}
       class="consent-modal glass-card elevated"
       role="alertdialog"
+      tabindex="-1"
       aria-modal="true"
       aria-labelledby="consent-title"
       aria-describedby="consent-body"
@@ -78,10 +152,15 @@
       {/if}
 
       <div class="consent-actions">
-        <button class="btn btn-secondary btn-lg consent-deny" onclick={() => consent.deny()}>
+        <button
+          bind:this={denyBtn}
+          class="btn btn-secondary btn-lg consent-deny"
+          type="button"
+          onclick={() => consent.deny()}
+        >
           {t('consent.deny')}
         </button>
-        <button class="btn btn-primary btn-lg consent-allow" onclick={() => consent.approve()}>
+        <button class="btn btn-primary btn-lg consent-allow" type="button" onclick={() => consent.approve()}>
           {t('consent.allow')}
         </button>
       </div>

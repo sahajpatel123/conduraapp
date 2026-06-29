@@ -301,7 +301,7 @@ general:
 	loader := NewLoader(path)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(tmpDir, "synaptic.db"), cfg.Storage.Path)
+	assert.Equal(t, filepath.Join(tmpDir, "condura.db"), cfg.Storage.Path)
 	assert.Equal(t, filepath.Join(tmpDir, "backups"), cfg.Storage.Backup.Dir)
 }
 
@@ -417,7 +417,7 @@ func TestResolveStoragePath_Absolute(t *testing.T) {
 	p, err := cfg.ResolveStoragePath()
 	require.NoError(t, err)
 	assert.True(t, filepath.IsAbs(p), "expected absolute path, got %q", p)
-	assert.True(t, strings.HasSuffix(p, "synaptic.db"))
+	assert.True(t, strings.HasSuffix(p, "condura.db"))
 }
 
 // -----------------------------------------------------------------------------

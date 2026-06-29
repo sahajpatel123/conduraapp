@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // PublicKey is the Ed25519 public key for verifying update manifests.

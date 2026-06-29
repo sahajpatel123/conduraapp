@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/onboarding"
-	"github.com/sahajpatel123/synapticapp/internal/permissions"
-	"github.com/sahajpatel123/synapticapp/internal/uninstall"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/onboarding"
+	"github.com/sahajpatel123/conduraapp/internal/permissions"
+	"github.com/sahajpatel123/conduraapp/internal/uninstall"
 )
 
 // registerUninstallMethods wires the uninstall.* RPC methods
