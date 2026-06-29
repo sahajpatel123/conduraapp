@@ -128,13 +128,39 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	})
 	httpSrv := &http.Server{Addr: addr, Handler: mux}
 	go func() { _ = httpSrv.ListenAndServe() }()
-	time.Sleep(100 * time.Millisecond)
+	waitTrustDaemonReady(t, addr)
 
 	cleanup := func() {
 		_ = httpSrv.Close()
 		_ = subs.Close()
 	}
 	return addr, subs, cleanup
+}
+
+// waitTrustDaemonReady polls until the HTTP RPC server accepts connections.
+// A fixed sleep is flaky on slow Windows CI runners.
+func waitTrustDaemonReady(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	body := `{"jsonrpc":"2.0","id":1,"method":"ping","params":{}}`
+	client := &http.Client{Timeout: 2 * time.Second}
+	for time.Now().Before(deadline) {
+		req, err := http.NewRequest(http.MethodPost, "http://"+addr+"/", strings.NewReader(body))
+		if err != nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+				return
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("daemon HTTP server did not become ready")
 }
 
 // callRPC is a tiny test helper that opens a fresh TCP
