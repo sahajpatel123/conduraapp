@@ -175,7 +175,7 @@ func (s *URLSanitizer) Sanitize(input string) (string, error) {
 	// Optional DNS resolution — catches DNS rebinding where the
 	// hostname passes the pattern check but resolves to a private IP.
 	// Use a context-aware resolver so the linter (noctx) is happy and
-	// the lookup can be cancelled by an upstream timeout.
+	// the lookup can be canceled by an upstream timeout.
 	if s.ResolveDNS {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		ips, err := (&net.Resolver{}).LookupIP(ctx, "ip", host)
