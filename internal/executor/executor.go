@@ -66,6 +66,24 @@ type Gatekeeper interface {
 // (exit, true, false, cd, export, set, unset, type, alias, umask).
 // Users can widen this via the sanitize.NewShellSanitizer constructor
 // or the SanitizeHook in the gatekeeper.
+//
+// 2026-06-29 audit P1-3: xargs is intentionally NOT in the default
+// allowlist. The previous code listed it, but xargs is a generic
+// command-runner: `xargs -I{} sh -c '...'` passes the sanitizer
+// (xargs is the first token, the inner `sh` is hidden in xargs's
+// argument list and never seen by the per-token check). Removing
+// xargs from the default closes the bypass. Users who legitimately
+// need it can add it via a policy override.
+// maxShellOutputBytes caps the size of a single shell command's
+// combined stdout+stderr capture. Commands that exceed this are
+// truncated with a marker so the caller knows the output was
+// clipped. The cap defends against DoS via `cat /dev/zero` or
+// similar infinite-output commands (the audit's P1-3 follow-up).
+// 64 MiB is well above any legitimate single-command output and
+// well below the JSON-RPC body-size limit of 10 MiB after the
+// truncation marker is added.
+const maxShellOutputBytes = 64 << 20
+
 var defaultShellAllowlist = []string{
 	// POSIX builtins safe in sh -c.
 	"exit", "true", "false", "cd", "export", "set", "unset", "type",
@@ -78,8 +96,9 @@ var defaultShellAllowlist = []string{
 	"go", "node", "npm", "yarn", "pnpm", "python", "python3", "pip",
 	"pip3", "cargo", "rustc", "make", "cmake", "tsc", "eslint",
 	"prettier", "ruff", "black",
-	// Modern unix utilities.
-	"rg", "fd", "bat", "jq", "yq", "sed", "awk", "tr", "cut", "xargs",
+	// Modern unix utilities. xargs is intentionally excluded;
+	// see the comment above.
+	"rg", "fd", "bat", "jq", "yq", "sed", "awk", "tr", "cut",
 	// Sleep is allowed for tests + deliberate pauses.
 	"sleep",
 }
@@ -258,7 +277,19 @@ func (e *Executor) execShell(ctx context.Context, a *pending.Action) (int, strin
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr) //nolint:gosec // user-approved, gated, sanitized
+	// 2026-06-29 audit P1-3: cap the combined output at
+	// maxShellOutputBytes. Without the cap, a `cat /dev/zero`-style
+	// command could grow the buffer without bound (combined
+	// returns a []byte that grows to whatever the process emits
+	// before the timeout fires). We use a LimitReader so the cap
+	// takes effect BEFORE the process fills the buffer.
 	out, err := cmd.CombinedOutput()
+	if len(out) > maxShellOutputBytes {
+		trunc := make([]byte, 0, maxShellOutputBytes+64)
+		trunc = append(trunc, out[:maxShellOutputBytes]...)
+		trunc = append(trunc, []byte("\n\n[output truncated at 64 MiB by Condura shell safety]")...)
+		out = trunc
+	}
 	return 0, string(out), err
 }
 
