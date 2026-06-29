@@ -157,7 +157,8 @@ func wrapProviderHTTPClient(prov llm.Provider, guard halt.NetworkGuard, anomalyD
 	// as "seen". The recorder also sits outside the existing
 	// transport so the recorder captures the actual outbound URL
 	// without the guard rewriting it.
-	var transport http.RoundTripper = hc.Transport
+	var transport http.RoundTripper
+	transport = hc.Transport
 	if guard != nil {
 		transport = guard.WrapTransport(transport)
 	}

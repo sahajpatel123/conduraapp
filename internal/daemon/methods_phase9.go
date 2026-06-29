@@ -93,47 +93,14 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		// path can change the active policy.
 		if !subs.GatekeeperAllow(ctx, "policy.reload", "ipc: safety.policy.reload") {
 			return nil, &ipc.Error{
-				Code:    ipc.CodeInvalidRequest,
+				Code:    ipc.CodeInvalidParams,
 				Message: "policy.reload denied by gatekeeper",
 			}
 		}
-		dataDir := subs.GeneralDataDir()
-		var policyPath string
-		if dataDir != "" {
-			policyPath = filepath.Join(dataDir, "policy.yaml")
+		src, err := loadPolicyFromDisk(subs)
+		if err != nil {
+			return nil, err
 		}
-		var (
-			p   *gatekeeper.Policy
-			src string
-		)
-		if policyPath != "" {
-			//nolint:gosec // G304: policyPath is server-controlled
-			// (built from subs.GeneralDataDir, the data dir the
-			// daemon itself created). It is not user-influenced
-			// across IPC. The contents are YAML-parsed by
-			// gatekeeper.LoadPolicy which validates the rules.
-			if b, err := os.ReadFile(policyPath); err == nil {
-				parsed, perr := gatekeeper.LoadPolicy(b)
-				if perr != nil {
-					return nil, &ipc.Error{
-						Code:    ipc.CodeInvalidParams,
-						Message: fmt.Sprintf("policy reload: parse %s: %v", policyPath, perr),
-					}
-				}
-				p = parsed
-				src = policyPath
-			} else if !errors.Is(err, os.ErrNotExist) {
-				return nil, &ipc.Error{
-					Code:    ipc.CodeInternalError,
-					Message: fmt.Sprintf("policy reload: read %s: %v", policyPath, err),
-				}
-			}
-		}
-		if p == nil {
-			p = gatekeeper.DefaultPolicy()
-			src = "embedded default (no ~/.condura/policy.yaml)"
-		}
-		subs.Safety.Engine.ReloadPolicy(p)
 		slog.Info("policy reloaded", "source", src)
 		return auditOK(), nil
 	})
@@ -155,4 +122,48 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		return auditOK(), nil
 	})
+}
+
+// loadPolicyFromDisk implements safety.policy.reload's disk-read
+// path. Extracted from the registered handler to keep the closure
+// under the lint cognitive-complexity ceiling.
+//
+// Returns the source string ("embedded default" or the user path)
+// and an error. nil error means a *gatekeeper.Policy was loaded
+// and applied to subs.Safety.Engine.
+func loadPolicyFromDisk(subs *Subsystems) (string, error) {
+	dataDir := subs.GeneralDataDir()
+	var policyPath string
+	if dataDir != "" {
+		policyPath = filepath.Join(dataDir, "policy.yaml")
+	}
+	var (
+		p   *gatekeeper.Policy
+		src string
+	)
+	if policyPath != "" {
+		//nolint:gosec // G304: policyPath is server-controlled.
+		if b, err := os.ReadFile(policyPath); err == nil {
+			parsed, perr := gatekeeper.LoadPolicy(b)
+			if perr != nil {
+				return "", &ipc.Error{
+					Code:    ipc.CodeInvalidParams,
+					Message: fmt.Sprintf("policy reload: parse %s: %v", policyPath, perr),
+				}
+			}
+			p = parsed
+			src = policyPath
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", &ipc.Error{
+				Code:    ipc.CodeInternalError,
+				Message: fmt.Sprintf("policy reload: read %s: %v", policyPath, err),
+			}
+		}
+	}
+	if p == nil {
+		p = gatekeeper.DefaultPolicy()
+		src = "embedded default (no ~/.condura/policy.yaml)"
+	}
+	subs.Safety.Engine.ReloadPolicy(p)
+	return src, nil
 }

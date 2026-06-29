@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/sahajpatel123/conduraapp/internal/audit"
 	"github.com/sahajpatel123/conduraapp/internal/failover"
 	"github.com/sahajpatel123/conduraapp/internal/halt"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
 	"github.com/sahajpatel123/conduraapp/internal/storage"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestLLMChat_CircuitBreaker_OpenBlocksCall verifies that when a

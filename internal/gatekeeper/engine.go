@@ -422,6 +422,14 @@ func (e *Engine) ReloadPolicy(p *Policy) {
 	e.policy.Store(p)
 }
 
+// Policy returns the currently-active policy. Added 2026-06-29
+// for the E2E test that verifies policy.reload is gated; the test
+// compares the active policy pointer before and after a denied
+// reload to confirm the gate actually blocked the swap.
+func (e *Engine) Policy() *Policy {
+	return e.policy.Load()
+}
+
 // SetConsentProvider swaps the consent provider (for testing).
 func (e *Engine) SetConsentProvider(c ConsentProvider) {
 	e.consent = c
