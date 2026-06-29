@@ -35,15 +35,19 @@ func TestRecordingTransport_DelegatesAndRecords(t *testing.T) {
 
 	// First call: api.anthropic.com — populates seenHosts, no trip.
 	req1 := httptest.NewRequest("GET", "https://api.anthropic.com/v1/messages", nil)
-	if _, err := rt.RoundTrip(req1); err != nil {
+	resp1, err := rt.RoundTrip(req1)
+	if err != nil {
 		t.Fatalf("first roundtrip: %v", err)
 	}
+	defer func() { _ = resp1.Body.Close() }()
 
 	// Second call: same host — no trip.
 	req2 := httptest.NewRequest("GET", "https://api.anthropic.com/v1/messages", nil)
-	if _, err := rt.RoundTrip(req2); err != nil {
+	resp2, err := rt.RoundTrip(req2)
+	if err != nil {
 		t.Fatalf("second roundtrip: %v", err)
 	}
+	defer func() { _ = resp2.Body.Close() }()
 
 	// Wait briefly for the async trip path. None should fire yet.
 	time.Sleep(50 * time.Millisecond)
@@ -53,9 +57,11 @@ func TestRecordingTransport_DelegatesAndRecords(t *testing.T) {
 
 	// Third call: NEW host — trips the new-endpoint detector.
 	req3 := httptest.NewRequest("GET", "https://api.openai.com/v1/chat/completions", nil)
-	if _, err := rt.RoundTrip(req3); err != nil {
+	resp3, err := rt.RoundTrip(req3)
+	if err != nil {
 		t.Fatalf("third roundtrip: %v", err)
 	}
+	defer func() { _ = resp3.Body.Close() }()
 	time.Sleep(50 * time.Millisecond)
 	if got := trips.Load(); got != 1 {
 		t.Fatalf("expected 1 trip after new host, got %d", got)
@@ -81,9 +87,11 @@ func TestRecordingTransport_NilDetectorIsPassThrough(t *testing.T) {
 	rt := NewRecordingTransport(nil, inner)
 
 	req := httptest.NewRequest("GET", "https://example.com", nil)
-	if _, err := rt.RoundTrip(req); err != nil {
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if got := innerCalls.Load(); got != 1 {
 		t.Fatalf("expected inner to be called once, got %d", got)
 	}
@@ -101,8 +109,12 @@ func TestRecordingTransport_NilInnerFallsBackToDefault(t *testing.T) {
 	req := httptest.NewRequest("GET", "http://127.0.0.1:1/never-reaches-server", nil)
 	// The default transport will fail the dial — we just need to
 	// confirm we did NOT panic on nil Inner.
-	if _, err := rt.RoundTrip(req); err == nil {
+	respNID, err := rt.RoundTrip(req)
+	if err == nil {
 		t.Fatal("expected dial error against 127.0.0.1:1, got nil")
+	}
+	if respNID != nil && respNID.Body != nil {
+		_ = respNID.Body.Close()
 	}
 }
 

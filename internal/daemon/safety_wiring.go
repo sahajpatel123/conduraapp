@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/internal/anomaly"
@@ -45,25 +44,16 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
 	}}
-	// SYNAPTIC_TEST_AUTO_CONSENT — when set (test runs only), the
-	// gatekeeper approves every consent ticket without going to
-	// the GUI. This is wired so E2E tests that exercise the full
-	// ipc.Server → registerMethods → GatekeeperAllow pipeline do
-	// not block on a missing SSE consumer. The flag is gated to
-	// a non-empty env var value so a production daemon (where the
-	// env var is unset) is unaffected. The env-var guard is the
-	// only thing standing between this and a real GUI flow.
-	//
-	// Note on the prefix: we use SYNAPTIC_ rather than CONDURA_
-	// because the config env-override mechanism (applyEnvOverrides
-	// in internal/config/loader.go) treats every CONDURA_* env
-	// var as a section.field override. We need a name that the
-	// override loader will not parse. SYNAPTIC_ is also the
-	// historical prefix for some pre-rename tooling, so it is
-	// already familiar.
-	if os.Getenv("SYNAPTIC_TEST_AUTO_CONSENT") != "" {
-		log.Warn("SYNAPTIC_TEST_AUTO_CONSENT is set — gatekeeper consent will be auto-approved; do not use in production")
-		consent = &autoApproveConsentProvider{log: log}
+	// 2026-06-29 audit P1-1: the test-only autoApproveConsentProvider
+	// and its env-var check have been moved into
+	// safety_wiring_testhook.go behind the `synaptictest` build
+	// tag. Production binaries no longer contain either symbol;
+	// setting SYNAPTIC_TEST_AUTO_CONSENT in production has no
+	// effect. The maybeAutoApproveConsent call below is a no-op
+	// (returns nil) in production and replaces consent with the
+	// auto-approve provider ONLY when -tags=synaptictest is set.
+	if alt := maybeAutoApproveConsent(log); alt != nil {
+		consent = alt
 	}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
@@ -304,31 +294,3 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 }
 
 func (p *rpcConsentProvider) IsAvailable() bool { return true }
-
-// autoApproveConsentProvider approves every ticket immediately.
-// Used only by E2E tests behind the SYNAPTIC_TEST_AUTO_CONSENT env
-// guard (see buildSafetyLayer). Production code must never see
-// this provider — the env-var check is the only thing protecting
-// the production GUI flow.
-//
-// The SYNAPTIC_ prefix is intentional (not CONDURA_): the config
-// env-override mechanism (applyEnvOverrides in internal/config)
-// treats every CONDURA_* env var as a section.field override, so
-// SYNAPTIC_TEST_AUTO_CONSENT slips past the override loader.
-type autoApproveConsentProvider struct {
-	log *slog.Logger
-}
-
-func (p *autoApproveConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
-	if ticket.Result == nil {
-		return true, nil
-	}
-	select {
-	case ticket.Result <- true:
-		return true, nil
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
-}
-
-func (p *autoApproveConsentProvider) IsAvailable() bool { return true }

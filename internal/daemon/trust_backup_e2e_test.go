@@ -1,3 +1,5 @@
+//go:build synaptictest
+
 // Hard contract test: the backup package, the uninstall
 // manifest, and the daemon's skills store must agree on the
 // absolute path of skills.db. If any of them disagree, the

@@ -243,18 +243,6 @@ func redactParse(log *slog.Logger, err error) *Error {
 // even if a logger is later piped to a less-trusted sink, the
 // message cannot carry a raw /Users/... path or 10.0.0.5:5432.
 //
-// Defense in depth only — the IPC client response is the primary
-// fix (see redactInternal).
-func errString(err error) string {
-	if err == nil {
-		return ""
-	}
-	s := err.Error()
-	s = redactHome(s)
-	s = redactPrivateIP(s)
-	return s
-}
-
 // redactHome replaces the current user's home directory with "~"
 // wherever it appears in the string, so filesystem paths do not
 // leak the username. The match must be preceded by a path boundary
@@ -282,8 +270,6 @@ func redactHome(s string) string {
 		}
 		s = s[:i] + "~" + s[i+len(home):]
 	}
-	s = strings.ReplaceAll(s, "\x00", "")
-	return s
 }
 
 // redactPrivateIP replaces IPv4 RFC1918 / link-local addresses with
