@@ -133,7 +133,12 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 			}
 		}
 		if a.TargetURL != "" {
-			if _, err := sanitize.NewURLSanitizer().Sanitize(a.TargetURL); err != nil {
+			// 2026-06-29 audit P1-4: use the strict variant that
+			// resolves the hostname via DNS and rejects any IP in a
+			// private range. The non-strict variant substring-matches
+			// the literal hostname, which misses DNS rebinding and
+			// crafted hostnames like `my-192-168-host.example.com`.
+			if _, err := sanitize.NewStrictURLSanitizer().Sanitize(a.TargetURL); err != nil {
 				return err
 			}
 		}
