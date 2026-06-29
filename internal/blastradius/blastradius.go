@@ -77,6 +77,9 @@ var classByKind = map[string]Class{
 	"computeruse.axtree":     READ,
 	// WRITE
 	"file.write":         WRITE,
+	"apikeys.set":        WRITE, // stores a secret; WRITE consent applies
+	"apikeys.delete":     WRITE, // removes a secret; WRITE consent applies
+	"policy.reload":      WRITE, // replaces the active gatekeeper policy
 	"type":               WRITE,
 	"paste":              WRITE,
 	"clipboard.write":    WRITE,

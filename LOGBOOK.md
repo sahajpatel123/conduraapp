@@ -3602,3 +3602,32 @@ Before implementing, I verified that most fixes from the two deployment verdicts
 - The product is now *functionally usable*: onboarding completes and chat responses appear.
 - Remaining production-readiness items from the audit (notarization, on-device verification, metadata) are in the roadmap doc at `docs/roadmap-v0.2.0.md`.
 
+
+---
+
+## [2026-06-29 09:00 IST] AI Model: ultracode orchestrator (Claude Opus 4.8 + multi-agent fan-out)
+**Session ID:** ultracode-2026-06-29-prod-readiness-fixes
+**Branch:** fix/production-readiness-2026-06-29
+**Task:** Implement all 22 findings from the 2026-06-28 audit (2 HIGH, 8 MED, 12 LOW), run Tier-3 verification per STYLE.md, push, watch CI.
+
+### Pre-implementation state (verified at session start)
+- HEAD: `109e178 log: record final three-surface verification session (2026-06-28)` on main.
+- Working tree: clean.
+- Branch: created `fix/production-readiness-2026-06-29` from main.
+- Three surfaces verified clean at start: `go build ./...`, `go test -count=1 ./...`, `npm run check` (Svelte), `npm run build` + `npm run lint` (Next.js).
+- One pre-existing flake in `internal/secrets/TestNew_NoFilePath_Auto` (already in LOGBOOK).
+
+### Plan
+Phase A — branch + state setup (this entry).
+Phase B — HIGH severity: (1) `apikeys.set` gatekeeper bypass, (2) `safety.policy.reload` rename + actual policy.yaml loading.
+Phase C — MEDIUM severity: (3) anomaly TripRate/TripDuration hard-pause, (4) PII sanitizer in SanitizeHook, (5) ConsentModal SVG aria-hidden, (6) marketing sitemap/robots/OG, (7) /legal + /privacy refactor to read EULA.md/PRIVACY.md, (8) MISSION.md §10 addendum.
+Phase D — LOW severity batch: 11 stale fix/* branches, Discord URL, stray synaptic.db, "Signed manifest" claim, i18n key, 6 Svelte a11y Low items, migrateLegacyDataDir log typo, defaultAllowList huggingface entry, SECURITY.md PGP, README "14 providers".
+Phase E — Tier-3 verification: build condurad, drive RPC, inspect sqlite, exercise SSE.
+Phase F — commit, push, watch CI.
+Phase G — final analysis on remaining gaps.
+
+### Open questions for next session
+- None for these specific fixes.
+
+### Next steps
+- Phase B → C → D → E → F → G.

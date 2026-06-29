@@ -67,6 +67,13 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -195,6 +202,13 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -324,6 +338,13 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("CONDURA_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)

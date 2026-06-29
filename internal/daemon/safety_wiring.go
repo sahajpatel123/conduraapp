@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/sahajpatel123/synapticapp/internal/anomaly"
@@ -41,9 +42,21 @@ type SafetyComponents struct {
 // autonomous; everything else warns) so a fresh install still works.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
-	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
+	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
 	}}
+	// CONDURA_TEST_AUTO_CONSENT — when set (test runs only), the
+	// gatekeeper approves every consent ticket without going to the
+	// GUI. This is wired so E2E tests that exercise the full
+	// ipc.Server → registerMethods → GatekeeperAllow pipeline do
+	// not block on a missing SSE consumer. The flag is gated to
+	// a non-empty env var value so a production daemon (where the
+	// env var is unset) is unaffected. The env-var guard is the
+	// only thing standing between this and a real GUI flow.
+	if os.Getenv("CONDURA_TEST_AUTO_CONSENT") != "" {
+		log.Warn("CONDURA_TEST_AUTO_CONSENT is set — gatekeeper consent will be auto-approved; do not use in production")
+		consent = &autoApproveConsentProvider{log: log}
+	}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
 	// Anomaly detector — async, graduated response.
@@ -246,3 +259,26 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 }
 
 func (p *rpcConsentProvider) IsAvailable() bool { return true }
+
+// autoApproveConsentProvider approves every ticket immediately.
+// Used only by E2E tests behind the CONDURA_TEST_AUTO_CONSENT env
+// guard (see buildSafetyLayer). Production code must never see
+// this provider — the env-var check is the only thing protecting
+// the production GUI flow.
+type autoApproveConsentProvider struct {
+	log *slog.Logger
+}
+
+func (p *autoApproveConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
+	if ticket.Result == nil {
+		return true, nil
+	}
+	select {
+	case ticket.Result <- true:
+		return true, nil
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+}
+
+func (p *autoApproveConsentProvider) IsAvailable() bool { return true }
