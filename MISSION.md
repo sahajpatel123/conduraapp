@@ -1173,3 +1173,54 @@ This project is being built by a human + AI partnership. The human is the archit
 ---
 
 **This document is the foundation. Read it. Trust it. Extend it carefully. Never lose it.**
+
+---
+
+## 33. Status Addendum — 2026-06-29
+
+> **Append-only annotation per CLAUDE.md §30.5.** This section does NOT
+> rewrite §10 above. The original spec wording remains canonical.
+> This addendum records the current implementation reality so a
+> cold-start reader can quickly see the gap between what the spec
+> said at planning time and what the code does today.
+
+The §10 status table marked 10.2 (Gatekeeper policy engine), 10.4
+(Behavioral Anomaly Detector), 10.6 (Sanitizers), 10.7 (Sensitive
+Detector), and 10.9 (Autonomy Matrix) as not-yet-built. As of the
+2026-06-29 production-readiness audit:
+
+| Module | Status today | Evidence |
+|---|---|---|
+| 10.1 Blast Radius | Built + tested | `internal/blastradius/` (~140 LOC + 9 tests) |
+| 10.2 Gatekeeper | Built + tested + wired | `internal/gatekeeper/` (~1,461 LOC + 31 tests across 4 files); `engine.go:81-86` exposes `NewEngine`. The 2026-06-29 audit found two HIGH-severity spec violations: `apikeys.set` handler did not call gatekeeper, and `safety.policy.reload` only reloaded the embedded default. Both fixed in commit 7034379 on branch `fix/production-readiness-2026-06-29`. |
+| 10.3 Kill Switch | Built + tested | `internal/halt/` (Layer 1 flag + Layer 3 in-process network guard) + `internal/watchdog/` (Layer 2) |
+| 10.4 Anomaly | Built + tested + wired | `internal/anomaly/` (~444 LOC + 13 tests). The 2026-06-29 audit found the detector was warn-only on TripRate/TripDuration; fixed in commit 7034379 to hard-pause on every trigger per MISSION §5.6. |
+| 10.5 Audit | Built + tested | `internal/audit/` (~568 LOC + 11 tests). HMAC-SHA256 chain, secret-panic-on-empty, genesis 64-zero hash, per-prune re-root documented at log.go:351-356. |
+| 10.6 Sanitizers | Built + tested + wired | `internal/sanitize/` (~488 LOC + 20 tests). 5 sanitizers (Shell, Path, URL, PII, PythonImport). The 2026-06-29 audit found PII sanitizer NOT in the SanitizeHook (only fired at consent display); fixed in commit 7034379 to run on every Body field. |
+| 10.7 Sensitive | Built + tested + wired | `internal/sensitive/` (~417 LOC + 10 tests). 50+ domain entries + 22 context regexps; wired via SensitiveHook. |
+| 10.8 Spend | Built | `internal/failover/` |
+| 10.9 Autonomy | Built + engine | `internal/autonomy/` (~140 LOC + tests). Wired via AutonomyHook in safety_wiring.go. |
+
+**The "Armor" is complete.** The remaining work for the v0.1.0
+public-release gate is in `docs/roadmap-v0.2.0.md` (real `pf`/`netsh`
+hard Layer 3, public Skills Hub, web dashboard, hybrid router,
+subscription OAuth, DAG scheduler — all v0.2.0+ per CLAUDE.md §33.5.2).
+
+Per STYLE.md Tier 3 verification (run the real binary, drive the
+real RPC, inspect the on-disk state), Phase E of the 2026-06-29
+session exercises the live `condurad` daemon with the new
+gatekeeper gating and confirms the policy.yaml hot-reload.
+
+**Honest residual gaps:**
+- Layer 3 is "soft" (in-process network guard) — hard `pf`/`netsh`
+  separate process is v0.2.0.
+- Hybrid LLM router (`internal/router/`) does not exist; v0.1.0
+  uses a single configured provider+model.
+- Wave/DAG scheduler is not built; v0.1.0 spawns individual
+  sub-agents only.
+- On-device verification (`docs/phase15-verification.md`) requires
+  physical macOS/Windows/Linux machines; not yet executed.
+- 6 Apple secrets + `UPDATE_SIGNING_KEY` not yet configured in
+  repo Settings; `release.yml` correctly fails closed until they
+  are set.
+

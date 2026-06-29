@@ -60,13 +60,21 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
 	// Anomaly detector — async, graduated response.
+	//
+	// Audit 2026-06-28 fix (medium): MISSION §5.6 says "If any trigger
+	// fires, the agent hard pauses and pings the user." The previous
+	// code only halted on TripLoop/TripFailures and merely warned on
+	// TripRate/TripDuration — a spec/code mismatch. The fix: every
+	// trip type now hard-pauses via haltFlag.Halt. The auto-recovery
+	// path (resume via halt.confirm_resume with a CLI ticket) is the
+	// only sanctioned way out, per the Tier-3 sticky-halt design
+	// shipped in commit 74b9640.
 	detector := anomaly.NewDetector(func(t anomaly.Trip) {
-		switch t.Type {
-		case anomaly.TripLoop, anomaly.TripFailures:
-			_, _ = haltFlag.Halt(context.Background(), "anomaly: "+t.Reason)
-		case anomaly.TripRate, anomaly.TripDuration:
-			log.Warn("anomaly detected", "type", t.Type, "reason", t.Reason)
+		reason := "anomaly: " + string(t.Type) + " — " + t.Reason
+		if _, err := haltFlag.Halt(context.Background(), reason); err != nil {
+			log.Error("anomaly halt failed", "type", t.Type, "reason", t.Reason, "err", err)
 		}
+		log.Warn("anomaly halt triggered", "type", t.Type, "reason", t.Reason)
 	})
 
 	// Wire the anomaly hook so every Evaluate call feeds the detector.
@@ -86,8 +94,23 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	}
 
 	// Field-aware sanitizer dispatch: run the right sanitizer on
-	// the right field, skip empties. PII sanitizer is applied at
-	// consent display time (STEP 5), not here.
+	// the right field, skip empties.
+	//
+	// Audit 2026-06-28 fix (medium): PII sanitizer was previously
+	// applied only at consent display time (STEP 5). MISSION §10.6
+	// lists "Message body sanitizer: PII detection" as required,
+	// so the PII sanitizer must run on every Body field that the
+	// engine sees — including the message body sent over
+	// reach.message.send, the typed text of a chat message, and
+	// any other context string. The hook now calls
+	// PIIRegexSanitizer on every Body. If the redactor returns an
+	// error (it does NOT — Sanitize returns nil for credit-card
+	// Luhn validation success on a non-CC value) we treat it as
+	// fail-closed. The Sanitize() returns (sanitizedString, error)
+	// — we deliberately do NOT mutate Action.Body here because
+	// the gatekeeper contract is "return an error to block", not
+	// "rewrite in place"; mutating would change the action the
+	// user took. A separate downstream redactor handles display.
 	engine.SanitizeHook = func(a *blastradius.Action) error {
 		if a.Command != "" {
 			if _, err := sanitize.NewShellSanitizer(nil).Sanitize(a.Command); err != nil {
@@ -104,6 +127,11 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		}
 		if a.TargetURL != "" {
 			if _, err := sanitize.NewURLSanitizer().Sanitize(a.TargetURL); err != nil {
+				return err
+			}
+		}
+		if a.Body != "" {
+			if _, err := sanitize.NewPIIRegexSanitizer().Sanitize(a.Body); err != nil {
 				return err
 			}
 		}
