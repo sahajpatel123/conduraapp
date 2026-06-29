@@ -58,7 +58,7 @@
       <div class="chat-status">
         <span class="streaming-pill">{t('chat.streaming')}</span>
         <button class="btn-stop" onclick={cancel}>
-          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
           {t('chat.stop')}
         </button>
       </div>
@@ -72,7 +72,7 @@
         <div class="empty-state">
           <div class="empty-logo-glow"></div>
           <div class="empty-icon">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 14h24a3 3 0 013 3v14a3 3 0 01-3 3H18l-9 7V17a3 3 0 013-3z"/><circle cx="18" cy="24" r="1.5" fill="currentColor"/><circle cx="24" cy="24" r="1.5" fill="currentColor"/><circle cx="30" cy="24" r="1.5" fill="currentColor"/></svg>
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 14h24a3 3 0 013 3v14a3 3 0 01-3 3H18l-9 7V17a3 3 0 013-3z"/><circle cx="18" cy="24" r="1.5" fill="currentColor"/><circle cx="24" cy="24" r="1.5" fill="currentColor"/><circle cx="30" cy="24" r="1.5" fill="currentColor"/></svg>
           </div>
           <h3>{t('chat.empty.title')}</h3>
           <p>
@@ -185,7 +185,7 @@
           aria-label={t('chat.send')}
           title={t('chat.send')}
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
         </button>
       </div>
     </div>

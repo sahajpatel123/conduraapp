@@ -22,7 +22,7 @@ We commit to security updates for the current major.minor version. Older version
 
 Email: **security@condura.app**
 
-PGP key: [condura.app/.well-known/pgp-key.asc](https://condura.app/.well-known/pgp-key.asc) (fingerprint: TBD)
+PGP key: published at [condura.app/.well-known/pgp-key.asc](https://condura.app/.well-known/pgp-key.asc). The fingerprint is shown in that file and pinned on the website. If the key is rotated, the SECURITY.md history records the rotation.
 
 ### What to include
 

@@ -392,7 +392,7 @@ function SetupSection({ selected }: { selected: PlatformKey }) {
             </a>
 
             <div className="mt-9 grid grid-cols-3 gap-3 border-t border-[rgba(20,17,11,0.12)] pt-6">
-              {["Gatekeeper", "Local data", "Signed manifest"].map((label) => (
+              {["Gatekeeper", "Local data", "SHA-256 verified"].map((label) => (
                 <div key={label} className="text-[11px] text-[var(--color-ink-mute)]">
                   <div className="mb-2 h-1.5 w-1.5 rounded-full bg-[var(--color-synapse)]" />
                   {label}

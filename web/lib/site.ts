@@ -10,7 +10,13 @@ export const SITE = {
     "A free desktop app that opens the AI tools you have installed with one hotkey. No account needed, no data leaves your machine.",
   url: "https://condura.app",
   github: "https://github.com/sahajpatel123/conduraapp",
-  discord: "https://condura.app/discord",
+  // Audit 2026-06-29 fix: the previous placeholder URL
+// (https://condura.app/discord) returned 404 until the user
+// set up a real Discord invite. Until then, point at GitHub
+// Discussions, which is live and works as the community
+// surface. When the Discord invite is configured, swap this
+// back to a real discord.gg URL.
+discord: "https://github.com/sahajpatel123/conduraapp/discussions",
 } as const;
 
 // Reference / informational destinations. These live in the footer,

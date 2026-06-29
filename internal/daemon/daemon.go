@@ -340,7 +340,7 @@ func migrateLegacyDataDir(newDir string) {
 	}
 	slog.Info("migrating legacy Synaptic data", "from", legacyDir, "to", newDir)
 	copyDir(legacyDir, newDir)
-	slog.Info("data migration complete — you can safely delete ~/.condura/")
+	slog.Info("data migration complete — you can safely delete ~/.synaptic/")
 }
 
 func copyDir(src, dst string) {

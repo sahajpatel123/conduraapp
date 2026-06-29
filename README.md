@@ -2,7 +2,7 @@
 
 > A free, OS-native AI agent that lives on your computer, orchestrates your AI tools, and costs nothing.
 
-Condura is a desktop agent you summon with a single hotkey. It runs sub-agents across the AI coding CLIs you already have installed, talks to 14 LLM providers via your own API keys or a local Ollama, and never costs you a subscription.
+Condura is a desktop agent you summon with a single hotkey. It runs sub-agents across the AI coding CLIs you already have installed, talks to 15 LLM backends via your own API keys or a local Ollama, and never costs you a subscription.
 
 **Free forever. No lock-in. No tracking. No compromise on speed or safety.**
 
@@ -21,7 +21,7 @@ Condura is honest about what runs today.
 ### What works in v0.1.1
 
 - One global hotkey summons the daemon from anywhere on macOS
-- 14 LLM providers — 10 cloud APIs (Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, OpenRouter, Groq, Together, Fireworks) plus 4 local runtimes (Ollama, LM Studio, vLLM, LocalAI)
+- 15 LLM backends — 11 cloud APIs (Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, OpenRouter, Groq, Together, Fireworks, plus a Custom OpenAI-compatible slot) plus 4 local runtimes (Ollama, LM Studio, vLLM, LocalAI)
 - 8 sub-agent CLIs with auto-detection from your `$PATH` — Claude Code, Codex, Antigravity, OpenCode, Kilo, Hermes, Gemini CLI, and Ollama
 - **Deterministic Gatekeeper** — code, not a model; every computer-use action and shell command passes through it
 - HMAC-chained, append-only audit log
@@ -89,9 +89,10 @@ make build
    - Optionally connect a provider in Settings, or use the local Ollama instance if it's already running
 4. **Tap your hotkey** → overlay appears. Type or speak a task. Done.
 
-> **Providers in v0.1.1:** Condura accepts API keys for 14 LLM providers
+> **Providers in v0.1.1:** Condura accepts API keys for 15 LLM backends
 > (Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, OpenRouter, Groq,
-> Together, Fireworks — plus local Ollama, LM Studio, vLLM, LocalAI). You
+> Together, Fireworks, plus a Custom OpenAI-compatible slot — and local
+> Ollama, LM Studio, vLLM, LocalAI). You
 > bring the keys, or point it at a running Ollama. Subscription OAuth
 > (ChatGPT Plus, Claude Pro, SuperGrok) is **v0.2.0** — see
 > `docs/roadmap-v0.2.0.md`. v0.1.1 uses the single provider configured in

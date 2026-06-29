@@ -1,5 +1,6 @@
 <script lang="ts">
   import { notifications } from '../stores/notifications.svelte'
+  import { t } from '../i18n'
 </script>
 
 <div class="toast-container">
@@ -9,7 +10,14 @@
         <strong>{n.title}</strong>
         <p>{n.message}</p>
       </div>
-      <button class="toast-close" onclick={() => notifications.dismiss(n.id)}>×</button>
+      <!-- Audit 2026-06-29 a11y fix: the × symbol alone has no
+           accessible name. Add aria-label so screen-reader users
+           hear "dismiss" (or its translation) instead of "times". -->
+      <button
+        class="toast-close"
+        aria-label={t('common.dismiss', 'Dismiss')}
+        onclick={() => notifications.dismiss(n.id)}
+      >×</button>
     </div>
   {/each}
 </div>

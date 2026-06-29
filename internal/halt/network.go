@@ -72,7 +72,10 @@ func DefaultProviderAllowList() []string {
 		"api.groq.com",
 		"api.together.xyz",
 		"api.fireworks.ai",
-		"huggingface.co",  // for openWakeWord model downloads
+		// huggingface.co removed in audit 2026-06-29: openWakeWord
+		// model downloads are not wired in the daemon yet. The
+		// entry was a dead allowlist. Re-add when voice/wake-word
+		// reaches the daemon.
 		"hub.condura.app", // Skills Hub canonical (Phase 16)
 		"127.0.0.1",       // local providers (Ollama, LocalAI, LM Studio, vLLM)
 		"localhost",

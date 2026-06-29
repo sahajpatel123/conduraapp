@@ -12,7 +12,7 @@ export default function OrchestrationPageClient() {
   useEffect(() => {
     const messages: { text: string; tone: string }[] = [
       { text: "[SYS] initializing SQLite state tables…", tone: "sys" },
-      { text: "[SYS] memory mapped to ~/.condura/synaptic.db", tone: "sys" },
+      { text: "[SYS] memory mapped to ~/.condura/condura.db", tone: "sys" },
       { text: "[AGENT:strategist] received intent: 'Refactor auth module'", tone: "agent" },
       { text: "[AGENT:strategist] decomposing into 3 subtasks.", tone: "agent" },
       { text: "[BUS] spawned agent-01 (AST parser)", tone: "bus" },
