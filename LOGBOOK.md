@@ -3748,3 +3748,70 @@ Phase 4 — push and watch CI.
 - Wait for run 28352648517 (CI on 235bdc1) to complete. If it passes, ship the parallel agent's + my work; if it still fails on the 7 non-mine issues, hand off to that workstream.
 - After CI green, consider declaring this branch ready for PR review and merge.
 
+
+## [2026-06-29 IST] AI Model: Claude Sonnet 4.6 (Claude Code)
+**Session ID:** condura-p0-p1-implementation-2026-06-29
+**Branch:** fix/production-readiness-2026-06-29
+**Task:** Implement the P0 and P1 issues identified by the 48-agent
+production-readiness audit on 2026-06-29. Eight issues (3 P0 + 5 P1).
+
+### Files created
+- `internal/anomaly/transport.go` — *RecordingTransport wrapping http.RoundTripper for §5.6 new-endpoint detection (P0-2)*
+- `internal/anomaly/transport_test.go` — *3 regression tests for the recorder*
+- `internal/daemon/safety_wiring_testhook.go` — *build-tag-gated autoApproveConsentProvider (P1-1)*
+- `internal/daemon/safety_wiring_testhook_off.go` — *production stub returning nil (P1-1)*
+
+### Files modified
+- `internal/gatekeeper/engine.go` — *AnomalyHook signature now carries verdict; hook fires AFTER Evaluate returns (P0-1)*
+- `internal/gatekeeper/e2e_test.go` — *TestAnomalyHook_CarriesRealDecision pins P0-1*
+- `internal/daemon/safety_wiring.go` — *real verdict → detector.Record; maybeAutoApproveConsent call (P0-1, P1-1)*
+- `internal/daemon/providers.go` — *buildProvidersFromConfig + wrapProviderHTTPClient + new wrapProvidersWithRecorder (P0-2)*
+- `internal/daemon/subsystems.go` — *new wrapProvidersWithRecorder call after CU anomaly wiring (P0-2)*
+- `internal/daemon/providers_test.go` — *TestWrapProvidersWithRecorder_PinsP0_2 (P0-2)*
+- `internal/ipc/server.go` — *redactInternal/Parse helpers + Server.WithLogger; replaced err.Error() leaks (P0-3)*
+- `internal/ipc/transport.go` — *defensive redaction at HTTP/WS transport (P0-3)*
+- `internal/ipc/ipc_test.go` — *5 redaction regression tests (P0-3)*
+- `internal/daemon/trust_backup_e2e_test.go` — *build-tag synaptictest (P1-1)*
+- `internal/daemon/trust_phase11_caveats_test.go` — *build-tag synaptictest (P1-1)*
+- `internal/daemon/methods_phase9.go` — *GatekeeperAllow on policy.reload path (P1-2)*
+- `internal/daemon/safety_e2e_test.go` — *TestE2E_PolicyReload_Gated (P1-2)*
+- `internal/executor/executor.go` — *removed xargs from defaultShellAllowlist; maxShellOutputBytes=64 MiB cap (P1-3)*
+- `internal/executor/executor_test.go` — *TestExecutor_ShellExec_XargsNotInDefaultAllowlist + OutputCapped (P1-3)*
+- `internal/daemon/safety_wiring.go` — *NewStrictURLSanitizer in gatekeeper hot path (P1-4)*
+- `internal/sanitize/sanitize_test.go` — *TestURLSanitizer_Strict_DNSRebinding + BadHostnameDoesNotPanic (P1-4)*
+- `internal/delegation/gated_runner.go` — *maxActionRequestFieldBytes=64 KiB per-field cap (P1-5)*
+- `internal/delegation/delegation_test.go` — *TestGatedRunner_ActionRequests_OversizedFieldRejected (P1-5)*
+
+### Decisions made
+- **P0-1 fix**: change AnomalyHook signature to (action, decision, reason) so the detector sees real success/failure. Wiring uses `d == Allow` as the success signal. Pre-decision hook was a false-positive machine that halted the agent after any 5 actions.
+- **P0-2 architecture**: chose `RecordingTransport` over wiring every LLM provider individually. The transport pattern composes with the existing InProcessGuard via the same `WrapTransport(rt)` interface, so the recorder sits OUTSIDE the guard — a guard-blocked request is not counted as "seen host".
+- **P0-3 architecture**: redact on the way OUT, log the full error server-side. Added `Server.WithLogger` so the audit trail isn't dependent on a global logger.
+- **P1-1**: chose `//go:build synaptictest` over `//go:build test` so production binaries explicitly do NOT contain the override. Verified via `nm` that production test binary has zero autoApproveConsent symbols.
+- **P1-3**: chose to remove `xargs` from the allowlist rather than add per-arg parsing. Users who need it can grant via policy. Defense in depth: also cap output at 64 MiB.
+- **P1-4**: chose `NewStrictURLSanitizer` for the gatekeeper hot path. Pre-applied refactor in specific.go already implemented the strict variant; this session only wired it.
+
+### Bugs / issues encountered
+- Initial build filter (`grep -v "warning"`) hid errors. Re-running without filter showed build was actually clean.
+- P1-1 broke `TestTrustE2E_BackupRoundTrip` and `TestTrustE2E_*` because they set the now-build-tag-gated env var. Fixed by adding `//go:build synaptictest` to those test files. CI now runs both modes.
+- P0-1 hook signature change required updating the call site in `safety_wiring.go`. Build error caught immediately and fixed.
+- P0-2 `wrapProvidersWithRecorder` initially used `reg.All()`; the actual method is `reg.List()`. Build error caught.
+
+### Verification
+- `go build ./...` → exit 0
+- `go vet ./...` → exit 0 (no findings)
+- `go test -count=1 -short -race -timeout=300s ./...` (default build) → ALL PASS
+- `go test -count=1 -short -race -timeout=300s -tags=synaptictest ./...` → ALL PASS except known flake `internal/secrets/TestNew_NoFilePath_Auto` (pre-existing, tracked in prior LOGBOOK entries)
+- `cd app/web/frontend && npm run check` → 288 files, 0 errors, 0 warnings
+- `cd web && npm run lint && npm run build` → exit 0, 16/16 static pages
+- `nm` on `go test -c ./internal/daemon` output → 0 references to `autoApproveConsent` in production build
+
+### Open questions for next session
+- The 7 lint issues from run 28352063322's Lint job (per prior LOGBOOK entry) — did any of my changes introduce new lint issues? Check after CI completes.
+- Run 28355778217 (CI on this push) — watching. CodeQL already passed.
+- The `internal/secrets/TestNew_NoFilePath_Auto` flake remains; tracked.
+- On-device verification (`docs/phase15-verification.md`) still 14/60+ rows PASS — needs physical machines, out of session scope.
+
+### Next steps
+- Wait for CI run 28355778217 to complete. If green, ship this branch as the v0.1.0-prep baseline.
+- If CI red: identify which check (lint / race / windows / macOS notarization), fix, commit, push, re-watch.
+- The spec drift items (Synaptic→Condura, ~/.condura paths, ~15 cross-doc mismatches) remain for the next audit session.
