@@ -85,7 +85,18 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 	// classByKind in this change) so the gatekeeper consent gate
 	// applies — without that gate, an attacker with the IPC token
 	// could swap in a permissive policy.
-	srv.Register("safety.policy.reload", func(_ context.Context, _ json.RawMessage) (any, error) {
+	srv.Register("safety.policy.reload", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		// 2026-06-29 audit P1-2: gate this RPC through the gatekeeper
+		// so an attacker with the IPC token cannot swap in a permissive
+		// policy. policy.reload is classified WRITE per the policy
+		// class table; the engine will require consent before this
+		// path can change the active policy.
+		if !subs.GatekeeperAllow(ctx, "policy.reload", "ipc: safety.policy.reload") {
+			return nil, &ipc.Error{
+				Code:    ipc.CodeInvalidRequest,
+				Message: "policy.reload denied by gatekeeper",
+			}
+		}
 		dataDir := subs.GeneralDataDir()
 		var policyPath string
 		if dataDir != "" {
