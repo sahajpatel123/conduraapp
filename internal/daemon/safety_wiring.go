@@ -85,9 +85,18 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 		log.Warn("anomaly halt triggered", "type", t.Type, "reason", t.Reason)
 	})
 
-	// Wire the anomaly hook so every Evaluate call feeds the detector.
-	engine.AnomalyHook = func(a blastradius.Action) {
-		detector.Record(a.Kind, 0, 0, false)
+	// Wire the anomaly hook so every Evaluate call feeds the detector
+	// with the engine's actual verdict. The previous wiring fired the
+	// hook pre-decision with success=false hard-coded, which made the
+	// §5.6 "5+ consecutive failures" trigger trip on every routine
+	// agent run after 5 successful actions. The hook now carries the
+	// verdict, so Allow → success=true (resets the failure counter)
+	// and Deny → success=false (increments it). RequireConsent and
+	// RequirePresenceAndConsent are treated as success=true because
+	// the gate did not reject the action — it asked for human input,
+	// which is the expected path for non-trivial actions.
+	engine.AnomalyHook = func(a blastradius.Action, d gatekeeper.Decision, reason string) {
+		detector.Record(a.Kind, 0, 0, d == gatekeeper.Allow)
 	}
 
 	// Build the autonomy matrix from config. The matrix is the
@@ -297,10 +306,15 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 func (p *rpcConsentProvider) IsAvailable() bool { return true }
 
 // autoApproveConsentProvider approves every ticket immediately.
-// Used only by E2E tests behind the CONDURA_TEST_AUTO_CONSENT env
+// Used only by E2E tests behind the SYNAPTIC_TEST_AUTO_CONSENT env
 // guard (see buildSafetyLayer). Production code must never see
 // this provider — the env-var check is the only thing protecting
 // the production GUI flow.
+//
+// The SYNAPTIC_ prefix is intentional (not CONDURA_): the config
+// env-override mechanism (applyEnvOverrides in internal/config)
+// treats every CONDURA_* env var as a section.field override, so
+// SYNAPTIC_TEST_AUTO_CONSENT slips past the override loader.
 type autoApproveConsentProvider struct {
 	log *slog.Logger
 }

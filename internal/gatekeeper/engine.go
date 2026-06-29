@@ -14,9 +14,21 @@ import (
 )
 
 // ConsentProvider drives the OS-level consent dialog. Implementations:
-//   - GUIProvider: daemon → SSE → Wails modal → RPC
-//   - osascriptProvider: AppleScript display dialog (headless fallback)
-//   - noopProvider: deny-on-absence (Windows/Linux headless stub)
+//   - rpcConsentProvider (internal/daemon/safety_wiring.go):
+//     daemon → SSE → Wails modal → RPC. The only production
+//     implementation shipped in v0.1.0.
+//   - autoApproveConsentProvider (internal/daemon/safety_wiring.go):
+//     test-only, gated behind the SYNAPTIC_TEST_AUTO_CONSENT env var.
+//
+// Not implemented in v0.1.0 (would ship in v0.2.x):
+//   - osascriptProvider: AppleScript display dialog for headless
+//     macOS daemon use cases where the GUI is unavailable.
+//   - Windows / Linux native modal providers.
+//   - noopProvider: deny-on-absence for headless CI runs.
+//
+// When no provider is wired, evaluateConsent fails closed (Deny)
+// per MISSION §2 — the engine returns "consent required but no
+// provider available" and the action is blocked.
 type ConsentProvider interface {
 	Show(ctx context.Context, ticket *ConsentTicket) (approved bool, err error)
 	IsAvailable() bool
@@ -51,7 +63,14 @@ type Engine struct {
 	pendingMu sync.Mutex
 	pending   []*ConsentTicket
 	// hooks for 9B-9E (stubbed until those sub-phases).
-	AnomalyHook  func(a blastradius.Action)
+	// AnomalyHook receives the action AND the decision the engine
+	// actually produced. The success flag was previously always false
+	// at the only call site (safety_wiring.go), which turned the
+	// §5.6 "5+ consecutive failures" trigger into a false-positive
+	// machine that halted the agent after any 5 actions through the
+	// gate. The hook now carries the verdict so the anomaly detector
+	// can distinguish a successful Allow from a Deny.
+	AnomalyHook  func(a blastradius.Action, d Decision, reason string)
 	SanitizeHook func(a *blastradius.Action) error
 	// AutonomyHook returns the current autonomy level. If nil, autonomy is disabled.
 	AutonomyHook func(taskType, app string) (level int)
@@ -90,20 +109,19 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 	// Sanitize (9C hook, stubbed).
 	if e.SanitizeHook != nil {
 		if err := e.SanitizeHook(&a); err != nil {
-			return Deny, fmt.Sprintf("sanitizer blocked: %v", err)
+			d, r := Deny, fmt.Sprintf("sanitizer blocked: %v", err)
+			e.notifyAnomaly(a, d, r)
+			return d, r
 		}
-	}
-
-	// Anomaly (9B hook, stubbed).
-	if e.AnomalyHook != nil {
-		e.AnomalyHook(a)
 	}
 
 	// Sensitive site check: escalate any action on banking/health
 	// sites to RequirePresenceAndConsent before evaluating policy.
 	if e.SensitiveHook != nil {
 		if e.SensitiveHook(a.TargetURL, a.Body) {
-			return RequirePresenceAndConsent, "sensitive site: escalated to presence-and-consent"
+			d, r := RequirePresenceAndConsent, "sensitive site: escalated to presence-and-consent"
+			e.notifyAnomaly(a, d, r)
+			return d, r
 		}
 	}
 
@@ -116,7 +134,9 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 	if e.AutonomyHook != nil {
 		lvl := e.AutonomyHook(a.Kind, a.TargetApp)
 		if lvl == 0 { // Block
-			return Deny, fmt.Sprintf("autonomy: blocked for %s/%s", a.Kind, a.TargetApp)
+			d, r := Deny, fmt.Sprintf("autonomy: blocked for %s/%s", a.Kind, a.TargetApp)
+			e.notifyAnomaly(a, d, r)
+			return d, r
 		}
 		// autonomous: check ApplyAutonomous
 		// Note: lvl=0=Block, 1=Warn, 2=Ask, 3=Autonomous
@@ -124,25 +144,50 @@ func (e *Engine) Evaluate(ctx context.Context, a blastradius.Action) (Decision, 
 			class := blastradius.Classify(a)
 			if class != blastradius.DESTRUCTIVE &&
 				(v.Decision == RequireConsent || v.Decision == RequirePresenceAndConsent) {
-				return Allow, "autonomous: auto-allowed (non-destructive consent-required)"
+				d, r := Allow, "autonomous: auto-allowed (non-destructive consent-required)"
+				e.notifyAnomaly(a, d, r)
+				return d, r
 			}
 		}
 	}
 
 	if reason, ok := e.applyWorkspaceTrust(a); ok {
-		return Allow, reason
+		d, r := Allow, reason
+		e.notifyAnomaly(a, d, r)
+		return d, r
 	}
 
 	// Direct decisions.
 	if v.Decision == Allow {
-		return Allow, v.Reason
+		d, r := Allow, v.Reason
+		e.notifyAnomaly(a, d, r)
+		return d, r
 	}
 	if v.Decision == Deny {
-		return Deny, v.Reason
+		d, r := Deny, v.Reason
+		e.notifyAnomaly(a, d, r)
+		return d, r
 	}
 
 	// Consent-required: drive the consent provider.
-	return e.evaluateConsent(ctx, a, v)
+	d, r := e.evaluateConsent(ctx, a, v)
+	e.notifyAnomaly(a, d, r)
+	return d, r
+}
+
+// notifyAnomaly invokes the AnomalyHook with the action and the
+// engine's actual verdict. This is the fix for the "false-positive
+// machine" audit finding: the hook used to fire before the verdict
+// with success always false, so any 5 actions through the gate
+// tripped the §5.6 "5+ consecutive failures" trigger. The hook now
+// sees the real outcome — Allow on a successful allowed action
+// records success=true, Deny records success=false — which is the
+// behavior the spec describes.
+func (e *Engine) notifyAnomaly(a blastradius.Action, d Decision, reason string) {
+	if e.AnomalyHook == nil {
+		return
+	}
+	e.AnomalyHook(a, d, reason)
 }
 
 // applyWorkspaceTrust is Phase 16, Rec 5: per-workspace trust.
