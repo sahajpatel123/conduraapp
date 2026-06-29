@@ -85,3 +85,53 @@ ul,
 ol {
   list-style: none;
 }
+
+/* ── Focus ring (locked) ───────────────────────────────── */
+/* Every focusable surface uses the same synapse-light ring with
+   a 3px offset. This is the single source of focus visibility. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-color: var(--border-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* Custom-focus surfaces — same ring, but the box-shadow
+   also brings the accent halo. */
+.input:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* ── Selection ─────────────────────────────────────────── */
+::selection {
+  background: var(--accent);
+  color: var(--text-inverse);
+  text-shadow: none;
+}
+
+/* ── Scrollbars — thin, near-invisible ─────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--radius-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
+}

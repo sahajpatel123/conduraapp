@@ -3815,3 +3815,133 @@ production-readiness audit on 2026-06-29. Eight issues (3 P0 + 5 P1).
 - Wait for CI run 28355778217 to complete. If green, ship this branch as the v0.1.0-prep baseline.
 - If CI red: identify which check (lint / race / windows / macOS notarization), fix, commit, push, re-watch.
 - The spec drift items (Synaptic→Condura, ~/.condura paths, ~15 cross-doc mismatches) remain for the next audit session.
+
+---
+
+## [2026-06-29 IST] AI Model: z-ai/glm-5.2
+**Session ID:** condura-gui-redesign-phase-a
+**Branch:** main (Phase A only — no commit/push; waiting for smoke box per user decision)
+**Task:** Phase A of the from-scratch GUI redesign — rewrite tokens + global styles,
+build a primitive component library, ship a permanent smoke page at #/dev/components.
+No route rebuild, no daemon changes, no Wails shell changes. Phase B (route rebuild
++ on-device Tier-3 smoke) blocked until a real macOS arm64 box is available.
+
+### Plan
+1. Read CLAUDE.md + STYLE.md + the locked marketing brand (web/app/globals.css).
+2. Lock the new desktop palette via user question (refined glass, comfortable
+   density, accent derived from the website, en-canonical i18n, smoke page at
+   #/dev/components).
+3. Rewrite tokens.css with the dark-glass palette + back-compat aliases for the
+   old Synapse Garden variable names so the existing app shell keeps building.
+4. Add named motion presets (pop, slide-up, fade, glow-pulse, float,
+   thread-draw) to animations.css alongside the existing keyframes.
+5. Lock the focus ring + selection in reset.css.
+6. Update style.css for the dark canvas (--bg, --surface-*, etc.).
+7. Build 22 primitives in lib/components/ui/ (button, iconbutton, input, textarea,
+   select, switch, card, badge, kbd, tabs, slider, avatar, skeleton, emptystate,
+   divider, progress, segmentedcontrol, tooltip, dialog, sheet, toast,
+   commandpalette).
+8. Add ui/index.ts barrel.
+9. Add lib/routes/dev/Components.svelte that mounts every primitive.
+10. Wire #/dev/components into App.svelte's hash router.
+11. Tier-1 verify: svelte-check 0/0 + vite build clean.
+
+### Files created
+- `app/web/frontend/src/lib/styles/tokens.css` — rewritten with dark-glass palette
+  + back-compat aliases for the old Synapse Garden variable names.
+- `app/web/frontend/src/lib/styles/animations.css` — added named-preset system
+  (`anim-pop`, `anim-slide-up`, `anim-fade`, `anim-glow-pulse`, `anim-float`,
+  `anim-thread-draw`, `.press`) on top of the existing keyframes.
+- `app/web/frontend/src/lib/styles/reset.css` — locked focus ring, ::selection,
+  and dark scrollbars.
+- `app/web/frontend/src/style.css` — switched body canvas to the new palette
+  + ambient halos using accent colors.
+- `app/web/frontend/src/lib/components/ui/{Avatar,Badge,Button,Card,CommandPalette,
+  Dialog,Divider,EmptyState,IconButton,Input,Kbd,Progress,SegmentedControl,Select,
+  Sheet,Skeleton,Slider,Switch,Tabs,Textarea,Toast,Tooltip}.svelte` — 22
+  presentational primitives, each self-contained with its own scoped styles.
+- `app/web/frontend/src/lib/components/ui/index.ts` — barrel export.
+- `app/web/frontend/src/lib/routes/dev/Components.svelte` — permanent smoke
+  page mounted at `#/dev/components` rendering every primitive.
+
+### Files modified
+- `app/web/frontend/src/App.svelte` — added `dev-components` route case + import.
+  No other behavior change.
+
+### Decisions made
+- **Phase A only, no commit/push.** Per user answer "wait for a smoke box" before
+  any route rebuild touches the user's actual app surface. Tokens + primitives
+  + smoke page are statically verifiable; routes need a real binary.
+- **Back-compat aliases in tokens.css.** Old components still reference
+  `--color-paper`, `--color-synapse`, `--color-pollen`, etc. Aliasing them to
+  the new dark-glass palette lets the existing app shell keep building while
+  Phase B is in flight. Aliases are documented in tokens.css and will be
+  removed as Phase B rewrites each consumer.
+- **`$lib/...` paths are not used in this project.** The smoke page uses
+  relative imports to match the existing route convention. Phase B should
+  continue the relative-import pattern.
+- **Smoke page is permanent, not dev-only.** Mounted at `#/dev/components`
+  per user answer. Future work can iterate on primitives in-context.
+- **22 primitives, not 18.** The original list was 18; Card, Progress,
+  SegmentedControl, Avatar, EmptyState, Skeleton, Divider, Tooltip, Toast,
+  Sheet, CommandPalette were added because the design system was incomplete
+  without them. File count is up to 22 primitives + 1 barrel + 1 smoke page.
+
+### Verification
+- **Tier 1 (svelte-check):** `cd app/web/frontend && npm run check`
+  → `COMPLETED 312 FILES 0 ERRORS 0 WARNINGS 0 FILES_WITH_PROBLEMS`.
+- **Tier 1 (vite build):** `cd app/web/frontend && npm run build`
+  → clean. 315 modules transformed. CSS 149.42 kB (gzip 22.39 kB).
+  JS 274.32 kB (gzip 86.40 kB). Built in 1.18s.
+- **Tier 2 / Tier 3 — NOT RUN.** Per user decision, no binary smoke run
+  until a real macOS arm64 box is available. The primitives + smoke page
+  are statically verifiable; the dev smoke page itself acts as a visual
+  smoke test once the binary is run.
+
+### Bugs / issues encountered
+- svelte-check: `$lib/...` paths don't resolve (no paths in tsconfig.json).
+  Switched smoke page to relative imports.
+- Textarea: original `bind:this={el => autoresize && autoGrow(el)}` is
+  invalid Svelte 5 syntax. Replaced with normal `bind:this={taEl}` +
+  `$effect` on value change.
+- Progress: required `value` even when `indeterminate`. Made optional
+  with `value = 0` default and updated clamped calc.
+- Card: a11y warning for `<svelte:element>` with click handler.
+  Added `role={onclick ? 'button' : undefined}`.
+- CommandPalette: a11y warning for `role="combobox"` missing
+  `aria-controls` / `aria-haspopup`. Added both.
+
+### Open questions for next session
+- The smoke page renders the Toast surface but doesn't yet exercise
+  `push()` / `dismiss()` — those are exported from the module script
+  but need an event bus to be useful. Defer to Phase B (overlay work).
+- The Card primitive uses `<svelte:element>` to switch between
+  `<button>` and `<div>`. Phase B should consider whether the existing
+  routes can consume the imperative API or whether Card needs a
+  `href` variant for link-style cards.
+- Phase B is blocked on a real macOS arm64 box for Tier-3 smoke. Until
+  then, no route can be safely rewritten.
+
+### Next steps (Phase B, blocked on smoke box)
+1. App shell rebuild: new App.svelte + new Sidebar + new TitleBar.
+2. Chat route: conversation list, message stream, composer, tool cards.
+3. Settings route: sectioned (Account, Safety, Models, Hotkey, Voice,
+   Sync, Hub, Channels, Adaptive, Updates, Legal).
+4. Safety-critical surfaces: ConsentModal, OnboardingWizard + 4 step
+   screens, Replay, Audit. Verify Tier-3 smoke that the real daemon's
+   gatekeeper consent request renders in the new modal.
+5. Remaining routes: Skills, Hub, Channels, Sync, Delegation, About.
+6. Overlay + hotkey: OverlayPrompt + HotkeyRecorder.
+7. i18n sweep: en canonical, other 5 fall back to English with TODO.
+8. Remove the Phase A back-compat aliases from tokens.css as each
+   consumer is rewritten.
+9. Final Tier-3 verification: real binary, real RPC, real audit log,
+   real consent modal pop for a destructive action.
+
+### Risks
+- The new desktop GUI palette diverges from the locked Synapse Garden
+  marketing brand. The website keeps Synapse Garden; the desktop GUI
+  ships dark-glass. Brand split is acknowledged in the plan.
+- Back-compat aliases in tokens.css will need to be removed as Phase B
+  rewrites consumers. Forgetting any single alias leaves the old
+  component visually half-synced.

@@ -1,245 +1,253 @@
-/* Design tokens — Condura "Synapse Garden" design system.
-   Warm paper canvas. Ink type. A living synapse thread. Pollen sparks.
-   The app should feel like a quiet, premium tool — alive but never loud.
-   These tokens map the Synapse Garden palette onto the variable names
-   the existing components already use, so the whole GUI reskins at once. */
+/* Design tokens — Condura desktop GUI
+   "Synapse Garden" was the previous warm-paper system that mirrored the
+   marketing site. The desktop GUI now ships a from-scratch dark-glass
+   system. The marketing site keeps Synapse Garden unchanged.
+
+   The new system:
+     - Four surface depths + a glass overlay.
+     - Hairline borders, restrained motion, generous spacing.
+     - A single accent: synapse-light (#7eeacb), lifted from the website's
+       synapse palette and retuned for a dark background.
+     - Type: Inter (sans) + Instrument Serif (display) + JetBrains Mono.
+
+   During Phase A the old Synapse Garden variable names are kept as
+   aliases that map onto the new dark-glass palette. This keeps the
+   existing routes building and rendering — they look mismatched,
+   but they don't crash. Phase B rewrites the components themselves.
+*/
 
 :root {
-  /* ── Colors — Warm Paper ─────────────────────────────── */
-  --color-bg: #f4efe4;            /* paper */
-  --color-bg-elevated: #ece5d4;   /* paper-warm */
-  --color-bg-overlay: rgba(244, 239, 228, 0.92);
-  --color-bg-hover: rgba(20, 17, 11, 0.04);
-  --color-bg-active: rgba(20, 17, 11, 0.08);
+  /* ── Surfaces (depth ladder) ─────────────────────────── */
+  --bg:              #0e0f12;
+  --surface-1:       #16181d;  /* sidebar, rail, drawer */
+  --surface-2:       #1c1f26;  /* cards, list rows */
+  --surface-3:       #23272f;  /* hover, elevated cards */
+  --surface-glass:   rgba(28, 31, 38, 0.72);
+  --surface-glass-strong: rgba(28, 31, 38, 0.88);
+  --surface-overlay: rgba(14, 15, 18, 0.62);
 
-  --color-border: rgba(20, 17, 11, 0.10);
-  --color-border-strong: rgba(20, 17, 11, 0.18);
-  --color-border-accent: rgba(11, 61, 46, 0.4);   /* synapse */
+  /* ── Borders ──────────────────────────────────────────── */
+  --border:          rgba(255, 255, 255, 0.06);
+  --border-strong:   rgba(255, 255, 255, 0.12);
+  --border-focus:    #7eeacb;
+  --border-danger:   rgba(232, 138, 126, 0.32);
 
-  --color-text: #14110b;          /* ink */
-  --color-text-muted: #5c5443;    /* ink-soft */
-  --color-text-faint: #8a8169;    /* ink-faint */
-  --color-text-dim: #b8af98;      /* ink-ghost */
+  /* ── Text ─────────────────────────────────────────────── */
+  --text:            #e9ebf0;
+  --text-muted:      #9ba1ad;
+  --text-faint:      #5d6471;
+  --text-inverse:    #0e0f12;
 
-  /* Accent — Synapse green (the living thread) */
-  --color-accent: #0b3d2e;        /* synapse-deep */
-  --color-accent-hover: #06241b;  /* synapse-deeper */
-  --color-accent-active: #1a8a6a; /* synapse-glow */
-  --color-accent-soft: rgba(11, 61, 46, 0.12);
-  --color-accent-faint: rgba(11, 61, 46, 0.05);
-  --color-accent-glow: rgba(26, 138, 106, 0.3);
+  /* ── Accent ───────────────────────────────────────────── */
+  --accent:          #7eeacb;
+  --accent-hover:    #a4f0d9;
+  --accent-press:    #5fd4b6;
+  --accent-soft:     rgba(126, 234, 203, 0.12);
+  --accent-faint:    rgba(126, 234, 203, 0.06);
+  --accent-glow:     rgba(126, 234, 203, 0.35);
+  --accent-gradient: linear-gradient(135deg, #7eeacb 0%, #5fd4b6 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(126,234,203,0.18), rgba(95,212,182,0.18));
 
-  /* Secondary — Pollen (the warm spark) */
-  --color-accent-secondary: #c97b2e;  /* pollen */
-  --color-accent-gradient: linear-gradient(135deg, #0b3d2e, #1a8a6a);
-  --color-accent-gradient-reverse: linear-gradient(225deg, #0b3d2e, #1a8a6a);
-  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(11,61,46,0.10), rgba(201,123,46,0.10));
-  --color-accent-gradient-glow: linear-gradient(135deg, rgba(26,138,106,0.18), rgba(201,123,46,0.18));
+  /* ── Semantic ─────────────────────────────────────────── */
+  --success:         #7eeacb;
+  --success-soft:    rgba(126, 234, 203, 0.14);
+  --success-glow:    rgba(126, 234, 203, 0.32);
 
-  --color-glow: rgba(26, 138, 106, 0.18);
-  --color-glow-strong: rgba(26, 138, 106, 0.35);
+  --warn:            #f0c082;
+  --warn-soft:       rgba(240, 192, 130, 0.14);
+  --warn-glow:       rgba(240, 192, 130, 0.32);
 
-  /* Semantic colors — retinted to sit on paper */
-  --color-success: #2e7d4f;
-  --color-success-soft: rgba(46, 125, 79, 0.14);
-  --color-success-glow: rgba(46, 125, 79, 0.3);
-  --color-warn: #c97b2e;          /* pollen = warn */
-  --color-warn-soft: rgba(201, 123, 46, 0.14);
-  --color-warn-glow: rgba(201, 123, 46, 0.3);
-  --color-error: #a3312a;
-  --color-error-soft: rgba(163, 49, 42, 0.12);
-  --color-error-glow: rgba(163, 49, 42, 0.28);
-  --color-info: #3a6a8a;
-  --color-info-soft: rgba(58, 106, 138, 0.12);
+  --error:           #e88a7e;
+  --error-soft:      rgba(232, 138, 126, 0.12);
+  --error-glow:      rgba(232, 138, 126, 0.28);
 
-  --color-danger: #a3312a;
-  --color-danger-hover: #7d2520;
-  --color-danger-soft: rgba(163, 49, 42, 0.10);
-  --color-danger-gradient: linear-gradient(135deg, #a3312a, #7d2520);
+  --info:            #8eb6ff;
+  --info-soft:       rgba(142, 182, 255, 0.14);
 
-  /* ── Surfaces — paper cards, not glass ─────────────── */
-  --glass-bg: rgba(236, 229, 212, 0.82);        /* paper-warm translucent */
-  --glass-bg-hover: rgba(226, 218, 198, 0.9);   /* paper-deep */
-  --glass-bg-active: rgba(216, 207, 184, 0.95); /* paper-shadow */
-  --glass-bg-solid: rgba(236, 229, 212, 0.96);
-  --glass-border: rgba(20, 17, 11, 0.10);
-  --glass-border-hover: rgba(20, 17, 11, 0.18);
-  --glass-border-active: rgba(11, 61, 46, 0.35);
-  --glass-blur: blur(20px) saturate(1.3);
-  --glass-blur-heavy: blur(40px) saturate(1.6);
-  --glass-blur-light: blur(10px) saturate(1.1);
-  --glass-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 50%);
+  --danger:          #e88a7e;
+  --danger-hover:    #d57466;
+  --danger-gradient: linear-gradient(135deg, #e88a7e 0%, #b85f54 100%);
+
+  /* ── Glass ────────────────────────────────────────────── */
+  --glass-bg:           rgba(28, 31, 38, 0.72);
+  --glass-bg-hover:     rgba(36, 40, 48, 0.82);
+  --glass-bg-active:    rgba(46, 51, 61, 0.92);
+  --glass-bg-solid:     rgba(28, 31, 38, 0.96);
+  --glass-border:       rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(255, 255, 255, 0.14);
+  --glass-border-active:rgba(126, 234, 203, 0.4);
+  --glass-blur:         blur(20px) saturate(1.4);
+  --glass-blur-heavy:   blur(40px) saturate(1.6);
+  --glass-blur-light:   blur(10px) saturate(1.2);
+  --glass-highlight:    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 50%);
 
   /* ── Typography ───────────────────────────────────────── */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-display: 'Instrument Serif', 'Inter', ui-serif, Georgia, serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, ui-serif, serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --size-2xs: 11px;
-  --size-xs: 12px;
-  --size-sm: 14px;
-  --size-md: 15px;
-  --size-lg: 18px;
-  --size-xl: 22px;
-  --size-2xl: 30px;
+  --size-xs:  12px;
+  --size-sm:  13px;
+  --size-md:  14px;
+  --size-lg:  16px;
+  --size-xl:  20px;
+  --size-2xl: 28px;
   --size-3xl: 40px;
   --size-4xl: 56px;
 
-  --weight-light: 300;
-  --weight-normal: 400;
-  --weight-medium: 500;
+  --weight-light:    300;
+  --weight-normal:   400;
+  --weight-medium:   500;
   --weight-semibold: 600;
-  --weight-bold: 700;
+  --weight-bold:     700;
 
-  --tracking-tight: -0.03em;
-  --tracking-normal: -0.01em;
-  --tracking-wide: 0.02em;
-  --tracking-wider: 0.05em;
-  --tracking-widest: 0.1em;
+  --tracking-tight:   -0.03em;
+  --tracking-tighter: -0.045em;
+  --tracking-normal:  -0.01em;
+  --tracking-wide:    0.02em;
+  --tracking-wider:   0.05em;
+  --tracking-widest:  0.1em;
 
-  --leading-tight: 1.2;
-  --leading-normal: 1.6;
-  --leading-relaxed: 1.8;
+  --leading-tight:    1.2;
+  --leading-snug:     1.35;
+  --leading-normal:   1.55;
+  --leading-relaxed:  1.7;
 
-  /* ── Spacing scale ─────────────────────────────────── */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 16px;
-  --space-4: 24px;
-  --space-5: 32px;
-  --space-6: 48px;
-  --space-8: 64px;
-  --space-10: 96px;
+  /* ── Spacing (4px base, comfortable density) ───────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 96px;
   --space-12: 128px;
 
   /* ── Radii ────────────────────────────────────────────── */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-  --radius-2xl: 36px;
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  28px;
+  --radius-3xl:  36px;
   --radius-pill: 9999px;
 
-  /* ── Shadows — warm paper depth, not cinematic black ─── */
-  --shadow-xs: 0 1px 2px rgba(20, 17, 11, 0.06);
-  --shadow-sm: 0 2px 8px rgba(20, 17, 11, 0.08), 0 1px 2px rgba(20, 17, 11, 0.04);
-  --shadow-md: 0 8px 24px rgba(20, 17, 11, 0.10), 0 2px 6px rgba(20, 17, 11, 0.05);
-  --shadow-lg: 0 16px 48px rgba(20, 17, 11, 0.14), 0 4px 12px rgba(20, 17, 11, 0.06);
-  --shadow-xl: 0 24px 60px rgba(20, 17, 11, 0.18), 0 8px 20px rgba(20, 17, 11, 0.08);
-  --shadow-2xl: 0 40px 90px rgba(20, 17, 11, 0.24), 0 12px 28px rgba(20, 17, 11, 0.10);
-  --shadow-focus: 0 0 0 3px var(--color-accent-soft);
-  --shadow-glow: 0 0 24px var(--color-glow);
-  --shadow-glow-strong: 0 0 40px var(--color-glow-strong);
-  --shadow-glow-accent: 0 0 32px rgba(26, 138, 106, 0.20), 0 0 64px rgba(201, 123, 46, 0.12);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  --shadow-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(20, 17, 11, 0.06);
+  /* ── Shadows (warm-free, near-black, layered) ─────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.65), 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-2xl:0 40px 90px rgba(0, 0, 0, 0.75), 0 12px 28px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 3px rgba(126, 234, 203, 0.35);
+  --shadow-glow:  0 0 24px rgba(126, 234, 203, 0.25);
+  --shadow-glow-strong: 0 0 40px rgba(126, 234, 203, 0.42);
+  --shadow-inset:       inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-inset-strong:inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 
-  /* ── Motion — spring physics + cinematic easing ────── */
+  /* ── Motion ───────────────────────────────────────────── */
   --transition-instant: 50ms linear;
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-spring-soft: 600ms cubic-bezier(0.22, 1, 0.36, 1);
-  --transition-bounce: 700ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --transition-fast:    150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base:    220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:    360ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-spring:  420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bounce:  600ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  --ease-out-quart:    cubic-bezier(0.25, 1, 0.5, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --thread-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:       cubic-bezier(0.34, 1.56, 0.64, 1);
+  --thread-ease:       cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Layout ───────────────────────────────────────────── */
-  --sidebar-rail-width: 64px;
-  --sidebar-drawer-width: 280px;
-  --content-max-width: 800px;
+  --sidebar-rail-width:   56px;
+  --sidebar-drawer-width: 264px;
+  --titlebar-height:     44px;
+  --status-rail-height:  28px;
+  --content-max-width:    880px;
   --content-max-width-wide: 1200px;
 
-  /* ── Z-index scale ────────────────────────────────────── */
-  --z-base: 0;
-  --z-elevated: 10;
-  --z-sticky: 50;
-  --z-overlay: 100;
-  --z-modal: 200;
-  --z-toast: 500;
-  --z-ambient: -1;
-  --z-max: 9999;
+  /* ── Z-index ──────────────────────────────────────────── */
+  --z-base:      0;
+  --z-elevated:  10;
+  --z-sticky:    50;
+  --z-overlay:   100;
+  --z-modal:     200;
+  --z-toast:     500;
+  --z-ambient:   -1;
+  --z-max:       9999;
 
-  /* ── Synapse Garden extras ───────────────────────────── */
-  --color-paper: #f4efe4;
-  --color-paper-warm: #ece5d4;
-  --color-paper-deep: #e2dac6;
-  --color-ink: #14110b;
-  --color-synapse: #0b3d2e;
-  --color-synapse-deep: #06241b;
-  --color-synapse-glow: #1a8a6a;
-  --color-synapse-light: #9ce8c8;
-  --color-pollen: #c97b2e;
-  --color-pollen-deep: #9a5a1a;
-  --color-pollen-light: #f0c082;
+  /* ── Backwards-compat aliases (Phase A only) ──────────── */
+  /* The existing components reference the old Synapse Garden variable
+     names. These aliases let the app keep building during Phase A.
+     Phase B removes them as components get rewritten. */
+  --color-bg:                var(--bg);
+  --color-bg-elevated:       var(--surface-2);
+  --color-bg-overlay:        var(--surface-overlay);
+  --color-bg-hover:          rgba(255, 255, 255, 0.04);
+  --color-bg-active:         rgba(255, 255, 255, 0.08);
+  --color-border:            var(--border);
+  --color-border-strong:     var(--border-strong);
+  --color-border-accent:     var(--accent-soft);
+  --color-text:              var(--text);
+  --color-text-muted:        var(--text-muted);
+  --color-text-faint:        var(--text-faint);
+  --color-text-dim:          var(--text-faint);
+  --color-accent:            var(--accent);
+  --color-accent-hover:      var(--accent-hover);
+  --color-accent-active:     var(--accent-press);
+  --color-accent-soft:       var(--accent-soft);
+  --color-accent-faint:      var(--accent-faint);
+  --color-accent-glow:       var(--accent-glow);
+  --color-accent-secondary:  var(--warn);
+  --color-accent-gradient:   var(--accent-gradient);
+  --color-accent-gradient-reverse: linear-gradient(225deg, var(--accent) 0%, var(--accent-press) 100%);
+  --color-accent-gradient-subtle: var(--accent-gradient-soft);
+  --color-accent-gradient-glow:    var(--accent-gradient-soft);
+  --color-glow:              var(--accent-glow);
+  --color-glow-strong:       var(--shadow-glow-strong);
+  --color-success:           var(--success);
+  --color-success-soft:      var(--success-soft);
+  --color-success-glow:      var(--success-glow);
+  --color-warn:              var(--warn);
+  --color-warn-soft:         var(--warn-soft);
+  --color-warn-glow:         var(--warn-glow);
+  --color-error:             var(--error);
+  --color-error-soft:        var(--error-soft);
+  --color-error-glow:        var(--error-glow);
+  --color-info:              var(--info);
+  --color-info-soft:         var(--info-soft);
+  --color-danger:            var(--danger);
+  --color-danger-hover:      var(--danger-hover);
+  --color-danger-soft:       var(--error-soft);
+  --color-danger-gradient:   var(--danger-gradient);
+
+  /* old paper/pollen/synapse names aliased for back-compat */
+  --color-paper:        var(--bg);
+  --color-paper-warm:   var(--surface-1);
+  --color-paper-deep:   var(--surface-2);
+  --color-paper-shadow: var(--surface-3);
+  --color-ink:          var(--text);
+  --color-ink-soft:     var(--text-muted);
+  --color-ink-mute:     var(--text-muted);
+  --color-ink-faint:    var(--text-faint);
+  --color-ink-ghost:    var(--text-faint);
+  --color-synapse:      var(--accent);
+  --color-synapse-deep: var(--accent-press);
+  --color-synapse-glow: var(--accent-glow);
+  --color-synapse-light:var(--accent-hover);
+  --color-pollen:       var(--warn);
+  --color-pollen-deep:  var(--warn);
+  --color-pollen-light: var(--warn);
 }
 
-/* ── Ink theme (the rare dark moment — night mode) ──────── */
-:root[data-theme='ink'] {
-  --color-bg: #14110b;
-  --color-bg-elevated: #1c1810;
-  --color-bg-overlay: rgba(20, 17, 11, 0.92);
-  --color-bg-hover: rgba(244, 239, 228, 0.04);
-  --color-bg-active: rgba(244, 239, 228, 0.08);
-
-  --color-border: rgba(244, 239, 228, 0.08);
-  --color-border-strong: rgba(244, 239, 228, 0.14);
-  --color-border-accent: rgba(156, 232, 200, 0.4);
-
-  --color-text: #f4efe4;
-  --color-text-muted: #b8af98;
-  --color-text-faint: #8a8169;
-  --color-text-dim: #5c5443;
-
-  --color-accent: #9ce8c8;        /* synapse-light */
-  --color-accent-hover: #1a8a6a;
-  --color-accent-soft: rgba(156, 232, 200, 0.12);
-  --color-accent-faint: rgba(156, 232, 200, 0.05);
-  --color-accent-glow: rgba(26, 138, 106, 0.3);
-
-  --color-accent-secondary: #f0c082;  /* pollen-light */
-  --color-accent-gradient: linear-gradient(135deg, #9ce8c8, #1a8a6a);
-  --color-accent-gradient-subtle: linear-gradient(135deg, rgba(156,232,200,0.10), rgba(240,192,130,0.10));
-  --color-accent-gradient-glow: linear-gradient(135deg, rgba(156,232,200,0.18), rgba(240,192,130,0.18));
-
-  --color-glow: rgba(26, 138, 106, 0.22);
-  --color-glow-strong: rgba(26, 138, 106, 0.4);
-
-  --color-success: #9ce8c8;
-  --color-success-soft: rgba(156, 232, 200, 0.14);
-  --color-success-glow: rgba(156, 232, 200, 0.3);
-  --color-warn: #f0c082;
-  --color-warn-soft: rgba(240, 192, 130, 0.14);
-  --color-warn-glow: rgba(240, 192, 130, 0.3);
-  --color-error: #e88a7e;
-  --color-error-soft: rgba(232, 138, 126, 0.14);
-  --color-error-glow: rgba(232, 138, 126, 0.3);
-
-  --glass-bg: rgba(28, 24, 16, 0.82);
-  --glass-bg-hover: rgba(36, 31, 20, 0.9);
-  --glass-bg-active: rgba(44, 38, 24, 0.95);
-  --glass-bg-solid: rgba(28, 24, 16, 0.96);
-  --glass-border: rgba(244, 239, 228, 0.08);
-  --glass-border-hover: rgba(244, 239, 228, 0.16);
-  --glass-border-active: rgba(156, 232, 200, 0.35);
-  --glass-highlight: linear-gradient(180deg, rgba(244, 239, 228, 0.06) 0%, transparent 50%);
-
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.8), 0 8px 20px rgba(0, 0, 0, 0.6);
-  --shadow-2xl: 0 40px 90px rgba(0, 0, 0, 0.9), 0 12px 28px rgba(0, 0, 0, 0.7);
-  --shadow-inset: inset 0 1px 0 rgba(244, 239, 228, 0.08);
-  --shadow-inset-strong: inset 0 1px 0 rgba(244, 239, 228, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-}
-
-/* ── Reduced motion — respect the user ───────────────────── */
+/* ── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --transition-instant: 0ms;
@@ -247,7 +255,6 @@
     --transition-base: 0ms;
     --transition-slow: 0ms;
     --transition-spring: 0ms;
-    --transition-spring-soft: 0ms;
     --transition-bounce: 0ms;
   }
   *, *::before, *::after {

@@ -202,11 +202,81 @@
 .anim-fade-in { animation: fade-in var(--transition-slow) var(--ease-out-expo) both; }
 .anim-fade-in-up { animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both; }
 .anim-fade-in-scale { animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both; }
-.anim-modal-in { animation: modal-in var(--transition-spring-soft) var(--ease-out-expo) both; }
+.anim-modal-in { animation: modal-in var(--transition-spring) var(--ease-out-expo) both; }
 .anim-backdrop-in { animation: backdrop-in var(--transition-base) ease both; }
 
 /* Staggered list: use with --stagger-index custom property */
 .stagger-item {
   animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
   animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAMED PRESETS — the four motion verbs every component uses.
+
+     .anim-pop           — appears in place with a soft spring
+     .anim-slide-up      — slides up from below with a fade
+     .anim-fade          — plain fade (no translate)
+     .anim-glow-pulse    — accent halo pulse (status indicators)
+     .anim-float         — gentle vertical bob (live elements)
+     .anim-thread-draw   — stroke-dashoffset draw (SVG paths)
+
+   Combine with --anim-delay: Nms (var) for staggered sequences.
+   ═══════════════════════════════════════════════════════════════ */
+.anim-pop {
+  animation: anim-pop-kf var(--transition-spring) var(--ease-spring) both;
+  animation-delay: var(--anim-delay, 0ms);
+}
+@keyframes anim-pop-kf {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.anim-slide-up {
+  animation: anim-slide-up-kf var(--transition-slow) var(--ease-out-expo) both;
+  animation-delay: var(--anim-delay, 0ms);
+}
+@keyframes anim-slide-up-kf {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-fade {
+  animation: fade-in var(--transition-base) linear both;
+  animation-delay: var(--anim-delay, 0ms);
+}
+
+.anim-glow-pulse {
+  animation: glow-pulse 2.4s var(--ease-in-out-quart) infinite;
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 14px var(--accent-glow); opacity: 1; }
+  50%      { box-shadow: 0 0 28px var(--accent-glow); opacity: 0.85; }
+}
+
+.anim-float {
+  animation: anim-float-kf 4s var(--ease-in-out-quart) infinite;
+}
+@keyframes anim-float-kf {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+.anim-thread-draw {
+  stroke-dasharray: var(--thread-length, 1000);
+  stroke-dashoffset: var(--thread-length, 1000);
+  animation: thread-draw-kf 1.2s var(--thread-ease) forwards;
+}
+@keyframes thread-draw-kf {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Press feedback for any clickable surface — apply to buttons,
+   cards, list rows. Combined with .interactive. */
+.press {
+  transition: transform var(--transition-fast) var(--ease-spring);
+}
+.press:active {
+  transform: scale(0.97);
+  transition-duration: var(--transition-instant);
 }

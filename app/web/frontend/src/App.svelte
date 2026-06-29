@@ -11,6 +11,7 @@
   import Skills from './lib/routes/Skills.svelte'
   import Channels from './lib/routes/Channels.svelte'
   import Delegation from './lib/routes/Delegation.svelte'
+  import DevComponents from './lib/routes/dev/Components.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
@@ -36,7 +37,8 @@
     currentHash === '#/sync' ? 'sync' :
     currentHash === '#/skills' ? 'skills' :
     currentHash === '#/channels' ? 'channels' :
-    currentHash === '#/delegation' ? 'delegation' : 'chat'
+    currentHash === '#/delegation' ? 'delegation' :
+    currentHash === '#/dev/components' ? 'dev-components' : 'chat'
   )
 
   onMount(() => {
@@ -131,6 +133,8 @@
             <Channels />
           {:else if route === 'delegation'}
             <Delegation />
+          {:else if route === 'dev-components'}
+            <DevComponents />
           {:else}
             <Chat />
           {/if}
