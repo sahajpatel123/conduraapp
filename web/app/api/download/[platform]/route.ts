@@ -15,7 +15,6 @@ import { NextRequest, NextResponse } from "next/server";
  *   /api/download/windows      -> Windows setup EXE
  *   /api/download/windows-portable -> Windows portable EXE
  *   /api/download/linux        -> Linux .deb package
- *   /api/download/linux-rpm    -> Linux .rpm package
  *   /api/download/linux-appimage -> Linux AppImage
  *   /api/download/daemon-mac   -> macOS daemon only
  *   /api/download/daemon-linux -> Linux daemon only

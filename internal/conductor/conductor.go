@@ -26,9 +26,9 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/sahajpatel123/synapticapp/internal/hotkey"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
-	"github.com/sahajpatel123/synapticapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/hotkey"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
 )
 
 // ErrNoHotkey is returned by Start when the underlying hotkey manager

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 // fakeExecutor is a stub Executor that records every call.

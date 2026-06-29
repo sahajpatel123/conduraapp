@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
 )
 
 // The wailsController's state machine is identical to the

@@ -19,7 +19,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
 )
 
 // ErrHalted is returned when a presence action is blocked by the kill switch.

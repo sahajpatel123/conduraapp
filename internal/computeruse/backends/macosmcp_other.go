@@ -2,7 +2,7 @@
 
 package backends
 
-import "github.com/sahajpatel123/synapticapp/internal/computeruse"
+import "github.com/sahajpatel123/conduraapp/internal/computeruse"
 
 type noopMCP struct{}
 

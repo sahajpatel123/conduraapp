@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // errUnimplemented is returned by stub backend methods that aren't

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/sahajpatel123/synapticapp/internal/secrets"
+	"github.com/sahajpatel123/conduraapp/internal/secrets"
 )
 
 const testMasterKey = "k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4=" // 32 bytes base64
@@ -22,7 +22,7 @@ func newTestDB(t *testing.T) *DB {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := Open(context.Background(), Config{
-		Path:      filepath.Join(dir, "synaptic.db"),
+		Path:      filepath.Join(dir, "condura.db"),
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func newTestDB(t *testing.T) *DB {
 func TestOpen_DefaultPath(t *testing.T) {
 	dir := t.TempDir()
 	db, err := Open(context.Background(), Config{
-		Path:      filepath.Join(dir, "synaptic.db"),
+		Path:      filepath.Join(dir, "condura.db"),
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestOpen_CreatesDataDir(t *testing.T) {
 	dir := t.TempDir()
 	nested := filepath.Join(dir, "deeply", "nested", "data")
 	db, err := Open(context.Background(), Config{
-		Path:      filepath.Join(nested, "synaptic.db"),
+		Path:      filepath.Join(nested, "condura.db"),
 		MasterKey: testMasterKey,
 	})
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestOpen_LoadsMasterKeyFromSecrets(t *testing.T) {
 	require.NoError(t, sm.Set(secrets.MasterKey, testMasterKey))
 
 	db, err := Open(context.Background(), Config{
-		Path:    filepath.Join(dir, "synaptic.db"),
+		Path:    filepath.Join(dir, "condura.db"),
 		Secrets: sm,
 	})
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestOpen_GeneratesAndStoresMasterKey(t *testing.T) {
 	require.NoError(t, err)
 	// Don't pre-set the master key.
 	db, err := Open(context.Background(), Config{
-		Path:    filepath.Join(dir, "synaptic.db"),
+		Path:    filepath.Join(dir, "condura.db"),
 		Secrets: sm,
 	})
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestOpen_GeneratesAndStoresMasterKey(t *testing.T) {
 
 func TestOpen_PersistsAcrossInstances(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "synaptic.db")
+	path := filepath.Join(dir, "condura.db")
 
 	db1, err := Open(context.Background(), Config{Path: path, MasterKey: testMasterKey})
 	require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestEnsureVersion_Unknown(t *testing.T) {
 
 func TestMigrations_Idempotent(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "synaptic.db")
+	path := filepath.Join(dir, "condura.db")
 
 	cfg := Config{Path: path, MasterKey: testMasterKey}
 	db1, err := Open(context.Background(), cfg)
@@ -282,7 +282,7 @@ func TestMigrations_OnMigrate(t *testing.T) {
 	var called []int
 	var mu sync.Mutex
 	db, err := Open(context.Background(), Config{
-		Path:      filepath.Join(dir, "synaptic.db"),
+		Path:      filepath.Join(dir, "condura.db"),
 		MasterKey: testMasterKey,
 		OnMigrate: func(v int) error {
 			mu.Lock()
@@ -301,7 +301,7 @@ func TestMigrations_OnMigrate(t *testing.T) {
 func TestMigrations_OnMigrateError(t *testing.T) {
 	dir := t.TempDir()
 	db, err := Open(context.Background(), Config{
-		Path:      filepath.Join(dir, "synaptic.db"),
+		Path:      filepath.Join(dir, "condura.db"),
 		MasterKey: testMasterKey,
 		OnMigrate: func(v int) error { return errors.New("nope") },
 	})
@@ -495,7 +495,7 @@ func TestReload_RefreshesOnDiskContents(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sm.Set(secrets.MasterKey, testMasterKey))
 
-	path := filepath.Join(dir, "synaptic.db")
+	path := filepath.Join(dir, "condura.db")
 	db, err := Open(context.Background(), Config{Path: path, Secrets: sm})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })

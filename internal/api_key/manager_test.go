@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/sahajpatel123/synapticapp/internal/secrets"
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/secrets"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 const testMK = "k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4="

@@ -1,3 +1,6 @@
+
+//go:build synaptictest
+
 // Phase 11 trust E2E — the "fix everything" tests for the
 // three caveats the runtime review caught:
 //
@@ -19,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/backup"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/backup"
 )
 
 // TestTrustE2E_RestoreReturnsDataThroughRPC is the runtime

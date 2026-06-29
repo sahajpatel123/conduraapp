@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/adaptive"
-	"github.com/sahajpatel123/synapticapp/internal/memory"
-	"github.com/sahajpatel123/synapticapp/internal/skills"
+	"github.com/sahajpatel123/conduraapp/internal/adaptive"
+	"github.com/sahajpatel123/conduraapp/internal/memory"
+	"github.com/sahajpatel123/conduraapp/internal/skills"
 )
 
 // PostSessionExtractor runs async memory extraction and skill

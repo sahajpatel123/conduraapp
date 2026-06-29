@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 // GatedExecutor wraps any Executor and routes every action through the

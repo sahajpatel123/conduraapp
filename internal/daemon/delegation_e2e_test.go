@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/delegation"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/delegation"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // realEngine returns the production Engine with buildSafetyLayer hooks.

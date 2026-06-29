@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 type fakeMC struct {

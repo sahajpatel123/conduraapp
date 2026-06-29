@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 func TestPolicy_DefaultEmbeddedWorks(t *testing.T) {
@@ -462,3 +462,69 @@ func (s *slowConsent) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
 	<-s.block
 	return false, nil
 }
+
+// TestAnomalyHook_CarriesRealDecision pins P0-1 of the 2026-06-29
+// audit: the engine's AnomalyHook must fire AFTER the verdict is
+// decided so the wired-in detector receives success=true on Allow
+// and success=false on Deny. Before this fix, the hook fired before
+// the verdict with success=false hard-coded, which made the §5.6
+// "5+ consecutive failures" trigger trip after any 5 actions through
+// the gate (including 5 successful READs).
+func TestAnomalyHook_CarriesRealDecision(t *testing.T) {
+	p := DefaultPolicy()
+	e := NewEngine(p, nil, &testHalt{})
+
+	type hookCall struct {
+		decision Decision
+	}
+	var calls []hookCall
+	e.AnomalyHook = func(_ blastradius.Action, d Decision, _ string) {
+		calls = append(calls, hookCall{decision: d})
+	}
+
+	// 5 reads (Allow) — must NOT accumulate failures.
+	for i := 0; i < 5; i++ {
+		d, _ := e.Evaluate(context.Background(), blastradius.Action{Kind: "chat"})
+		if d != Allow {
+			t.Fatalf("read %d: expected Allow, got %v", i, d)
+		}
+	}
+	if len(calls) != 5 {
+		t.Fatalf("expected 5 hook calls, got %d", len(calls))
+	}
+	for i, c := range calls {
+		if c.decision != Allow {
+			t.Errorf("call %d: expected decision=Allow, got %v", i, c.decision)
+		}
+	}
+
+	// Now 5 explicitly denied actions — each must record success=false.
+	// We use a SanitizeHook that always errors, which is a deterministic
+	// way to drive a Deny without setting up a consent provider.
+	e2 := NewEngine(p, nil, &testHalt{})
+	e2.SanitizeHook = func(_ *blastradius.Action) error {
+		return errAlwaysDeny
+	}
+	calls = calls[:0]
+	e2.AnomalyHook = func(_ blastradius.Action, d Decision, _ string) {
+		calls = append(calls, hookCall{decision: d})
+	}
+	for i := 0; i < 5; i++ {
+		d, _ := e2.Evaluate(context.Background(), blastradius.Action{Kind: "chat"})
+		if d != Deny {
+			t.Fatalf("deny %d: expected Deny, got %v", i, d)
+		}
+	}
+	for i, c := range calls {
+		if c.decision != Deny {
+			t.Errorf("call %d: expected decision=Deny, got %v", i, c.decision)
+		}
+	}
+}
+
+// errAlwaysDeny is a sentinel for TestAnomalyHook_CarriesRealDecision.
+type errAlwaysDenyer struct{}
+
+func (errAlwaysDenyer) Error() string { return "always deny" }
+
+var errAlwaysDeny = errAlwaysDenyer{}

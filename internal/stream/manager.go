@@ -37,8 +37,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // Common errors returned by the stream package.

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sahajpatel123/synapticapp/internal/adaptive"
-	"github.com/sahajpatel123/synapticapp/internal/failover"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/adaptive"
+	"github.com/sahajpatel123/conduraapp/internal/failover"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
 )
 
 // AdaptiveComponents bundles the adaptive engine subsystems.

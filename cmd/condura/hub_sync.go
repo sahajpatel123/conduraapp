@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/sahajpatel123/synapticapp/internal/hub"
+	"github.com/sahajpatel123/conduraapp/internal/hub"
 )
 
 // cmdHub dispatches the `hub` subcommand.

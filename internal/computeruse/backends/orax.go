@@ -12,7 +12,7 @@ package backends
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // ORAXBackend implements computeruse.Backend using the macOS

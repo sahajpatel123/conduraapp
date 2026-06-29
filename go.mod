@@ -1,4 +1,4 @@
-module github.com/sahajpatel123/synapticapp
+module github.com/sahajpatel123/conduraapp
 
 go 1.25.11
 

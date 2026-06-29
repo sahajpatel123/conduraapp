@@ -31,8 +31,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 func main() {

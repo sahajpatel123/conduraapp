@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/api_key"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/api_key"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
 )
 
 // buildProvidersFromConfig reads cfg.LLM.Providers and, for every
@@ -20,6 +21,13 @@ import (
 // by the guard so the kill switch's Layer 3 (network isolation) takes
 // effect for outbound LLM traffic.
 //
+// If anomalyDet is non-nil, the same HTTP transports are wrapped
+// with anomaly.RecordingTransport so the fifth §5.6 trigger
+// (new-endpoint detection) fires on every outbound request. The
+// recorder sits OUTSIDE the guard so a request blocked by the guard
+// does not consume a "seen host" entry — only requests that
+// actually reach the network are recorded.
+//
 // Phase 17, Fix #4 (B1): we ALSO auto-enable any provider that has a
 // stored API key in the api_key.Manager but is disabled in the YAML
 // map. This makes `apikeys.set` self-sufficient — the user adds a key
@@ -29,7 +37,7 @@ import (
 // list is iterated so we pick up keys for any provider we know how
 // to build, regardless of whether the user explicitly added it to
 // the YAML map.
-func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *config.Config, akm *api_key.Manager, netGuard halt.NetworkGuard) int {
+func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *config.Config, akm *api_key.Manager, netGuard halt.NetworkGuard, anomalyDet *anomaly.Detector) int {
 	if cfg.LLM.Providers == nil {
 		cfg.LLM.Providers = map[string]config.ProviderConfig{}
 	}
@@ -76,7 +84,13 @@ func buildProvidersFromConfig(log *slog.Logger, registry *llm.Registry, cfg *con
 		// applies to all outbound LLM traffic. We do this through
 		// a small adapter that calls into the LLM provider's
 		// settable HTTPClient field.
-		wrapProviderHTTPClient(prov, netGuard)
+		//
+		// 2026-06-29 audit (P0-2): also wrap with the anomaly
+		// recorder so the fifth §5.6 trigger (new-endpoint detection)
+		// fires when the agent pivots to a host it has not used
+		// before. Recorder wraps OUTSIDE the guard so a guard-blocked
+		// request is not counted as "seen host".
+		wrapProviderHTTPClient(prov, netGuard, anomalyDet)
 		registry.Register(prov)
 		count++
 	}
@@ -121,8 +135,8 @@ func knownProviders() []string {
 // p.HTTPClient field for OpenAICompat) at request time, so wrapping
 // the field takes effect on the next request without rebuilding
 // the provider.
-func wrapProviderHTTPClient(prov llm.Provider, guard halt.NetworkGuard) {
-	if guard == nil || prov == nil {
+func wrapProviderHTTPClient(prov llm.Provider, guard halt.NetworkGuard, anomalyDet *anomaly.Detector) {
+	if prov == nil {
 		return
 	}
 	// OpenAICompat and friends all expose a settable *http.Client
@@ -130,13 +144,60 @@ func wrapProviderHTTPClient(prov llm.Provider, guard halt.NetworkGuard) {
 	type clientBearer interface {
 		GetHTTPClient() *http.Client
 	}
-	if b, ok := prov.(clientBearer); ok {
+	b, ok := prov.(clientBearer)
+	if !ok {
+		return
+	}
+	hc := b.GetHTTPClient()
+	if hc == nil {
+		hc = &http.Client{Timeout: 5 * time.Minute}
+	}
+	// Compose the transport chain. The recorder sits OUTSIDE the
+	// guard so a guard-rejected request does not record the host
+	// as "seen". The recorder also sits outside the existing
+	// transport so the recorder captures the actual outbound URL
+	// without the guard rewriting it.
+	var transport http.RoundTripper
+	transport = hc.Transport
+	if guard != nil {
+		transport = guard.WrapTransport(transport)
+	}
+	if anomalyDet != nil {
+		transport = anomaly.NewRecordingTransport(anomalyDet, transport)
+	}
+	hc.Transport = transport
+}
+
+// wrapProvidersWithRecorder walks every registered provider in
+// `reg` and re-wraps its HTTP client transport with an
+// anomaly.RecordingTransport. It is called AFTER the safety
+// subsystem is constructed, because the recorder needs the
+// anomaly detector (which is part of the safety layer).
+//
+// Idempotent: a transport that already has a *RecordingTransport
+// is left as-is. This avoids double-recording if the daemon is
+// restarted within a test process.
+func wrapProvidersWithRecorder(reg *llm.Registry, det *anomaly.Detector) {
+	if reg == nil || det == nil {
+		return
+	}
+	type clientBearer interface {
+		GetHTTPClient() *http.Client
+	}
+	for _, prov := range reg.List() {
+		b, ok := prov.(clientBearer)
+		if !ok {
+			continue
+		}
 		hc := b.GetHTTPClient()
 		if hc == nil {
-			hc = &http.Client{Timeout: 5 * time.Minute}
+			continue
 		}
-		hc.Transport = guard.WrapTransport(hc.Transport)
-		return
+		// Already wrapped? Skip.
+		if _, ok := hc.Transport.(*anomaly.RecordingTransport); ok {
+			continue
+		}
+		hc.Transport = anomaly.NewRecordingTransport(det, hc.Transport)
 	}
 }
 

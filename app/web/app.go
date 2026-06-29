@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/conductor"
-	"github.com/sahajpatel123/synapticapp/internal/daemon"
-	"github.com/sahajpatel123/synapticapp/internal/hotkey"
-	"github.com/sahajpatel123/synapticapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/conductor"
+	"github.com/sahajpatel123/conduraapp/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/internal/hotkey"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
 )
 
 // App is the Wails app struct. Methods on this struct are bound to

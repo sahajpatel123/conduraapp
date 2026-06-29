@@ -1,3 +1,5 @@
+//go:build synaptictest
+
 // Hard contract test: the backup package, the uninstall
 // manifest, and the daemon's skills store must agree on the
 // absolute path of skills.db. If any of them disagree, the
@@ -35,10 +37,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/backup"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/backup"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // TestTrustE2E_BackupRoundTrip drives the full backup.create →
@@ -67,6 +69,13 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -195,6 +204,13 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)
@@ -324,6 +340,13 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	cfg.APIServer.AuthToken = "test-token"
 	clearSynapticEnv(t)
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
+	// Audit 2026-06-28 fix: apikeys.set now routes through the
+	// gatekeeper (HIGH finding). Backup/restore E2E exercises the
+	// storage/wire path, not the consent UX, so we set the
+	// auto-consent test override. Without this the test hangs on
+	// the 300s consent timeout. See safety_wiring.go for the
+	// env-var guard that protects production from accidental use.
+	t.Setenv("SYNAPTIC_TEST_AUTO_CONSENT", "1")
 
 	log := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	subs, err := initSubsystems(log, cfg, nil)

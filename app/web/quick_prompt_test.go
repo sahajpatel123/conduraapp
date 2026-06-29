@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
 )
 
 func TestResolveOverlayHotkey(t *testing.T) {

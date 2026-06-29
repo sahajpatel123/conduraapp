@@ -9,7 +9,7 @@ package ax
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // Backend is not available on non-Darwin platforms.

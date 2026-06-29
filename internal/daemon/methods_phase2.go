@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/anomaly"
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/conversation"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/stream"
-	"github.com/sahajpatel123/synapticapp/internal/watchdog"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/conversation"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/stream"
+	"github.com/sahajpatel123/conduraapp/internal/watchdog"
 )
 
 // registerConversationMethods wires conversations.* + llm.stream +

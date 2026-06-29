@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/sahajpatel123/synapticapp/internal/tui"
+	"github.com/sahajpatel123/conduraapp/internal/tui"
 )
 
 func main() {

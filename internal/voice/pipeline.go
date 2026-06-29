@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // ErrSHAMismatch is returned by the Pipeline when the binary or model

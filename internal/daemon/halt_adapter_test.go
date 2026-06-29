@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
 )
 
 // fakeGuard is a minimal halt.NetworkGuard that records Halt/Resume

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // fakeProvider is a controllable Provider for tests. It returns a

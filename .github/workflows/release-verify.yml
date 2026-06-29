@@ -17,7 +17,9 @@ jobs:
   # ---------------------------------------------------------------
   goreleaser-snapshot:
     name: GoReleaser snapshot
-    runs-on: ubuntu-latest
+    # Darwin CGO builds require a macOS host; Linux runners cannot cross-
+    # compile them (clang -arch fails). macOS can snapshot all targets.
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,14 +32,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install GoReleaser
-        run: |
-          curl -sfL https://github.com/goreleaser/goreleaser/releases/download/v2.12.2/goreleaser_Linux_x86_64.tar.gz \
-            | tar -xz -C /usr/local/bin goreleaser
-          goreleaser --version
-
       - name: Snapshot release
-        run: goreleaser release --snapshot --clean
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --snapshot --clean
 
       - name: Verify snapshot artifacts
         run: |

@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/stream"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/stream"
 )
 
 // mockGatekeeper is a test double that allows all actions.

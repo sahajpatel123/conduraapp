@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/replay"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/replay"
 )
 
 const errReplayNotAvailable = "replay subsystem not available"

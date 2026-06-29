@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/config"
 )
 
 // TestRun_Smoke brings up the daemon in-process, verifies the

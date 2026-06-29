@@ -3,40 +3,30 @@
   "daemon.ready": "Daemon ready",
   "daemon.shutdown": "Shutting down...",
   "daemon.halted": "Daemon halted: {0}",
-
   "config.loaded": "Configuration loaded from {0}",
   "config.invalid": "Invalid configuration: {0}",
-
   "storage.opened": "Storage opened at {0}",
   "storage.failed": "Failed to open storage: {0}",
-
   "secrets.backend": "Secrets backend: {0}",
   "secrets.failed": "Failed to initialize secrets: {0}",
-
   "llm.registry.ready": "LLM registry ready ({0} providers)",
   "llm.provider.registered": "Registered provider: {0} ({1} models)",
   "llm.no_provider": "No LLM provider configured",
   "llm.chat_failed": "Chat request failed: {0}",
   "llm.stream_failed": "Stream request failed: {0}",
-
   "failover.ready": "Failover ready ({0} providers)",
   "failover.switched": "Switched to fallback provider: {0}",
   "failover.all_down": "All providers unavailable",
-
   "spend.limit_exceeded": "Daily spend limit exceeded (${0})",
   "spend.warning": "Spend warning: ${0} / ${1} today",
-
   "ipc.listening": "IPC listening on {0}",
   "ipc.auth_failed": "Authentication failed: {0}",
   "ipc.request_failed": "Request failed: {0}",
-
   "audit.appended": "Audit entry appended",
   "audit.chain_verified": "Audit chain verified ({0} rows)",
   "audit.chain_broken": "Audit chain broken at row {0}: {1}",
-
   "halt.triggered": "Kill switch triggered: {0}",
   "halt.resumed": "Kill switch cleared",
-
   "consent.request": "Action requires your consent",
   "consent.granted": "Consent granted",
   "consent.denied": "Consent denied",
@@ -54,24 +44,20 @@
   "consent.action.network": "send data through",
   "consent.action.destructive": "perform a destructive action on",
   "consent.action.default": "act on",
-
   "gatekeeper.allowed": "Action allowed: {0}",
   "gatekeeper.denied": "Action denied: {0}",
   "gatekeeper.consent_required": "Action requires consent: {0}",
   "gatekeeper.presence_required": "Action requires your presence and consent: {0}",
   "gatekeeper.sanitizer_blocked": "Action blocked by sanitizer: {0}",
-
   "anomaly.rate_exceeded": "Action rate exceeded ({0}/min)",
   "anomaly.loop_detected": "Coordinate loop detected",
   "anomaly.duration_exceeded": "Task duration exceeded 30 minutes",
   "anomaly.failures_exceeded": "Consecutive failures exceeded threshold",
-
   "sanitize.shell_denied": "Shell command denied: {0}",
   "sanitize.path_denied": "Path denied: {0}",
   "sanitize.url_denied": "URL denied (SSRF): {0}",
   "sanitize.pii_detected": "PII detected in input",
   "sanitize.python_import_denied": "Banned Python import detected: {0}",
-
   "voice.pipeline_ready": "Voice pipeline ready",
   "voice.pipeline_failed": "Voice pipeline failed: {0}",
   "voice.no_device": "No audio capture device found",
@@ -82,11 +68,9 @@
   "voice.orb.listening": "Listening",
   "voice.orb.speaking": "Speaking",
   "voice.transcript.listening": "Listening...",
-
   "session.started": "Session started",
   "session.ended": "Session ended",
   "session.halted": "Session halted: {0}",
-
   "overlay.shown": "Overlay shown",
   "overlay.hidden": "Overlay hidden",
   "overlay.placeholder": "Ask Condura...",
@@ -94,14 +78,12 @@
   "overlay.close": "Close overlay",
   "overlay.via": "via {0} / {1}",
   "overlay.no_provider": "No provider configured — open Settings to add one.",
-
   "tray.status_idle": "Idle",
   "tray.status_listening": "Listening...",
   "tray.status_thinking": "Thinking...",
   "tray.status_speaking": "Speaking...",
   "tray.status_halted": "HALTED",
   "tray.status_error": "Error",
-
   "hotkey.registered": "Hotkey registered: {0}",
   "hotkey.failed": "Failed to register hotkey: {0}",
   "hotkey.recorder.hint_modifier": "Hold a modifier (Cmd/Ctrl/Option/Shift) and press a key…",
@@ -111,55 +93,45 @@
   "hotkey.recorder.recording": "Recording… press keys",
   "hotkey.recorder.placeholder": "Click, then press your keys",
   "hotkey.recorder.suggestions": "Suggestions:",
-
   "updater.checking": "Checking for updates...",
   "updater.available": "Update available: {0}",
   "updater.applying": "Applying update...",
   "updater.up_to_date": "Already up to date",
   "updater.failed": "Update failed: {0}",
-
   "mcp.server_added": "MCP server added: {0}",
   "mcp.server_removed": "MCP server removed: {0}",
   "mcp.tool_call": "MCP tool call: {0}",
-
   "skills.loaded": "Loaded {0} skills",
   "skills.created": "Created skill: {0}",
   "skills.updated": "Updated skill: {0}",
   "skills.deleted": "Deleted skill: {0}",
-
   "memory.stored": "Memory stored",
   "memory.recalled": "Recalled {0} memories",
   "memory.extracted": "Extracted {0} patterns",
-
   "p2p.sync_started": "P2P sync started with {0}",
   "p2p.sync_completed": "P2P sync completed",
   "p2p.sync_failed": "P2P sync failed: {0}",
   "p2p.pairing_request": "Pairing request from {0}",
   "p2p.pairing_confirmed": "Pairing confirmed with {0}",
-
   "hub.browsing": "Browsing Skills Hub...",
   "hub.installing": "Installing skill: {0}",
   "hub.installed": "Skill installed: {0}",
   "hub.publish_success": "Skill published: {0}",
   "hub.signature_invalid": "Invalid signature on skill: {0}",
   "hub.scan_failed": "Safety scan failed: {0}",
-
   "error.internal": "Internal error: {0}",
   "error.not_found": "Not found: {0}",
   "error.unauthorized": "Unauthorized",
   "error.timeout": "Operation timed out",
   "error.cancelled": "Operation cancelled",
-
   "common.loading": "Loading…",
   "common.close": "Close",
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
-
+  "common.dismiss": "Ignorer",
   "locale.selector.aria_label": "Select language",
-
   "app.status.connected": "connected",
   "app.status.disconnected": "disconnected",
-
   "sidebar.new_conversation": "New conversation",
   "sidebar.delete_confirm": "Delete this conversation? This cannot be undone.",
   "sidebar.delete_current": "Delete current",
@@ -181,7 +153,6 @@
   "sidebar.nav.quick_prompt": "Quick Prompt (Ctrl+S)",
   "sidebar.nav.settings": "Settings",
   "sidebar.nav.about": "About",
-
   "onboarding.loading": "Loading…",
   "onboarding.eula.title": "Condura Freeware License",
   "onboarding.eula.welcome": "Welcome to Condura",
@@ -210,6 +181,7 @@
   "onboarding.hotkey.back": "Back",
   "onboarding.hotkey.saving": "Saving…",
   "onboarding.hotkey.continue": "Continue →",
+  "onboarding.hotkey.skip": "Définir plus tard",
   "onboarding.ready.title": "You're all set",
   "onboarding.ready.probing": "Checking what's available on your machine…",
   "onboarding.ready.add_provider": "Add a provider",
@@ -228,7 +200,6 @@
   "onboarding.ready.hotkey_note": "Press {0} anytime to summon Condura.",
   "onboarding.ready.starting": "Starting…",
   "onboarding.ready.start_button": "Start using Condura",
-
   "chat.streaming": "streaming…",
   "chat.stop": "Stop",
   "chat.placeholder": "Ask anything…",
@@ -242,7 +213,6 @@
   "chat.empty.settings_link": "Settings",
   "chat.empty.no_provider_after": "to add an API key or enable Ollama.",
   "chat.empty.get_started": "Type a message below to get started with {0}.",
-
   "settings.title": "Settings",
   "settings.subtitle": "Configuration is stored in <code>~/.synaptic/config.yaml</code>. Changes here write to that file via the daemon.",
   "settings.account.title": "Account",
@@ -354,7 +324,6 @@
   "settings.setup.rerun": "Re-run setup",
   "settings.setup.rerun_confirm": "Re-run the setup wizard? Your data and settings are not affected.",
   "settings.setup.rerun_error": "Could not reset setup: {0}",
-
   "audit.title": "Audit log",
   "audit.intro": "Every action the daemon takes is recorded here, with timestamp, actor, and outcome.",
   "audit.filter_placeholder": "Action contains…",
@@ -371,7 +340,6 @@
   "audit.col.app": "App",
   "audit.col.result": "Result",
   "audit.col.message": "Message",
-
   "replay.title": "Action Replay",
   "replay.intro": "Scrub the last 24 hours of agent activity with before/after screenshots and gatekeeper outcomes.",
   "replay.refresh": "Refresh",
@@ -391,7 +359,6 @@
   "replay.no_screenshots": "No screenshots for this frame.",
   "replay.exported_alert": "Replay exported to:\n{0}",
   "replay.export_failed": "Export failed",
-
   "about.title": "About Condura",
   "about.tagline": "A free, on-device AI agent.",
   "about.version": "Version",
@@ -403,7 +370,6 @@
   "about.links": "Links",
   "about.github": "GitHub repository",
   "about.skills_hub": "Skills Hub",
-
   "hub.title": "Skills Hub",
   "hub.intro": "Search, install, and publish community skills.",
   "hub.aria_label": "Skills Hub",
@@ -436,7 +402,6 @@
   "hub.publish.publish": "Publish",
   "hub.publish.aria_label": "Publish a skill",
   "hub.publish.file_too_large": "Archive exceeds the 32 MB limit.",
-
   "skills.title": "Installed Skills",
   "skills.subtitle": "Skills that the agent can invoke. {0} installed.",
   "skills.empty_html": "No skills installed yet. Use the <strong>Hub</strong> tab to search and install community skills, or use <code>synaptic hub search &lt;query&gt;</code> from the command line.",
@@ -445,7 +410,6 @@
   "skills.refreshing": "Refreshing…",
   "skills.refresh": "Refresh",
   "skills.delete_confirm": "Delete skill {0}?",
-
   "sync.title": "P2P Sync",
   "sync.intro": "Encrypted device-to-device sync (AES-256-GCM, Ed25519 identity, no central server). Devices must be explicitly paired before they can exchange data.",
   "sync.this_device": "This device",
@@ -483,7 +447,6 @@
   "sync.pair.confirm_label": "Enter the PIN shown on {0}",
   "sync.pair.busy": "Pairing…",
   "sync.pair.confirm": "Confirm",
-
   "channels.title": "Channels",
   "channels.intro": "Connect a messaging channel to talk to Condura from anywhere. Messages are routed through the daemon on this machine — nothing runs in the cloud.",
   "channels.connected": "Connected channels {0}",
@@ -498,7 +461,6 @@
   "channels.connect": "Connect",
   "channels.invalid_token_html": "That doesn't look like a Telegram bot token (expected <code>digits:secret</code>).",
   "channels.disconnect_confirm": "Disconnect {0}? Condura will stop receiving messages from it.",
-
   "account.menu.aria_label": "Account menu",
   "account.menu.via": "via {0}",
   "account.menu.signout_confirm": "Sign out of Condura?",
@@ -517,7 +479,6 @@
   "account.signin.send_link": "Send link",
   "account.signin.check_inbox": "Check your inbox — we sent a one-time sign-in link to {0}.",
   "account.signin.fineprint": "By continuing you agree to the End-User License Agreement. Your local data never leaves your machine unless you enable sync.",
-
   "pending.title": "Pending sub-agent actions",
   "pending.description": "When a sub-agent asks to do something on your computer, the request sits here until you approve or deny. Approved actions are executed through the same safety layer as everything else; nothing the sub-agent says is trusted without your click.",
   "pending.refresh": "Refresh",
@@ -534,7 +495,6 @@
   "pending.error.approve": "approve failed for {0}",
   "pending.error.deny": "deny failed for {0}",
   "pending.error.execute": "execute failed for {0}",
-
   "delegation.title": "Sub-agent Delegation",
   "delegation.intro": "Condura can spawn a sub-agent to handle parts of a task. The sub-agent runs as a separate subprocess and is gated by the same safety layer you trust for everything else.",
   "delegation.available_title": "Available agents",

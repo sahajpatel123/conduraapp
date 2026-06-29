@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 // fakePresence is a PresenceChecker stub for testing the N1 gate.

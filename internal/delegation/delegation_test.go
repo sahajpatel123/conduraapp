@@ -3,11 +3,12 @@ package delegation
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 func TestConfig_FindAgent(t *testing.T) {
@@ -232,5 +233,31 @@ func TestGatedRunner_CancelUnknown(t *testing.T) {
 	g := NewGatedRunner(cfg, allowGate{}, l)
 	if g.Cancel("spawn-999") {
 		t.Fatal("cancel of unknown spawn_id must return false")
+	}
+}
+
+// TestGatedRunner_ActionRequests_OversizedFieldRejected pins P1-5 of
+// the 2026-06-29 audit: sub-agent-decoded ActionRequest string
+// fields must be capped at maxActionRequestFieldBytes. A request
+// with an oversized field is dropped (not added to the returned
+// list) so it cannot reach the GUI render path or the gatekeeper.
+func TestGatedRunner_ActionRequests_OversizedFieldRejected(t *testing.T) {
+	cfg := DefaultConfig()
+	l := NewLimiter(cfg, nil)
+	g := NewGatedRunner(cfg, allowGate{}, l)
+
+	// Build a body that's 1 MiB — well above the 64 KiB cap.
+	bigBody := strings.Repeat("x", 1024*1024+1)
+	output := `{"kind":"shell.exec","command":"echo hello"}` + "\n" +
+		`{"kind":"message.send","body":"` + bigBody + `"}` + "\n"
+	result := &SpawnResult{AgentName: "claude", Output: output}
+	requests := g.ActionRequests(result)
+
+	// Only the first (well-formed) request should be returned.
+	if len(requests) != 1 {
+		t.Fatalf("got %d requests, want 1 (the oversized one must be rejected)", len(requests))
+	}
+	if requests[0].Kind != "shell.exec" {
+		t.Errorf("the kept request should be the small one, got kind=%q", requests[0].Kind)
 	}
 }

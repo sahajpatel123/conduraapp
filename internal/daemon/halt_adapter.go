@@ -3,7 +3,7 @@ package daemon
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
 )
 
 // guardAwareHaltFlag wraps *halt.Flag so that any Halt() call —

@@ -5,17 +5,17 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/anomaly"
-	"github.com/sahajpatel123/synapticapp/internal/autonomy"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/presence"
-	"github.com/sahajpatel123/synapticapp/internal/sanitize"
-	"github.com/sahajpatel123/synapticapp/internal/sensitive"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/trust"
+	"github.com/sahajpatel123/conduraapp/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/internal/autonomy"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
+	"github.com/sahajpatel123/conduraapp/internal/sensitive"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/trust"
 )
 
 // SafetyComponents bundles the real safety layer.
@@ -41,24 +41,52 @@ type SafetyComponents struct {
 // autonomous; everything else warns) so a fresh install still works.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
-	consent := &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
+	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
 		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
 	}}
+	// 2026-06-29 audit P1-1: the test-only autoApproveConsentProvider
+	// and its env-var check have been moved into
+	// safety_wiring_testhook.go behind the `synaptictest` build
+	// tag. Production binaries no longer contain either symbol;
+	// setting SYNAPTIC_TEST_AUTO_CONSENT in production has no
+	// effect. The maybeAutoApproveConsent call below is a no-op
+	// (returns nil) in production and replaces consent with the
+	// auto-approve provider ONLY when -tags=synaptictest is set.
+	if alt := maybeAutoApproveConsent(log); alt != nil {
+		consent = alt
+	}
 	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
 
 	// Anomaly detector — async, graduated response.
+	//
+	// Audit 2026-06-28 fix (medium): MISSION §5.6 says "If any trigger
+	// fires, the agent hard pauses and pings the user." The previous
+	// code only halted on TripLoop/TripFailures and merely warned on
+	// TripRate/TripDuration — a spec/code mismatch. The fix: every
+	// trip type now hard-pauses via haltFlag.Halt. The auto-recovery
+	// path (resume via halt.confirm_resume with a CLI ticket) is the
+	// only sanctioned way out, per the Tier-3 sticky-halt design
+	// shipped in commit 74b9640.
 	detector := anomaly.NewDetector(func(t anomaly.Trip) {
-		switch t.Type {
-		case anomaly.TripLoop, anomaly.TripFailures:
-			_, _ = haltFlag.Halt(context.Background(), "anomaly: "+t.Reason)
-		case anomaly.TripRate, anomaly.TripDuration:
-			log.Warn("anomaly detected", "type", t.Type, "reason", t.Reason)
+		reason := "anomaly: " + string(t.Type) + " — " + t.Reason
+		if _, err := haltFlag.Halt(context.Background(), reason); err != nil {
+			log.Error("anomaly halt failed", "type", t.Type, "reason", t.Reason, "err", err)
 		}
+		log.Warn("anomaly halt triggered", "type", t.Type, "reason", t.Reason)
 	})
 
-	// Wire the anomaly hook so every Evaluate call feeds the detector.
-	engine.AnomalyHook = func(a blastradius.Action) {
-		detector.Record(a.Kind, 0, 0, false)
+	// Wire the anomaly hook so every Evaluate call feeds the detector
+	// with the engine's actual verdict. The previous wiring fired the
+	// hook pre-decision with success=false hard-coded, which made the
+	// §5.6 "5+ consecutive failures" trigger trip on every routine
+	// agent run after 5 successful actions. The hook now carries the
+	// verdict, so Allow → success=true (resets the failure counter)
+	// and Deny → success=false (increments it). RequireConsent and
+	// RequirePresenceAndConsent are treated as success=true because
+	// the gate did not reject the action — it asked for human input,
+	// which is the expected path for non-trivial actions.
+	engine.AnomalyHook = func(a blastradius.Action, d gatekeeper.Decision, reason string) {
+		detector.Record(a.Kind, 0, 0, d == gatekeeper.Allow)
 	}
 
 	// Build the autonomy matrix from config. The matrix is the
@@ -73,8 +101,23 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	}
 
 	// Field-aware sanitizer dispatch: run the right sanitizer on
-	// the right field, skip empties. PII sanitizer is applied at
-	// consent display time (STEP 5), not here.
+	// the right field, skip empties.
+	//
+	// Audit 2026-06-28 fix (medium): PII sanitizer was previously
+	// applied only at consent display time (STEP 5). MISSION §10.6
+	// lists "Message body sanitizer: PII detection" as required,
+	// so the PII sanitizer must run on every Body field that the
+	// engine sees — including the message body sent over
+	// reach.message.send, the typed text of a chat message, and
+	// any other context string. The hook now calls
+	// PIIRegexSanitizer on every Body. If the redactor returns an
+	// error (it does NOT — Sanitize returns nil for credit-card
+	// Luhn validation success on a non-CC value) we treat it as
+	// fail-closed. The Sanitize() returns (sanitizedString, error)
+	// — we deliberately do NOT mutate Action.Body here because
+	// the gatekeeper contract is "return an error to block", not
+	// "rewrite in place"; mutating would change the action the
+	// user took. A separate downstream redactor handles display.
 	engine.SanitizeHook = func(a *blastradius.Action) error {
 		if a.Command != "" {
 			if _, err := sanitize.NewShellSanitizer(nil).Sanitize(a.Command); err != nil {
@@ -90,7 +133,17 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 			}
 		}
 		if a.TargetURL != "" {
-			if _, err := sanitize.NewURLSanitizer().Sanitize(a.TargetURL); err != nil {
+			// 2026-06-29 audit P1-4: use the strict variant that
+			// resolves the hostname via DNS and rejects any IP in a
+			// private range. The non-strict variant substring-matches
+			// the literal hostname, which misses DNS rebinding and
+			// crafted hostnames like `my-192-168-host.example.com`.
+			if _, err := sanitize.NewStrictURLSanitizer().Sanitize(a.TargetURL); err != nil {
+				return err
+			}
+		}
+		if a.Body != "" {
+			if _, err := sanitize.NewPIIRegexSanitizer().Sanitize(a.Body); err != nil {
 				return err
 			}
 		}

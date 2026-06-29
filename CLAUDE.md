@@ -341,7 +341,7 @@ When the user is typing, **the agent is asleep**. When the user clicks, the agen
 | License (source) | **Proprietary** | Private repo |
 | Build | **GoReleaser** (Go) + **tsup** (TS) + **npm** + **Homebrew tap** | Standard |
 | Package | **GitHub Releases** + **Homebrew** + direct download | Standard |
-| Repo | **github.com/sahajpatel123/synapticapp** (private) | Standard |
+| Repo | **github.com/sahajpatel123/conduraapp** (private) | Standard |
 
 **What we DON'T use:** Python in our main code. Python is *only* a substrate for the 3 computer-use MCPs we don't rewrite.
 

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/agent"
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/agent"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // TestE2E_CUAction_CULoopThroughResolver verifies the full loop:

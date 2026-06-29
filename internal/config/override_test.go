@@ -19,7 +19,7 @@ func TestOverrideDataDir_RederivesDefaultPaths(t *testing.T) {
 	c.OverrideDataDir("/tmp/new-data")
 
 	assert.Equal(t, "/tmp/new-data", c.General.DataDir)
-	assert.Equal(t, filepath.Join("/tmp/new-data", "synaptic.db"), c.Storage.Path)
+	assert.Equal(t, filepath.Join("/tmp/new-data", "condura.db"), c.Storage.Path)
 	assert.Equal(t, filepath.Join("/tmp/new-data", "backups"), c.Storage.Backup.Dir)
 	assert.Equal(t, filepath.Join("/tmp/new-data", "cache"), c.General.CacheDir)
 	_ = oldDir
@@ -52,7 +52,7 @@ func TestOverrideDataDir_RederivesPathUnderOldDataDir(t *testing.T) {
 
 	c.OverrideDataDir("/tmp/new-data")
 
-	assert.Equal(t, filepath.Join("/tmp/new-data", "synaptic.db"), c.Storage.Path,
+	assert.Equal(t, filepath.Join("/tmp/new-data", "condura.db"), c.Storage.Path,
 		"a storage path that lived under the old data dir should be re-derived")
 }
 
@@ -62,7 +62,7 @@ func TestOverrideDataDir_HandlesEmptyStoragePath(t *testing.T) {
 	c := Default()
 	c.OverrideDataDir("/tmp/new-data")
 
-	assert.Equal(t, filepath.Join("/tmp/new-data", "synaptic.db"), c.Storage.Path)
+	assert.Equal(t, filepath.Join("/tmp/new-data", "condura.db"), c.Storage.Path)
 	assert.Equal(t, filepath.Join("/tmp/new-data", "backups"), c.Storage.Backup.Dir)
 	assert.Equal(t, filepath.Join("/tmp/new-data", "cache"), c.General.CacheDir)
 }

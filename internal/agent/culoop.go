@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // HaltChecker is the subset of halt.Flag that CULoop needs.

@@ -26,16 +26,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/conversation"
-	"github.com/sahajpatel123/synapticapp/internal/executor"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/sse"
-	"github.com/sahajpatel123/synapticapp/internal/status"
-	"github.com/sahajpatel123/synapticapp/internal/stream"
-	"github.com/sahajpatel123/synapticapp/internal/voice"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/conversation"
+	"github.com/sahajpatel123/conduraapp/internal/executor"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/stream"
+	"github.com/sahajpatel123/conduraapp/internal/voice"
 )
 
 // ErrAlreadyRunning is returned by Run when a previous session is

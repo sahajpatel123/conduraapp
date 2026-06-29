@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
 )
 
 type mockLLM struct {

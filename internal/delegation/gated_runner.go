@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 // runner is an unexported subprocess manager. Only GatedRunner can
@@ -318,9 +318,23 @@ func (g *GatedRunner) Cancel(spawnID string) bool {
 	return false
 }
 
+// maxActionRequestFieldBytes caps each string field on a
+// sub-agent-decoded ActionRequest. The audit (2026-06-29 P1-5)
+// found that sub-agent JSON fields (Command, Body, Path) were
+// unbounded — a malicious or buggy sub-agent could emit a
+// gigabyte-long `body` field that would propagate to
+// pending_action.payload_json and into the GUI render. 64 KiB
+// is well above any legitimate single-action payload.
+const maxActionRequestFieldBytes = 64 * 1024
+
 // ActionRequests extracts structured action requests from a result.
 // The daemon gates each one before execution. Handles both single-line
 // and pretty-printed/multi-line JSON objects in the output.
+//
+// Each string field on a decoded ActionRequest is capped at
+// maxActionRequestFieldBytes. Fields that exceed the cap are
+// rejected — the request is not added to the returned list,
+// so it cannot reach the GUI render path or the gatekeeper.
 func (g *GatedRunner) ActionRequests(result *SpawnResult) []ActionRequest {
 	if result == nil || result.Output == "" {
 		return nil
@@ -342,6 +356,18 @@ func (g *GatedRunner) ActionRequests(result *SpawnResult) []ActionRequest {
 			// Not a valid object starting here; advance one byte and
 			// look for the next '{'.
 			data = data[1:]
+			continue
+		}
+		// 2026-06-29 audit P1-5: reject any decoded request whose
+		// string fields exceed the cap.
+		if len(ar.Command) > maxActionRequestFieldBytes ||
+			len(ar.Body) > maxActionRequestFieldBytes ||
+			len(ar.Path) > maxActionRequestFieldBytes ||
+			len(ar.AgentName) > maxActionRequestFieldBytes {
+			// Skip this request — don't add it to the returned list.
+			// Continue scanning the buffer in case subsequent JSON
+			// objects are well-formed.
+			data = data[dec.InputOffset():]
 			continue
 		}
 		if ar.Kind != "" {

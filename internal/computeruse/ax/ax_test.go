@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 func TestBackendName(t *testing.T) {

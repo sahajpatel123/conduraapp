@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/status"
+	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
 // fakeHalt implements HaltChecker for tests.

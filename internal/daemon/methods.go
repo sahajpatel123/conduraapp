@@ -6,14 +6,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/api_key"
-	"github.com/sahajpatel123/synapticapp/internal/audit"
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/failover"
-	"github.com/sahajpatel123/synapticapp/internal/halt"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
-	"github.com/sahajpatel123/synapticapp/internal/llm"
-	"github.com/sahajpatel123/synapticapp/internal/version"
+	"github.com/sahajpatel123/conduraapp/internal/api_key"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/failover"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // registerMethods wires every JSON-RPC method the daemon exposes into
@@ -123,6 +123,24 @@ func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		// Phase 19 / audit 2026-06-28: apikeys.set is a WRITE-class
+		// action (it persists a secret to disk). Per the default
+		// policy in internal/gatekeeper/defaults.yaml every WRITE
+		// requires gatekeeper consent. We route through
+		// GatekeeperAllow so the action is denied when:
+		//   - the daemon is halted (kill switch active)
+		//   - the user is absent AND the policy requires presence
+		//   - the engine is unavailable (fail-closed)
+		// The previous bypass left the gatekeeper unenforced for
+		// the only WRITE that stores a secret — a spec violation
+		// vs MISSION.md §2.1 invariant #2 ("no model output flows
+		// to a write without passing the Gatekeeper"). The gate
+		// here is the deterministic rules engine, not a model,
+		// so this does not change the GUIs existing happy-path
+		// (the user explicitly typed the key).
+		if !subs.GatekeeperAllow(ctx, "apikeys.set", "Store API key for "+p.Provider) {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "gatekeeper denied: " + p.Provider}
 		}
 		id, err := akm.Set(ctx, api_key.Key{
 			Provider: p.Provider, Label: p.Label, AuthKind: api_key.AuthAPIKey, Secret: p.Secret,

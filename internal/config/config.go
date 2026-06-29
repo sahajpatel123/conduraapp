@@ -159,7 +159,7 @@ type LoggingConfig struct {
 
 // StorageConfig controls the SQLite store.
 type StorageConfig struct {
-	// Path is the SQLite file path. Empty means "use DataDir/synaptic.db".
+	// Path is the SQLite file path. Empty means "use DataDir/condura.db".
 	Path string `yaml:"path"`
 	// Backup settings.
 	Backup BackupConfig `yaml:"backup"`

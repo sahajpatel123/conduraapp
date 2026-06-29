@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/agent"
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/agent"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 )
 
 func resolverMocks() (*computeruse.ComputerUse, *computeruse.GatedExecutor) {

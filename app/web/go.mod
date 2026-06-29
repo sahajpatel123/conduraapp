@@ -1,8 +1,8 @@
-module github.com/sahajpatel123/synapticapp/app/web
+module github.com/sahajpatel123/conduraapp/app/web
 
 go 1.25.11
 
-require github.com/sahajpatel123/synapticapp v0.0.0
+require github.com/sahajpatel123/conduraapp v0.0.0
 
 require github.com/wailsapp/wails/v2 v2.12.0
 
@@ -60,4 +60,4 @@ require (
 	modernc.org/sqlite v1.52.0 // indirect
 )
 
-replace github.com/sahajpatel123/synapticapp => ../..
+replace github.com/sahajpatel123/conduraapp => ../..

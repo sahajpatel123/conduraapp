@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
 )
 
 func TestOrchestrator_SummonAndDismiss(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/backup"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/backup"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // registerBackupMethods wires the backup.* and uninstall.* RPC

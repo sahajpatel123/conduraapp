@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sahajpatel123/synapticapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/llm"
 )
 
 // LLMPlanner decomposes natural-language tasks into ordered plan steps

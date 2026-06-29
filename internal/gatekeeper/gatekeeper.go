@@ -12,7 +12,7 @@ package gatekeeper
 import (
 	"context"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 )
 
 // Decision is the terminal verdict. Engine always returns Allow or Deny.

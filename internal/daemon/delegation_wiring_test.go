@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/blastradius"
-	"github.com/sahajpatel123/synapticapp/internal/delegation"
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/pending"
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/internal/delegation"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/pending"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 // fakeGatekeeper is a deterministic gatekeeper for tests. Returns

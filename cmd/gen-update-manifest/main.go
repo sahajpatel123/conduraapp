@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sahajpatel123/synapticapp/internal/updater"
+	"github.com/sahajpatel123/conduraapp/internal/updater"
 )
 
 const manifestDirPerm = 0o750

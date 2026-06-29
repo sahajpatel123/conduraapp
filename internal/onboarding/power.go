@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/delegation"
+	"github.com/sahajpatel123/conduraapp/internal/delegation"
 )
 
 // PowerProbe is the result of scanning the local machine for

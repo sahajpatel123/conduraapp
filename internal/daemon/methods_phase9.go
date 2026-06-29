@@ -3,9 +3,14 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
 
-	"github.com/sahajpatel123/synapticapp/internal/gatekeeper"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // errUnknownConsentTicket is returned when a GUI approve/deny request
@@ -63,10 +68,40 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		return map[string]any{"tickets": tickets}, nil
 	})
 
-	// safety.policy.reload: reload the gatekeeper policy.
-	srv.Register("safety.policy.reload", func(_ context.Context, _ json.RawMessage) (any, error) {
-		p := gatekeeper.DefaultPolicy()
-		subs.Safety.Engine.ReloadPolicy(p)
+	// safety.policy.reload: reload the gatekeeper policy from disk.
+	//
+	// Audit 2026-06-28 fix: previously this RPC always reloaded the
+	// embedded default policy (`gatekeeper.DefaultPolicy()`), which
+	// contradicted MISSION.md §10.2 documenting user-editable policy
+	// in `~/.condura/policy.yaml`. The fix:
+	//   1. If `~/.condura/policy.yaml` exists, parse and load it.
+	//   2. If parse fails, return an error (do NOT silently fall back
+	//      to the default; the user's YAML is broken and they need
+	//      to know).
+	//   3. If the file does not exist, fall back to the embedded
+	//      default (the documented "no user override" path).
+	//
+	// The action is classified as WRITE (added to blastradius
+	// classByKind in this change) so the gatekeeper consent gate
+	// applies — without that gate, an attacker with the IPC token
+	// could swap in a permissive policy.
+	srv.Register("safety.policy.reload", func(ctx context.Context, _ json.RawMessage) (any, error) {
+		// 2026-06-29 audit P1-2: gate this RPC through the gatekeeper
+		// so an attacker with the IPC token cannot swap in a permissive
+		// policy. policy.reload is classified WRITE per the policy
+		// class table; the engine will require consent before this
+		// path can change the active policy.
+		if !subs.GatekeeperAllow(ctx, "policy.reload", "ipc: safety.policy.reload") {
+			return nil, &ipc.Error{
+				Code:    ipc.CodeInvalidParams,
+				Message: "policy.reload denied by gatekeeper",
+			}
+		}
+		src, err := loadPolicyFromDisk(subs)
+		if err != nil {
+			return nil, err
+		}
+		slog.Info("policy reloaded", "source", src)
 		return auditOK(), nil
 	})
 
@@ -87,4 +122,48 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		return auditOK(), nil
 	})
+}
+
+// loadPolicyFromDisk implements safety.policy.reload's disk-read
+// path. Extracted from the registered handler to keep the closure
+// under the lint cognitive-complexity ceiling.
+//
+// Returns the source string ("embedded default" or the user path)
+// and an error. nil error means a *gatekeeper.Policy was loaded
+// and applied to subs.Safety.Engine.
+func loadPolicyFromDisk(subs *Subsystems) (string, error) {
+	dataDir := subs.GeneralDataDir()
+	var policyPath string
+	if dataDir != "" {
+		policyPath = filepath.Join(dataDir, "policy.yaml")
+	}
+	var (
+		p   *gatekeeper.Policy
+		src string
+	)
+	if policyPath != "" {
+		//nolint:gosec // G304: policyPath is server-controlled.
+		if b, err := os.ReadFile(policyPath); err == nil {
+			parsed, perr := gatekeeper.LoadPolicy(b)
+			if perr != nil {
+				return "", &ipc.Error{
+					Code:    ipc.CodeInvalidParams,
+					Message: fmt.Sprintf("policy reload: parse %s: %v", policyPath, perr),
+				}
+			}
+			p = parsed
+			src = policyPath
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", &ipc.Error{
+				Code:    ipc.CodeInternalError,
+				Message: fmt.Sprintf("policy reload: read %s: %v", policyPath, err),
+			}
+		}
+	}
+	if p == nil {
+		p = gatekeeper.DefaultPolicy()
+		src = "embedded default (no ~/.condura/policy.yaml)"
+	}
+	subs.Safety.Engine.ReloadPolicy(p)
+	return src, nil
 }

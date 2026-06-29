@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sahajpatel123/synapticapp/internal/config"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // startListeners binds the IPC transport. The "scheme" portion of

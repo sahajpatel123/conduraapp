@@ -1094,9 +1094,9 @@ The build system already injects the build metadata
 correctly. The convention is:
 
 ```
--X github.com/sahajpatel123/synapticapp/internal/version.Version=${VERSION}
--X github.com/sahajpatel123/synapticapp/internal/version.Commit=${COMMIT}
--X github.com/sahajpatel123/synapticapp/internal/version.BuildDate=${BUILD_DATE}
+-X github.com/sahajpatel123/conduraapp/internal/version.Version=${VERSION}
+-X github.com/sahajpatel123/conduraapp/internal/version.Commit=${COMMIT}
+-X github.com/sahajpatel123/conduraapp/internal/version.BuildDate=${BUILD_DATE}
 ```
 
 The git-describe fallback in `scripts/build-gui.sh` adds

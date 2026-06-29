@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/audit"
+	"github.com/sahajpatel123/conduraapp/internal/audit"
 )
 
 // ErrFrameNotFound is returned by FrameByID when no audit event

@@ -6,7 +6,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/sahajpatel123/synapticapp/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/internal/daemon"
 )
 
 // startTray is a no-op on Linux. The tray package (internal/tray)

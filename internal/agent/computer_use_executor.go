@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/computeruse"
+	"github.com/sahajpatel123/conduraapp/internal/computeruse"
 )
 
 // ComputerUseExecutor is an agent.Executor that delegates to the

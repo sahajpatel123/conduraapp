@@ -4,9 +4,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/sahajpatel123/synapticapp/internal/hotkey"
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
-	"github.com/sahajpatel123/synapticapp/internal/presence"
+	"github.com/sahajpatel123/conduraapp/internal/hotkey"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/presence"
 )
 
 // dummyHaltChecker implements presence.HaltChecker.

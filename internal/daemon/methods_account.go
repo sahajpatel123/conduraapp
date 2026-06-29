@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/account"
-	"github.com/sahajpatel123/synapticapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/account"
+	"github.com/sahajpatel123/conduraapp/internal/ipc"
 )
 
 // OAuthRedirectURI is the desktop deep-link the OAuth providers redirect to.

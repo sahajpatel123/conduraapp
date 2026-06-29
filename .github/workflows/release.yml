@@ -89,7 +89,9 @@ jobs:
   # ---------------------------------------------------------------
   goreleaser:
     name: GoReleaser
-    runs-on: ubuntu-latest
+    # Darwin CGO binaries need a macOS host; this runner cross-compiles
+    # linux/windows with CGO_ENABLED=0 per .goreleaser.yml.
+    runs-on: macos-latest
     # CLI/daemon/deb packages must not wait on optional GUI matrix builds.
     steps:
       - name: Checkout

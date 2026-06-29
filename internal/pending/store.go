@@ -30,7 +30,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sahajpatel123/synapticapp/internal/storage"
+	"github.com/sahajpatel123/conduraapp/internal/storage"
 )
 
 // Status is the lifecycle state of a pending action.

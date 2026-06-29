@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/sahajpatel123/synapticapp/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/internal/overlay"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

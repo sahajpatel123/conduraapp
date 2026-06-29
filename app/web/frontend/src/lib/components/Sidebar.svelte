@@ -88,7 +88,7 @@
         aria-label={t('sidebar.nav.chat')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h12a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V6a2 2 0 012-2z"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 4h12a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V6a2 2 0 012-2z"/></svg>
       </a>
       <a
         href="#/audit"
@@ -98,7 +98,7 @@
         aria-label={t('sidebar.nav.audit')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 3v5c0 4-3 6.5-7 8-4-1.5-7-4-7-8V5l7-3z"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10 2l7 3v5c0 4-3 6.5-7 8-4-1.5-7-4-7-8V5l7-3z"/></svg>
       </a>
       <a
         href="#/replay"
@@ -108,7 +108,7 @@
         aria-label={t('sidebar.nav.replay')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M8 7l5 3-5 3V7z"/></svg>
       </a>
       <a
         href="#/hub"
@@ -118,7 +118,7 @@
         aria-label={t('sidebar.nav.skills_hub')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l7-4 7 4-7 4-7-4zM3 7v6l7 4M17 7v6l-7 4"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 7l7-4 7 4-7 4-7-4zM3 7v6l7 4M17 7v6l-7 4"/></svg>
       </a>
       <a
         href="#/skills"
@@ -128,7 +128,7 @@
         aria-label={t('sidebar.nav.skills')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l6 2 6-2-2 12-4 2-4-2L4 4z"/><path d="M10 6v12"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 4l6 2 6-2-2 12-4 2-4-2L4 4z"/><path d="M10 6v12"/></svg>
       </a>
       <a
         href="#/sync"
@@ -138,7 +138,7 @@
         aria-label={t('sidebar.nav.sync')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 10a5 5 0 019-3l1 1m0-3v3h-3M15 10a5 5 0 01-9 3l-1-1m0 3v-3h3"/></svg>
       </a>
       <a
         href="#/channels"
@@ -148,7 +148,7 @@
         aria-label={t('sidebar.nav.channels')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 5h14v9H8l-4 3v-3H3V5z"/></svg>
       </a>
       <a
         href="#/delegation"
@@ -158,7 +158,7 @@
         aria-label={t('sidebar.nav.delegation')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2.5"/><circle cx="10" cy="14" r="2.5"/><path d="M6 8.5v2M14 8.5v2M10 5v6.5"/></svg>
       </a>
       <button
         type="button"
@@ -178,7 +178,7 @@
         aria-label={t('sidebar.nav.settings')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 1v2m0 14v2m-7-9h2m14 0h2m-3.5-5.5-1.4 1.4m-8.2 8.2-1.4 1.4m0-11-1.4 1.4m8.2 8.2 1.4 1.4"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="3"/><path d="M10 1v2m0 14v2m-7-9h2m14 0h2m-3.5-5.5-1.4 1.4m-8.2 8.2-1.4 1.4m0-11-1.4 1.4m8.2 8.2 1.4 1.4"/></svg>
       </a>
       <a
         href="#/about"
@@ -188,7 +188,7 @@
         aria-label={t('sidebar.nav.about')}
       >
         <span class="active-indicator"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 9v4m0-7h0"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 9v4m0-7h0"/></svg>
       </a>
     </div>
   </nav>
@@ -198,7 +198,7 @@
     <div class="drawer-header">
       <button class="new-conv-btn" onclick={startNew}>
         <div class="new-conv-bg"></div>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12m-6-6h12"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 4v12m-6-6h12"/></svg>
         <span>{t('sidebar.new_conversation')}</span>
       </button>
       <div class="drawer-label-wrap">
@@ -210,7 +210,7 @@
     <div class="conversation-list">
       {#if conversation.conversations.length === 0}
         <div class="empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 5h16a2 2 0 012 2v8a2 2 0 01-2 2H8l-5 4V7a2 2 0 012-2z"/><path d="M9 10h6M9 13h4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M4 5h16a2 2 0 012 2v8a2 2 0 01-2 2H8l-5 4V7a2 2 0 012-2z"/><path d="M9 10h6M9 13h4"/></svg>
           <p>{t('sidebar.empty')}</p>
         </div>
       {/if}
@@ -233,12 +233,12 @@
       <div class="drawer-footer">
         {#if pendingDeleteId !== null}
           <button class="btn-undo" onclick={undoDelete} aria-label="Undo delete conversation">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 10h12M4 10l4-4M4 10l4 4"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon" aria-hidden="true"><path d="M4 10h12M4 10l4-4M4 10l4 4"/></svg>
             <span>{t('sidebar.undo_delete')}</span>
           </button>
         {:else}
           <button class="btn-delete" onclick={deleteCurrent} aria-label={t('sidebar.delete_current')}>
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="delete-icon" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m-7 0v10a1 1 0 001 1h6a1 1 0 001-1V6"/></svg>
             <span>{t('sidebar.delete_current')}</span>
           </button>
         {/if}
@@ -261,7 +261,7 @@
         </button>
       {:else}
         <button class="signin-link" onclick={() => (showSignIn = true)}>
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l-4-4m4 4l-4 4m4-4H5"/></svg>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M15 10l-4-4m4 4l-4 4m4-4H5"/></svg>
           {t('sidebar.signin')}
         </button>
       {/if}

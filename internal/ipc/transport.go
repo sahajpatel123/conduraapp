@@ -16,7 +16,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/sahajpatel123/synapticapp/internal/sse"
+	"github.com/sahajpatel123/conduraapp/internal/sse"
 )
 
 // maxBodySize is the maximum allowed size for an HTTP request body or
@@ -279,7 +279,11 @@ func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) 
 	}
 	out, err := t.S.HandleRaw(r.Context(), body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 2026-06-29 audit P0-3: HandleRaw never returns a non-nil
+		// error in practice (every error is converted to a JSON-RPC
+		// response), but defensively we still must not leak the
+		// error to the client.
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	if out == nil {
@@ -321,7 +325,10 @@ func (t *ServerTransport) serveWebSocket(w http.ResponseWriter, r *http.Request)
 		}
 		out, herr := t.S.HandleRaw(ctx, data)
 		if herr != nil {
-			_ = c.Write(ctx, websocket.MessageText, []byte(herr.Error()))
+			// 2026-06-29 audit P0-3: defensive — HandleRaw never
+			// returns non-nil in practice. If it ever does, do not
+			// forward the raw error to the WebSocket peer.
+			_ = c.Write(ctx, websocket.MessageText, []byte(`{"jsonrpc":"2.0","error":{"code":-32603,"message":"internal error"},"id":null}`))
 			continue
 		}
 		if out == nil {
