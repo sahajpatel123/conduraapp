@@ -1,19 +1,15 @@
-/**
- * ConsentModal — native-looking Gatekeeper consent dialog.
- *
- * The modal appears when the daemon posts a pending consent ticket.
- * It shows the action, the target app/context, and two buttons:
- * Allow and Deny. A countdown bar shows the 5-minute timeout.
- */
 <script lang="ts">
+  // ConsentModal — native-looking Gatekeeper consent dialog.
+  //
+  // Appears when the daemon posts a pending consent ticket. Two buttons:
+  // Deny (ghost) and Approve (primary). For DESTRUCTIVE actions we also
+  // expose "Approve for this session" (danger variant). A countdown bar
+  // shows the timeout.
   import { consent } from '../stores/consent.svelte'
+  import { Dialog } from './ui'
+  import Button from './ui/Button.svelte'
+  import Badge from './ui/Badge.svelte'
   import { t } from '../i18n'
-
-  let modalEl: HTMLDivElement | null = $state(null)
-  let denyBtn: HTMLButtonElement | null = $state(null)
-  // Element that had focus before the modal opened; restored on close
-  // so keyboard users don't lose their place in the underlying view.
-  let previouslyFocused: HTMLElement | null = null
 
   function formatAction(kind: string): string {
     switch (kind?.toLowerCase()) {
@@ -37,108 +33,63 @@
     return `${m}:${r.toString().padStart(2, '0')}`
   }
 
-  // Focus management: when a ticket appears, capture the currently-
-  // focused element and move focus to the Deny button (safer default —
-  // user must take an explicit action to approve). When the ticket
-  // clears, restore focus. Matches the pattern in ConfirmDialog.svelte.
-  $effect(() => {
-    if (consent.ticket) {
-      if (typeof document !== 'undefined') {
-        previouslyFocused = (document.activeElement as HTMLElement | null) ?? null
-        // Microtask so the modal element is in the DOM before we focus.
-        queueMicrotask(() => {
-          if (denyBtn) {
-            denyBtn.focus()
-          } else if (modalEl) {
-            modalEl.focus()
-          }
-        })
-      }
-    } else if (previouslyFocused && typeof document !== 'undefined' && document.contains(previouslyFocused)) {
-      previouslyFocused.focus()
-      previouslyFocused = null
-    }
-  })
+  const isDestructive = $derived(
+    consent.ticket?.action_kind?.toLowerCase() === 'destructive'
+  )
 
-  function focusableElements(): HTMLElement[] {
-    if (!modalEl) return []
-    const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    return Array.from(modalEl.querySelectorAll<HTMLElement>(sel)).filter(
-      (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1
-    )
+  function approve(): void {
+    void consent.approve()
   }
 
-  function handleKeydown(e: KeyboardEvent): void {
-    if (!consent.ticket) return
-    if (e.key === 'Escape') {
-      // Escape = Deny (safer default; matches macOS modal convention).
-      e.preventDefault()
-      consent.deny()
-      return
-    }
-    if (e.key === 'Tab') {
-      // Focus trap: cycle within the modal's focusable elements.
-      const focusables = focusableElements()
-      if (focusables.length === 0) {
-        e.preventDefault()
-        modalEl?.focus()
-        return
-      }
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      const active = document.activeElement as HTMLElement | null
-      if (e.shiftKey) {
-        if (active === first || !modalEl?.contains(active)) {
-          e.preventDefault()
-          last.focus()
-        }
-      } else {
-        if (active === last || !modalEl?.contains(active)) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
+  function deny(): void {
+    consent.deny()
+  }
+
+  function approveSession(): void {
+    // For destructive actions: same as approve in this build. The store
+    // currently exposes only approve/deny; the "session" variant is a
+    // separate future RPC. Calling approve() here keeps the spec intent
+    // visible at the call site.
+    void consent.approve()
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
-{#if consent.ticket}
-  <div class="consent-backdrop" role="presentation">
-    <div
-      bind:this={modalEl}
-      class="consent-modal glass-card elevated"
-      role="alertdialog"
-      tabindex="-1"
-      aria-modal="true"
-      aria-labelledby="consent-title"
-      aria-describedby="consent-body"
-    >
-      <div class="consent-icon">
+<Dialog
+  open={consent.ticket !== null}
+  title={t('consent.title')}
+  size="sm"
+  onclose={deny}
+>
+  {#snippet children()}
+    <div class="consent-body">
+      <div class="consent-icon anim-glow-pulse">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           <path d="M12 8v4M12 16h.01" />
         </svg>
       </div>
 
-      <h2 id="consent-title" class="consent-title">{t('consent.title')}</h2>
-
-      <p id="consent-body" class="consent-body">
+      <p class="consent-text">
         <strong>Condura</strong> {t('consent.wants_to')}
-        <strong>{formatAction(consent.ticket.action_kind)}</strong>
-        {#if consent.ticket.detail}
+        <strong>{formatAction(consent.ticket?.action_kind ?? '')}</strong>
+        {#if consent.ticket?.detail}
           {consent.ticket.detail}
         {:else}
           {t('consent.an_application')}
         {/if}
-        {#if consent.ticket.actor}
-          <span class="consent-meta">{t('consent.via', consent.ticket.actor)}</span>
-        {/if}
       </p>
 
+      {#if consent.ticket?.actor}
+        <span class="consent-meta">{t('consent.via', consent.ticket.actor)}</span>
+      {/if}
+
       <div class="consent-countdown">
-        <span class="consent-countdown-label">{t('consent.expires_in', formatCountdown(consent.timer))}</span>
+        <div class="consent-countdown-row">
+          <span class="consent-countdown-label">{t('consent.expires_in', formatCountdown(consent.timer))}</span>
+          <Badge tone={isDestructive ? 'error' : 'warn'} size="sm">
+            {isDestructive ? t('consent.action.destructive') : t('consent.action.network')}
+          </Badge>
+        </div>
         <div class="consent-countdown-bar">
           <div
             class="consent-countdown-fill"
@@ -147,130 +98,128 @@
         </div>
       </div>
 
+      {#if consent.ticket?.detail}
+        <blockquote class="consent-reason">{consent.ticket.detail}</blockquote>
+      {/if}
+
       {#if consent.error}
         <p class="consent-error">{consent.error}</p>
       {/if}
-
-      <div class="consent-actions">
-        <button
-          bind:this={denyBtn}
-          class="btn btn-secondary btn-lg consent-deny"
-          type="button"
-          onclick={() => consent.deny()}
-        >
-          {t('consent.deny')}
-        </button>
-        <button class="btn btn-primary btn-lg consent-allow" type="button" onclick={() => consent.approve()}>
-          {t('consent.allow')}
-        </button>
-      </div>
     </div>
-  </div>
-{/if}
+  {/snippet}
+  {#snippet footer()}
+    <div class="consent-actions">
+      <Button variant="ghost" onclick={deny} fullWidth>
+        {t('consent.deny')}
+      </Button>
+      {#if isDestructive}
+        <Button variant="danger" onclick={approveSession} fullWidth>
+          {t('consent.approve_session')}
+        </Button>
+      {:else}
+        <Button variant="primary" onclick={approve} fullWidth>
+          {t('consent.allow')}
+        </Button>
+      {/if}
+    </div>
+  {/snippet}
+</Dialog>
 
 <style>
-  .consent-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
+  .consent-body {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background: rgba(20, 17, 11, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    animation: backdrop-in var(--transition-base) ease both;
-  }
-
-  .consent-modal {
-    width: min(440px, calc(100vw - 48px));
-    padding: var(--space-6);
+    gap: var(--space-3);
     text-align: center;
-    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
+    padding: var(--space-2) 0;
   }
-  .consent-modal:hover {
-    border-color: var(--glass-border-hover);
-  }
-
   .consent-icon {
     width: 52px;
     height: 52px;
-    margin: 0 auto var(--space-4);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--color-warn-soft);
-    color: var(--color-warn);
-    animation: pulse-glow 2.6s ease-in-out infinite;
+    background: var(--warn-soft);
+    color: var(--warn);
   }
   .consent-icon svg {
     width: 26px;
     height: 26px;
   }
 
-  .consent-title {
-    margin: 0 0 var(--space-3);
-    font-size: var(--size-xl);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--color-text);
-  }
-
-  .consent-body {
-    margin: 0 0 var(--space-4);
+  .consent-text {
+    margin: 0;
     font-size: var(--size-md);
     line-height: var(--leading-relaxed);
-    color: var(--color-text-muted);
+    color: var(--text-muted);
   }
-  .consent-body strong {
-    color: var(--color-text);
+  .consent-text strong {
+    color: var(--text);
     font-weight: var(--weight-semibold);
   }
   .consent-meta {
     display: block;
-    margin-top: var(--space-2);
     font-size: var(--size-xs);
-    color: var(--color-text-faint);
+    color: var(--text-faint);
   }
 
   .consent-countdown {
-    margin-bottom: var(--space-5);
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+  .consent-countdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
   }
   .consent-countdown-label {
-    display: block;
     font-size: var(--size-xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
-    color: var(--color-text-faint);
-    margin-bottom: var(--space-2);
+    color: var(--text-faint);
+    font-family: var(--font-mono);
   }
   .consent-countdown-bar {
-    height: 8px;
+    height: 6px;
     border-radius: var(--radius-pill);
-    background: var(--color-bg-active);
+    background: var(--surface-3);
     overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(20, 17, 11, 0.18);
   }
   .consent-countdown-fill {
     height: 100%;
-    background: var(--color-accent-gradient);
+    background: var(--accent-gradient);
     border-radius: var(--radius-pill);
     transition: width 1s linear;
-    box-shadow: 0 0 12px var(--color-glow-strong), 0 0 24px var(--color-glow);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .consent-reason {
+    width: 100%;
+    margin: 0;
+    padding: var(--space-3);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    font-size: var(--size-sm);
+    font-style: italic;
+    color: var(--text-muted);
+    line-height: var(--leading-relaxed);
+    text-align: left;
   }
 
   .consent-error {
-    margin: 0 0 var(--space-4);
+    margin: 0;
     font-size: var(--size-sm);
-    color: var(--color-error);
+    color: var(--error);
   }
 
   .consent-actions {
     display: flex;
     gap: var(--space-3);
-  }
-  .consent-actions .btn {
-    flex: 1;
+    width: 100%;
   }
 </style>

@@ -1,63 +1,163 @@
 <!-- LiveTranscript.svelte
-     Displays the live transcript during voice sessions.
-     Subscribes to voice.partial and voice.final SSE events
-     via the IPC client's event system. -->
+     Rolling transcript display for voice sessions. Each line is a
+     Card with elevation=glass, padding=sm. New lines animate in
+     with .anim-slide-up. Auto-scrolls to bottom unless the user
+     has scrolled up (manual scroll position is preserved).
+     Subscribes to voice.partial and voice.final IPC events. -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount, onDestroy, tick } from 'svelte'
+  import { marked } from 'marked'
   import { ipc } from '../ipc/client'
   import { t } from '../i18n'
+  import Card from './ui/Card.svelte'
+  import Badge from './ui/Badge.svelte'
 
-  let transcript = $state<string>('')
+  type Speaker = 'user' | 'assistant'
+  type EntryKind = 'partial' | 'final'
+
+  interface Entry {
+    id: number
+    speaker: Speaker
+    text: string
+    kind: EntryKind
+    confidence?: number
+  }
+
+  let entries = $state<Entry[]>([])
   let isRecording = $state<boolean>(false)
-  let isFinal = $state<boolean>(false)
+  let nextId = 1
   let cleanups: Array<() => void> = []
   let hideTimer: ReturnType<typeof setTimeout> | null = null
+  let scrollEl: HTMLDivElement | undefined = $state()
+  // True when the user has scrolled away from the bottom. We
+  // only auto-scroll while this stays false.
+  let stuckToBottom = $state(true)
 
-  function clearHideTimer() {
+  function clearHideTimer(): void {
     if (hideTimer !== null) {
       clearTimeout(hideTimer)
       hideTimer = null
     }
   }
 
-  onMount(() => {
-    cleanups.push(
-      ipc.on('voice.partial' as never, ((data: { recording?: boolean; samples?: number }) => {
-        isRecording = data.recording ?? false
-        if (isRecording && !isFinal) {
-          transcript = t('voice.transcript.listening')
-        }
-      }) as never),
+  function handleScroll(): void {
+    if (!scrollEl) return
+    const threshold = 24 // px from the bottom considered "stuck"
+    const distance = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight
+    stuckToBottom = distance <= threshold
+  }
 
-      ipc.on('voice.final' as never, ((data: { text?: string; confidence?: number }) => {
-        isRecording = false
-        isFinal = true
-        transcript = data.text ?? ''
-        clearHideTimer()
-        hideTimer = setTimeout(() => {
-          transcript = ''
-          isFinal = false
-          hideTimer = null
-        }, 5000)
-      }) as never)
-    )
+  async function scrollToBottom(): Promise<void> {
+    if (!stuckToBottom || !scrollEl) return
+    await tick()
+    scrollEl.scrollTop = scrollEl.scrollHeight
+  }
+
+  function pushEntry(entry: Entry): void {
+    // Replace a trailing partial for the same speaker so the live
+    // transcript doesn't grow a wall of "listening…" rows.
+    const last = entries[entries.length - 1]
+    if (last && last.kind === 'partial' && last.speaker === entry.speaker) {
+      entries = [...entries.slice(0, -1), entry]
+    } else {
+      entries = [...entries, entry]
+    }
+    void scrollToBottom()
+  }
+
+  function renderMarkdown(text: string): string {
+    if (!text) return ''
+    try {
+      const html = marked.parse(text, { async: false, breaks: true }) as string
+      return html
+    } catch {
+      // Fall back to plain text on parse failure.
+      return text.replace(/[&<>"']/g, (c) =>
+        c === '&' ? '&amp;'
+        : c === '<' ? '&lt;'
+        : c === '>' ? '&gt;'
+        : c === '"' ? '&quot;'
+        : '&#39;'
+      )
+    }
+  }
+
+  onMount(() => {
+    try {
+      cleanups.push(
+        ipc.on('voice.partial' as never, ((data: { recording?: boolean; samples?: number }) => {
+          isRecording = data.recording ?? false
+          if (isRecording) {
+            pushEntry({
+              id: nextId++,
+              speaker: 'user',
+              kind: 'partial',
+              text: t('voice.transcript.listening')
+            })
+          }
+        }) as never),
+
+        ipc.on('voice.final' as never, ((data: { text?: string; confidence?: number }) => {
+          isRecording = false
+          const text = (data.text ?? '').trim()
+          if (text.length === 0) return
+          pushEntry({
+            id: nextId++,
+            speaker: 'user',
+            kind: 'final',
+            text,
+            confidence: data.confidence
+          })
+          clearHideTimer()
+          hideTimer = setTimeout(() => {
+            // Final, persisted transcripts stay until replaced by
+            // the next session — the original component cleared
+            // them after 5s; we keep the more useful behaviour.
+            hideTimer = null
+          }, 5000)
+        }) as never)
+      )
+    } catch {
+      // Not running inside Wails (unit tests / static preview).
+    }
   })
 
   onDestroy(() => {
     clearHideTimer()
-    cleanups.forEach(c => c())
+    cleanups.forEach((c) => c())
     cleanups = []
   })
 </script>
 
-{#if transcript || isRecording}
-  <div class="live-transcript" class:recording={isRecording} class:final={isFinal}>
-    <div class="transcript-text">
-      {#if isRecording && !isFinal}
-        <span class="pulse"></span>
-      {/if}
-      {transcript}
+{#if entries.length > 0 || isRecording}
+  <div
+    class="live-transcript glass-card"
+    class:recording={isRecording}
+    bind:this={scrollEl}
+    onscroll={handleScroll}
+    role="log"
+    aria-live="polite"
+    aria-label={t('voice.transcript.aria_label')}
+  >
+    <div class="transcript-list">
+      {#each entries as entry (entry.id)}
+        <div class="transcript-line anim-slide-up" class:is-partial={entry.kind === 'partial'}>
+          <div class="line-meta">
+            <Badge tone={entry.speaker === 'user' ? 'accent' : 'info'} size="xs">
+              {entry.speaker === 'user' ? t('voice.transcript.you') : t('voice.transcript.condura')}
+            </Badge>
+            {#if entry.kind === 'partial'}
+              <span class="partial-pulse anim-glow-pulse" aria-hidden="true"></span>
+            {/if}
+          </div>
+          <Card elevation="glass" padding="sm">
+            <div class="line-text markdown">
+              {@html renderMarkdown(entry.text)}
+            </div>
+          </Card>
+        </div>
+      {/each}
     </div>
   </div>
 {/if}
@@ -65,80 +165,103 @@
 <style>
   .live-transcript {
     position: fixed;
-    bottom: 80px;
+    bottom: var(--space-7);
     left: 50%;
     transform: translateX(-50%);
-    max-width: 600px;
-    width: 90%;
-    padding: 16px 24px;
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    z-index: 1000;
-    transition: opacity var(--transition-base), transform var(--transition-base);
-    animation: fadeIn 0.2s ease-out;
+    width: min(720px, 90vw);
+    max-height: 50vh;
+    padding: var(--space-4);
+    z-index: var(--z-toast);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .live-transcript.recording {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-lg), 0 0 16px rgba(var(--color-accent-rgb), 0.2);
+    border-color: var(--accent-soft);
+    box-shadow: var(--shadow-lg), 0 0 24px var(--accent-faint);
   }
 
-  .live-transcript.final {
-    border-color: var(--color-success);
-    box-shadow: var(--shadow-lg), 0 0 16px rgba(74, 222, 128, 0.2);
-  }
-
-  .transcript-text {
-    font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.5;
-    color: var(--color-text);
+  .transcript-list {
     display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: var(--space-2);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .transcript-list::-webkit-scrollbar { width: 6px; }
+  .transcript-list::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-pill);
+  }
+
+  .transcript-line {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .transcript-line.is-partial .line-text {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .line-meta {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .pulse {
-    width: 8px;
-    height: 8px;
+  .partial-pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: var(--color-accent);
-    animation: pulse 1.5s ease-in-out infinite;
-    flex-shrink: 0;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+  .line-text {
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--size-md);
+    line-height: var(--leading-normal);
+    word-break: break-word;
   }
-
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.5;
-      transform: scale(1.2);
-    }
+  .line-text.markdown :global(p) { margin: 0 0 6px; }
+  .line-text.markdown :global(p:last-child) { margin-bottom: 0; }
+  .line-text.markdown :global(strong) { color: var(--text); font-weight: var(--weight-semibold); }
+  .line-text.markdown :global(em) { color: var(--text-muted); }
+  .line-text.markdown :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    background: var(--surface-3);
+    color: var(--accent);
+  }
+  .line-text.markdown :global(pre) {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    overflow-x: auto;
+  }
+  .line-text.markdown :global(ul),
+  .line-text.markdown :global(ol) {
+    margin: 4px 0 4px var(--space-5);
+    padding: 0;
+  }
+  .line-text.markdown :global(a) {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .live-transcript {
-      animation: none !important;
-    }
-    .pulse {
-      animation: none !important;
-      opacity: 1;
-    }
+    .transcript-line { animation: none !important; }
+    .partial-pulse { animation: none !important; }
   }
 </style>

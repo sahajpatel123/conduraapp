@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
 
-  type Elevation = 1 | 2 | 3 | 'glass' | 'glass-strong'
+  type Elevation = 1 | 2 | 3 | 'glass' | 'glass-strong' | string
 
   interface Props {
     elevation?: Elevation

@@ -18,6 +18,9 @@
   import OverlayPrompt from './lib/components/OverlayPrompt.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import ConsentModal from './lib/components/ConsentModal.svelte'
+  import StatusRail from './lib/components/StatusRail.svelte'
+  import TitleBar from './lib/components/TitleBar.svelte'
+  import CommandPalette from './lib/components/ui/CommandPalette.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
   import { consent } from './lib/stores/consent.svelte'
   import { overlay } from './lib/stores/overlay.svelte'
@@ -27,18 +30,33 @@
 
   let showOnboarding = $state(false)
   let currentHash = $state('#/')
+  let paletteOpen = $state(false)
 
   let route = $derived(
-    currentHash === '#/settings' ? 'settings' :
-    currentHash === '#/audit' ? 'audit' :
-    currentHash === '#/replay' ? 'replay' :
-    currentHash === '#/about' ? 'about' :
-    currentHash === '#/hub' ? 'hub' :
-    currentHash === '#/sync' ? 'sync' :
-    currentHash === '#/skills' ? 'skills' :
-    currentHash === '#/channels' ? 'channels' :
-    currentHash === '#/delegation' ? 'delegation' :
-    currentHash === '#/dev/components' ? 'dev-components' : 'chat'
+    currentHash.startsWith('#/settings') ? 'settings' :
+    currentHash.startsWith('#/audit') ? 'audit' :
+    currentHash.startsWith('#/replay') ? 'replay' :
+    currentHash.startsWith('#/about') ? 'about' :
+    currentHash.startsWith('#/hub') ? 'hub' :
+    currentHash.startsWith('#/sync') ? 'sync' :
+    currentHash.startsWith('#/skills') ? 'skills' :
+    currentHash.startsWith('#/channels') ? 'channels' :
+    currentHash.startsWith('#/delegation') ? 'delegation' :
+    currentHash.startsWith('#/dev/components') ? 'dev-components' : 'chat'
+  )
+
+  let routeTitle = $derived(
+    route === 'settings' ? t('nav.settings') :
+    route === 'audit' ? t('nav.audit') :
+    route === 'replay' ? t('nav.replay') :
+    route === 'about' ? t('nav.about') :
+    route === 'hub' ? t('nav.hub') :
+    route === 'sync' ? t('nav.sync') :
+    route === 'skills' ? t('nav.skills') :
+    route === 'channels' ? t('nav.channels') :
+    route === 'delegation' ? t('nav.delegation') :
+    route === 'dev-components' ? 'Component smoke' :
+    t('nav.chat')
   )
 
   onMount(() => {
@@ -49,15 +67,8 @@
     }
     window.addEventListener('hashchange', onHashChange)
 
-    // Initialize stores after the component tree is mounted.
-    // This ensures Svelte's reactive context is fully set up
-    // before any daemon communication starts.
     void initStores()
 
-    // Show the wizard only when BOTH gates say setup is unfinished:
-    // the legacy first-run marker AND the onboarding state machine.
-    // This keeps upgrades smooth — a user who finished onboarding in
-    // an older build (marker set) is never re-wizarded.
     void Promise.all([
       ipc.firstRunStatus().catch(() => ({ complete: false })),
       ipc.onboardingIsComplete().catch(() => true)
@@ -65,21 +76,31 @@
       showOnboarding = !fr.complete && !onboardComplete
     }).catch(() => {})
 
-    // Settings "Re-run setup" asks us to re-show the wizard even
-    // though the first-run marker is already set.
     const onShowOnboarding = (): void => {
       showOnboarding = true
       window.location.hash = '#/'
     }
     window.addEventListener('synaptic:show-onboarding', onShowOnboarding)
 
-    // Start polling for Gatekeeper consent tickets once the daemon
-    // connection is up.
     consent.start()
+
+    // Global ⌘K / Ctrl+K opens the command palette from anywhere
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        paletteOpen = true
+      }
+    }
+    window.addEventListener('keydown', onKey)
+
+    const onOpenPalette = (): void => { paletteOpen = true }
+    window.addEventListener('synaptic:open-palette', onOpenPalette)
 
     return () => {
       window.removeEventListener('hashchange', onHashChange)
       window.removeEventListener('synaptic:show-onboarding', onShowOnboarding)
+      window.removeEventListener('synaptic:open-palette', onOpenPalette)
+      window.removeEventListener('keydown', onKey)
       consent.stop()
     }
   })
@@ -88,10 +109,24 @@
     showOnboarding = false
     if (route) window.location.hash = route
   }
+
+  const paletteItems = $derived([
+    { id: 'chat', label: t('nav.chat'), group: t('common.search'), onselect: () => { window.location.hash = '#/' } },
+    { id: 'settings', label: t('nav.settings'), group: t('common.search'), onselect: () => { window.location.hash = '#/settings' } },
+    { id: 'audit', label: t('nav.audit'), group: t('common.search'), onselect: () => { window.location.hash = '#/audit' } },
+    { id: 'replay', label: t('nav.replay'), group: t('common.search'), onselect: () => { window.location.hash = '#/replay' } },
+    { id: 'hub', label: t('nav.hub'), group: t('common.search'), onselect: () => { window.location.hash = '#/hub' } },
+    { id: 'sync', label: t('nav.sync'), group: t('common.search'), onselect: () => { window.location.hash = '#/sync' } },
+    { id: 'skills', label: t('nav.skills'), group: t('common.search'), onselect: () => { window.location.hash = '#/skills' } },
+    { id: 'channels', label: t('nav.channels'), group: t('common.search'), onselect: () => { window.location.hash = '#/channels' } },
+    { id: 'delegation', label: t('nav.delegation'), group: t('common.search'), onselect: () => { window.location.hash = '#/delegation' } },
+    { id: 'about', label: t('nav.about'), group: t('common.search'), onselect: () => { window.location.hash = '#/about' } },
+    { id: 'dev', label: 'Component smoke', hint: 'Design system preview', group: 'Dev', onselect: () => { window.location.hash = '#/dev/components' } },
+  ])
 </script>
 
 {#if showOnboarding}
-  <div class="onboarding-overlay">
+  <div class="onboarding-shell">
     <div class="onboarding-glow"></div>
     <OnboardingWizard onComplete={completeOnboarding} />
   </div>
@@ -101,47 +136,49 @@
       <Sidebar />
     {/if}
 
-    <main class="main">
-      <div class="status-bar" class:connected={daemon.connected}>
-        <span class="conn-dot"></span>
-        <span class="conn-ring"></span>
-        <span class="conn-label">
-          {daemon.connected ? t('app.status.connected') : t('app.status.disconnected')}
-        </span>
-      </div>
-
-      {#if overlay.active}
-        <OverlayPrompt />
-      {:else}
-        {#key route}
-        <div class="route-container">
-          {#if route === 'settings'}
-            <Settings />
-          {:else if route === 'audit'}
-            <Audit />
-          {:else if route === 'replay'}
-            <Replay />
-          {:else if route === 'about'}
-            <About />
-          {:else if route === 'hub'}
-            <Hub />
-          {:else if route === 'sync'}
-            <Sync />
-          {:else if route === 'skills'}
-            <Skills />
-          {:else if route === 'channels'}
-            <Channels />
-          {:else if route === 'delegation'}
-            <Delegation />
-          {:else if route === 'dev-components'}
-            <DevComponents />
-          {:else}
-            <Chat />
-          {/if}
-        </div>
-        {/key}
+    <div class="content" class:overlay-mode={overlay.active}>
+      {#if !overlay.active}
+        <TitleBar title={routeTitle} />
       {/if}
-    </main>
+
+      <main class="main">
+        {#if overlay.active}
+          <OverlayPrompt />
+        {:else}
+          {#key route}
+            <div class="route-container">
+              {#if route === 'settings'}
+                <Settings />
+              {:else if route === 'audit'}
+                <Audit />
+              {:else if route === 'replay'}
+                <Replay />
+              {:else if route === 'about'}
+                <About />
+              {:else if route === 'hub'}
+                <Hub />
+              {:else if route === 'sync'}
+                <Sync />
+              {:else if route === 'skills'}
+                <Skills />
+              {:else if route === 'channels'}
+                <Channels />
+              {:else if route === 'delegation'}
+                <Delegation />
+              {:else if route === 'dev-components'}
+                <DevComponents />
+              {:else}
+                <Chat />
+              {/if}
+            </div>
+          {/key}
+        {/if}
+      </main>
+
+      {#if !overlay.active}
+        <StatusRail />
+      {/if}
+    </div>
 
     <Toasts />
     <LiveTranscript />
@@ -149,6 +186,12 @@
 {/if}
 
 <ConsentModal />
+<CommandPalette
+  bind:open={paletteOpen}
+  items={paletteItems}
+  placeholder={t('common.search')}
+  emptyMessage={t('common.no_results') ?? 'No results'}
+/>
 
 <style>
   .app-shell {
@@ -156,14 +199,12 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
-    background: var(--color-bg);
+    background: var(--bg);
   }
 
-  .app-shell.overlay-mode {
-    background: transparent;
-  }
+  .app-shell.overlay-mode { background: transparent; }
 
-  .main {
+  .content {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -171,100 +212,33 @@
     position: relative;
   }
 
-  /* ── Status bar — living breathing pill ──────────── */
-  .status-bar {
-    position: absolute;
-    top: var(--space-3);
-    right: var(--space-4);
+  .content.overlay-mode { background: transparent; }
+
+  .main {
+    flex: 1;
+    overflow: hidden;
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    z-index: var(--z-elevated);
-    padding: 6px 14px;
-    border-radius: var(--radius-pill);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: var(--shadow-xs), var(--shadow-inset);
-    transition: all var(--transition-base);
-  }
-
-  .status-bar:hover {
-    border-color: var(--glass-border-hover);
-    box-shadow: var(--shadow-sm), var(--shadow-inset);
-  }
-
-  .status-bar.connected {
-    border-color: rgba(16, 185, 129, 0.15);
-  }
-
-  .conn-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--color-text-faint);
-    flex-shrink: 0;
     position: relative;
-    transition: background var(--transition-base);
   }
 
-  .status-bar.connected .conn-dot {
-    background: var(--color-success);
-    box-shadow: 0 0 8px var(--color-success-glow);
-    animation: breathe 2.4s var(--ease-in-out-quart) infinite;
-  }
-
-  .conn-ring {
-    position: absolute;
-    left: 10px;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    border: 2px solid var(--color-success);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .status-bar.connected .conn-ring {
-    animation: ring-expand 2.4s var(--ease-out-quart) infinite;
-  }
-
-  .conn-label {
-    font-family: var(--font-mono);
-    font-size: var(--size-2xs);
-    color: var(--color-text-faint);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    font-weight: var(--weight-semibold);
-    transition: color var(--transition-base);
-  }
-
-  .status-bar.connected .conn-label {
-    color: var(--color-success);
-  }
-
-  /* ── Route container — premium entrance ──────────── */
   .route-container {
     flex: 1;
     overflow: hidden;
     display: flex;
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo);
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
+  .route-container > :global(*) {
+    flex: 1;
+    min-height: 0;
   }
 
-  .route-container :global(div) {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-  }
-
-  /* ── Onboarding overlay — cinematic entrance ─────── */
-  .onboarding-overlay {
+  /* ── Onboarding shell — cinematic ─────────────────── */
+  .onboarding-shell {
     position: fixed;
     inset: 0;
-    background: var(--color-bg);
+    background: var(--bg);
     z-index: var(--z-overlay);
-    animation: fade-in var(--transition-slow) var(--ease-out-expo);
+    animation: fade-in var(--transition-slow) var(--ease-out-expo) both;
     overflow: hidden;
   }
 
@@ -273,12 +247,12 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 600px;
-    height: 600px;
+    width: 720px;
+    height: 720px;
     border-radius: 50%;
-    background: radial-gradient(circle, var(--color-accent-soft) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
     pointer-events: none;
     animation: breathe-soft 6s ease-in-out infinite;
-    opacity: 0.6;
+    opacity: 0.7;
   }
 </style>

@@ -1,67 +1,70 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { locale, t, setLocale, SUPPORTED_LOCALES, type Locale, mergeDaemonCatalog } from '../i18n';
-	import { ipc } from '../ipc/client';
+  // LocaleSelector — small dropdown to pick the UI language.
+  //
+  // Shows the six supported locales with their native names.
+  // Persists to localStorage via the i18n module's setLocale().
+  // On mount, asks the daemon for its locale catalog and merges it
+  // into the in-memory catalog.
+  import { onMount } from 'svelte'
+  import Select from './ui/Select.svelte'
+  import {
+    locale,
+    t,
+    setLocale,
+    SUPPORTED_LOCALES,
+    type Locale,
+    mergeDaemonCatalog,
+  } from '../i18n'
+  import { ipc } from '../ipc/client'
 
-	const localeNames: Record<Locale, string> = {
-		en: 'English',
-		es: 'Español',
-		fr: 'Français',
-		de: 'Deutsch',
-		ja: '日本語',
-		zh: '中文'
-	};
+  const localeNames: Record<Locale, string> = {
+    en: 'English',
+    es: 'Español',
+    fr: 'Français',
+    de: 'Deutsch',
+    ja: '日本語',
+    zh: '中文',
+  }
 
-	// currentLocale is the synchronous mirror of the locale store
-	// so we can `bind:value` to it. locale.subscribe keeps it in
-	// sync; bind:value writes back through onValueChange.
-	let currentLocale: Locale = $state('en');
-	$effect(() => {
-		return locale.subscribe((loc) => {
-			currentLocale = loc;
-		});
-	});
+  // currentLocale mirrors the locale store reactively so the
+  // Select's bound value stays in sync.
+  let currentLocale: Locale = $state('en')
+  $effect(() => {
+    return locale.subscribe((loc) => {
+      currentLocale = loc
+    })
+  })
 
-	function onValueChange(e: Event): void {
-		const v = (e.target as HTMLSelectElement).value as Locale;
-		setLocale(v);
-	}
+  const options = SUPPORTED_LOCALES.map((loc) => ({
+    value: loc,
+    label: localeNames[loc],
+  }))
 
-	onMount(() => {
-		void ipc.i18nLocale(currentLocale).then((r) => {
-			mergeDaemonCatalog(r.locale as Locale, r.translations);
-		}).catch(() => {});
-	});
+  function onChange(v: string): void {
+    setLocale(v as Locale)
+  }
+
+  onMount(() => {
+    void ipc
+      .i18nLocale(currentLocale)
+      .then((r) => {
+        mergeDaemonCatalog(r.locale as Locale, r.translations)
+      })
+      .catch(() => {
+        // Daemon may be unreachable; the bundled catalog still works.
+      })
+  })
 </script>
 
-<select
-	bind:value={currentLocale}
-	onchange={onValueChange}
-	class="locale-select"
-	aria-label={t('locale.selector.aria_label')}
->
-	{#each SUPPORTED_LOCALES as loc}
-		<option value={loc}>{localeNames[loc]}</option>
-	{/each}
-</select>
+<Select
+  value={currentLocale}
+  options={options}
+  fullWidth={false}
+  onchange={onChange}
+/>
 
 <style>
-	.locale-select {
-		background: var(--bg-elevated);
-		border: 1px solid var(--border);
-		border-radius: 6px;
-		padding: 6px 10px;
-		color: var(--fg);
-		font-size: 13px;
-		cursor: pointer;
-		transition: border-color 0.15s;
-	}
-	.locale-select:hover {
-		border-color: var(--accent);
-	}
-	.locale-select:focus {
-		outline: none;
-		border-color: var(--accent);
-		box-shadow: 0 0 0 2px var(--accent-alpha);
-	}
+  :global(.locale-select) {
+    min-width: 140px;
+  }
 </style>

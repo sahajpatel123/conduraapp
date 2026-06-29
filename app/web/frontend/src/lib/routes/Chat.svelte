@@ -1,788 +1,704 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { marked } from 'marked'
+
   import { conversation } from '../stores/conversation.svelte'
   import { daemon } from '../stores/daemon.svelte'
   import { settings } from '../stores/settings.svelte'
+  import { ipc } from '../ipc/client'
+  import type { ProviderInfo } from '../ipc/types'
   import { t } from '../i18n'
 
+  import Button from '../components/ui/Button.svelte'
+  import IconButton from '../components/ui/IconButton.svelte'
+  import Card from '../components/ui/Card.svelte'
+  import Badge from '../components/ui/Badge.svelte'
+  import Select from '../components/ui/Select.svelte'
+  import VoiceOrb from '../components/VoiceOrb.svelte'
+  import EmptyState from '../components/ui/EmptyState.svelte'
+
   let inputText = $state('')
-  let selectedProvider = $state('openai')
+  let voiceOn = $state(false)
+  let voiceListening = $state(false)
+  let slashIndex = $state(0)
+  let scrollerEl = $state<HTMLDivElement | null>(null)
+  let providers = $state<ProviderInfo[]>([])
+
+  const slashCommands = [
+    { id: 'help',    label: '/help',    hint: t('composer.slash_help') },
+    { id: 'model',   label: '/model',   hint: t('composer.slash_model') },
+    { id: 'about',   label: '/about',   hint: t('composer.slash_about') },
+    { id: 'clear',   label: '/clear',   hint: t('composer.slash_clear') },
+    { id: 'compact', label: '/compact', hint: t('composer.slash_compact') },
+  ]
+
+  const modelOptions = $derived(
+    providers.flatMap((p) =>
+      p.models.map((m) => ({ value: `${p.name}:${m.id}`, label: `${p.name} · ${m.id}` }))
+    )
+  )
+
+  function defaultProviderModel(): string {
+    const cfg = settings.config
+    if (!cfg) return modelOptions[0]?.value ?? ''
+    const entries = Object.entries(cfg.llm.providers)
+    const enabled = entries.find(([_, p]) => p.enabled)
+    if (enabled) return `${enabled[0]}:${enabled[1].default_model}`
+    return modelOptions[0]?.value ?? ''
+  }
+
   let selectedModel = $state('')
 
   $effect(() => {
-    if (daemon.connected && settings.config && !selectedModel) {
-      const p = settings.config.llm.providers[selectedProvider]
-      if (p?.default_model) {
-        selectedModel = p.default_model
-      }
+    if (!selectedModel && modelOptions.length > 0) {
+      selectedModel = defaultProviderModel() || modelOptions[0].value
     }
   })
+
+  const showSlashMenu = $derived(inputText.startsWith('/'))
+
+  function onInput(e: Event): void {
+    inputText = (e.currentTarget as HTMLTextAreaElement).value
+  }
+
+  function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      void send()
+    } else if (showSlashMenu && e.key === 'ArrowDown') {
+      e.preventDefault()
+      slashIndex = (slashIndex + 1) % slashCommands.length
+    } else if (showSlashMenu && e.key === 'ArrowUp') {
+      e.preventDefault()
+      slashIndex = (slashIndex - 1 + slashCommands.length) % slashCommands.length
+    }
+  }
 
   async function send(): Promise<void> {
-    if (!inputText.trim() || conversation.isStreaming) {
-      return
-    }
     const text = inputText.trim()
+    if (!text || conversation.isStreaming) return
     inputText = ''
-    await conversation.send(selectedProvider, selectedModel, text)
+
+    if (!conversation.currentID) {
+      await conversation.createNew(text.slice(0, 60))
+    }
+
+    const [provider, model] = selectedModel.split(':')
+    if (!provider || !model) return
+    await conversation.send(provider, model, text)
   }
 
-  function onKeydown(ev: KeyboardEvent): void {
-    if (ev.key === 'Enter' && !ev.shiftKey) {
-      ev.preventDefault()
-      void send()
+  async function newChat(): Promise<void> {
+    await conversation.createNew()
+  }
+
+  async function openConversation(id: number): Promise<void> {
+    await conversation.open(id)
+  }
+
+  function toggleVoice(): void {
+    voiceOn = !voiceOn
+    voiceListening = voiceOn
+  }
+
+  function applySlash(): void {
+    if (showSlashMenu && slashCommands[slashIndex]) {
+      inputText = slashCommands[slashIndex].label + ' '
     }
   }
 
-  async function cancel(): Promise<void> {
-    await conversation.cancel()
-  }
-
-  let scrollAnchor: HTMLDivElement | null = $state(null)
   $effect(() => {
-    conversation.messages.length
-    conversation.streamingDelta.length
-    if (scrollAnchor) {
-      scrollAnchor.scrollIntoView({ block: 'end', behavior: 'smooth' })
+    if (scrollerEl && (conversation.messages.length || conversation.isStreaming)) {
+      requestAnimationFrame(() => {
+        scrollerEl?.scrollTo({ top: scrollerEl.scrollHeight, behavior: 'smooth' })
+      })
     }
   })
+
+  onMount(() => {
+    void conversation.refreshList()
+    conversation.startListening()
+    void settings.refresh()
+    void (async () => {
+      try { providers = await ipc.providersList() } catch { providers = [] }
+    })()
+    return () => conversation.stopListening()
+  })
+
+  function renderMarkdown(text: string): string {
+    return marked.parse(text, { async: false }) as string
+  }
 </script>
 
-<div class="chat-page">
-  <!-- Top glow effect for depth -->
-  <div class="ambient-glow-top"></div>
-
-  <!-- Floating header -->
-  <header class="chat-header">
-    <h2 class="chat-title">{conversation.currentTitle || t('chat.empty.title')}</h2>
-    {#if conversation.isStreaming}
-      <div class="chat-status">
-        <span class="streaming-pill">{t('chat.streaming')}</span>
-        <button class="btn-stop" onclick={cancel}>
-          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
-          {t('chat.stop')}
-        </button>
-      </div>
-    {/if}
-  </header>
-
-  <!-- Message thread -->
-  <div class="chat-thread">
-    <div class="thread-inner">
-      {#if conversation.messages.length === 0}
-        <div class="empty-state">
-          <div class="empty-logo-glow"></div>
-          <div class="empty-icon">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 14h24a3 3 0 013 3v14a3 3 0 01-3 3H18l-9 7V17a3 3 0 013-3z"/><circle cx="18" cy="24" r="1.5" fill="currentColor"/><circle cx="24" cy="24" r="1.5" fill="currentColor"/><circle cx="30" cy="24" r="1.5" fill="currentColor"/></svg>
-          </div>
-          <h3>{t('chat.empty.title')}</h3>
-          <p>
-            {#if !settings.config}
-              {t('chat.empty.checking')}
-            {:else if !daemon.connected}
-              {t('chat.empty.waiting')}
-            {:else}
-              {#if Object.values(settings.config.llm?.providers ?? {}).every((p: any) => !p?.enabled)}
-                {t('chat.empty.no_provider')} <a href="#/settings">{t('chat.empty.settings_link')}</a> {t('chat.empty.no_provider_after')}
-              {:else}
-                {t('chat.empty.get_started', selectedProvider)}
-              {/if}
-            {/if}
-          </p>
-        </div>
-      {/if}
-      
-      {#each conversation.messages as msg, i (i)}
-        <div class="message-row" class:is-user={msg.role === 'user'}>
-          <div class="message message-{msg.role}">
-            <div class="message-content">{msg.content}</div>
-            {#if msg.tool_calls && msg.tool_calls.length > 0}
-              <div class="tool-calls" aria-label="Tool calls">
-                {#each msg.tool_calls as tc (tc.id)}
-                  <details class="tool-call">
-                    <summary>
-                      <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2m0 10v2m-7-7h2m10 0h2M3.5 3.5l1.4 1.4m6.2 6.2 1.4 1.4m0-11-1.4 1.4M5.1 10.9l-1.4 1.4"/></svg></span>
-                      <span class="tool-name">{tc.function.name}</span>
-                    </summary>
-                    <pre class="tool-args">{tc.function.arguments}</pre>
-                  </details>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/each}
-
-      {#if conversation.isStreaming && conversation.streamingDelta}
-        <div class="message-row">
-          <div class="message message-assistant streaming">
-            <div class="message-content">{conversation.streamingDelta}<span class="cursor"></span></div>
-            {#if conversation.streamingToolCalls.length > 0}
-              <div class="tool-calls" aria-label="Tool calls in flight">
-                {#each conversation.streamingToolCalls as tc (tc.id)}
-                  <div class="tool-call streaming">
-                    <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2m0 10v2m-7-7h2m10 0h2M3.5 3.5l1.4 1.4m6.2 6.2 1.4 1.4m0-11-1.4 1.4M5.1 10.9l-1.4 1.4"/></svg></span>
-                    <span class="tool-name">{tc.function.name}</span>
-                    <div class="tool-pulse"></div>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
-
-      {#if conversation.streamingError}
-        <div class="message-row">
-          <div class="message message-error">
-            <div class="message-content">{conversation.streamingError}</div>
-          </div>
-        </div>
-      {/if}
-
-      <div bind:this={scrollAnchor} class="scroll-anchor"></div>
+<div class="chat">
+  <!-- ── Conversation rail ────────────────────────────── -->
+  <aside class="chat-rail">
+    <div class="chat-rail-header">
+      <Button variant="primary" size="sm" fullWidth onclick={newChat}>
+        + {t('chat.new_chat')}
+      </Button>
     </div>
-  </div>
+    <nav class="chat-rail-list" aria-label="Conversations">
+      {#if conversation.conversations.length === 0}
+        <div class="chat-rail-empty">{t('chat.no_conversations') ?? 'No conversations yet.'}</div>
+      {:else}
+        {#each conversation.conversations as c (c.id)}
+          <button
+            type="button"
+            class="chat-rail-item"
+            class:active={conversation.currentID === c.id}
+            onclick={() => openConversation(c.id)}
+          >
+            <span class="chat-rail-title">{c.title || t('chat.new_chat')}</span>
+            <span class="chat-rail-meta">{new Date(c.updated_at).toLocaleString()}</span>
+          </button>
+        {/each}
+      {/if}
+    </nav>
+  </aside>
 
-  <!-- Floating input pill -->
-  <footer class="chat-input-wrap" class:is-streaming={conversation.isStreaming}>
-    <div class="chat-input-glow"></div>
-    <div class="chat-input-pill">
-      <div class="input-meta-row">
-        <select bind:value={selectedProvider} class="meta-select">
-          <option value="openai">openai</option>
-          <option value="anthropic">anthropic</option>
-          <option value="google">google</option>
-          <option value="xai">xai</option>
-          <option value="mistral">mistral</option>
-          <option value="deepseek">deepseek</option>
-          <option value="openrouter">openrouter</option>
-          <option value="groq">groq</option>
-          <option value="together">together</option>
-          <option value="fireworks">fireworks</option>
-          <option value="ollama">ollama</option>
-        </select>
-        <span class="meta-sep">/</span>
-        <input
-          type="text"
+  <!-- ── Conversation pane ───────────────────────────── -->
+  <section class="chat-pane">
+    <header class="chat-header">
+      <div class="chat-header-title">
+        <h2 class="chat-title">{conversation.currentTitle || t('chat.new_chat')}</h2>
+        <span class="chat-meta">
+          {conversation.messages.length} {t('chat.messages') ?? 'messages'}
+        </span>
+      </div>
+      <div class="chat-header-actions">
+        <Select
           bind:value={selectedModel}
-          placeholder="model"
-          class="meta-model"
+          options={modelOptions}
+          placeholder={t('composer.model_picker_label')}
         />
-      </div>
-      <div class="input-main-row">
-        <input
-          type="text"
-          bind:value={inputText}
-          onkeydown={onKeydown}
-          placeholder={t('chat.placeholder')}
-          class="input-message"
-          disabled={conversation.isStreaming}
-        />
-        <button
-          class="btn-send"
-          onclick={send}
-          disabled={!inputText.trim() || conversation.isStreaming}
-          aria-label={t('chat.send')}
-          title={t('chat.send')}
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="input-footer">
-      <p class="hint">
-        {#if !daemon.connected}
-          <span class="warn">{t('chat.not_connected')}</span>
-        {:else}
-          {t('chat.keyhint')}
+        {#if conversation.currentID}
+          <IconButton variant="ghost" ariaLabel="Delete conversation" onclick={() => conversation.deleteCurrent()}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </IconButton>
         {/if}
-      </p>
+      </div>
+    </header>
+
+    <div class="chat-scroll" bind:this={scrollerEl}>
+      {#if conversation.messages.length === 0 && !conversation.isStreaming}
+        <EmptyState
+          title={t('chat.welcome_title') ?? 'Ask Condura anything.'}
+          description={t('chat.welcome_lede') ?? 'A free, local AI conductor for everything on your computer.'}
+        >
+          {#snippet icon()}
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5" />
+            </svg>
+          {/snippet}
+          {#snippet action()}
+            <div class="welcome-actions">
+              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Review my recent file changes' }}>
+                Review my recent file changes
+              </Button>
+              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Draft a release note for v0.1.0' }}>
+                Draft a release note for v0.1.0
+              </Button>
+              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Summarize the audit log' }}>
+                Summarize the audit log
+              </Button>
+            </div>
+          {/snippet}
+        </EmptyState>
+      {:else}
+        <div class="chat-messages">
+          {#each conversation.messages as msg, i (i)}
+            <article class="msg msg-{msg.role}">
+              <div class="msg-meta">
+                <span class="msg-role">{msg.role}</span>
+                {#if msg.tool_calls && msg.tool_calls.length > 0}
+                  <Badge tone="accent" size="xs">{msg.tool_calls.length} tool calls</Badge>
+                {/if}
+              </div>
+              <div class="msg-body">
+                {#if msg.role === 'assistant'}
+                  <div class="msg-markdown">{@html renderMarkdown(msg.content)}</div>
+                {:else}
+                  <div class="msg-text">{msg.content}</div>
+                {/if}
+                {#if msg.tool_calls}
+                  <div class="msg-tools">
+                    {#each msg.tool_calls as tc (tc.id)}
+                      <Card elevation={2} padding="sm">
+                        <div class="msg-tool-row">
+                          <span class="msg-tool-name">{tc.function.name}</span>
+                          <code class="msg-tool-args">{tc.function.arguments}</code>
+                        </div>
+                      </Card>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </article>
+          {/each}
+
+          {#if conversation.isStreaming}
+            <article class="msg msg-assistant msg-streaming">
+              <div class="msg-meta">
+                <span class="msg-role">{t('chat.assistant')}</span>
+                <Badge tone="accent" dot pulse size="xs">{t('chat.streaming')}</Badge>
+              </div>
+              <div class="msg-body">
+                {#if conversation.streamingDelta}
+                  <div class="msg-markdown">{@html renderMarkdown(conversation.streamingDelta)}</div>
+                {:else}
+                  <div class="msg-thinking">
+                    <span class="dot-loader"><span></span><span></span><span></span></span>
+                    {t('chat.thinking') ?? 'Thinking…'}
+                  </div>
+                {/if}
+                {#if conversation.streamingToolCalls.length > 0}
+                  <div class="msg-tools">
+                    {#each conversation.streamingToolCalls as tc (tc.id)}
+                      <Card elevation={2} padding="sm">
+                        <div class="msg-tool-row">
+                          <span class="msg-tool-name">{tc.function.name}</span>
+                          <code class="msg-tool-args">{tc.function.arguments}</code>
+                        </div>
+                      </Card>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </article>
+          {/if}
+
+          {#if conversation.streamingError}
+            <div class="chat-error">{conversation.streamingError}</div>
+          {/if}
+        </div>
+      {/if}
     </div>
-  </footer>
+
+    <!-- ── Composer ───────────────────────────────────── -->
+    <footer class="composer">
+      {#if voiceOn}
+        <div class="composer-voice">
+          <VoiceOrb size="md" status={voiceListening ? 'listening' : 'off'} />
+        </div>
+      {/if}
+
+      <div class="composer-shell">
+        {#if showSlashMenu}
+          <div class="slash-menu" role="listbox">
+            {#each slashCommands as cmd, i (cmd.id)}
+              <button
+                type="button"
+                class="slash-item"
+                class:active={i === slashIndex}
+                onclick={() => { slashIndex = i; applySlash() }}
+                onmouseenter={() => slashIndex = i}
+              >
+                <span class="slash-label">{cmd.label}</span>
+                <span class="slash-hint">{cmd.hint}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+
+        <div class="composer-input-row">
+          <textarea
+            class="composer-input"
+            placeholder={voiceOn ? t('composer.voice_idle') : t('chat.placeholder')}
+            value={inputText}
+            oninput={onInput}
+            onkeydown={onKey}
+            rows="1"
+          ></textarea>
+          <div class="composer-actions">
+            <IconButton
+              variant="ghost"
+              ariaLabel={voiceOn ? 'Turn voice off' : 'Turn voice on'}
+              active={voiceOn}
+              onclick={toggleVoice}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+            </IconButton>
+            {#if conversation.isStreaming}
+              <Button variant="danger" size="md" onclick={() => conversation.cancel()}>
+                {t('chat.stop')}
+              </Button>
+            {:else}
+              <Button variant="primary" size="md" onclick={send} disabled={!inputText.trim()}>
+                {t('chat.send')}
+              </Button>
+            {/if}
+          </div>
+        </div>
+
+        <div class="composer-hint">
+          <span>{daemon.connected ? '● ' + t('app.status.connected') : '○ ' + t('app.status.disconnected')}</span>
+          <span class="dot">·</span>
+          <span>{t('chat.composer_hint') ?? 'Shift+Enter for newline. / for commands.'}</span>
+        </div>
+      </div>
+    </footer>
+  </section>
 </div>
 
 <style>
-  /* ── Layout ─────────────────────────────────────────── */
-  .chat-page {
+  .chat {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .chat-rail {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    background: transparent;
-    position: relative;
-    overflow: hidden;
+    background: var(--surface-1);
+    border-right: 1px solid var(--border);
+    min-height: 0;
   }
 
-  /* Ambient glow at the top — breathes softly */
-  .ambient-glow-top {
-    position: absolute;
-    top: -120px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 900px;
-    height: 250px;
-    background: radial-gradient(ellipse at top, var(--color-accent-soft), transparent 60%);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
-    animation: breathe-soft 8s ease-in-out infinite;
+  .chat-rail-header {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border);
   }
 
-  /* ── Header ─────────────────────────────────────────── */
-  .chat-header {
-    position: relative;
-    z-index: 10;
+  .chat-rail-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4) var(--space-5);
-    flex-shrink: 0;
-    background: linear-gradient(180deg, var(--color-bg) 0%, transparent 100%);
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .chat-title {
-    font-size: var(--size-xs);
-    font-weight: var(--weight-bold);
-    color: var(--color-text-dim);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-widest);
+  .chat-rail-empty {
+    padding: var(--space-5) var(--space-3);
+    color: var(--text-faint);
+    font-size: var(--size-sm);
     text-align: center;
+  }
+
+  .chat-rail-item {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transition: background-color var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease;
+  }
+  .chat-rail-item:hover { background: var(--surface-2); color: var(--text); }
+  .chat-rail-item.active {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border-focus);
+  }
+
+  .chat-rail-title {
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 60%;
+  }
+  .chat-rail-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
   }
 
-  .chat-status {
-    position: absolute;
-    right: var(--space-5);
-    top: 50%;
-    transform: translateY(-50%);
+  .chat-pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--bg);
+  }
+
+  .chat-header {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    animation: fade-in-scale var(--transition-base) var(--ease-out-expo) both;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
   }
-
-  /* Streaming pill — living, pulsing */
-  .streaming-pill {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
-    border: 1px solid var(--color-border-accent);
-    padding: 5px 14px;
-    border-radius: var(--radius-pill);
+  .chat-header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .chat-title {
+    font-family: var(--font-display);
+    font-size: var(--size-lg);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+    letter-spacing: var(--tracking-tight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-meta {
+    font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: var(--weight-bold);
+    color: var(--text-faint);
     text-transform: uppercase;
-    letter-spacing: var(--tracking-wide);
-    display: inline-flex;
+    letter-spacing: var(--tracking-wider);
+  }
+
+  .chat-header-actions {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    animation: streaming-pulse 2s ease-in-out infinite;
+    gap: var(--space-2);
   }
+  .chat-header-actions :global(.select-wrap) { min-width: 220px; }
 
-  .streaming-pill::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    box-shadow: 0 0 10px var(--color-accent);
-    animation: breathe 1s ease-in-out infinite;
-  }
-
-  .btn-stop {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--glass-bg);
-    color: var(--color-text-muted);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-pill);
-    padding: 6px 14px;
-    font-size: 11px;
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wide);
-  }
-
-  .btn-stop svg {
-    width: 10px;
-    height: 10px;
-  }
-
-  .btn-stop:hover {
-    color: var(--color-error);
-    border-color: rgba(239, 68, 68, 0.4);
-    background: var(--color-error-soft);
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.2);
-  }
-
-  .btn-stop:active {
-    transform: scale(0.95);
-    transition-duration: var(--transition-instant);
-  }
-
-  /* ── Thread ─────────────────────────────────────────── */
-  .chat-thread {
+  .chat-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-4) var(--space-5) 180px;
-    z-index: 1;
-    position: relative;
-    scroll-behavior: smooth;
+    padding: var(--space-6) var(--space-7);
+    min-height: 0;
   }
 
-  .thread-inner {
-    max-width: var(--content-max-width);
-    margin: 0 auto;
+  .chat-messages {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    max-width: 820px;
+    margin: 0 auto;
   }
 
-  /* ── Messages — staggered entrance with blur ──────── */
-  .message-row {
-    display: flex;
-    width: 100%;
-    animation: message-in var(--transition-spring) var(--ease-out-expo) both;
-  }
-
-  .message-row.is-user {
-    justify-content: flex-end;
-  }
-
-  .message {
-    max-width: 85%;
-    padding: var(--space-4) var(--space-5);
-    border-radius: var(--radius-xl);
-    position: relative;
-  }
-
-  /* User messages — glass with accent border glow */
-  .message-user {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-bottom-right-radius: var(--radius-sm);
-    color: var(--color-text);
-    box-shadow: var(--shadow-md), var(--shadow-inset);
-  }
-
-  .message-user::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: var(--color-accent-gradient-subtle);
-    z-index: -1;
-    opacity: 0.5;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  /* Assistant messages — clean, no bubble */
-  .message-assistant {
-    background: transparent;
-    padding-left: 0;
-    max-width: 90%;
-  }
-
-  .message-error {
-    background: var(--color-error-soft);
-    border-left: 3px solid var(--color-error);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
-  }
-
-  .message-content {
-    font-size: var(--size-md);
-    line-height: var(--leading-relaxed);
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--color-text);
-  }
-
-  /* ── Streaming cursor — blinking bar ──────────────── */
-  .streaming .cursor {
-    display: inline-block;
-    width: 3px;
-    height: 1.2em;
-    background: var(--color-accent);
-    border-radius: 2px;
-    margin-left: 4px;
-    vertical-align: middle;
-    box-shadow: 0 0 10px var(--color-accent-glow);
-    animation: cursor-blink 0.8s steps(2) infinite;
-  }
-
-  /* ── Tool calls — premium glass cards ─────────────── */
-  .tool-calls {
+  .msg {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    margin-top: var(--space-4);
+    animation: fade-in-up var(--transition-base) var(--ease-out-expo) both;
   }
 
-  .tool-call {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .msg-role {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-widest);
+    color: var(--text-faint);
+    font-weight: var(--weight-semibold);
+  }
+  .msg-user .msg-role  { color: var(--text-muted); }
+  .msg-assistant .msg-role { color: var(--accent); }
+
+  .msg-body { color: var(--text); line-height: var(--leading-normal); font-size: var(--size-md); }
+  .msg-text { white-space: pre-wrap; }
+
+  .msg-markdown { line-height: var(--leading-relaxed); }
+  .msg-markdown :global(p) { margin: 0.5em 0; }
+  .msg-markdown :global(p:first-child) { margin-top: 0; }
+  .msg-markdown :global(p:last-child) { margin-bottom: 0; }
+  .msg-markdown :global(h1),
+  .msg-markdown :global(h2),
+  .msg-markdown :global(h3) {
+    font-family: var(--font-display);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tight);
+    margin: 0.8em 0 0.4em;
+  }
+  .msg-markdown :global(h1) { font-size: var(--size-xl); }
+  .msg-markdown :global(h2) { font-size: var(--size-lg); }
+  .msg-markdown :global(h3) { font-size: var(--size-md); }
+  .msg-markdown :global(ul),
+  .msg-markdown :global(ol) { margin: 0.5em 0; padding-left: 1.4em; }
+  .msg-markdown :global(li) { margin: 0.25em 0; }
+  .msg-markdown :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+  }
+  .msg-markdown :global(pre) {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    overflow: hidden;
-    transition: all var(--transition-fast);
+    padding: var(--space-3);
+    overflow-x: auto;
+    margin: 0.7em 0;
+  }
+  .msg-markdown :global(pre code) { background: none; border: none; padding: 0; }
+  .msg-markdown :global(blockquote) {
+    border-left: 2px solid var(--accent);
+    padding-left: var(--space-3);
+    margin: 0.7em 0;
+    color: var(--text-muted);
+    font-style: italic;
   }
 
-  .tool-call:hover {
-    border-color: var(--glass-border-hover);
-    background: var(--glass-bg-hover);
-  }
-
-  .tool-call.streaming {
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    border-color: var(--color-border-accent);
-    box-shadow: 0 0 20px var(--color-accent-soft);
-    position: relative;
-    animation: streaming-pulse 2s ease-in-out infinite;
-  }
-
-  .tool-pulse {
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    box-shadow: 0 0 10px var(--color-accent);
-    animation: breathe 1s ease-in-out infinite;
-  }
-
-  .tool-call summary {
-    cursor: pointer;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    list-style: none;
-    color: var(--color-text-muted);
-    user-select: none;
-    transition: color var(--transition-fast);
-  }
-
-  .tool-call summary:hover {
-    color: var(--color-text);
-  }
-
-  .tool-call summary::-webkit-details-marker { display: none; }
-
-  .tool-icon {
-    color: var(--color-accent);
-    display: flex;
-    align-items: center;
-  }
-  .tool-icon svg { width: 16px; height: 16px; }
-
-  .tool-name {
+  .msg-tools { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+  .msg-tool-row { display: flex; flex-direction: column; gap: 4px; }
+  .msg-tool-name {
     font-family: var(--font-mono);
     font-size: var(--size-xs);
-    font-weight: var(--weight-medium);
+    color: var(--accent);
+    font-weight: var(--weight-semibold);
   }
-
-  .tool-args {
-    padding: var(--space-3);
-    margin: 0;
-    background: var(--color-bg-elevated);
-    border-top: 1px solid var(--glass-border);
+  .msg-tool-args {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--color-text-dim);
+    color: var(--text-muted);
     white-space: pre-wrap;
-    max-height: 200px;
-    overflow-y: auto;
+    word-break: break-all;
   }
 
-  /* ── Input Pill — the hero of the chat ────────────── */
-  .chat-input-wrap {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: var(--space-6) var(--space-5) var(--space-4);
-    background: linear-gradient(0deg, var(--color-bg) 40%, transparent 100%);
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  /* Glow behind the input — intensifies on focus */
-  .chat-input-glow {
-    position: absolute;
-    top: 20px;
-    width: 60%;
-    height: 80px;
-    background: var(--color-accent);
-    filter: blur(80px);
-    opacity: 0.08;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 0;
-    transition: all var(--transition-slow);
-  }
-
-  .chat-input-pill {
-    width: 100%;
-    max-width: var(--content-max-width);
-    background: var(--glass-bg-solid);
-    backdrop-filter: var(--glass-blur-heavy);
-    -webkit-backdrop-filter: var(--glass-blur-heavy);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-2xl);
-    padding: 14px 20px;
-    position: relative;
-    z-index: 1;
-    transition: all var(--transition-base);
-    box-shadow: var(--shadow-lg), var(--shadow-inset);
-  }
-
-  .chat-input-pill:focus-within {
-    border-color: var(--color-border-accent);
-    box-shadow: var(--shadow-xl), 0 0 40px var(--color-accent-faint), var(--shadow-inset);
-  }
-
-  .chat-input-wrap:focus-within .chat-input-glow {
-    opacity: 0.2;
-    transform: scale(1.2);
-  }
-
-  /* Streaming state — the pill breathes */
-  .is-streaming .chat-input-pill {
-    border-color: var(--color-accent-soft);
-    animation: streaming-pulse 3s ease-in-out infinite;
-  }
-
-  .input-meta-row {
-    display: flex;
+  .msg-thinking {
+    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    margin-bottom: 8px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--color-border);
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+  }
+  .msg-thinking .dot-loader span { background: var(--accent); }
+
+  .msg-streaming .msg-body::after {
+    content: '▍';
+    display: inline-block;
+    color: var(--accent);
+    margin-left: 2px;
+    animation: cursor-blink 1s var(--ease-in-out-quart) infinite;
   }
 
-  .meta-select {
+  .chat-error {
+    background: var(--error-soft);
+    border: 1px solid var(--border-danger);
+    color: var(--error);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    font-size: var(--size-sm);
+  }
+
+  .composer {
+    padding: var(--space-3) var(--space-5) var(--space-4);
+    background: var(--surface-1);
+    border-top: 1px solid var(--border);
+  }
+  .composer-voice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-3) 0;
+  }
+
+  .composer-shell {
+    position: relative;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  .slash-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: var(--space-2);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    animation: fade-in-scale var(--transition-fast) var(--ease-out-expo) both;
+  }
+  .slash-item {
     appearance: none;
     background: transparent;
     border: none;
-    color: var(--color-text-dim);
-    font-size: 11px;
-    font-weight: var(--weight-bold);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wide);
+    color: var(--text);
+    text-align: left;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    outline: none;
-    transition: color var(--transition-fast);
-    font-family: var(--font-mono);
-  }
-
-  .meta-select:hover, .meta-select:focus {
-    color: var(--color-accent);
-  }
-
-  .meta-sep {
-    color: var(--color-text-dim);
-    font-size: 10px;
-    opacity: 0.4;
-  }
-
-  .meta-model {
-    background: transparent;
-    border: none;
-    color: var(--color-text-dim);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    outline: none;
-    width: 140px;
-    transition: color var(--transition-fast);
-  }
-
-  .meta-model::placeholder { color: var(--color-text-dim); }
-  .meta-model:focus { color: var(--color-text); }
-
-  .input-main-row {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: 2px;
+    transition: background-color var(--transition-fast) ease;
+  }
+  .slash-item.active { background: var(--surface-3); }
+  .slash-label { font-family: var(--font-mono); font-size: var(--size-sm); color: var(--text); }
+  .slash-hint { font-size: var(--size-xs); color: var(--text-faint); }
+
+  .composer-input-row {
+    display: flex;
+    align-items: end;
+    gap: var(--space-2);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  }
+  .composer-input-row:focus-within {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .input-message {
+  .composer-input {
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--color-text);
-    font-size: var(--size-lg);
-    font-weight: var(--weight-light);
     outline: none;
-    letter-spacing: var(--tracking-normal);
-  }
-
-  .input-message::placeholder { color: var(--color-text-faint); }
-  .input-message:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  /* Send button — tactile, alive */
-  .btn-send {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: none;
-    background: var(--color-text);
-    color: var(--color-bg);
-    cursor: pointer;
-    transition: all var(--transition-spring);
-    box-shadow: 0 4px 16px rgba(20, 17, 11, 0.18);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .btn-send::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--color-accent-gradient);
-    opacity: 0;
-    transition: opacity var(--transition-base);
-    border-radius: inherit;
-  }
-
-  .btn-send svg {
-    position: relative;
-    z-index: 1;
-    transition: transform var(--transition-spring);
-  }
-
-  .btn-send:hover:not(:disabled) {
-    transform: scale(1.1) rotate(-5deg);
-    box-shadow: 0 8px 28px var(--color-glow-strong);
-  }
-
-  .btn-send:hover:not(:disabled)::before {
-    opacity: 1;
-  }
-
-  .btn-send:hover:not(:disabled) svg {
-    transform: translateX(2px);
-  }
-
-  .btn-send:active:not(:disabled) {
-    transform: scale(0.92);
-    transition-duration: var(--transition-instant);
-  }
-
-  .btn-send:disabled {
-    background: var(--color-bg-hover);
-    color: var(--color-text-dim);
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  .input-footer {
-    width: 100%;
-    max-width: var(--content-max-width);
-    text-align: center;
-  }
-
-  .hint {
-    font-size: 11px;
-    color: var(--color-text-dim);
-    margin-top: 12px;
-    letter-spacing: var(--tracking-wide);
-    font-family: var(--font-mono);
-  }
-
-  .hint .warn {
-    color: var(--color-warn);
-  }
-
-  /* ── Empty state — welcoming, alive ───────────────── */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-12) var(--space-4);
-    text-align: center;
-    position: relative;
-    animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both;
-  }
-
-  .empty-logo-glow {
-    position: absolute;
-    top: 45%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px;
-    height: 200px;
-    background: var(--color-accent);
-    filter: blur(120px);
-    opacity: 0.12;
-    z-index: 0;
-    animation: breathe-soft 6s ease-in-out infinite;
-  }
-
-  .empty-icon {
-    margin-bottom: var(--space-5);
-    color: var(--color-text);
-    position: relative;
-    z-index: 1;
-  }
-
-  .empty-icon svg {
-    width: 56px;
-    height: 56px;
-    filter: drop-shadow(0 10px 30px rgba(20, 17, 11, 0.18));
-    animation: breathe-soft 4s ease-in-out infinite;
-  }
-
-  .empty-state h3 {
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    color: var(--color-text);
-    margin-bottom: var(--space-3);
-    letter-spacing: var(--tracking-tight);
-    position: relative;
-    z-index: 1;
-  }
-
-  .empty-state p {
-    color: var(--color-text-muted);
+    color: var(--text);
+    font-family: var(--font-sans);
     font-size: var(--size-md);
-    max-width: 400px;
-    line-height: var(--leading-relaxed);
-    position: relative;
-    z-index: 1;
+    line-height: var(--leading-normal);
+    resize: none;
+    min-height: 24px;
+    max-height: 240px;
+    padding: 6px 4px;
+  }
+  .composer-input::placeholder { color: var(--text-faint); }
+
+  .composer-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
-  .empty-state a {
-    color: var(--color-accent);
-    text-decoration: none;
-    transition: all var(--transition-fast);
+  .composer-hint {
+    margin-top: var(--space-2);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: var(--tracking-wide);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
+  .composer-hint .dot { opacity: 0.5; }
 
-  .empty-state a:hover {
-    color: var(--color-accent-hover);
-    text-shadow: 0 0 12px var(--color-glow);
+  .welcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: center;
+    margin-top: var(--space-3);
   }
 </style>

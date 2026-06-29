@@ -10,6 +10,10 @@
   // empty, we show a setup hint instead of dead buttons.
   import { account } from '../stores/account.svelte'
   import type { AccountProvider } from '../ipc/types'
+  import { Dialog } from './ui'
+  import Card from './ui/Card.svelte'
+  import Button from './ui/Button.svelte'
+  import Input from './ui/Input.svelte'
   import { t } from '../i18n'
 
   interface Props {
@@ -22,8 +26,15 @@
   // Where the magic link lands the user back.
   const MAGIC_REDIRECT = 'https://condura.app/auth/verify'
 
+  let open = $state(true)
   let email = $state('')
   let magicSent = $state(false)
+  let mode = $state<'signin' | 'signup' | 'magic'>('signin')
+
+  function close(): void {
+    open = false
+    onClose?.()
+  }
 
   function openExternal(url: string): void {
     const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
@@ -42,10 +53,6 @@
       case 'magic': return 'Email'
       default: return p
     }
-  }
-
-  function providerClass(p: AccountProvider): string {
-    return 'provider provider-' + p
   }
 
   async function signInWith(p: AccountProvider): Promise<void> {
@@ -73,145 +80,207 @@
   }
 </script>
 
-<div class="signin-backdrop" role="presentation" onclick={() => onClose?.()}>
-  <div
-    class="signin-panel glass-card elevated"
-    role="dialog"
-    aria-modal="true"
-    aria-label={t('account.signin.aria_label')}
-    tabindex="-1"
-    onclick={(e) => e.stopPropagation()}
-    onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
-  >
-    <header>
-      <h2>{t('account.signin.title')}</h2>
-      <button class="close" aria-label={t('account.signin.close')} onclick={() => onClose?.()}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
-      </button>
-    </header>
+<Dialog
+  bind:open
+  title={t('account.signin.title')}
+  size="sm"
+  onclose={close}
+>
+  {#snippet children()}
+    <div class="signin-body">
+      <p class="lead">{t('account.signin.lead')}</p>
 
-    <p class="lead">
-      {t('account.signin.lead')}
-    </p>
-
-    {#if hasProviders}
-      <div class="providers">
-        {#each account.configuredProviders as p (p)}
-          <button
-            class="btn btn-secondary {providerClass(p)}"
-            onclick={() => signInWith(p)}
-            disabled={account.loading}
-          >
-            <span class="p-icon" aria-hidden="true">{providerLabel(p).charAt(0)}</span>
-            {t('account.signin.continue_with', providerLabel(p))}
-          </button>
-        {/each}
+      <div class="mode-toggle" role="tablist">
+        <button
+          type="button"
+          class="mode-tab"
+          class:active={mode === 'signin'}
+          role="tab"
+          aria-selected={mode === 'signin'}
+          onclick={() => (mode = 'signin')}
+        >
+          {t('account.signin.tab_signin')}
+        </button>
+        <button
+          type="button"
+          class="mode-tab"
+          class:active={mode === 'signup'}
+          role="tab"
+          aria-selected={mode === 'signup'}
+          onclick={() => (mode = 'signup')}
+        >
+          {t('account.signin.tab_signup')}
+        </button>
+        <button
+          type="button"
+          class="mode-tab"
+          class:active={mode === 'magic'}
+          role="tab"
+          aria-selected={mode === 'magic'}
+          onclick={() => (mode = 'magic')}
+        >
+          {t('account.signin.tab_magic')}
+        </button>
       </div>
-      <div class="or-divider"><span>{t('account.signin.or')}</span></div>
-    {:else}
-      <p class="setup-hint">
-        {t('account.signin.setup_hint')}
-      </p>
-    {/if}
 
-    <div class="magic">
-      <label for="signin-email">{t('account.signin.magic_label')}</label>
-      <div class="magic-row">
-        <input
+      {#if hasProviders}
+        <Card elevation="glass" padding="sm">
+          <div class="providers">
+            {#each account.configuredProviders as p (p)}
+              <button
+                class="provider-row press"
+                onclick={() => signInWith(p)}
+                disabled={account.loading}
+              >
+                <span class="p-icon" aria-hidden="true">
+                  {providerLabel(p).charAt(0)}
+                </span>
+                <span class="p-label">
+                  {t('account.signin.continue_with', providerLabel(p))}
+                </span>
+              </button>
+            {/each}
+          </div>
+        </Card>
+
+        <div class="or-divider"><span>{t('account.signin.or')}</span></div>
+      {:else}
+        <Card elevation="glass" padding="md">
+          <p class="setup-hint">{t('account.signin.setup_hint')}</p>
+        </Card>
+      {/if}
+
+      <div class="magic">
+        <Input
           id="signin-email"
-          class="input"
+          fullWidth
           type="email"
+          label={t('account.signin.magic_label')}
           bind:value={email}
           placeholder="you@example.com"
           autocomplete="email"
-          onkeydown={(e) => { if (e.key === 'Enter') withEmail() }}
         />
-        <button class="btn btn-primary" onclick={withEmail} disabled={!emailValid || account.loading}>
-          {account.loading ? t('account.signin.sending') : t('account.signin.send_link')}
+        <Button
+          variant="primary"
+          fullWidth
+          disabled={!emailValid || account.loading}
+          loading={account.loading}
+          onclick={withEmail}
+        >
+          {account.loading
+            ? t('account.signin.sending')
+            : t('account.signin.send_link')}
+        </Button>
+      </div>
+
+      {#if magicSent}
+        <p class="ok">{t('account.signin.check_inbox', email)}</p>
+      {/if}
+      {#if account.error}
+        <p class="err">{account.error}</p>
+      {/if}
+
+      <p class="fineprint">{t('account.signin.fineprint')}</p>
+
+      <div class="toggle-row">
+        <span class="toggle-q">
+          {mode === 'signup'
+            ? t('account.signin.have_account_q')
+            : t('account.signin.no_account_q')}
+        </span>
+        <button
+          type="button"
+          class="toggle-link"
+          onclick={() => (mode = mode === 'signup' ? 'signin' : 'signup')}
+        >
+          {mode === 'signup'
+            ? t('account.signin.signin_link')
+            : t('account.signin.signup_link')}
         </button>
       </div>
     </div>
-
-    {#if magicSent}
-      <p class="ok">{t('account.signin.check_inbox', email)}</p>
-    {/if}
-    {#if account.error}
-      <p class="err">{account.error}</p>
-    {/if}
-
-    <p class="fineprint">
-      {t('account.signin.fineprint')}
-    </p>
-  </div>
-</div>
+  {/snippet}
+</Dialog>
 
 <style>
-  .signin-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 17, 11, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .signin-body {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
-    padding: var(--space-4);
-    animation: backdrop-in var(--transition-base) ease both;
+    flex-direction: column;
+    gap: var(--space-3);
   }
-  .signin-panel {
-    width: 100%;
-    max-width: 420px;
-    padding: var(--space-5);
-    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
-  }
-  .signin-panel:hover {
-    border-color: var(--glass-border-hover);
-  }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-3);
-  }
-  h2 {
-    font-size: var(--size-xl);
-    font-weight: var(--weight-semibold);
-  }
-  .close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: none;
-    border: none;
-    color: var(--color-text-faint);
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: color var(--transition-base), background var(--transition-base);
-  }
-  .close svg { width: 16px; height: 16px; }
-  .close:hover {
-    color: var(--color-text);
-    background: var(--glass-bg-hover);
-  }
+
   .lead {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-sm);
     line-height: var(--leading-relaxed);
-    margin-bottom: var(--space-4);
+    margin: 0;
   }
+
+  .mode-toggle {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .mode-tab {
+    flex: 1;
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: var(--space-2) var(--space-3);
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+      background-color var(--transition-fast) ease,
+      color var(--transition-fast) ease;
+  }
+  .mode-tab:hover {
+    color: var(--text);
+  }
+  .mode-tab.active {
+    background: var(--surface-3);
+    color: var(--text);
+    box-shadow: var(--shadow-xs);
+  }
+
   .providers {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
   }
-  .provider {
-    justify-content: flex-start;
+  .provider-row {
+    appearance: none;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    transition:
+      background-color var(--transition-fast) ease,
+      border-color var(--transition-fast) ease,
+      transform var(--transition-fast) var(--ease-spring);
   }
-  .provider:hover:not(:disabled) {
+  .provider-row:hover:not(:disabled) {
+    background: var(--surface-3);
+    border-color: var(--border-focus);
     transform: translateY(-1px);
+  }
+  .provider-row:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .p-icon {
     display: inline-flex;
@@ -221,65 +290,90 @@
     height: 22px;
     border-radius: 50%;
     font-weight: var(--weight-bold);
-    background: var(--color-bg);
-    border: 1px solid var(--glass-border);
+    background: var(--surface-3);
+    border: 1px solid var(--border-strong);
     font-size: var(--size-sm);
+    color: var(--text);
   }
+  .p-label {
+    flex: 1;
+    text-align: left;
+  }
+
   .setup-hint {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-sm);
     line-height: var(--leading-relaxed);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    margin-bottom: var(--space-4);
+    margin: 0;
   }
+
   .or-divider {
     display: flex;
     align-items: center;
     text-align: center;
-    color: var(--color-text-faint);
+    color: var(--text-faint);
     font-size: var(--size-xs);
-    margin: var(--space-4) 0;
   }
   .or-divider::before,
   .or-divider::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--glass-border);
+    background: var(--border);
   }
   .or-divider span {
     padding: 0 var(--space-3);
   }
-  .magic label {
-    display: block;
-    font-size: var(--size-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-2);
-  }
-  .magic-row {
+
+  .magic {
     display: flex;
+    flex-direction: column;
     gap: var(--space-2);
   }
-  .magic-row .input {
-    flex: 1;
-  }
+
   .ok {
-    color: var(--color-success);
+    color: var(--success);
     font-size: var(--size-sm);
-    margin-top: var(--space-3);
+    margin: 0;
   }
   .err {
-    color: var(--color-error);
+    color: var(--error);
     font-size: var(--size-sm);
-    margin-top: var(--space-3);
+    margin: 0;
   }
+
   .fineprint {
-    color: var(--color-text-faint);
+    color: var(--text-faint);
     font-size: var(--size-xs);
     line-height: var(--leading-relaxed);
-    margin-top: var(--space-4);
+    margin: 0;
+  }
+
+  .toggle-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+    justify-content: center;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+  }
+  .toggle-q {
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+  }
+  .toggle-link {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    padding: 0;
+  }
+  .toggle-link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
   }
 </style>

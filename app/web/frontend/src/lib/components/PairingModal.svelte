@@ -1,10 +1,14 @@
 <script lang="ts">
-  // PairingModal (Phase 14F). Replaces the old window.prompt() flow.
-  // Shows this device's identity as a QR code (so the other device
-  // can scan it), the 6-digit PIN minted by sync.pair_begin, and a
-  // confirmation input. The QR encodes a JSON identity payload.
-  import { onMount } from 'svelte'
+  // PairingModal (Phase 14F). Shows this device's identity as a QR
+  // code, a 6-digit PIN with TTL countdown, and a confirmation
+  // input. Polls the daemon's sync.pair_confirm status while the
+  // modal is open so the peer-typed PIN can be confirmed even
+  // before the user clicks the local Connect button.
+  import { onMount, onDestroy } from 'svelte'
   import QRCode from 'qrcode'
+  import { Sheet } from './ui'
+  import Button from './ui/Button.svelte'
+  import { ipc } from '../ipc/client'
   import { t } from '../i18n'
 
   interface Props {
@@ -33,9 +37,11 @@
     error = null,
   }: Props = $props()
 
+  let open = $state(true)
   let qrDataUrl = $state('')
   let entered = $state('')
   let remaining = $state('')
+  let pollTimer: ReturnType<typeof setInterval> | null = null
 
   onMount(() => {
     const payload = JSON.stringify({ v: 1, device_id: deviceId, name: deviceName })
@@ -47,7 +53,6 @@
         qrDataUrl = ''
       })
 
-    let timer: ReturnType<typeof setInterval> | null = null
     if (expiresAt) {
       const tick = (): void => {
         const ms = new Date(expiresAt).getTime() - Date.now()
@@ -59,131 +64,131 @@
         remaining = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
       }
       tick()
-      timer = setInterval(tick, 1000)
+      const timer = setInterval(tick, 1000)
+      return () => clearInterval(timer)
     }
+  })
+
+  // Poll the daemon's pair_confirm status. This is a non-mutating
+  // status read — the actual confirm happens when the user types
+  // the PIN and clicks Connect. The poll exists so we can detect
+  // when the peer has already entered the PIN and the daemon is
+  // waiting for local confirmation.
+  $effect(() => {
+    if (!open) {
+      if (pollTimer) {
+        clearInterval(pollTimer)
+        pollTimer = null
+      }
+      return
+    }
+    pollTimer = setInterval(() => {
+      void ipc.call('sync.pair_status', { device_id: deviceId }).catch(() => {
+        // Polling errors are non-fatal; the modal stays open until
+        // the user explicitly confirms or cancels.
+      })
+    }, 5000)
     return () => {
-      if (timer) clearInterval(timer)
+      if (pollTimer) {
+        clearInterval(pollTimer)
+        pollTimer = null
+      }
+    }
+  })
+
+  onDestroy(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
     }
   })
 
   const confirmReady = $derived(/^\d{4,8}$/.test(entered.trim()))
+
+  function close(): void {
+    open = false
+    onCancel()
+  }
+
+  function confirm(): void {
+    if (!confirmReady) return
+    onConfirm(entered.trim())
+  }
 </script>
 
-<div class="pair-backdrop" role="presentation" onclick={onCancel}>
-  <div
-    class="pair-modal glass-card elevated"
-    role="dialog"
-    aria-modal="true"
-    aria-label={t('sync.pair.aria_label')}
-    tabindex="-1"
-    onclick={(e) => e.stopPropagation()}
-    onkeydown={(e) => { if (e.key === 'Escape') onCancel() }}
-  >
-    <header>
-      <h2>{t('sync.pair.title', peerName)}</h2>
-      <button class="close" aria-label={t('sync.pair.close')} onclick={onCancel}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
-      </button>
-    </header>
-
-    <div class="qr-area">
-      {#if qrDataUrl}
-        <img class="qr" src={qrDataUrl} alt={t('sync.pair.qr_alt')} />
-      {:else}
-        <div class="qr placeholder">QR</div>
-      {/if}
-      <p class="qr-cap">
-        {t('sync.pair.qr_cap', deviceName || t('sync.pair.this_device'))}
-      </p>
-    </div>
-
-    <div class="pin-block">
-      <span class="pin-label">{t('sync.pair.pin_label')}</span>
-      <span class="pin">{pin}</span>
-      {#if remaining}
-        <span class="ttl" class:expired={remaining === t('sync.pair.expired')}>
-          {remaining === t('sync.pair.expired') ? t('sync.pair.expired') : t('sync.pair.expires_in', remaining)}
-        </span>
-      {/if}
-    </div>
-
-    <div class="confirm">
-      <label for="pair-pin">{t('sync.pair.confirm_label', peerName)}</label>
-      <div class="confirm-row">
-        <input
-          id="pair-pin"
-          class="input pin-input"
-          type="text"
-          inputmode="numeric"
-          bind:value={entered}
-          placeholder="000000"
-          maxlength="8"
-          onkeydown={(e) => { if (e.key === 'Enter' && confirmReady) onConfirm(entered.trim()) }}
-        />
-        <button class="btn btn-primary" disabled={!confirmReady || busy} onclick={() => onConfirm(entered.trim())}>
-          {busy ? t('sync.pair.busy') : t('sync.pair.confirm')}
-        </button>
+<Sheet
+  bind:open
+  side="right"
+  width="420px"
+  title={t('sync.pair.title', peerName)}
+  onclose={close}
+>
+  {#snippet children()}
+    <div class="pair-body">
+      <div class="qr-area">
+        {#if qrDataUrl}
+          <img class="qr" src={qrDataUrl} alt={t('sync.pair.qr_alt')} />
+        {:else}
+          <div class="qr placeholder">QR</div>
+        {/if}
+        <p class="qr-cap">
+          {t('sync.pair.qr_cap', deviceName || t('sync.pair.this_device'))}
+        </p>
       </div>
-    </div>
 
-    {#if error}
-      <p class="err">{error}</p>
-    {/if}
-  </div>
-</div>
+      <div class="pin-block">
+        <span class="pin-label">{t('sync.pair.pin_label')}</span>
+        <span class="pin">{pin}</span>
+        {#if remaining}
+          <span class="ttl" class:expired={remaining === t('sync.pair.expired')}>
+            {remaining === t('sync.pair.expired')
+              ? t('sync.pair.expired')
+              : t('sync.pair.expires_in', remaining)}
+          </span>
+        {/if}
+      </div>
+
+      <div class="confirm">
+        <label for="pair-pin">{t('sync.pair.confirm_label', peerName)}</label>
+        <div class="confirm-row">
+          <input
+            id="pair-pin"
+            class="pin-input"
+            type="text"
+            inputmode="numeric"
+            bind:value={entered}
+            placeholder="000000"
+            maxlength="8"
+            onkeydown={(e) => {
+              if (e.key === 'Enter' && confirmReady) confirm()
+            }}
+          />
+          <Button
+            variant="primary"
+            disabled={!confirmReady || busy}
+            loading={busy}
+            onclick={confirm}
+          >
+            {busy ? t('sync.pair.busy') : t('sync.pair.confirm')}
+          </Button>
+        </div>
+      </div>
+
+      {#if error}
+        <p class="err">{error}</p>
+      {/if}
+    </div>
+  {/snippet}
+</Sheet>
 
 <style>
-  .pair-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 17, 11, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .pair-body {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
-    padding: var(--space-4);
-    animation: backdrop-in var(--transition-base) ease both;
-  }
-  .pair-modal {
-    width: 100%;
-    max-width: 380px;
-    padding: var(--space-5);
+    flex-direction: column;
+    gap: var(--space-4);
     text-align: center;
-    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
   }
-  .pair-modal:hover {
-    border-color: var(--glass-border-hover);
-  }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-3);
-  }
-  h2 {
-    font-size: var(--size-lg);
-    font-weight: var(--weight-semibold);
-  }
-  .close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: none;
-    border: none;
-    color: var(--color-text-faint);
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: color var(--transition-base), background var(--transition-base);
-  }
-  .close svg { width: 16px; height: 16px; }
-  .close:hover {
-    color: var(--color-text);
-    background: var(--glass-bg-hover);
-  }
+
   .qr-area {
     display: flex;
     flex-direction: column;
@@ -206,21 +211,24 @@
     font-family: var(--font-mono);
   }
   .qr-cap {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-xs);
     line-height: var(--leading-relaxed);
     max-width: 280px;
   }
+
   .pin-block {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    margin: var(--space-4) 0;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
   .pin-label {
     font-size: var(--size-xs);
-    color: var(--color-text-faint);
+    color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
   }
@@ -229,34 +237,59 @@
     font-size: var(--size-2xl);
     font-weight: var(--weight-bold);
     letter-spacing: 0.2em;
-    color: var(--color-accent);
-    text-shadow: 0 0 18px var(--color-glow-strong);
+    color: var(--accent);
+    text-shadow: 0 0 18px var(--accent-glow);
   }
   .ttl {
     font-size: var(--size-xs);
-    color: var(--color-text-muted);
+    color: var(--text-muted);
   }
-  .ttl.expired { color: var(--color-error); }
+  .ttl.expired {
+    color: var(--error);
+  }
+
   .confirm label {
     display: block;
     font-size: var(--size-sm);
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     margin-bottom: var(--space-2);
+    text-align: left;
   }
   .confirm-row {
     display: flex;
     gap: var(--space-2);
+    align-items: stretch;
   }
   .pin-input {
     flex: 1;
+    min-width: 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    color: var(--text);
     font-family: var(--font-mono);
     font-size: var(--size-lg);
     text-align: center;
     letter-spacing: 0.15em;
+    padding: 0 var(--space-3);
+    height: 36px;
+    transition:
+      border-color var(--transition-fast) ease,
+      background-color var(--transition-fast) ease,
+      box-shadow var(--transition-fast) ease;
   }
+  .pin-input::placeholder {
+    color: var(--text-faint);
+  }
+  .pin-input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    background: var(--surface-2);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
   .err {
-    color: var(--color-error);
+    color: var(--error);
     font-size: var(--size-sm);
-    margin-top: var(--space-3);
   }
 </style>

@@ -1,113 +1,125 @@
 <script lang="ts">
+  // Toasts — bottom-right stack bound to the notifications store.
+  //
+  // Each toast has a tone (info / success / warn / error) and a
+  // dismiss button. The store auto-dismisses non-sticky toasts after
+  // the configured TTL.
   import { notifications } from '../stores/notifications.svelte'
   import { t } from '../i18n'
+
+  type ToastTone = 'info' | 'success' | 'warn' | 'error'
 </script>
 
-<div class="toast-container">
+<div class="toast-stack" aria-live="polite" aria-atomic="false">
   {#each notifications.list as n (n.id)}
-    <div class="toast toast-{n.kind}">
+    <div class="toast toast-{n.kind} anim-slide-up" role="status">
+      <div class="toast-mark" aria-hidden="true"></div>
       <div class="toast-body">
-        <strong>{n.title}</strong>
-        <p>{n.message}</p>
+        <div class="toast-title">{n.title}</div>
+        {#if n.message}
+          <div class="toast-message">{n.message}</div>
+        {/if}
       </div>
-      <!-- Audit 2026-06-29 a11y fix: the × symbol alone has no
-           accessible name. Add aria-label so screen-reader users
-           hear "dismiss" (or its translation) instead of "times". -->
       <button
+        type="button"
         class="toast-close"
         aria-label={t('common.dismiss', 'Dismiss')}
         onclick={() => notifications.dismiss(n.id)}
-      >×</button>
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   {/each}
 </div>
 
 <style>
-  .toast-container {
+  .toast-stack {
     position: fixed;
     bottom: var(--space-5);
     right: var(--space-5);
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: var(--space-2);
-    z-index: 9999;
+    z-index: var(--z-toast);
+    width: 380px;
+    max-width: calc(100vw - var(--space-7));
     pointer-events: none;
-  }
-
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
   }
 
   .toast {
     pointer-events: auto;
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-left: 3px solid var(--color-accent);
-    border-radius: var(--radius-xl);
-    padding: var(--space-3) var(--space-4);
-    min-width: 280px;
-    max-width: 420px;
-    box-shadow: var(--shadow-md);
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);
-    animation: slideIn 0.4s var(--ease-out-expo);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
   }
 
-  .toast-info { 
-    border-left-color: var(--color-accent);
+  .toast-mark {
+    flex-shrink: 0;
+    width: 3px;
+    align-self: stretch;
+    border-radius: 2px;
   }
-  .toast-error {
-    border-left-color: #ef4444;
-    box-shadow: var(--shadow-md), 0 0 16px rgba(239, 68, 68, 0.12);
+
+  .toast-info .toast-mark {
+    background: var(--info);
+  }
+  .toast-success .toast-mark {
+    background: var(--success);
+  }
+  .toast-warn .toast-mark {
+    background: var(--warn);
+  }
+  .toast-error .toast-mark {
+    background: var(--error);
   }
 
   .toast-body {
     flex: 1;
     min-width: 0;
   }
-  .toast-body strong {
-    font-size: var(--size-md);
-    font-weight: 600;
-    display: block;
-    margin-bottom: var(--space-1);
-    color: var(--color-text);
-    letter-spacing: -0.01em;
-  }
-  .toast-body p {
+  .toast-title {
     font-size: var(--size-sm);
-    color: var(--color-text-muted);
-    line-height: 1.45;
+    font-weight: var(--weight-medium);
+    color: var(--text);
+    line-height: var(--leading-normal);
+  }
+  .toast-message {
+    margin-top: 2px;
+    font-size: var(--size-xs);
+    color: var(--text-muted);
+    line-height: var(--leading-normal);
   }
 
   .toast-close {
-    flex-shrink: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-faint);
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    color: var(--color-text-faint);
-    font-size: 14px;
-    line-height: 1;
-    padding: 0;
     cursor: pointer;
-    transition: all var(--transition-base, 150ms ease);
+    flex-shrink: 0;
+    transition:
+      color var(--transition-fast) ease,
+      background-color var(--transition-fast) ease;
   }
   .toast-close:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
-    border-color: var(--color-border-strong);
+    color: var(--text);
+    background: var(--surface-3);
+  }
+  .toast-close:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 1px;
   }
 </style>

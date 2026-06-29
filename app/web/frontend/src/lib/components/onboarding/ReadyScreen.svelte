@@ -3,6 +3,9 @@
   import { ipc } from '../../ipc/client'
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { PowerProbeResult } from '../../ipc/types'
+  import Button from '../ui/Button.svelte'
+  import Card from '../ui/Card.svelte'
+  import Badge from '../ui/Badge.svelte'
   import { t } from '../../i18n'
 
   interface Props {
@@ -23,11 +26,26 @@
   let voice = $state<VoiceProbe | null>(null)
 
   onMount(() => {
-    void ipc.onboardingProbePower().then((p) => { probe = p }).catch(() => {
-      probe = { ollama_reachable: false, ollama_models: [], clis: [], recommended: 'none' }
-    }).finally(() => { probing = false })
+    void ipc
+      .onboardingProbePower()
+      .then((p) => {
+        probe = p
+      })
+      .catch(() => {
+        probe = { ollama_reachable: false, ollama_models: [], clis: [], recommended: 'none' }
+      })
+      .finally(() => {
+        probing = false
+      })
 
-    void ipc.call<VoiceProbe>('onboarding.probe_voice', {}).then((v) => { voice = v }).catch(() => { voice = null })
+    void ipc
+      .call<VoiceProbe>('onboarding.probe_voice', {})
+      .then((v) => {
+        voice = v
+      })
+      .catch(() => {
+        voice = null
+      })
   })
 
   const hotkey = $derived(onboarding.daemon?.steps?.hotkey?.data ?? '')
@@ -43,149 +61,327 @@
 
   function openExternal(url: string): void {
     const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
-    if (w.runtime?.BrowserOpenURL) { w.runtime.BrowserOpenURL(url) } else { window.open(url, '_blank') }
+    if (w.runtime?.BrowserOpenURL) {
+      w.runtime.BrowserOpenURL(url)
+    } else {
+      window.open(url, '_blank')
+    }
+  }
+
+  // Short label for a detected CLI, e.g. "Claude Code" instead of
+  // the raw binary name. Falls back to the raw string if we don't
+  // have a friendly mapping.
+  const CLI_LABELS: Record<string, string> = {
+    'claude': 'Claude Code',
+    'codex': 'Codex',
+    'agy': 'Antigravity',
+    'opencode': 'OpenCode',
+    'kilo': 'Kilo',
+    'hermes': 'Hermes',
+    'gemini': 'Gemini CLI'
+  }
+  function labelFor(cli: import('../../ipc/types').PowerProbeCLI): string {
+    const name = cli.name ?? 'unknown'
+    const base = name.split(/[\\/]/).pop() ?? name
+    return CLI_LABELS[base] ?? base
   }
 </script>
 
 <div class="wizard ready">
-  <div class="check" aria-hidden="true">
-    <svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      <circle class="check-ring" cx="26" cy="26" r="22" />
-      <path class="check-mark" d="M16 27l7 7 13-14" />
-    </svg>
-  </div>
-  <h1>{t('onboarding.ready.title')}</h1>
+  <header class="hero">
+    <h1>{t('onboarding.ready.title')}</h1>
+    <p class="subtitle">{t('onboarding.ready.subtitle')}</p>
+  </header>
 
   {#if probing}
     <p class="muted">{t('onboarding.ready.probing')}</p>
   {/if}
 
-  <div class="setup-cards">
-    <button class="setup-card glass-card primary" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">{t('onboarding.ready.add_provider')}</span>
-      <span class="card-desc">{t('onboarding.ready.add_provider_desc')}</span>
-    </button>
+  {#if probe}
+    <section class="power">
+      <h3 class="section-title">{t('onboarding.ready.power_title')}</h3>
+      <div class="power-grid">
+        <Card elevation="glass" padding="md" class="power-card">
+          <div class="power-row">
+            <div class="power-icon" class:on={probe.ollama_reachable} aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 1v6" />
+                <path d="M12 17v6" />
+                <path d="M4.22 4.22l4.24 4.24" />
+                <path d="M15.54 15.54l4.24 4.24" />
+                <path d="M1 12h6" />
+                <path d="M17 12h6" />
+                <path d="M4.22 19.78l4.24-4.24" />
+                <path d="M15.54 8.46l4.24-4.24" />
+              </svg>
+            </div>
+            <div class="power-body">
+              <div class="power-head">
+                <span class="power-name">Ollama</span>
+                <Badge tone={probe.ollama_reachable ? 'success' : 'neutral'} dot pulse={probe.ollama_reachable}>
+                  {probe.ollama_reachable
+                    ? t('onboarding.ready.ollama_reachable')
+                    : t('onboarding.ready.ollama_offline')}
+                </Badge>
+              </div>
+              <p class="power-desc">
+                {#if probe.ollama_reachable && probe.ollama_models.length}
+                  {t('onboarding.ready.ollama_models', probe.ollama_models.slice(0, 3).join(', '))}
+                {:else}
+                  {t('onboarding.ready.ollama_desc')}
+                {/if}
+              </p>
+            </div>
+          </div>
+        </Card>
 
-    {#if probe?.ollama_reachable}
-      <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-        <span class="card-label">{t('onboarding.ready.ollama_detected')}</span>
-        <span class="card-desc">
-          {t('onboarding.ready.ollama_desc')}{#if probe.ollama_models.length} ({probe.ollama_models.slice(0, 2).join(', ')}){/if}
-        </span>
-      </button>
-    {/if}
-
-    <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">{t('onboarding.ready.connect_messaging')}</span>
-      <span class="card-desc">{t('onboarding.ready.telegram_settings')}</span>
-    </button>
-
-    <button class="setup-card glass-card" onclick={() => finish('#/settings')} disabled={onboarding.busy}>
-      <span class="card-label">{t('onboarding.ready.setup_voice')}</span>
-      <span class="card-desc">
-        {#if voice}
-          {t('onboarding.ready.voice_status', voice.mic_available ? t('onboarding.ready.mic_ready') : t('onboarding.ready.mic_unavailable'), voice.wake_word_enabled ? t('onboarding.ready.wake_on') : t('onboarding.ready.wake_off'))}
-        {:else}
-          {t('onboarding.ready.talk_hands_free')}
+        {#if probe.clis && probe.clis.length}
+          <Card elevation="glass" padding="md" class="power-card">
+            <div class="power-row">
+              <div class="power-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </div>
+              <div class="power-body">
+                <div class="power-head">
+                  <span class="power-name">{t('onboarding.ready.clis_title')}</span>
+                  <Badge tone="accent" size="sm">
+                    {probe.clis.length}
+                  </Badge>
+                </div>
+                <div class="cli-chips">
+                  {#each probe.clis as cli, i (cli.name + i)}
+                    <span class="cli-chip">{labelFor(cli)}</span>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </Card>
         {/if}
-      </span>
-    </button>
-  </div>
+      </div>
+    </section>
+  {/if}
+
+  <section class="optional">
+    <h3 class="section-title">{t('onboarding.ready.optional_title')}</h3>
+    <div class="optional-grid">
+      <Card
+        elevation="glass"
+        padding="md"
+        interactive
+        onclick={() => finish('#/settings')}
+      >
+        <span class="opt-eyebrow">{t('onboarding.ready.opt_api_eyebrow')}</span>
+        <span class="opt-title">{t('onboarding.ready.add_provider')}</span>
+        <span class="opt-desc">{t('onboarding.ready.add_provider_desc')}</span>
+      </Card>
+
+      <Card
+        elevation="glass"
+        padding="md"
+        interactive
+        onclick={() => finish('#/channels')}
+      >
+        <span class="opt-eyebrow">{t('onboarding.ready.opt_msg_eyebrow')}</span>
+        <span class="opt-title">{t('onboarding.ready.connect_messaging')}</span>
+        <span class="opt-desc">{t('onboarding.ready.telegram_settings')}</span>
+      </Card>
+
+      <Card
+        elevation="glass"
+        padding="md"
+        interactive
+        onclick={() => finish('#/settings')}
+      >
+        <span class="opt-eyebrow">{t('onboarding.ready.opt_account_eyebrow')}</span>
+        <span class="opt-title">{t('onboarding.ready.opt_account_title')}</span>
+        <span class="opt-desc">{t('onboarding.ready.opt_account_desc')}</span>
+      </Card>
+    </div>
+  </section>
 
   {#if hotkey}
     <p class="hotkey-note">{t('onboarding.ready.hotkey_note', hotkey)}</p>
   {/if}
 
   <div class="actions center">
-    <button class="btn btn-primary btn-lg cta" onclick={() => finish()} disabled={onboarding.busy}>
+    <Button
+      variant="primary"
+      size="lg"
+      onclick={() => finish()}
+      disabled={onboarding.busy}
+      loading={onboarding.busy}
+    >
       {onboarding.busy ? t('onboarding.ready.starting') : t('onboarding.ready.start_button')}
-    </button>
+    </Button>
   </div>
 </div>
 
 <style>
   .wizard {
     width: 100%;
-    max-width: 560px;
-    padding: var(--space-6) var(--space-5);
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-5);
+  }
+
+  .hero {
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+    gap: var(--space-2);
   }
-  .check {
-    width: 64px;
-    height: 64px;
-    margin-bottom: var(--space-3);
-    color: var(--color-accent);
-    filter: drop-shadow(0 0 16px var(--color-glow-strong));
-  }
-  .check svg { width: 100%; height: 100%; }
-  .check-ring {
-    stroke-dasharray: 140;
-    stroke-dashoffset: 140;
-    animation: draw 620ms var(--ease-out-expo) 80ms forwards;
-  }
-  .check-mark {
-    stroke-dasharray: 48;
-    stroke-dashoffset: 48;
-    animation: draw-check 360ms var(--ease-out-expo) 540ms forwards;
-  }
-  @keyframes draw {
-    to { stroke-dashoffset: 0; }
-  }
+
   h1 {
-    font-size: var(--size-3xl);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    margin-bottom: var(--space-4);
-    background: var(--color-accent-gradient);
+    font-family: var(--font-display);
+    font-size: var(--size-4xl);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+    margin: 0;
+    background: var(--accent-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .wizard > .muted { color: var(--color-text-muted); }
-  .setup-cards {
-    display: flex;
-    flex-direction: column;
+  .subtitle {
+    color: var(--text-muted);
+    font-size: var(--size-md);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+    max-width: 52ch;
+  }
+
+  .section-title {
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-widest);
+    color: var(--text-faint);
+    font-weight: var(--weight-semibold);
+    margin: 0 0 var(--space-3) 0;
+  }
+
+  .power-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
-    width: 100%;
-    margin-bottom: var(--space-4);
-    text-align: left;
   }
-  .setup-card {
+  @media (max-width: 640px) {
+    .power-grid { grid-template-columns: 1fr; }
+  }
+
+  .power-row {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--space-3) var(--space-4);
-    color: var(--color-text);
-    cursor: pointer;
-    transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
+    gap: var(--space-3);
+    align-items: flex-start;
   }
-  .setup-card:hover:not(:disabled) {
-    border-color: var(--color-border-accent);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+  .power-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    flex-shrink: 0;
   }
-  .setup-card.primary {
-    border-color: var(--color-border-accent);
-    background: var(--color-accent-gradient-subtle), var(--glass-bg);
+  .power-icon.on {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
-  .setup-card:disabled { opacity: 0.5; cursor: not-allowed; }
-  .card-label { font-weight: var(--weight-semibold); font-size: var(--size-md); }
-  .card-desc { color: var(--color-text-muted); font-size: var(--size-sm); line-height: var(--leading-relaxed); }
-  .hotkey-note {
-    color: var(--color-text-muted);
+  .power-icon svg { width: 20px; height: 20px; }
+
+  .power-body { flex: 1; min-width: 0; }
+  .power-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+  }
+  .power-name {
+    font-weight: var(--weight-semibold);
+    font-size: var(--size-md);
+  }
+  .power-desc {
+    color: var(--text-muted);
     font-size: var(--size-sm);
-    margin-bottom: var(--space-4);
+    line-height: var(--leading-relaxed);
+    margin: 0;
   }
-  .actions.center { display: flex; justify-content: center; }
-  .cta {
+
+  .cli-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .cli-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
     border-radius: var(--radius-pill);
-    box-shadow: var(--shadow-md);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
   }
-  .cta:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow-strong);
+
+  .optional-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .optional-grid { grid-template-columns: 1fr; }
+  }
+
+  .opt-eyebrow {
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--text-faint);
+    margin-bottom: var(--space-1);
+  }
+  .opt-title {
+    display: block;
+    font-weight: var(--weight-semibold);
+    font-size: var(--size-md);
+    color: var(--text);
+    margin-bottom: var(--space-1);
+  }
+  .opt-desc {
+    display: block;
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .hotkey-note {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    margin: 0;
+  }
+
+  .actions.center {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-3);
+  }
+
+  .muted {
+    color: var(--text-muted);
+    font-size: var(--size-md);
+    text-align: center;
   }
 </style>

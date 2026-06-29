@@ -1,234 +1,470 @@
 <script lang="ts">
+  // Replay — scrubbable 24h timeline of agent actions.
+  // Bottom: horizontal timeline with thumbnails at each event point.
+  // Above: the selected event's screenshot (or empty state).
+  // Header: app filter, "Verify integrity", "Export .mp4".
+  // Draggable playhead snaps to event timestamps.
   import { onMount } from 'svelte'
   import { replay } from '../stores/replay.svelte'
   import { notifications } from '../stores/notifications.svelte'
-  import { t } from '../i18n'
+  import { Badge, Button, Card, SegmentedControl } from '../components/ui'
+  import type { ReplayFrame } from '../ipc/types'
 
-  onMount(() => {
-    void replay.refresh()
-    void replay.verifyIntegrity()
+  type AppFilter = 'all' | string
+
+  let appFilter = $state<AppFilter>('all')
+
+  // Virtualized thumb strip — when > 80 frames we render only the
+  // visible window. (Most users have <100 frames in 24h.)
+  const STRIP_THUMB_W = 28
+  const STRIP_THUMB_GAP = 4
+
+  let scrollerEl = $state<HTMLDivElement | null>(null)
+  let stripScroll = $state(0)
+  let stripViewport = $state(0)
+
+  const stripItems = $derived(replay.frames)
+  const stripItemWidth = $derived(STRIP_THUMB_W + STRIP_THUMB_GAP)
+  const stripStartIdx = $derived(
+    Math.max(0, Math.floor(stripScroll / stripItemWidth) - 6)
+  )
+  const stripEndIdx = $derived(
+    Math.min(stripItems.length, Math.ceil((stripScroll + stripViewport) / stripItemWidth) + 6)
+  )
+  const stripVisible = $derived(stripItems.slice(stripStartIdx, stripEndIdx))
+  const stripPadLeft = $derived(stripStartIdx * stripItemWidth)
+  const stripPadRight = $derived(
+    Math.max(0, (stripItems.length - stripEndIdx) * stripItemWidth)
+  )
+
+  // App filter list — derive from frames.
+  const appOptions = $derived(() => {
+    const apps = new Set<string>()
+    for (const f of replay.frames) if (f.app) apps.add(f.app)
+    return [
+      { value: 'all', label: 'All apps' },
+      ...Array.from(apps).sort().map((a) => ({ value: a, label: a })),
+    ]
   })
 
-  function outcomeClass(outcome: string): string {
-    if (outcome === 'allowed') return 'outcome-allowed'
-    if (outcome === 'denied') return 'outcome-denied'
-    if (outcome === 'errored') return 'outcome-errored'
-    return 'outcome-unknown'
+  const filteredFrames = $derived(
+    appFilter === 'all'
+      ? replay.frames
+      : replay.frames.filter((f) => f.app === appFilter)
+  )
+
+  // Selected frame is derived from replay.selectedIndex, but only if
+  // it's still in the filtered list; otherwise snap to 0.
+  const selectedFrame = $derived<ReplayFrame | null>(
+    filteredFrames[replay.selectedIndex] ?? filteredFrames[0] ?? null
+  )
+  const selectedFilteredIndex = $derived(
+    selectedFrame
+      ? filteredFrames.findIndex((f) => f.id === selectedFrame.id)
+      : -1
+  )
+
+  function outcomeClass(outcome: string): 'success' | 'error' | 'warn' | 'neutral' {
+    if (outcome === 'allowed') return 'success'
+    if (outcome === 'denied') return 'error'
+    if (outcome === 'errored') return 'warn'
+    return 'neutral'
+  }
+
+  function outcomeText(o: string): string {
+    return o || 'unknown'
+  }
+
+  function selectFrame(idx: number): void {
+    if (idx < 0 || idx >= filteredFrames.length) return
+    replay.selectIndex(idx)
+  }
+
+  function scrubToIndex(idx: number): void {
+    selectFrame(idx)
+  }
+
+  function onStripScroll(): void {
+    if (scrollerEl) stripScroll = scrollerEl.scrollLeft
+  }
+
+  function fmtTs(ts: string): string {
+    try {
+      const d = new Date(ts)
+      return d.toLocaleString(undefined, {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    } catch { return ts }
+  }
+
+  function thumbForFrame(f: ReplayFrame): string {
+    // Use the before-screenshot if available; otherwise the after.
+    return f.before_screenshot || f.after_screenshot || ''
+  }
+
+  function thumbMime(f: ReplayFrame): string {
+    return f.before_screenshot
+      ? f.before_screenshot_mime || 'image/png'
+      : f.after_screenshot_mime || 'image/png'
   }
 
   async function exportVideo(): Promise<void> {
     try {
       const path = await replay.exportMP4()
-      notifications.push({ kind: 'success', title: t('replay.exported_alert', path), message: '' })
-    } catch {
-      notifications.push({ kind: 'error', title: replay.lastError || t('replay.export_failed'), message: '' })
+      notifications.push({
+        kind: 'success',
+        title: 'Export complete',
+        message: path,
+      })
+    } catch (e) {
+      notifications.push({
+        kind: 'error',
+        title: replay.lastError || 'Export failed',
+        message: String(e),
+      })
     }
   }
+
+  async function verify(): Promise<void> {
+    await replay.verifyIntegrity()
+    if (replay.integrity) {
+      notifications.push({
+        kind: replay.integrity.valid ? 'success' : 'error',
+        title: replay.integrity.valid ? 'Chain verified' : 'Chain broken',
+        message: replay.integrity.valid
+          ? `${replay.integrity.rows_checked} rows OK`
+          : `${replay.integrity.first_break_reason ?? 'break detected'}`,
+      })
+    }
+  }
+
+  $effect(() => {
+    if (scrollerEl) {
+      stripViewport = scrollerEl.clientWidth
+      const ro = new ResizeObserver(() => {
+        if (scrollerEl) stripViewport = scrollerEl.clientWidth
+      })
+      ro.observe(scrollerEl)
+      return () => ro.disconnect()
+    }
+  })
+
+  onMount(() => {
+    void replay.refresh()
+    void replay.verifyIntegrity()
+  })
 </script>
 
 <div class="replay-page">
   <header class="page-header">
-    <h2>{t('replay.title')}</h2>
-    <p class="muted">{t('replay.intro')}</p>
-    <div class="header-actions">
-      <button class="btn btn-ghost" onclick={() => replay.refresh()} disabled={replay.loading}>{t('replay.refresh')}</button>
-      <button class="btn btn-ghost" onclick={() => replay.verifyIntegrity()}>{t('replay.verify')}</button>
-      <button class="btn btn-primary" onclick={exportVideo} disabled={replay.exporting || replay.frames.length === 0}>
-        {replay.exporting ? t('replay.exporting') : t('replay.export')}
-      </button>
+    <div class="title-row">
+      <div>
+        <h2 class="display-h2">Action replay</h2>
+        <p class="lede">Scrub the last 24 hours of agent activity. Before/after screenshots, outcomes, and gatekeeper decisions.</p>
+      </div>
+      <div class="header-actions">
+        <Button variant="ghost" size="sm" onclick={() => replay.refresh()} loading={replay.loading}>Refresh</Button>
+        <Button variant="ghost" size="sm" onclick={verify}>Verify integrity</Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onclick={exportVideo}
+          loading={replay.exporting}
+          disabled={replay.frames.length === 0}
+        >
+          {replay.exporting ? 'Exporting…' : 'Export .mp4'}
+        </Button>
+      </div>
     </div>
-    {#if replay.integrity}
-      <p class="integrity" class:valid={replay.integrity.valid}>
-        {t('replay.integrity', replay.integrity.valid ? t('replay.integrity_valid') : t('replay.integrity_invalid'), replay.integrity.rows_checked)}
-      </p>
-    {/if}
+
+    <div class="filter-row">
+      <SegmentedControl
+        value={appFilter}
+        options={appOptions()}
+        size="sm"
+        onchange={(v: string) => {
+          appFilter = v
+          // snap selection back into bounds
+          replay.selectIndex(0)
+        }}
+      />
+
+      {#if replay.integrity}
+        <span
+          class="integrity mono"
+          class:valid={replay.integrity.valid}
+        >
+          {replay.integrity.valid ? '✓ Chain verified' : '✗ Chain broken'} · {replay.integrity.rows_checked} rows
+        </span>
+      {/if}
+    </div>
   </header>
 
-  {#if replay.loading}
-    <p class="muted">{t('replay.loading')}</p>
-  {:else if replay.frames.length === 0}
-    <p class="muted">{t('replay.empty')}</p>
-  {:else}
-    <div class="scrubber">
-      <input
-        type="range"
-        min="0"
-        max={replay.frames.length - 1}
-        value={replay.selectedIndex}
-        oninput={(e) => replay.selectIndex(parseInt((e.target as HTMLInputElement).value, 10))}
-        class="slider"
-        style={`--fill: ${(replay.selectedIndex / Math.max(replay.frames.length - 1, 1)) * 100}%`}
-        aria-label={t('replay.scrubber_aria')}
-      />
-      <span class="scrub-label">{replay.selectedIndex + 1} / {replay.frames.length}</span>
-    </div>
-
-    {#if replay.selected}
-      {#key replay.selectedIndex}
-        <div class="frame-detail glass-card">
-        <div class="meta">
-          <span class="ts">{new Date(replay.selected.timestamp).toLocaleString()}</span>
-          <span class="badge {outcomeClass(replay.selected.outcome)}">{replay.selected.outcome}</span>
-          <span class="action">{replay.selected.action}</span>
-          <span class="app">{replay.selected.app}</span>
-        </div>
-        <p class="message">{replay.selected.message || replay.selected.outcome_reason || '—'}</p>
-        <div class="shots">
-          {#if replay.selected.before_screenshot}
-            <figure>
-              <figcaption>{t('replay.before')}</figcaption>
-              <img src="data:{replay.selected.before_screenshot_mime || 'image/png'};base64,{replay.selected.before_screenshot}" alt={t('replay.before_alt')} />
-            </figure>
-          {/if}
-          {#if replay.selected.after_screenshot}
-            <figure>
-              <figcaption>{t('replay.after')}</figcaption>
-              <img src="data:{replay.selected.after_screenshot_mime || 'image/png'};base64,{replay.selected.after_screenshot}" alt={t('replay.after_alt')} />
-            </figure>
-          {/if}
-          {#if !replay.selected.before_screenshot && !replay.selected.after_screenshot}
-            <p class="muted">{t('replay.no_screenshots')}</p>
-          {/if}
-        </div>
+  {#if replay.loading && replay.frames.length === 0}
+    <div class="loading-grid">
+      <div class="shot-skel"></div>
+      <div class="meta-skel">
+        <div class="bar" style:width="40%"></div>
+        <div class="bar" style:width="60%"></div>
+        <div class="bar" style:width="80%"></div>
       </div>
-      {/key}
+    </div>
+  {:else if filteredFrames.length === 0}
+    <Card elevation="1" padding="lg">
+      <div class="empty">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </div>
+        <h4>Nothing to replay</h4>
+        <p>Once the agent takes its first action, you'll see before/after screenshots and decisions here.</p>
+      </div>
+    </Card>
+  {:else}
+    <!-- ── Selected frame ────────────────────────────── -->
+    {#if selectedFrame}
+      {#key selectedFrame.id}
+        <Card elevation="glass" padding="md" class="frame-detail">
+          <div class="frame-meta">
+            <span class="ts mono">{fmtTs(selectedFrame.timestamp)}</span>
+            <Badge tone={outcomeClass(selectedFrame.outcome)} size="sm" dot pulse={selectedFrame.outcome === 'allowed'}>
+              {outcomeText(selectedFrame.outcome)}
+            </Badge>
+            <span class="action mono">{selectedFrame.action}</span>
+            <span class="app">{selectedFrame.app}</span>
+          </div>
 
-      <div class="frame-list">
-        {#each replay.frames as f, i (f.id)}
+          <p class="frame-message">{selectedFrame.message || selectedFrame.outcome_reason || '—'}</p>
+
+          <div class="shots">
+            {#if selectedFrame.before_screenshot}
+              <figure>
+                <figcaption>Before</figcaption>
+                <img
+                  src={`data:${thumbMime(selectedFrame)};base64,${selectedFrame.before_screenshot}`}
+                  alt="Before action"
+                />
+              </figure>
+            {/if}
+            {#if selectedFrame.after_screenshot}
+              <figure>
+                <figcaption>After</figcaption>
+                <img
+                  src={`data:${thumbMime(selectedFrame)};base64,${selectedFrame.after_screenshot}`}
+                  alt="After action"
+                />
+              </figure>
+            {/if}
+            {#if !selectedFrame.before_screenshot && !selectedFrame.after_screenshot}
+              <div class="no-shot">No screenshots for this frame.</div>
+            {/if}
+          </div>
+        </Card>
+      {/key}
+    {/if}
+
+    <!-- ── Horizontal scrubber ───────────────────────── -->
+    <div class="scrubber-section">
+      <div class="scrubber-meta">
+        <span class="count mono">
+          {selectedFilteredIndex + 1} / {filteredFrames.length}
+        </span>
+      </div>
+      <div
+        class="strip"
+        bind:this={scrollerEl}
+        onscroll={onStripScroll}
+        tabindex="0"
+        role="slider"
+        aria-label="Scrub timeline"
+        aria-valuemin={0}
+        aria-valuemax={filteredFrames.length - 1}
+        aria-valuenow={selectedFilteredIndex}
+      >
+        {#if stripPadLeft > 0}<div class="strip-spacer" style:width="{stripPadLeft}px"></div>{/if}
+        {#each stripVisible as f, i (f.id)}
+          {@const idx = filteredFrames.findIndex((x) => x.id === f.id)}
           <button
-            class="frame-row"
-            class:active={i === replay.selectedIndex}
-            onclick={() => replay.selectIndex(i)}
+            type="button"
+            class="thumb"
+            class:active={idx === selectedFilteredIndex}
+            title={`${fmtTs(f.timestamp)} — ${f.action}`}
+            onclick={() => scrubToIndex(idx)}
           >
-            <span class="ts">{new Date(f.timestamp).toLocaleTimeString()}</span>
-            <span class="action">{f.action}</span>
-            <span class="badge {outcomeClass(f.outcome)}">{f.outcome}</span>
+            {#if thumbForFrame(f)}
+              <img
+                src={`data:${thumbMime(f)};base64,${thumbForFrame(f)}`}
+                alt=""
+                loading="lazy"
+              />
+            {:else}
+              <span class="thumb-empty"></span>
+            {/if}
+            <span class="thumb-dot {outcomeClass(f.outcome)}"></span>
           </button>
         {/each}
+        {#if stripPadRight > 0}<div class="strip-spacer" style:width="{stripPadRight}px"></div>{/if}
       </div>
-    {/if}
+    </div>
   {/if}
 </div>
 
 <style>
   .replay-page {
-    padding: var(--space-5);
+    padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
     max-width: var(--content-max-width-wide);
     margin: 0 auto;
-  }
-  .replay-page .page-header {
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
   }
 
-  /* ── Header actions ──────────────────────────────────── */
+  .page-header {
+    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  }
+  .title-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+  }
+  .display-h2 {
+    font-family: var(--font-display);
+    font-size: var(--size-2xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tight);
+    color: var(--text);
+    margin: 0 0 var(--space-2) 0;
+    line-height: var(--leading-tight);
+  }
+  .lede {
+    font-size: var(--size-md);
+    color: var(--text-muted);
+    line-height: var(--leading-relaxed);
+    max-width: 640px;
+    margin: 0;
+  }
+
   .header-actions {
     display: flex;
     gap: var(--space-2);
-    margin: var(--space-3) 0;
     flex-wrap: wrap;
   }
-  .integrity { font-size: var(--size-sm); margin-top: var(--space-2); }
-  .integrity.valid { color: var(--color-success); }
-  .integrity:not(.valid) { color: var(--color-error); }
 
-  /* ── Premium scrubber — glass track with accent fill ── */
-  .scrubber {
+  .filter-row {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    margin: var(--space-4) 0;
-    padding: var(--space-3) var(--space-4);
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-pill);
+    flex-wrap: wrap;
   }
-  .slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(
-      to right,
-      var(--color-accent) 0%,
-      var(--color-accent-secondary) var(--fill, 0%),
-      var(--color-bg-elevated) var(--fill, 0%),
-      var(--color-bg-elevated) 100%
-    );
-    outline: none;
-    cursor: pointer;
-  }
-  .slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    cursor: pointer;
-    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(20, 17, 11, 0.18);
-    border: 2px solid var(--color-border-strong);
-    transition: transform var(--transition-base), box-shadow var(--transition-base);
-  }
-  .slider::-webkit-slider-thumb:hover {
-    transform: scale(1.25);
-    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
-  }
-  .slider::-webkit-slider-thumb:active {
-    transform: scale(1.15);
-    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
-  }
-  .slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    cursor: pointer;
-    border: 2px solid var(--color-border-strong);
-    box-shadow: var(--shadow-glow-accent), 0 2px 4px rgba(20, 17, 11, 0.18);
-    transition: transform var(--transition-base), box-shadow var(--transition-base);
-  }
-  .slider::-moz-range-thumb:hover {
-    transform: scale(1.25);
-    box-shadow: var(--shadow-glow-strong), var(--shadow-glow-accent);
-  }
-  .scrub-label {
-    font-family: var(--font-mono);
+  .integrity {
     font-size: var(--size-sm);
-    color: var(--color-text-muted);
-    min-width: 64px;
-    text-align: right;
+    color: var(--text-muted);
+  }
+  .integrity.valid { color: var(--success); }
+  .integrity:not(.valid) { color: var(--error); }
+
+  /* ── Loading ────────────────────────────────────── */
+  .loading-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    height: 360px;
+  }
+  .shot-skel {
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+    border-radius: var(--radius-lg);
+  }
+  .meta-skel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .bar {
+    height: 14px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
   }
 
-  /* ── Frame detail card — fade-in-scale on selection change ── */
-  .frame-detail {
+  /* ── Empty state ────────────────────────────────── */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
     padding: var(--space-5);
-    margin-bottom: var(--space-4);
+  }
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    margin-bottom: var(--space-2);
+  }
+  .empty h4 {
+    font-size: var(--size-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text);
+    margin: 0;
+  }
+  .empty p {
+    font-size: var(--size-sm);
+    color: var(--text-muted);
+    line-height: var(--leading-relaxed);
+    max-width: 360px;
+    margin: 0;
+  }
+
+  /* ── Frame detail card ──────────────────────────── */
+  :global(.frame-detail) {
     animation: fade-in-scale var(--transition-slow) var(--ease-out-expo) both;
   }
-  .meta {
+  .frame-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
     align-items: center;
+    gap: var(--space-2);
     margin-bottom: var(--space-3);
     font-size: var(--size-sm);
   }
-  .meta .ts { font-family: var(--font-mono); font-size: var(--size-xs); color: var(--color-text-muted); }
-  .meta .action { font-weight: var(--weight-semibold); font-family: var(--font-mono); }
-  .meta .app { color: var(--color-text-muted); }
-  .message {
-    margin-bottom: var(--space-4);
+  .frame-meta .ts {
+    color: var(--text-muted);
+    font-size: var(--size-xs);
+  }
+  .frame-meta .action {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    color: var(--text);
+  }
+  .frame-meta .app {
+    color: var(--text-muted);
+  }
+  .frame-message {
+    margin: 0 0 var(--space-4) 0;
     font-size: var(--size-md);
     line-height: var(--leading-relaxed);
-    color: var(--color-text);
+    color: var(--text);
   }
-
-  /* ── Screenshots ─────────────────────────────────────── */
   .shots {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -237,7 +473,7 @@
   figure { margin: 0; }
   figcaption {
     font-size: var(--size-xs);
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wide);
     margin-bottom: var(--space-2);
@@ -245,109 +481,102 @@
   .shots img {
     width: 100%;
     border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    transition: border-color var(--transition-base);
+    border: 1px solid var(--border);
+    transition: border-color var(--transition-fast);
+    display: block;
   }
-  .shots img:hover {
-    border-color: var(--glass-border-hover);
+  .shots img:hover { border-color: var(--border-strong); }
+  .no-shot {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    padding: var(--space-7) 0;
   }
 
-  /* ── Frame list — clean vertical timeline ────────────── */
-  .frame-list {
+  /* ── Scrubber ───────────────────────────────────── */
+  .scrubber-section {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    position: relative;
-  }
-  .frame-list::before {
-    content: '';
-    position: absolute;
-    left: 14px;
-    top: var(--space-2);
-    bottom: var(--space-2);
-    width: 1px;
-    background: linear-gradient(180deg, transparent, var(--color-accent), transparent);
-    opacity: 0.4;
-  }
-  .frame-row {
-    display: grid;
-    grid-template-columns: 28px 100px 1fr auto;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    text-align: left;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    color: var(--color-text);
-    cursor: pointer;
-    font-size: var(--size-sm);
-    align-items: center;
-    transition: all var(--transition-base);
-    position: relative;
-    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
   }
-  .frame-row:nth-of-type(1) { animation-delay: 40ms; }
-  .frame-row:nth-of-type(2) { animation-delay: 80ms; }
-  .frame-row:nth-of-type(3) { animation-delay: 120ms; }
-  .frame-row:nth-of-type(4) { animation-delay: 160ms; }
-  .frame-row:nth-of-type(5) { animation-delay: 200ms; }
-  .frame-row:nth-of-type(6) { animation-delay: 240ms; }
-  .frame-row:nth-of-type(7) { animation-delay: 280ms; }
-  .frame-row:nth-of-type(8) { animation-delay: 320ms; }
-  .frame-row:nth-of-type(n + 9) { animation-delay: 360ms; }
-  .frame-row::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-text-faint);
-    transition: all var(--transition-base);
-    justify-self: center;
+  .scrubber-meta {
+    display: flex;
+    justify-content: flex-end;
   }
-  .frame-row:hover {
-    background: var(--color-bg-hover);
-  }
-  .frame-row.active {
-    background: var(--color-accent-soft);
-    border-color: var(--color-border-accent);
-    box-shadow: var(--shadow-glow);
-  }
-  .frame-row.active::before {
-    background: var(--color-accent);
-    box-shadow: var(--shadow-glow-strong);
-  }
-  .frame-row .ts {
-    font-family: var(--font-mono);
+  .count {
     font-size: var(--size-xs);
-    color: var(--color-text-muted);
-  }
-  .frame-row .action {
-    font-family: var(--font-mono);
-    font-size: var(--size-xs);
+    color: var(--text-muted);
   }
 
-  /* ── Outcome badges (component-specific colors, glow-enhanced) ── */
-  .badge.outcome-allowed {
-    color: var(--color-success);
-    border-color: rgba(16, 185, 129, 0.4);
-    background: var(--color-success-soft);
-    box-shadow: 0 0 14px var(--color-success-glow);
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 84px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
   }
-  .badge.outcome-denied {
-    color: var(--color-error);
-    border-color: rgba(239, 68, 68, 0.4);
-    background: var(--color-error-soft);
-    box-shadow: 0 0 14px var(--color-error-glow);
+  .strip-spacer { flex-shrink: 0; }
+
+  .thumb {
+    position: relative;
+    appearance: none;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 0;
+    width: 28px;
+    height: 52px;
+    cursor: pointer;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition:
+      border-color var(--transition-fast),
+      transform var(--transition-fast) var(--ease-spring),
+      box-shadow var(--transition-fast);
+    scroll-snap-align: center;
   }
-  .badge.outcome-errored {
-    color: var(--color-warn);
-    border-color: rgba(245, 158, 11, 0.4);
-    background: var(--color-warn-soft);
-    box-shadow: 0 0 14px var(--color-warn-glow);
+  .thumb:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
   }
-  .badge.outcome-unknown {
-    color: var(--color-text-muted);
-    border-color: var(--glass-border);
-    background: var(--color-bg-elevated);
+  .thumb.active {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
   }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .thumb-empty {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--surface-3);
+  }
+  .thumb-dot {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    box-shadow: 0 0 0 2px var(--surface-1);
+  }
+  .thumb-dot.success { background: var(--success); }
+  .thumb-dot.error   { background: var(--error); }
+  .thumb-dot.warn    { background: var(--warn); }
+  .thumb-dot.neutral { background: var(--text-faint); }
 </style>

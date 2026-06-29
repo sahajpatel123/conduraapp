@@ -1,1067 +1,603 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+
   import { settings } from '../stores/settings.svelte'
   import { apiKeys } from '../stores/apikeys.svelte'
-  import { updateStore } from '../stores/update.svelte'
-  import { halt } from '../stores/halt.svelte'
-  import { spend } from '../stores/spend.svelte'
-  import { trust } from '../stores/trust.svelte'
-  import { onboarding } from '../stores/onboarding.svelte'
   import { account } from '../stores/account.svelte'
-  import { notifications } from '../stores/notifications.svelte'
+  import { halt } from '../stores/halt.svelte'
   import { ipc } from '../ipc/client'
-  import { onMount } from 'svelte'
-  import LocaleSelector from '../components/LocaleSelector.svelte'
-  import SignInPanel from '../components/SignInPanel.svelte'
-  import ConfirmDialog from '../components/ConfirmDialog.svelte'
+  import type { APIKeyMeta, ProviderInfo } from '../ipc/types'
   import { t } from '../i18n'
 
-  let hotkeyInput = $state('')
-  let telemetryInput = $state(false)
-  let newProvider = $state('openai')
-  let newLabel = $state('default')
-  let newSecret = $state('')
-  let settingAPIKey = $state(false)
-  let creatingBackup = $state(false)
-  let restoringBackup = $state<string | null>(null)
-  let restoreTarget = $state<{ name: string; path: string; size: number } | null>(null)
-  let permissionGuide = $state<{ kind: string; title: string; steps: string[] } | null>(null)
-  let eulaText = $state('')
-  let eulaTitle = $state('')
-  let eulaVersion = $state('')
-  // Adaptive engine (Phase 14I)
-  let adaptiveStrength = $state<'off' | 'cautious' | 'balanced' | 'aggressive'>('balanced')
-  let adaptiveProfile = $state<{
-    identity?: Record<string, string>
-    preferences?: Record<string, string>
-    style?: Record<string, string>
-    workflows?: string[]
-    expertise?: Record<string, number>
-    pet_peeves?: string[]
-    time_patterns?: Record<string, string>
-    tools_habits?: Record<string, number>
-    model_prefs?: Record<string, string>
-    risk_tolerance?: string
-    communication?: Record<string, string>
-    last_updated?: string
-    version?: number
-  } | null>(null)
-  let adaptiveLoading = $state(false)
-  let adaptiveError = $state<string | null>(null)
-  let rerunning = $state(false)
+  import Button from '../components/ui/Button.svelte'
+  import Switch from '../components/ui/Switch.svelte'
+  import Input from '../components/ui/Input.svelte'
+  import Select from '../components/ui/Select.svelte'
+  import Slider from '../components/ui/Slider.svelte'
+  import Card from '../components/ui/Card.svelte'
+  import Badge from '../components/ui/Badge.svelte'
+  import Divider from '../components/ui/Divider.svelte'
+  import Avatar from '../components/ui/Avatar.svelte'
+  import Dialog from '../components/ui/Dialog.svelte'
+  import Kbd from '../components/ui/Kbd.svelte'
+  import IconButton from '../components/ui/IconButton.svelte'
 
-  let showSignIn = $state(false)
-  let confirmOpen = $state(false)
-  let confirmTitle = $state('')
-  let confirmMessage = $state('')
-  let confirmDanger = $state(false)
-  let confirmAction = $state<(() => void) | null>(null)
-  let confirmLabel = $state('')
-  let cancelLabel = $state('')
+  type Section = 'account' | 'safety' | 'models' | 'hotkey' | 'voice' | 'sync' | 'hub' | 'channels' | 'adaptive' | 'updates' | 'legal'
 
-  // Voice (14H) — read/written via generic config RPCs because the
-  // typed AppConfig doesn't model the voice subtree.
-  interface WakeCfg { enabled: boolean; sensitivity: number; hotword: string }
-  let wake = $state<WakeCfg>({ enabled: false, sensitivity: 0.5, hotword: 'hey condura' })
-  let micTestResult = $state('')
-
-  async function loadVoice(): Promise<void> {
-    try {
-      const cfg = await ipc.call<{ voice?: { wake?: Partial<WakeCfg> } }>('config.get', {})
-      const w = cfg.voice?.wake
-      if (w) {
-        wake = {
-          enabled: w.enabled ?? false,
-          sensitivity: w.sensitivity ?? 0.5,
-          hotword: w.hotword ?? 'hey condura',
-        }
-      }
-    } catch {
-      // keep defaults
-    }
-  }
-
-  async function saveVoice(): Promise<void> {
-    try {
-      await ipc.call('config.update', { voice: { wake: { ...wake } } })
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.voice.save_error', err), message: '' })
-    }
-  }
-
-  async function micTest(): Promise<void> {
-    micTestResult = t('settings.voice.mic_checking')
-    try {
-      const perms = await ipc.permissionsStatus()
-      const mic = perms.find((p) => p.kind === 'microphone')
-      if (!mic) micTestResult = t('settings.voice.mic_unavailable')
-      else if (mic.status === 'granted') micTestResult = t('settings.voice.mic_granted')
-      else if (mic.status === 'denied') micTestResult = t('settings.voice.mic_denied')
-      else micTestResult = t('settings.voice.mic_not_granted')
-    } catch (err) {
-      micTestResult = t('settings.voice.mic_test_failed', err)
-    }
-  }
-
-  function goToChannels(): void {
-    window.location.hash = '#/channels'
-  }
+  let section = $state<Section>('account')
+  let showHaltConfirm = $state(false)
+  let showReRunSetup = $state(false)
+  let hotkeyValue = $state('')
+  let providers = $state<ProviderInfo[]>([])
+  let apiKeysList = $state<APIKeyMeta[]>([])
 
   onMount(() => {
+    void settings.refresh()
+    void refreshData()
     void account.checkStatus()
-    void loadVoice()
-    void loadAdaptive()
+    void halt.startPolling()
+    return () => halt.stopPolling()
   })
 
-  async function loadAdaptive(): Promise<void> {
-    adaptiveLoading = true
-    adaptiveError = null
-    try {
-      // Read the engine strength.
-      const strengthResp = await ipc.call<{ strength: string }>('adaptive.strength.get', {})
-      const s = (strengthResp?.strength ?? 'balanced') as typeof adaptiveStrength
-      if (s === 'off' || s === 'cautious' || s === 'balanced' || s === 'aggressive') {
-        adaptiveStrength = s
-      }
-      // Read the user model.
-      const profile = await ipc.call<typeof adaptiveProfile>('adaptive.profile', {})
-      adaptiveProfile = profile ?? null
-    } catch (e) {
-      adaptiveError = String(e)
-    } finally {
-      adaptiveLoading = false
-    }
+  async function refreshData(): Promise<void> {
+    try { providers = await ipc.providersList() } catch { providers = [] }
+    try { apiKeysList = await ipc.apiKeysList() } catch { apiKeysList = [] }
   }
 
-  async function setAdaptiveStrength(s: typeof adaptiveStrength): Promise<void> {
-    adaptiveStrength = s
-    try {
-      await ipc.call('adaptive.strength.set', { strength: s })
-    } catch (e) {
-      adaptiveError = String(e)
-    }
+  const sections: Array<{ id: Section; label: string }> = [
+    { id: 'account',  label: 'Account' },
+    { id: 'safety',   label: 'Safety' },
+    { id: 'models',   label: 'Models' },
+    { id: 'hotkey',   label: 'Hotkey' },
+    { id: 'voice',    label: 'Voice' },
+    { id: 'sync',     label: 'Sync' },
+    { id: 'hub',      label: 'Hub' },
+    { id: 'channels', label: 'Channels' },
+    { id: 'adaptive', label: 'Adaptive' },
+    { id: 'updates',  label: 'Updates' },
+    { id: 'legal',    label: 'Legal' },
+  ]
+
+  const modelOptions = $derived(
+    providers.flatMap((p) =>
+      p.models.map((m) => ({ value: `${p.name}:${m.id}`, label: `${p.name} · ${m.id}` }))
+    )
+  )
+
+  async function reRunSetup(): Promise<void> {
+    showReRunSetup = false
+    window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
   }
 
-  async function forgetAdaptiveField(field: string, value: string): Promise<void> {
-    const confirmMsg = field === 'pet_peeves'
-      ? t('settings.adaptive.forget_dislike', value)
-      : t('settings.adaptive.forget_have', value)
-    showConfirm({
-      title: t('settings.adaptive.forget'),
-      message: confirmMsg,
-      danger: true,
-      onconfirm: async () => {
-        try {
-          await ipc.call('adaptive.forget', { field, value })
-          void loadAdaptive()
-        } catch (e) {
-          adaptiveError = String(e)
-        }
-      }
-    })
+  async function haltAgent(): Promise<void> {
+    showHaltConfirm = false
+    await halt.halt('user requested from settings')
   }
 
-  async function resetAdaptive(): Promise<void> {
-    showConfirm({
-      title: t('settings.adaptive.reset'),
-      message: t('settings.adaptive.reset_confirm'),
-      danger: true,
-      onconfirm: async () => {
-        try {
-          await ipc.call('adaptive.reset', {})
-          void loadAdaptive()
-        } catch (e) {
-          adaptiveError = String(e)
-        }
-      }
-    })
-  }
+  function pickSection(s: Section): void { section = s }
 
-  function providerLabel(p: string): string {
-    switch (p) {
-      case 'google': return 'Google'
-      case 'github': return 'GitHub'
-      case 'apple': return 'Apple'
-      case 'magic': return 'Email magic link'
-      default: return p || 'Account'
-    }
-  }
-
-  async function viewEula(): Promise<void> {
-    try {
-      const doc = await ipc.onboardingEula()
-      eulaText = doc.text
-      eulaTitle = t('onboarding.eula.title')
-      eulaVersion = doc.version
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.legal.eula_error', err), message: '' })
-    }
-  }
-
-  async function rerunSetup(): Promise<void> {
-    showConfirm({
-      title: t('settings.setup.rerun'),
-      message: t('settings.setup.rerun_confirm'),
-      danger: true,
-      onconfirm: async () => {
-        rerunning = true
-        try {
-          await onboarding.reset()
-          window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
-        } catch (err) {
-          notifications.push({ kind: 'error', title: t('settings.setup.rerun_error', err), message: '' })
-        } finally {
-          rerunning = false
-        }
-      }
-    })
-  }
-
-  $effect(() => {
-    if (settings.config) {
-      hotkeyInput = settings.config.hotkey.overlay
-      telemetryInput = settings.config.telemetry.enabled
-    }
-  })
-
-  async function saveHotkey(): Promise<void> {
-    if (!settings.config) return
-    await settings.save({ hotkey: { ...settings.config.hotkey, overlay: hotkeyInput } })
-    notifications.push({ kind: 'success', title: t('settings.hotkey.saved_alert'), message: '' })
-  }
-
-  async function saveTelemetry(): Promise<void> {
-    if (!settings.config) return
-    await settings.save({ telemetry: { ...settings.config.telemetry, enabled: telemetryInput } })
-    updateStore.setEnabled(telemetryInput)
-  }
-
-  async function setAPIKey(): Promise<void> {
-    if (!newSecret) return
-    settingAPIKey = true
-    try {
-      await apiKeys.set(newProvider, newLabel, newSecret)
-      newSecret = ''
-      notifications.push({ kind: 'success', title: t('settings.apikeys.saved_alert'), message: '' })
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.apikeys.failed_alert', err), message: '' })
-    } finally {
-      settingAPIKey = false
-    }
-  }
-
-  async function deleteKey(id: number): Promise<void> {
-    showConfirm({
-      title: t('settings.apikeys.delete'),
-      message: t('settings.apikeys.delete_confirm'),
-      danger: true,
-      onconfirm: async () => {
-        await apiKeys.remove(id)
-      }
-    })
-  }
-
-  async function performHalt(): Promise<void> {
-    showConfirm({
-      title: t('settings.killswitch.halt'),
-      message: t('settings.killswitch.halt_confirm'),
-      danger: true,
-      onconfirm: async () => {
-        await halt.halt('user requested from settings')
-      }
-    })
-  }
-
-  async function performResume(): Promise<void> {
-    await halt.resume()
-  }
-
-  async function createBackup(): Promise<void> {
-    creatingBackup = true
-    try {
-      await trust.createBackup()
-      notifications.push({ kind: 'success', title: t('settings.backup.created_alert'), message: '' })
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.backup.failed_alert', err), message: '' })
-    } finally {
-      creatingBackup = false
-    }
-  }
-
-  function askRestore(target: { name: string; path: string; size: number }): void {
-    restoreTarget = target
-  }
-
-  function cancelRestore(): void {
-    restoreTarget = null
-  }
-
-  async function confirmRestore(): Promise<void> {
-    if (!restoreTarget) return
-    const target = restoreTarget
-    restoreTarget = null
-    restoringBackup = target.path
-    try {
-      await ipc.backupRestore({ path: target.path })
-      // The on-disk data is swapped. Refresh any views that
-      // show restored data so the user sees the new state
-      // immediately without a daemon restart.
-      await trust.refreshBackups()
-      notifications.push({ kind: 'success', title: t('settings.backup.restored_alert', target.name), message: '' })
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.backup.restore_failed_alert', err), message: '' })
-    } finally {
-      restoringBackup = null
-    }
-  }
-
-  async function showPermissionGuide(kind: string): Promise<void> {
-    try {
-      const g = await trust.loadGuide(kind)
-      permissionGuide = { kind: g.kind, title: g.title, steps: g.steps }
-    } catch (err) {
-      notifications.push({ kind: 'error', title: t('settings.permissions.guide_error', err), message: '' })
-    }
-  }
-
-  function formatBytes(n: number): string {
-    if (n < 1024) return `${n} B`
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-    return `${(n / (1024 * 1024)).toFixed(1)} MB`
-  }
-
-  function showConfirm(opts: {
-    title: string
-    message: string
-    danger?: boolean
-    confirmLabel?: string
-    cancelLabel?: string
-    onconfirm: () => void
-  }): void {
-    confirmTitle = opts.title
-    confirmMessage = opts.message
-    confirmDanger = opts.danger ?? false
-    confirmAction = opts.onconfirm
-    confirmLabel = opts.confirmLabel ?? ''
-    cancelLabel = opts.cancelLabel ?? ''
-    confirmOpen = true
+  function setHotkey(): void {
+    if (!hotkeyValue) return
+    settings.config?.hotkey && (settings.config.hotkey.overlay = hotkeyValue)
+    void settings.save({ hotkey: { ...(settings.config?.hotkey ?? { overlay: '' }), overlay: hotkeyValue } })
   }
 </script>
 
-<div class="settings-page">
-  <header class="page-header">
-    <h2>{t('settings.title')}</h2>
-    <p class="muted">{t('settings.subtitle')}</p>
-  </header>
-
-  <section class="glass-card settings-section">
-    <h3>{t('settings.account.title')}</h3>
-    {#if account.isSignedIn}
-      <div class="account-row">
-        {#if account.avatarURL}
-          <img class="acc-avatar" src={account.avatarURL} alt="" />
-        {:else}
-          <span class="acc-avatar fallback">{(account.displayName || '?').charAt(0).toUpperCase()}</span>
-        {/if}
-        <div class="acc-info">
-          <span class="acc-name">{account.displayName || account.email}</span>
-          <span class="acc-meta">{account.email} · {providerLabel(account.provider)}{account.tier ? ` · ${account.tier}` : ''}</span>
-        </div>
-        <button class="btn btn-ghost" onclick={() => account.signOut()} disabled={account.loading}>
-          {account.loading ? t('settings.account.signing_out') : t('settings.account.signout')}
+<div class="settings">
+  <aside class="settings-nav">
+    <header class="settings-nav-header">
+      <h2 class="settings-nav-title">Settings</h2>
+      <p class="settings-nav-sub">Everything Condura knows about you.</p>
+    </header>
+    <nav class="settings-nav-list">
+      {#each sections as s (s.id)}
+        <button
+          type="button"
+          class="settings-nav-item"
+          class:active={section === s.id}
+          onclick={() => pickSection(s.id)}
+        >
+          <span class="settings-nav-dot"></span>
+          <span class="settings-nav-label">{s.label}</span>
         </button>
-      </div>
-    {:else}
-      <p class="muted">{t('settings.account.signed_out_intro')}</p>
-      <ul class="benefits">
-        <li>{t('settings.account.benefit_1')}</li>
-        <li>{t('settings.account.benefit_2')}</li>
-        <li>{t('settings.account.benefit_3')}</li>
-      </ul>
-      <div class="row">
-        <button class="btn btn-primary" onclick={() => (showSignIn = true)}>{t('settings.account.signin')}</button>
-      </div>
-      {#if account.error}<p class="muted err">{account.error}</p>{/if}
-    {/if}
-  </section>
+      {/each}
+    </nav>
+  </aside>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.channels.title')}</h3>
-    <p class="muted">{t('settings.channels.intro')}</p>
-    <div class="row">
-      <button class="btn btn-ghost" onclick={goToChannels}>{t('settings.channels.manage')}</button>
-    </div>
-  </section>
+  <main class="settings-content">
+    <div class="settings-content-inner">
+      {#if section === 'account'}
+        <header class="settings-header">
+          <h1>Account</h1>
+          <p>Your Condura identity and connected services.</p>
+        </header>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.voice.title')}</h3>
-    <p class="muted">{t('settings.voice.intro')}</p>
-    <label class="checkbox">
-      <input
-        type="checkbox"
-        checked={wake.enabled}
-        onchange={(e) => { wake.enabled = (e.target as HTMLInputElement).checked; void saveVoice(); }}
-      />
-      <span>{t('settings.voice.enable_wake')}</span>
-    </label>
-    <div class="row slider-row">
-      <label for="wake-sens" class="slider-label">{t('settings.voice.sensitivity')}</label>
-      <input
-        id="wake-sens"
-        type="range"
-        min="0" max="1" step="0.05"
-        bind:value={wake.sensitivity}
-        onchange={saveVoice}
-        disabled={!wake.enabled}
-      />
-      <span class="slider-val">{Math.round(wake.sensitivity * 100)}%</span>
-    </div>
-    <div class="row">
-      <input
-        type="text"
-        class="input"
-        bind:value={wake.hotword}
-        placeholder="hey condura"
-        disabled={!wake.enabled}
-      />
-      <button class="btn btn-ghost" onclick={saveVoice} disabled={!wake.enabled}>{t('settings.voice.save_phrase')}</button>
-      <button class="btn btn-ghost" onclick={micTest}>{t('settings.voice.test_mic')}</button>
-    </div>
-    {#if micTestResult}<p class="muted">{micTestResult}</p>{/if}
-  </section>
+        <Card elevation={2} padding="lg">
+          {#if account.isSignedIn}
+            <div class="settings-account-row">
+              <Avatar name={account.email} size="lg" status="online" />
+              <div class="settings-account-meta">
+                <div class="settings-account-name">{account.email}</div>
+                <div class="settings-account-provider">Signed in via {account.provider}</div>
+              </div>
+              <Button variant="secondary" onclick={() => account.signOut()}>Sign out</Button>
+            </div>
+          {:else}
+            <div class="settings-account-empty">
+              <Avatar name="?" size="lg" />
+              <div>
+                <div class="settings-account-name">You're signed out</div>
+                <div class="settings-account-provider">Sign in to sync settings across devices.</div>
+              </div>
+              <Button variant="primary" onclick={() => { window.location.hash = '#/settings?signin=1' }}>Sign in</Button>
+            </div>
+          {/if}
+        </Card>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.language.title')}</h3>
-    <p class="muted">{t('settings.language.intro')}</p>
-    <div class="row">
-      <LocaleSelector />
-    </div>
-  </section>
+        <Divider label="danger zone" />
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.spend.title')}</h3>
-    {#if spend.summary}
-      <div class="kv">
-        <span class="k">{t('settings.spend.spent_today')}</span><span class="v">${spend.summary.spent.toFixed(2)}</span>
-      </div>
-      <div class="kv">
-        <span class="k">{t('settings.spend.cap')}</span><span class="v">${spend.summary.cap.toFixed(2)}</span>
-      </div>
-      <div class="kv">
-        <span class="k">{t('settings.spend.remaining')}</span><span class="v">${spend.summary.remaining.toFixed(2)}</span>
-      </div>
-    {:else}
-      <p class="muted">{t('common.loading')}</p>
-    {/if}
-  </section>
+        <Card elevation={1} padding="md">
+          <div class="settings-danger-row">
+            <div>
+              <div class="settings-row-title">Re-run setup</div>
+              <div class="settings-row-sub">Walk through the welcome flow again. Your data is preserved.</div>
+            </div>
+            <Button variant="secondary" onclick={() => { showReRunSetup = true }}>Re-run</Button>
+          </div>
+          <Divider />
+          <div class="settings-danger-row">
+            <div>
+              <div class="settings-row-title settings-row-title-danger">Halt the agent</div>
+              <div class="settings-row-sub">Cancel every in-flight action. Requires terminal confirmation to resume.</div>
+            </div>
+            <Button variant="danger" onclick={() => { showHaltConfirm = true }}>Halt</Button>
+          </div>
+        </Card>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.hotkey.title')}</h3>
-    <p class="muted">{t('settings.hotkey.intro')}</p>
-    <div class="row">
-      <input
-        type="text"
-        bind:value={hotkeyInput}
-        placeholder="Cmd+Shift+Space"
-        class="input"
-      />
-      <button class="btn btn-primary" onclick={saveHotkey}>{t('settings.hotkey.save')}</button>
-    </div>
-  </section>
+      {:else if section === 'safety'}
+        <header class="settings-header">
+          <h1>Safety</h1>
+          <p>The five modules that decide what the agent can and cannot do.</p>
+        </header>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.update.title')}</h3>
-    <p class="muted">{t('settings.update.intro')}</p>
-    <label class="checkbox">
-      <input
-        type="checkbox"
-        checked={telemetryInput}
-        onchange={(e) => { telemetryInput = (e.target as HTMLInputElement).checked; void saveTelemetry(); }}
-      />
-      <span>{t('settings.update.enable')}</span>
-    </label>
-    {#if updateStore.lastCheck}
-      <p class="muted">{t('settings.update.last_checked', new Date(updateStore.lastCheck).toLocaleString())}</p>
-    {/if}
-  </section>
+        <div class="settings-grid-2">
+          <Card elevation={2} padding="md">
+            <Badge tone="success" dot>Active</Badge>
+            <h3 class="settings-card-title">Gatekeeper</h3>
+            <p class="settings-card-body">Deterministic rules engine. Every WRITE, NETWORK, and DESTRUCTIVE action passes through it.</p>
+            <Switch checked={true} label="Enforce gatekeeper" description="Required — do not disable." disabled />
+          </Card>
+          <Card elevation={2} padding="md">
+            <Badge tone="success" dot>Active</Badge>
+            <h3 class="settings-card-title">Blast-radius classifier</h3>
+            <p class="settings-card-body">Tags every action READ / WRITE / NETWORK / DESTRUCTIVE before it reaches the gatekeeper.</p>
+            <Switch checked={true} label="Classify all actions" disabled />
+          </Card>
+          <Card elevation={2} padding="md">
+            <Badge tone="success" dot>Active</Badge>
+            <h3 class="settings-card-title">Behavioral anomaly detector</h3>
+            <p class="settings-card-body">Hard-pauses the agent on speed, loop, duration, or new-endpoint anomalies.</p>
+            <Switch checked={true} label="Anomaly detector" />
+          </Card>
+          <Card elevation={2} padding="md">
+            <Badge tone="success" dot>Active</Badge>
+            <h3 class="settings-card-title">HMAC-chained audit log</h3>
+            <p class="settings-card-body">Append-only, tamper-evident. View the full chain under Audit.</p>
+            <Switch checked={true} label="Write audit events" />
+          </Card>
+          <Card elevation={2} padding="md">
+            <Badge tone="success" dot>Active</Badge>
+            <h3 class="settings-card-title">Sensitive site detector</h3>
+            <p class="settings-card-body">Prompts before any action on banking, health, or credential surfaces.</p>
+            <Switch checked={true} label="Detect sensitive sites" />
+          </Card>
+          <Card elevation={2} padding="md">
+            <Badge tone="warn" dot>Default warn</Badge>
+            <h3 class="settings-card-title">Autonomy matrix</h3>
+            <p class="settings-card-body">Per-app + per-task-type autonomy. Default is "warn" everywhere; tune per-cell.</p>
+            <Button variant="secondary" size="sm">Edit matrix</Button>
+          </Card>
+        </div>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.backup.title')}</h3>
-    <p class="muted">{t('settings.backup.intro')}</p>
-    <div class="row">
-      <button class="btn btn-primary" onclick={createBackup} disabled={creatingBackup}>
-        {creatingBackup ? t('settings.backup.creating') : t('settings.backup.create')}
-      </button>
-      <button class="btn btn-ghost" onclick={() => trust.refreshBackups()}>{t('settings.backup.refresh')}</button>
-    </div>
-    {#if trust.loadingBackups}
-      <p class="muted">{t('settings.backup.loading')}</p>
-    {:else if trust.backups.length === 0}
-      <p class="muted">{t('settings.backup.empty')}</p>
-    {:else}
-      <div class="backup-list">
-        {#each trust.backups as b (b.path)}
-          <div class="backup-row">
-            <span class="backup-name">{b.name}</span>
-            <span class="backup-size">{formatBytes(b.size)}</span>
-            <button
-              class="btn btn-ghost btn-xs"
-              type="button"
-              onclick={() => askRestore(b)}
-              disabled={restoringBackup !== null}
-              aria-label={t('settings.backup.restore_aria', b.name)}
-            >
-              {restoringBackup === b.path ? t('settings.backup.restoring') : t('settings.backup.restore')}
+      {:else if section === 'models'}
+        <header class="settings-header">
+          <h1>Models</h1>
+          <p>Default model and per-provider configuration.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <Select
+            label="Default model"
+            value={settings.config?.llm.providers ? Object.entries(settings.config.llm.providers).find(([_, p]) => p.enabled)?.[0] + ':' + Object.entries(settings.config.llm.providers).find(([_, p]) => p.enabled)?.[1].default_model : ''}
+            options={modelOptions}
+          />
+          <Select
+            label="Provider"
+            value=""
+            options={providers.map(p => ({ value: p.name, label: p.name }))}
+            placeholder="Choose a provider"
+          />
+        </Card>
+
+        <Card elevation={1} padding="md">
+          <h3 class="settings-card-title">Stored API keys</h3>
+          {#if apiKeysList.length === 0}
+            <p class="settings-card-body">No API keys yet. Add one to unlock that provider.</p>
+          {:else}
+            {#each apiKeysList as k (k.id)}
+              <div class="settings-key-row">
+                <div>
+                  <div class="settings-row-title">{k.provider}</div>
+                  <div class="settings-row-sub">{k.label}</div>
+                </div>
+                <Badge tone={k.has_token ? 'success' : 'warn'}>{k.has_token ? 'set' : 'empty'}</Badge>
+                <IconButton ariaLabel="Delete key" onclick={() => apiKeys.remove(k.id)}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </IconButton>
+              </div>
+            {/each}
+          {/if}
+          <Button variant="primary" size="sm">+ Add API key</Button>
+        </Card>
+
+      {:else if section === 'hotkey'}
+        <header class="settings-header">
+          <h1>Hotkey</h1>
+          <p>The combo that opens the overlay. Pick something you won't press by accident.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <Input label="Capture a combo" placeholder="Press a key combo" bind:value={hotkeyValue} />
+          <div class="settings-hotkey-presets">
+            <button type="button" class="settings-hotkey-chip" onclick={() => { hotkeyValue = 'Option+Option' }}>
+              <Kbd label="⌥" /><span>+</span><Kbd label="⌥" />
+            </button>
+            <button type="button" class="settings-hotkey-chip" onclick={() => { hotkeyValue = 'Cmd+Shift+Space' }}>
+              <Kbd label="⌘" /><span>+</span><Kbd label="⇧" /><span>+</span><Kbd label="Space" />
+            </button>
+            <button type="button" class="settings-hotkey-chip" onclick={() => { hotkeyValue = 'Ctrl+Space' }}>
+              <Kbd label="⌃" /><span>+</span><Kbd label="Space" />
             </button>
           </div>
-        {/each}
-      </div>
-    {/if}
-  </section>
+          <Button variant="primary" disabled={!hotkeyValue} onclick={setHotkey}>Save combo</Button>
+        </Card>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.permissions.title')}</h3>
-    <p class="muted">{t('settings.permissions.intro')}</p>
-    <button class="btn btn-ghost" onclick={() => trust.refreshPermissions()}>{t('settings.permissions.refresh')}</button>
-    {#if trust.loadingPermissions}
-      <p class="muted">{t('settings.permissions.checking')}</p>
-    {:else}
-      <div class="perm-list">
-        {#each trust.permissions as p (p.kind)}
-          <div class="perm-row">
-            <span class="perm-kind">{p.kind}</span>
-            <span class="perm-status" class:granted={p.status === 'granted'} class:denied={p.status === 'denied'}>{p.status}</span>
-            {#if p.status !== 'granted'}
-              <button class="btn btn-ghost" onclick={() => showPermissionGuide(p.kind)}>{t('settings.permissions.how_to_grant')}</button>
-            {/if}
+      {:else if section === 'voice'}
+        <header class="settings-header">
+          <h1>Voice</h1>
+          <p>Wake word, microphone, and speech-to-text settings.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <Switch checked={true} label="Wake word" description='"hey condura" — local, runs offline.' />
+          <Switch checked={true} label="Push-to-talk" description="Hold the hotkey to talk instead of using the wake word." />
+          <Switch checked={true} label="Live transcription" description="Show partial transcripts while the user is speaking." />
+          <Select
+            label="Speech-to-text backend"
+            value="whisper.cpp"
+            options={[
+              { value: 'whisper.cpp', label: 'whisper.cpp (local)' },
+              { value: 'openai',     label: 'OpenAI Whisper (cloud)' },
+            ]}
+          />
+          <Button variant="secondary" size="sm">Test microphone</Button>
+        </Card>
+
+      {:else if section === 'sync'}
+        <header class="settings-header">
+          <h1>Sync</h1>
+          <p>End-to-end encrypted peer-to-peer sync. No central server.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <p class="settings-card-body">Configure paired devices and P2P discovery on the Sync route.</p>
+          <Button variant="primary" onclick={() => { window.location.hash = '#/sync' }}>Open sync</Button>
+        </Card>
+
+      {:else if section === 'hub'}
+        <header class="settings-header">
+          <h1>Hub</h1>
+          <p>Public Skills Hub at hub.condura.app. Browse and install curated skills.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <Switch checked={false} label="Auto-update installed skills" description="Receive patches and new versions automatically." />
+          <Select
+            label="Trust level"
+            value="official"
+            options={[
+              { value: 'official',     label: 'Official only' },
+              { value: 'community',    label: 'Official + community' },
+              { value: 'experimental', label: 'All (incl. experimental)' },
+            ]}
+          />
+          <Button variant="primary" onclick={() => { window.location.hash = '#/hub' }}>Browse Hub</Button>
+        </Card>
+
+      {:else if section === 'channels'}
+        <header class="settings-header">
+          <h1>Channels</h1>
+          <p>Connect Condura to messaging surfaces so the agent can reply on your behalf.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <p class="settings-card-body">Manage Telegram, Slack, Discord, iMessage, WhatsApp on the Channels route.</p>
+          <Button variant="primary" onclick={() => { window.location.hash = '#/channels' }}>Open channels</Button>
+        </Card>
+
+      {:else if section === 'adaptive'}
+        <header class="settings-header">
+          <h1>Adaptive engine</h1>
+          <p>How much Condura learns from your behavior.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <Select
+            label="Strength"
+            value="balanced"
+            options={[
+              { value: 'off',       label: 'Off — never apply learned preferences' },
+              { value: 'cautious',  label: 'Cautious — apply only when very confident' },
+              { value: 'balanced',  label: 'Balanced (default)' },
+              { value: 'aggressive',label: 'Aggressive — apply anything above 60%' },
+            ]}
+          />
+          <Switch checked={true} label="Weekly review reminder" description="See what the dialectic has inferred about you." />
+          <Button variant="danger" size="sm">Forget everything and start fresh</Button>
+        </Card>
+
+      {:else if section === 'updates'}
+        <header class="settings-header">
+          <h1>Updates</h1>
+          <p>Auto-update channel and version information.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-title">Current version</div>
+              <div class="settings-row-sub">v0.1.0</div>
+            </div>
+            <Badge tone="info">stable</Badge>
           </div>
-        {/each}
-      </div>
-    {/if}
-    {#if permissionGuide}
-      <div class="guide-box">
-        <h4>{permissionGuide.title}</h4>
-        <ol>
-          {#each permissionGuide.steps as step}
-            <li>{step}</li>
-          {/each}
-        </ol>
-        <button class="btn btn-ghost" onclick={() => { permissionGuide = null }}>{t('common.close')}</button>
-      </div>
-    {/if}
-  </section>
+          <Divider />
+          <Select
+            label="Channel"
+            value="stable"
+            options={[
+              { value: 'stable', label: 'Stable' },
+              { value: 'beta',   label: 'Beta' },
+              { value: 'dev',    label: 'Dev' },
+            ]}
+          />
+          <Switch checked={false} label="Auto-apply updates" description="Apply signed updates in the background and restart at next idle." />
+          <Button variant="primary">Check for updates</Button>
+        </Card>
 
-  <section class="glass-card settings-section">
-    <h3>{t('settings.adaptive.title')}</h3>
-    <p class="muted">
-      {t('settings.adaptive.intro')}
-    </p>
-    {#if adaptiveError}
-      <p class="error">{adaptiveError}</p>
-    {/if}
-    <div class="strength">
-      <span class="label">{t('settings.adaptive.strength')}</span>
-      <select
-        class="input"
-        value={adaptiveStrength}
-        onchange={(e) => setAdaptiveStrength((e.target as HTMLSelectElement).value as typeof adaptiveStrength)}
-        disabled={adaptiveLoading}
-      >
-        <option value="off">{t('settings.adaptive.off')}</option>
-        <option value="cautious">{t('settings.adaptive.cautious')}</option>
-        <option value="balanced">{t('settings.adaptive.balanced')}</option>
-        <option value="aggressive">{t('settings.adaptive.aggressive')}</option>
-      </select>
-    </div>
-    {#if adaptiveProfile}
-      <h4 class="sub">{t('settings.adaptive.learned_title')}</h4>
-      {#if adaptiveProfile.preferences && Object.keys(adaptiveProfile.preferences).length > 0}
-        <div class="profile-group">
-          <span class="profile-label">{t('settings.adaptive.preferences')}</span>
-          {#each Object.entries(adaptiveProfile.preferences) as [k, v]}
-            <div class="profile-row">
-              <span class="k">{k}</span>
-              <span class="v">{v}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('preferences', k)}>{t('settings.adaptive.forget')}</button>
+      {:else if section === 'legal'}
+        <header class="settings-header">
+          <h1>Legal</h1>
+          <p>License and privacy documents.</p>
+        </header>
+
+        <Card elevation={2} padding="md">
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-title">Freeware EULA</div>
+              <div class="settings-row-sub">Synaptic Freeware License v1</div>
             </div>
-          {/each}
-        </div>
-      {/if}
-      {#if adaptiveProfile.style && Object.keys(adaptiveProfile.style).length > 0}
-        <div class="profile-group">
-          <span class="profile-label">{t('settings.adaptive.style')}</span>
-          {#each Object.entries(adaptiveProfile.style) as [k, v]}
-            <div class="profile-row">
-              <span class="k">{k}</span>
-              <span class="v">{v}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('style', k)}>{t('settings.adaptive.forget')}</button>
+            <Button variant="secondary" size="sm" onclick={() => { window.location.hash = '#/about' }}>View</Button>
+          </div>
+          <Divider />
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-title">Privacy policy</div>
+              <div class="settings-row-sub">Local-first. No telemetry. Your data stays on your machine.</div>
             </div>
-          {/each}
-        </div>
+            <Button variant="secondary" size="sm">View</Button>
+          </div>
+        </Card>
       {/if}
-      {#if adaptiveProfile.pet_peeves && adaptiveProfile.pet_peeves.length > 0}
-        <div class="profile-group">
-          <span class="profile-label">{t('settings.adaptive.pet_peeves')}</span>
-          {#each adaptiveProfile.pet_peeves as p}
-            <div class="profile-row">
-              <span class="v">{p}</span>
-              <button class="btn btn-ghost btn-xs" onclick={() => forgetAdaptiveField('pet_peeves', p)}>{t('settings.adaptive.forget')}</button>
-            </div>
-          {/each}
-        </div>
-      {/if}
-      {#if (!adaptiveProfile.preferences || Object.keys(adaptiveProfile.preferences).length === 0) &&
-        (!adaptiveProfile.style || Object.keys(adaptiveProfile.style).length === 0) &&
-        (!adaptiveProfile.pet_peeves || adaptiveProfile.pet_peeves.length === 0)}
-        <p class="muted">
-          {t('settings.adaptive.empty')}
-        </p>
-      {/if}
-      {#if adaptiveProfile.last_updated}
-        <p class="muted small">{t('settings.adaptive.last_updated', new Date(adaptiveProfile.last_updated).toLocaleString())}</p>
-      {/if}
-      <button class="btn btn-ghost" onclick={resetAdaptive}>{t('settings.adaptive.reset')}</button>
-    {/if}
-  </section>
-
-  <section class="glass-card settings-section danger-card">
-    <h3>{t('settings.killswitch.title')}</h3>
-    <p class="muted">{t('settings.killswitch.intro')}</p>
-    {#if halt.state.halted}
-      <p class="muted">{t('settings.killswitch.halted_since', halt.state.since)}</p>
-      <button class="btn btn-primary" onclick={performResume}>{t('settings.killswitch.resume')}</button>
-    {:else}
-      <button class="btn btn-danger" onclick={performHalt}>{t('settings.killswitch.halt')}</button>
-    {/if}
-  </section>
-
-  <section class="glass-card settings-section">
-    <h3>{t('settings.apikeys.title')}</h3>
-    <p class="muted">{t('settings.apikeys.intro')}</p>
-
-    <div class="apikey-list">
-      {#if apiKeys.list.length === 0}
-        <p class="muted">{t('settings.apikeys.empty')}</p>
-      {/if}
-      {#each apiKeys.list as k (k.id)}
-        <div class="apikey-row">
-          <span class="provider">{k.provider}</span>
-          <span class="label">{k.label}</span>
-          <span class="auth-kind">{k.auth_kind}</span>
-          <span class="has-token">{k.has_token ? t('settings.apikeys.has_token') : t('settings.apikeys.no_token')}</span>
-          <button class="btn btn-ghost" onclick={() => deleteKey(k.id)}>{t('settings.apikeys.delete')}</button>
-        </div>
-      {/each}
     </div>
-
-    <h4>{t('settings.apikeys.add_title')}</h4>
-    <div class="row">
-      <select bind:value={newProvider} class="input">
-        <option value="openai">openai</option>
-        <option value="anthropic">anthropic</option>
-        <option value="google">google</option>
-        <option value="xai">xai</option>
-        <option value="mistral">mistral</option>
-        <option value="deepseek">deepseek</option>
-        <option value="openrouter">openrouter</option>
-        <option value="groq">groq</option>
-        <option value="together">together</option>
-        <option value="fireworks">fireworks</option>
-      </select>
-      <input type="text" bind:value={newLabel} placeholder="label" class="input" />
-      <input
-        type="password"
-        bind:value={newSecret}
-        placeholder="sk-…"
-        class="input"
-        autocomplete="off"
-      />
-      <button
-        class="btn btn-primary"
-        onclick={setAPIKey}
-        disabled={!newSecret || settingAPIKey}
-      >
-        {settingAPIKey ? t('settings.apikeys.saving') : t('settings.apikeys.save')}
-      </button>
-    </div>
-  </section>
-
-  <section class="glass-card settings-section">
-    <h3>{t('settings.legal.title')}</h3>
-    <p class="muted">{t('settings.legal.intro')}</p>
-    {#if eulaText}
-      <div class="eula-view">
-        <div class="eula-view-head">
-          <strong>{eulaTitle}</strong>
-          <span class="muted">{eulaVersion}</span>
-        </div>
-        <pre>{eulaText}</pre>
-      </div>
-      <button class="btn btn-ghost" onclick={() => { eulaText = '' }}>{t('settings.legal.hide')}</button>
-    {:else}
-      <button class="btn btn-ghost" onclick={viewEula}>{t('settings.legal.view_eula')}</button>
-    {/if}
-  </section>
-
-  <section class="glass-card settings-section">
-    <h3>{t('settings.setup.title')}</h3>
-    <p class="muted">{t('settings.setup.intro')}</p>
-    <button class="btn btn-ghost" onclick={rerunSetup} disabled={rerunning}>
-      {rerunning ? t('settings.setup.resetting') : t('settings.setup.rerun')}
-    </button>
-  </section>
+  </main>
 </div>
 
-{#if showSignIn}
-  <SignInPanel onClose={() => (showSignIn = false)} />
-{/if}
+<Dialog bind:open={showHaltConfirm} title="Halt the agent?" description="All in-flight actions will be canceled. Resume requires a terminal confirmation." size="sm">
+  <p class="settings-dialog-body">This stops every active stream, every queued action, and every pending consent ticket. The audit log records the halt.</p>
+  {#snippet footer()}
+    <Button variant="ghost" onclick={() => { showHaltConfirm = false }}>Cancel</Button>
+    <Button variant="danger" onclick={haltAgent}>Halt</Button>
+  {/snippet}
+</Dialog>
 
-<ConfirmDialog
-  bind:open={confirmOpen}
-  title={confirmTitle}
-  message={confirmMessage}
-  danger={confirmDanger}
-  confirmLabel={confirmLabel}
-  cancelLabel={cancelLabel}
-  onconfirm={() => confirmAction?.()}
-/>
-
-{#if restoreTarget}
-  <div
-    class="modal-backdrop"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) cancelRestore()
-    }}
-    onkeydown={(e) => {
-      if (e.key === 'Escape') cancelRestore()
-    }}
-    role="presentation"
-  >
-    <div class="modal danger" role="dialog" aria-modal="true" aria-labelledby="restore-title">
-      <div class="modal-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-      </div>
-      <h3 id="restore-title">{t('settings.backup.restore_title')}</h3>
-      <p class="muted">
-        {t('settings.backup.restore_warning', restoreTarget.name)}
-      </p>
-      <p class="muted">
-        {t('settings.backup.restore_safety')}
-      </p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" onclick={cancelRestore}>{t('common.cancel')}</button>
-        <button class="btn btn-danger" type="button" onclick={() => void confirmRestore()}>
-          {t('settings.backup.replace_all')}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<Dialog bind:open={showReRunSetup} title="Re-run setup?" description="Walk through the welcome flow again. Your data is preserved." size="sm">
+  {#snippet footer()}
+    <Button variant="ghost" onclick={() => { showReRunSetup = false }}>Cancel</Button>
+    <Button variant="primary" onclick={reRunSetup}>Re-run</Button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .settings-page {
-    padding: var(--space-5);
-    overflow-y: auto;
-    height: 100%;
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-  }
-  .settings-page .page-header {
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
-  }
-
-  /* ── Section spacing ─────────────────────────────────── */
-  .settings-section {
-    padding: var(--space-5);
-    margin-top: var(--space-5);
-    animation: stagger-in var(--transition-slow) var(--ease-out-expo) both;
-  }
-  .settings-section:nth-of-type(1) { animation-delay: 40ms; }
-  .settings-section:nth-of-type(2) { animation-delay: 80ms; }
-  .settings-section:nth-of-type(3) { animation-delay: 120ms; }
-  .settings-section:nth-of-type(4) { animation-delay: 160ms; }
-  .settings-section:nth-of-type(5) { animation-delay: 200ms; }
-  .settings-section:nth-of-type(6) { animation-delay: 240ms; }
-  .settings-section:nth-of-type(7) { animation-delay: 280ms; }
-  .settings-section:nth-of-type(8) { animation-delay: 320ms; }
-  .settings-section:nth-of-type(n + 9) { animation-delay: 360ms; }
-  .settings-section h3 {
-    font-size: var(--size-lg);
-    font-weight: var(--weight-semibold);
-    margin-bottom: var(--space-3);
-  }
-  .settings-section h4 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    margin: var(--space-4) 0 var(--space-2) 0;
-  }
-  .settings-section .checkbox {
-    margin-top: var(--space-3);
-  }
-  .settings-section .row {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    margin-top: var(--space-3);
-  }
-
-  /* ── Danger zone (kill switch) — red ambient glow */
-  .danger-card {
-    background: var(--color-danger-soft);
-    border-color: rgba(239, 68, 68, 0.25);
-    box-shadow: var(--shadow-sm), 0 0 24px rgba(239, 68, 68, 0.12), var(--shadow-inset);
-    animation: breathe-soft 6s var(--ease-in-out-quart) infinite;
-  }
-  .danger-card:hover {
-    border-color: rgba(239, 68, 68, 0.5);
-    box-shadow: var(--shadow-md), 0 0 40px rgba(239, 68, 68, 0.25), var(--shadow-inset);
-  }
-  .danger-card :global(.btn-danger) {
-    box-shadow: var(--shadow-sm), 0 0 20px rgba(239, 68, 68, 0.2), var(--shadow-inset);
-  }
-
-  /* ── Account ─────────────────────────────────────────── */
-  .account-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-top: var(--space-2);
-  }
-  .acc-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    object-fit: cover;
-  }
-  .acc-avatar.fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-accent-gradient);
-    color: #fff;
-    font-weight: var(--weight-semibold);
-  }
-  .acc-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  .acc-name { font-weight: var(--weight-semibold); }
-  .acc-meta { color: var(--color-text-muted); font-size: var(--size-xs); }
-  .benefits {
-    margin: var(--space-3) 0;
-    padding-left: var(--space-5);
-    color: var(--color-text-muted);
-    font-size: var(--size-sm);
-    line-height: var(--leading-relaxed);
-  }
-  .err { color: var(--color-error); }
-
-  /* ── Voice slider ────────────────────────────────────── */
-  .slider-row { align-items: center; }
-  .slider-label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; }
-  .slider-row input[type='range'] { flex: 1; accent-color: var(--color-accent); }
-  .slider-val { font-family: var(--font-mono); font-size: var(--size-sm); min-width: 44px; text-align: right; }
-
-  /* ── Adaptive engine — premium learned-surface ──────── */
-  .strength { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-2) 0 var(--space-4); }
-  .strength .label { color: var(--color-text-muted); font-size: var(--size-sm); min-width: 80px; letter-spacing: var(--tracking-wide); text-transform: uppercase; }
-  .strength select { flex: 1; }
-  .sub {
-    margin-top: var(--space-3);
-    font-size: var(--size-sm);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-wide);
-    text-transform: uppercase;
-    color: var(--color-accent);
-    text-shadow: 0 0 16px var(--color-glow);
-  }
-  .profile-group {
-    margin: var(--space-2) 0;
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    background: var(--color-accent-faint);
-    border: 1px solid var(--glass-border);
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  }
-  .profile-group:hover {
-    border-color: var(--glass-border-active);
-    box-shadow: var(--shadow-glow);
-  }
-  .profile-label {
-    display: block;
-    color: var(--color-text-muted);
-    font-size: var(--size-xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    margin-bottom: var(--space-1);
-  }
-  .profile-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) 0;
-    font-size: var(--size-sm);
-    transition: transform var(--transition-fast);
-  }
-  .profile-row:hover { transform: translateX(2px); }
-  .profile-row .k { color: var(--color-text-muted); min-width: 100px; }
-  .profile-row .v { flex: 1; }
-  .small { font-size: var(--size-xs); }
-  .error { color: var(--color-error); margin: var(--space-2) 0; }
-
-  /* ── Backup list ─────────────────────────────────────── */
-  .backup-list, .perm-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-  }
-  .backup-row, .perm-row {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-size: var(--size-sm);
-    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
-  }
-  .backup-row:hover, .perm-row:hover {
-    border-color: var(--glass-border-active);
-    box-shadow: var(--shadow-glow);
-    transform: translateX(2px);
-  }
-  .backup-name, .perm-kind {
-    flex: 1;
-    font-family: var(--font-mono);
-  }
-  .backup-size { color: var(--color-text-muted); }
-  .perm-status.granted { color: var(--color-success); }
-  .perm-status.denied { color: var(--color-error); }
-
-  /* ── Permission guide ────────────────────────────────── */
-  .guide-box {
-    margin-top: var(--space-4);
-    padding: var(--space-4);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-  }
-  .guide-box h4 { margin-bottom: var(--space-2); }
-  .guide-box ol {
-    margin: var(--space-3) 0;
-    padding-left: var(--space-5);
-    color: var(--color-text-muted);
-    line-height: var(--leading-relaxed);
-  }
-
-  /* ── API key list ────────────────────────────────────── */
-  .apikey-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-  }
-  .apikey-row {
+  .settings {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr auto;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-size: var(--size-sm);
-    align-items: center;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+    grid-template-columns: 220px 1fr;
+    height: 100%;
+    min-height: 0;
   }
-  .apikey-row:hover {
-    border-color: var(--glass-border-active);
-    box-shadow: var(--shadow-glow);
-    transform: translateX(2px);
-  }
-  .apikey-row .provider { font-weight: var(--weight-semibold); }
-  .apikey-row .has-token { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--size-xs); }
 
-  /* ── EULA view ───────────────────────────────────────── */
-  .eula-view {
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    margin: var(--space-3) 0;
-    max-height: 280px;
+  .settings-nav {
+    background: var(--surface-1);
+    border-right: 1px solid var(--border);
+    padding: var(--space-4) var(--space-2);
     overflow-y: auto;
   }
-  .eula-view-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: var(--space-2);
-  }
-  .eula-view pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: var(--font-sans);
-    font-size: var(--size-sm);
-    line-height: var(--leading-relaxed);
-    color: var(--color-text-muted);
+  .settings-nav-header { padding: 0 var(--space-3) var(--space-4); }
+  .settings-nav-title {
+    font-family: var(--font-display);
+    font-size: var(--size-xl);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+    letter-spacing: var(--tracking-tight);
     margin: 0;
   }
+  .settings-nav-sub {
+    font-size: var(--size-xs);
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
 
-  /* ── Restore confirmation modal ──────────────────────── */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 17, 11, 0.4);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .settings-nav-list {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: var(--z-modal);
-    animation: backdrop-in var(--transition-base) ease both;
+    flex-direction: column;
+    gap: 2px;
   }
-  .modal {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur-heavy);
-    -webkit-backdrop-filter: var(--glass-blur-heavy);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
-    padding: var(--space-5);
-    max-width: 480px;
-    width: calc(100% - 32px);
-    box-shadow: var(--shadow-lg);
-    animation: modal-in var(--transition-spring-soft) var(--ease-out-expo) both;
-  }
-  .modal.danger {
-    border-color: rgba(239, 68, 68, 0.4);
-  }
-  .modal.danger .modal-icon {
-    animation: pulse-glow 2.5s var(--ease-in-out-quart) infinite;
-    box-shadow: 0 0 24px var(--color-error-glow);
-  }
-  .modal-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
+  .settings-nav-item {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-    margin-bottom: var(--space-3);
-  }
-  .modal h3 {
-    font-size: var(--size-lg);
-    font-weight: var(--weight-semibold);
-    margin-bottom: var(--space-3);
-  }
-  .modal-actions {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: left;
     display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    transition: background-color var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease;
+  }
+  .settings-nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .settings-nav-item.active {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border-focus);
+  }
+  .settings-nav-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    flex-shrink: 0;
+  }
+  .settings-nav-item.active .settings-nav-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+  }
+
+  .settings-content {
+    overflow-y: auto;
+    padding: var(--space-7);
+    background: var(--bg);
+  }
+  .settings-content-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .settings-header h1 {
+    font-family: var(--font-display);
+    font-size: var(--size-3xl);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+  .settings-header p {
+    color: var(--text-muted);
+    font-size: var(--size-md);
+    margin-top: var(--space-2);
+  }
+
+  .settings-card-title {
+    font-family: var(--font-display);
+    font-size: var(--size-lg);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+    letter-spacing: var(--tracking-tight);
+    margin: var(--space-3) 0 var(--space-2);
+  }
+  .settings-card-body {
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+    margin-bottom: var(--space-3);
+  }
+
+  .settings-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .settings-row,
+  .settings-account-row,
+  .settings-account-empty,
+  .settings-key-row,
+  .settings-danger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) 0;
+  }
+  .settings-account-empty { gap: var(--space-3); }
+  .settings-account-meta { flex: 1; min-width: 0; }
+  .settings-account-name {
+    font-size: var(--size-md);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+  }
+  .settings-account-provider {
+    font-size: var(--size-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .settings-row-title {
+    font-size: var(--size-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text);
+  }
+  .settings-row-title-danger { color: var(--error); }
+  .settings-row-sub {
+    font-size: var(--size-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: var(--leading-normal);
+  }
+
+  .settings-hotkey-presets {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
-    justify-content: flex-end;
-    margin-top: var(--space-4);
+  }
+  .settings-hotkey-chip {
+    appearance: none;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease;
+  }
+  .settings-hotkey-chip:hover {
+    border-color: var(--border-focus);
+    background: var(--surface-3);
+  }
+
+  .settings-dialog-body {
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
   }
 </style>

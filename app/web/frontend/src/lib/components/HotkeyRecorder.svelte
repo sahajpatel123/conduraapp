@@ -8,8 +8,17 @@
   //   - modifiers: Cmd | Ctrl | Alt/Option | Shift | Win/Super
   //   - keys: Space, Esc, Tab, Enter, Delete, arrows, F1-F12,
   //     or a single printable ASCII character (A-Z, 0-9, punctuation)
+  //
+  // Visual feedback:
+  //   - Idle:    pill with placeholder
+  //   - Recording: solid accent border, accent-tinted bg, glow
+  //   - Captured (valid): green flash on the pill
+  //   - Bare modifier:    red shake on the pill
+  //
+  // Event API preserved: `value` prop + `onRecord(combo)` callback.
 
   import { t } from '../i18n'
+  import Kbd from './ui/Kbd.svelte'
 
   interface Props {
     value?: string
@@ -27,6 +36,10 @@
   // svelte-ignore state_referenced_locally
   let combo = $state(value)
   let hint = $state('')
+  let shake = $state(false)
+  let flash = $state(false)
+  let shakeTimer: ReturnType<typeof setTimeout> | null = null
+  let flashTimer: ReturnType<typeof setTimeout> | null = null
 
   const isMac =
     typeof navigator !== 'undefined' &&
@@ -79,6 +92,24 @@
     return mods
   }
 
+  function triggerShake(): void {
+    shake = true
+    if (shakeTimer !== null) clearTimeout(shakeTimer)
+    shakeTimer = setTimeout(() => {
+      shake = false
+      shakeTimer = null
+    }, 360)
+  }
+
+  function triggerFlash(): void {
+    flash = true
+    if (flashTimer !== null) clearTimeout(flashTimer)
+    flashTimer = setTimeout(() => {
+      flash = false
+      flashTimer = null
+    }, 480)
+  }
+
   function onKeydown(e: KeyboardEvent): void {
     if (!recording) return
     e.preventDefault()
@@ -87,17 +118,20 @@
     const key = keyName(e)
     if (!key) {
       hint = t('hotkey.recorder.hint_modifier')
+      triggerShake()
       return
     }
     const mods = modifiers(e)
     if (mods.length === 0) {
       hint = t('hotkey.recorder.hint_no_modifier')
+      triggerShake()
       return
     }
     const spec = [...mods, key].join('+')
     combo = spec
     hint = ''
     recording = false
+    triggerFlash()
     onRecord?.(spec)
   }
 
@@ -110,6 +144,7 @@
     combo = s
     hint = ''
     recording = false
+    triggerFlash()
     onRecord?.(s)
   }
 </script>
@@ -122,26 +157,38 @@
     class="capture"
     class:recording
     class:filled={!!combo}
+    class:shake
+    class:flash
     onclick={start}
     aria-label={t('hotkey.recorder.aria_label')}
   >
     {#if recording}
       <span class="pulse">{t('hotkey.recorder.recording')}</span>
     {:else if combo}
-      <kbd>{combo}</kbd>
+      <span class="combo-display">
+        {#each combo.split('+') as seg, i}
+          {#if i > 0}<span class="plus" aria-hidden="true">+</span>{/if}
+          <Kbd label={seg} />
+        {/each}
+      </span>
     {:else}
       <span class="placeholder">{t('hotkey.recorder.placeholder')}</span>
     {/if}
   </button>
 
   {#if hint}
-    <p class="hint">{hint}</p>
+    <p class="hint" class:hint-error={shake}>{hint}</p>
   {/if}
 
   <div class="suggestions">
     <span class="sug-label">{t('hotkey.recorder.suggestions')}</span>
     {#each suggestions as s}
-      <button type="button" class="btn btn-ghost btn-xs chip" onclick={() => pick(s)}>{s}</button>
+      <button
+        type="button"
+        class="chip"
+        onclick={() => pick(s)}
+        aria-label={t('hotkey.recorder.suggestion_aria', s)}
+      >{s}</button>
     {/each}
   </div>
 </div>
@@ -162,10 +209,14 @@
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    color: var(--color-text);
+    color: var(--text);
     font-size: var(--size-lg);
     cursor: pointer;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+    transition:
+      border-color var(--transition-base) ease,
+      background-color var(--transition-base) ease,
+      box-shadow var(--transition-base) ease,
+      transform var(--transition-base) var(--ease-spring);
     min-height: 72px;
     display: flex;
     align-items: center;
@@ -173,52 +224,76 @@
     box-shadow: var(--shadow-inset);
   }
   .capture:hover {
-    border-color: var(--color-border-accent);
+    border-color: var(--border-strong);
   }
   .capture.recording {
     border-style: solid;
-    border-color: var(--color-accent);
-    background: var(--color-accent-faint);
-    box-shadow: var(--shadow-glow-accent), var(--shadow-inset);
+    border-color: var(--accent);
+    background: var(--accent-faint);
+    box-shadow: var(--shadow-focus), 0 0 28px var(--accent-glow), var(--shadow-inset);
   }
   .capture.filled {
     border-style: solid;
-    border-color: var(--color-border-accent);
+    border-color: var(--border-focus);
+    background: var(--surface-2);
+  }
+  .capture.flash {
+    border-color: var(--success);
+    background: var(--success-soft);
+    box-shadow: 0 0 0 3px var(--success-glow), var(--shadow-inset);
+  }
+  .capture.shake {
+    border-color: var(--border-danger);
+    background: var(--error-soft);
+    animation: shake-kf 0.36s var(--ease-in-out-quart);
+  }
+  @keyframes shake-kf {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
   }
 
   .placeholder {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-md);
   }
 
   .pulse {
-    color: var(--color-accent);
+    color: var(--accent);
     font-weight: var(--weight-medium);
+    font-family: var(--font-mono);
+    letter-spacing: var(--tracking-wide);
     animation: blink 1.2s ease-in-out infinite;
   }
   @keyframes blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    50%      { opacity: 0.4; }
   }
 
-  kbd {
+  .combo-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .plus {
+    color: var(--text-faint);
     font-family: var(--font-mono);
-    font-size: var(--size-xl);
-    font-weight: var(--weight-semibold);
-    background: var(--color-bg-active);
-    border: 1px solid var(--glass-border-hover);
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-4);
-    letter-spacing: var(--tracking-wide);
-    box-shadow: var(--shadow-inset);
+    font-size: var(--size-md);
+    user-select: none;
   }
 
   .hint {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-sm);
     margin: 0;
     text-align: center;
+    transition: color var(--transition-fast) ease;
   }
+  .hint.hint-error { color: var(--error); }
 
   .suggestions {
     display: flex;
@@ -228,11 +303,42 @@
     justify-content: center;
   }
   .sug-label {
-    color: var(--color-text-faint);
+    color: var(--text-faint);
     font-size: var(--size-sm);
   }
   .chip {
-    font-family: var(--font-mono);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
     border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    letter-spacing: var(--tracking-wide);
+    cursor: pointer;
+    transition:
+      background-color var(--transition-fast) ease,
+      color var(--transition-fast) ease,
+      border-color var(--transition-fast) ease,
+      transform var(--transition-fast) var(--ease-spring);
+  }
+  .chip:hover {
+    color: var(--text);
+    background: var(--surface-3);
+    border-color: var(--border-focus);
+    transform: translateY(-1px);
+  }
+  .chip:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: var(--transition-instant);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .capture { animation: none !important; }
+    .capture.shake { animation: none !important; transform: none; }
+    .pulse { animation: none !important; }
   }
 </style>

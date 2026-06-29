@@ -1,14 +1,18 @@
 <script lang="ts">
   // AccountMenu (Phase 14B). A dropdown shown when a signed-in user
   // clicks their avatar in the sidebar footer. Shows the email +
-  // provider and offers "Sign out" with a confirmation step.
+  // provider, a "Manage account" link, and a sign-out button with
+  // a two-step confirmation.
   import { account } from '../stores/account.svelte'
+  import Avatar from './ui/Avatar.svelte'
+  import Button from './ui/Button.svelte'
   import { t } from '../i18n'
 
   interface Props {
     onClose?: () => void
+    onManage?: () => void
   }
-  let { onClose }: Props = $props()
+  let { onClose, onManage }: Props = $props()
 
   let confirmingSignOut = $state(false)
 
@@ -26,27 +30,41 @@
     await account.signOut()
     onClose?.()
   }
+
+  function handleBackdropClick(): void {
+    onClose?.()
+  }
+
+  function handleBackdropKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape') onClose?.()
+  }
 </script>
 
-<div class="menu-backdrop" role="presentation" onclick={() => onClose?.()}>
+<div
+  class="menu-backdrop anim-fade"
+  role="presentation"
+  onclick={handleBackdropClick}
+  onkeydown={handleBackdropKey}
+>
   <div
-    class="account-menu glass-card elevated"
+    class="account-menu anim-pop"
     role="menu"
     tabindex="-1"
     aria-label={t('account.menu.aria_label')}
     onclick={(e) => e.stopPropagation()}
-    onkeydown={(e) => { if (e.key === 'Escape') onClose?.() }}
   >
     <div class="who">
-      {#if account.avatarURL}
-        <img class="avatar" src={account.avatarURL} alt="" />
-      {:else}
-        <div class="avatar fallback">{(account.displayName || '?').charAt(0).toUpperCase()}</div>
-      {/if}
+      <Avatar
+        name={account.displayName || account.email || 'Account'}
+        src={account.avatarURL}
+        size="md"
+      />
       <div class="who-text">
         <span class="name">{account.displayName || account.email}</span>
         <span class="email">{account.email}</span>
-        <span class="provider">{t('account.menu.via', providerLabel(account.provider))}{account.tier ? ` · ${account.tier}` : ''}</span>
+        <span class="provider">
+          {t('account.menu.via', providerLabel(account.provider))}{account.tier ? ` · ${account.tier}` : ''}
+        </span>
       </div>
     </div>
 
@@ -55,13 +73,24 @@
     {#if confirmingSignOut}
       <p class="confirm-q">{t('account.menu.signout_confirm')}</p>
       <div class="confirm-actions">
-        <button class="btn btn-ghost btn-sm" onclick={() => (confirmingSignOut = false)}>{t('account.menu.cancel')}</button>
-        <button class="btn btn-danger btn-sm" onclick={doSignOut} disabled={account.loading}>
+        <Button variant="ghost" size="sm" fullWidth onclick={() => (confirmingSignOut = false)}>
+          {t('account.menu.cancel')}
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
+          fullWidth
+          loading={account.loading}
+          onclick={doSignOut}
+        >
           {account.loading ? t('account.menu.signing_out') : t('account.menu.signout')}
-        </button>
+        </Button>
       </div>
     {:else}
-      <button class="item" role="menuitem" onclick={() => (confirmingSignOut = true)}>
+      <button class="item press" role="menuitem" onclick={onManage}>
+        {t('account.menu.manage')}
+      </button>
+      <button class="item press" role="menuitem" onclick={() => (confirmingSignOut = true)}>
         {t('account.menu.signout')}
       </button>
     {/if}
@@ -76,8 +105,8 @@
   .menu-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 150;
-    animation: backdrop-in var(--transition-base) ease both;
+    z-index: var(--z-elevated);
+    background: transparent;
   }
   .account-menu {
     position: absolute;
@@ -85,30 +114,18 @@
     left: 12px;
     width: 248px;
     padding: var(--space-3);
-    animation: modal-in var(--transition-spring) var(--ease-out-expo) both;
+    background: var(--glass-bg-solid);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
   }
-  .account-menu:hover {
-    border-color: var(--glass-border-hover);
-  }
+
   .who {
     display: flex;
     gap: var(--space-3);
     align-items: center;
-  }
-  .avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    object-fit: cover;
-  }
-  .avatar.fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-accent-gradient);
-    color: #fff;
-    font-weight: var(--weight-semibold);
   }
   .who-text {
     display: flex;
@@ -121,24 +138,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--text);
   }
   .email {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .provider {
-    color: var(--color-text-faint);
+    color: var(--text-faint);
     font-size: var(--size-xs);
     margin-top: 2px;
   }
+
   .sep {
     height: 1px;
-    background: var(--glass-border);
+    background: var(--border);
     margin: var(--space-3) 0;
   }
+
   .item {
     width: 100%;
     text-align: left;
@@ -146,29 +166,32 @@
     border-radius: var(--radius-md);
     background: transparent;
     border: none;
-    color: var(--color-text);
+    color: var(--text);
     font-size: var(--size-sm);
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: background var(--transition-base);
+    transition: background-color var(--transition-fast) ease, color var(--transition-fast) ease;
   }
   .item:hover {
-    background: var(--color-bg-hover);
+    background: var(--surface-3);
   }
+  .item:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+
   .confirm-q {
     font-size: var(--size-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-2);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-2);
+    line-height: var(--leading-relaxed);
   }
   .confirm-actions {
     display: flex;
     gap: var(--space-2);
   }
-  .confirm-actions .btn {
-    flex: 1;
-  }
   .err {
-    color: var(--color-error);
+    color: var(--error);
     font-size: var(--size-xs);
     margin-top: var(--space-2);
   }

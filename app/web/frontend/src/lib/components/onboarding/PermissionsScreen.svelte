@@ -3,6 +3,9 @@
   import { ipc } from '../../ipc/client'
   import { onboarding } from '../../stores/onboarding.svelte'
   import type { PermissionStatus, PermissionGuide } from '../../ipc/types'
+  import Button from '../ui/Button.svelte'
+  import Card from '../ui/Card.svelte'
+  import Badge from '../ui/Badge.svelte'
   import { t } from '../../i18n'
 
   // Only the two permissions computer-use actually needs up front.
@@ -71,13 +74,26 @@
     }
   }
 
-  function badgeClass(status: string): string {
-    if (status === 'granted') return 'granted'
-    if (status === 'denied') return 'denied'
-    return 'unknown'
+  function badgeTone(status: string): 'success' | 'warn' | 'neutral' {
+    if (status === 'granted') return 'success'
+    if (status === 'denied') return 'warn'
+    return 'neutral'
   }
 
-  const allGranted = $derived(rows.every((r) => r.status === 'granted'))
+  function badgeLabel(status: string): string {
+    if (status === 'granted') return t('onboarding.permissions.status_granted')
+    if (status === 'denied') return t('onboarding.permissions.status_denied')
+    if (status === 'pending') return t('onboarding.permissions.status_pending')
+    return t('onboarding.permissions.status_unknown')
+  }
+
+  // The gate lets the user proceed when at least one permission
+  // is granted (the spec says "at least one of the two"). The
+  // primary CTA still reads "Continue" so the user doesn't feel
+  // blocked when both are denied — they can opt out and grant
+  // later from Settings.
+  const atLeastOneGranted = $derived(rows.some((r) => r.status === 'granted'))
+  const canContinue = $derived(atLeastOneGranted || !onboarding.busy)
 
   async function cont(): Promise<void> {
     await onboarding.completePermissions()
@@ -85,31 +101,81 @@
   async function skip(): Promise<void> {
     await onboarding.skipStep('permissions')
   }
+  async function back(): Promise<void> {
+    await onboarding.back()
+  }
 </script>
 
 <div class="wizard perms">
-  <h2>{t('onboarding.permissions.title')}</h2>
-  <p class="muted">
-    {t('onboarding.permissions.intro')}
-  </p>
+  <header class="head">
+    <h2>{t('onboarding.permissions.title')}</h2>
+    <p class="muted">
+      {t('onboarding.permissions.intro')}
+    </p>
+  </header>
 
-  <div class="perm-list">
+  <div class="perm-grid">
     {#each rows as row, i (row.kind)}
-      <div class="perm-card glass-card stagger-item" style="--stagger-index: {i}">
-        <div class="perm-head">
-          <span class="perm-name">{LABELS[row.kind] ?? row.kind}</span>
-          <span class="badge {badgeClass(row.status)}">{row.status}</span>
-        </div>
-        <p class="perm-why">{whyFor(row.kind)}</p>
-        {#if row.status !== 'granted'}
-          <button class="btn btn-secondary btn-sm" onclick={() => openSettings(row.kind)}>{t('onboarding.permissions.open_settings')}</button>
-        {/if}
+      <div class="stagger-item" style="--stagger-index: {i}">
+        <Card elevation="glass" padding="md" class="perm-card">
+          <div class="perm-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              {#if row.kind === 'accessibility'}
+                <path d="M12 4v16" />
+                <path d="M4 12h16" />
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8 12h.01" />
+                <path d="M16 12h.01" />
+              {:else}
+                <rect x="3" y="4" width="18" height="13" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+              {/if}
+            </svg>
+          </div>
+          <div class="perm-head">
+            <span class="perm-name">{LABELS[row.kind] ?? row.kind}</span>
+            <Badge tone={badgeTone(row.status)} dot>
+              {badgeLabel(row.status)}
+            </Badge>
+          </div>
+          <p class="perm-why">{whyFor(row.kind)}</p>
+          <div class="perm-actions">
+            {#if row.status === 'granted'}
+              <span class="perm-granted-note">
+                {t('onboarding.permissions.granted_note')}
+              </span>
+            {:else}
+              <Button
+                variant="secondary"
+                size="sm"
+                onclick={() => openSettings(row.kind)}
+              >
+                {t('onboarding.permissions.open_settings')}
+              </Button>
+            {/if}
+            <button
+              class="skip-link"
+              type="button"
+              onclick={skip}
+              disabled={onboarding.busy}
+            >
+              {t('onboarding.permissions.skip_link')}
+            </button>
+          </div>
+        </Card>
       </div>
     {/each}
   </div>
 
+  <div class="explainer">
+    <h4>{t('onboarding.permissions.why_title')}</h4>
+    <p>{t('onboarding.permissions.why_body')}</p>
+  </div>
+
   {#if guide}
-    <div class="guide-box glass-card">
+    <div class="guide-box">
       <h4>{guide.title}</h4>
       <ol>
         {#each guide.steps as step}
@@ -117,9 +183,13 @@
         {/each}
       </ol>
       {#if guide.help_url}
-        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">{t('onboarding.permissions.more_help')}</a>
+        <a class="full-link" href={guide.help_url} target="_blank" rel="noreferrer">
+          {t('onboarding.permissions.more_help')}
+        </a>
       {/if}
-      <button class="btn btn-ghost btn-sm guide-close" onclick={() => (guide = null)}>{t('onboarding.permissions.close')}</button>
+      <button class="close-link" type="button" onclick={() => (guide = null)}>
+        {t('onboarding.permissions.close')}
+      </button>
     </div>
   {/if}
 
@@ -128,46 +198,70 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-ghost" onclick={skip} disabled={onboarding.busy}>{t('onboarding.permissions.skip')}</button>
-    <button class="btn btn-primary" onclick={cont} disabled={onboarding.busy}>
-      {(allGranted ? t('onboarding.permissions.continue') : t('onboarding.permissions.continue_anyway'))} →
+    <button class="back-link" type="button" onclick={back} disabled={onboarding.busy}>
+      ← {t('onboarding.permissions.back')}
     </button>
+    <div class="actions-right">
+      <button class="skip-link" type="button" onclick={skip} disabled={onboarding.busy}>
+        {t('onboarding.permissions.skip')}
+      </button>
+      <Button variant="primary" size="md" onclick={cont} disabled={!canContinue} loading={onboarding.busy}>
+        {t('onboarding.permissions.continue')}
+      </Button>
+    </div>
   </div>
 </div>
 
 <style>
   .wizard {
     width: 100%;
-    max-width: 560px;
-    padding: var(--space-6) var(--space-5);
-    text-align: center;
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
-  }
-  h2 {
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    margin-bottom: var(--space-2);
-    background: var(--color-accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .wizard > .muted {
-    font-size: var(--size-md);
-    line-height: var(--leading-relaxed);
-    margin-bottom: var(--space-5);
-  }
-  .perm-list {
+    max-width: 720px;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
+    gap: var(--space-5);
   }
-  .perm-card {
-    text-align: left;
-    padding: var(--space-4);
+
+  .head { display: flex; flex-direction: column; gap: var(--space-2); text-align: center; align-items: center; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: var(--size-2xl);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
   }
+
+  .muted {
+    font-size: var(--size-md);
+    line-height: var(--leading-relaxed);
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 52ch;
+  }
+
+  .perm-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+  @media (max-width: 640px) {
+    .perm-grid { grid-template-columns: 1fr; }
+  }
+
+  .perm-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-bottom: var(--space-3);
+  }
+  .perm-icon svg { width: 20px; height: 20px; }
+
+  .perm-card { height: 100%; }
   .perm-head {
     display: flex;
     align-items: center;
@@ -179,56 +273,111 @@
     font-size: var(--size-md);
   }
   .perm-why {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-sm);
     line-height: var(--leading-relaxed);
     margin: 0 0 var(--space-3) 0;
+    flex: 1;
   }
-  .perm-head :global(.granted) {
-    color: var(--color-success);
-    border-color: var(--color-success);
-    background: var(--color-success-soft);
+  .perm-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
   }
-  .perm-head :global(.denied) {
-    color: var(--color-error);
-    border-color: var(--color-error);
-    background: var(--color-error-soft);
+  .perm-granted-note {
+    color: var(--success);
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
   }
-  .perm-head :global(.unknown) {
-    color: var(--color-text-faint);
+
+  .explainer {
+    text-align: left;
+    padding: var(--space-4);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
   }
+  .explainer h4 {
+    font-size: var(--size-sm);
+    font-weight: var(--weight-semibold);
+    margin: 0 0 var(--space-1) 0;
+    color: var(--text);
+  }
+  .explainer p {
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
   .guide-box {
     text-align: left;
     padding: var(--space-4);
-    margin-bottom: var(--space-4);
-    box-shadow: var(--shadow-md), var(--shadow-inset);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
   }
   .guide-box h4 {
     font-size: var(--size-md);
     font-weight: var(--weight-semibold);
-    margin-bottom: var(--space-2);
+    margin: 0 0 var(--space-2) 0;
   }
   .guide-box ol {
     padding-left: var(--space-5);
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: var(--size-sm);
     line-height: var(--leading-relaxed);
-  }
-  .guide-close {
-    margin-top: var(--space-3);
+    margin: 0 0 var(--space-2) 0;
   }
   .full-link {
-    color: var(--color-accent);
+    color: var(--accent);
     font-size: var(--size-sm);
     text-decoration: underline;
   }
+
   .actions {
     display: flex;
     justify-content: space-between;
-    margin-top: var(--space-4);
+    align-items: center;
   }
+  .actions-right {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+
+  .back-link,
+  .skip-link,
+  .close-link {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: var(--size-sm);
+    font-family: inherit;
+    transition: color var(--transition-fast);
+  }
+  .back-link:hover:not(:disabled),
+  .skip-link:hover:not(:disabled),
+  .close-link:hover:not(:disabled) {
+    color: var(--text);
+  }
+  .back-link:disabled,
+  .skip-link:disabled,
+  .close-link:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .skip-link {
+    color: var(--text-faint);
+  }
+
   .error {
-    color: var(--color-error);
+    color: var(--error);
     font-size: var(--size-sm);
   }
 </style>

@@ -1,16 +1,26 @@
 <script lang="ts">
+  // Delegation — list of CLI sub-agent backends (Claude Code, Codex,
+  // Antigravity, OpenCode, Kilo, Hermes, Gemini, Ollama) with install
+  // status, default model, and enable toggle. Spawn a sub-agent from
+  // the top panel. Cancel running spawns from the running list.
   import { ipc } from '../ipc/client'
-  import { onMount } from 'svelte'
+  import type { AppConfig } from '../ipc/types'
+  import { onMount, onDestroy } from 'svelte'
+  import { notifications } from '../stores/notifications.svelte'
   import PendingActions from '../components/PendingActions.svelte'
-  import { t } from '../i18n'
+  import { Button, Card, Switch, Input, Textarea, Select, Badge } from '../components/ui'
 
-  type Agent = {
+  interface Agent {
     name: string
     description: string
     binary: string
+    installed?: boolean
+    enabled?: boolean
+    default_model?: string
+    available_models?: string[]
   }
 
-  type SpawnResult = {
+  interface SpawnResult {
     spawn_id: string
     agent_name: string
     state: string
@@ -22,25 +32,46 @@
     pending_actions?: unknown[]
   }
 
+  interface Running {
+    spawn_id: string
+    agent_name: string
+    state: string
+    started: string
+  }
+
   let agents = $state<Agent[]>([])
   let loading = $state(false)
   let error = $state<string | null>(null)
-  let selectedAgent = $state<string>('')
+  let selectedAgent = $state('')
   let taskInput = $state('')
   let modelInput = $state('')
   let budgetInput = $state(1.0)
   let spawning = $state(false)
   let lastSpawn = $state<SpawnResult | null>(null)
+  let running = $state<Running[]>([])
+  let pollTimer: ReturnType<typeof setInterval> | null = null
 
-  async function refresh() {
+  // Per-agent enabled / default model state. We cache locally so
+  // toggling the switch feels instant; the daemon is updated
+  // optimistically via ipc.config.update on each change.
+  let enabledMap = $state<Record<string, boolean>>({})
+  let modelMap = $state<Record<string, string>>({})
+
+  async function refresh(): Promise<void> {
     loading = true
     error = null
     try {
       const resp = await ipc.call<{ agents: Agent[] }>('delegate.list_agents', {})
-      agents = resp?.agents ?? []
-      if (agents.length > 0 && !selectedAgent) {
-        selectedAgent = agents[0].name
+      const list = resp?.agents ?? []
+      agents = list
+      if (list.length > 0 && !selectedAgent) selectedAgent = list[0].name
+      // Initialise local cache.
+      for (const a of list) {
+        if (enabledMap[a.name] === undefined) enabledMap[a.name] = a.enabled !== false
+        if (!modelMap[a.name]) modelMap[a.name] = a.default_model || a.available_models?.[0] || ''
       }
+      enabledMap = { ...enabledMap }
+      modelMap = { ...modelMap }
     } catch (e) {
       error = String(e)
     } finally {
@@ -48,7 +79,16 @@
     }
   }
 
-  async function spawn() {
+  async function refreshRunning(): Promise<void> {
+    try {
+      const r = await ipc.call<{ running: Running[] }>('delegate.list_spawns', {})
+      running = r?.running ?? []
+    } catch {
+      // non-fatal
+    }
+  }
+
+  async function spawn(): Promise<void> {
     if (!selectedAgent || !taskInput.trim()) return
     spawning = true
     error = null
@@ -63,226 +103,403 @@
       })
       lastSpawn = result
       taskInput = ''
+      notifications.push({
+        kind: 'success',
+        title: 'Sub-agent spawned',
+        message: `${result.agent_name} (${result.spawn_id.slice(0, 8)})`,
+      })
+      await refreshRunning()
     } catch (e) {
       error = String(e)
+      notifications.push({ kind: 'error', title: 'Spawn failed', message: String(e) })
     } finally {
       spawning = false
     }
   }
 
-  async function cancel(spawnId: string) {
+  async function cancel(spawnId: string): Promise<void> {
     try {
       await ipc.call('delegate.cancel', { spawn_id: spawnId })
       error = null
+      notifications.push({ kind: 'info', title: 'Cancelled', message: spawnId.slice(0, 8) })
+      await refreshRunning()
     } catch (e) {
       error = String(e)
     }
   }
 
-  onMount(refresh)
+  async function setEnabled(name: string, on: boolean): Promise<void> {
+    enabledMap[name] = on
+    enabledMap = { ...enabledMap }
+    try {
+      await ipc.configUpdate({ delegation: { enabled: { [name]: on } } } as Partial<AppConfig>)
+    } catch (e) {
+      // revert
+      enabledMap[name] = !on
+      enabledMap = { ...enabledMap }
+      error = String(e)
+    }
+  }
+
+  async function setDefaultModel(name: string, model: string): Promise<void> {
+    modelMap[name] = model
+    modelMap = { ...modelMap }
+    try {
+      await ipc.configUpdate({ delegation: { default_model: { [name]: model } } } as Partial<AppConfig>)
+    } catch (e) {
+      error = String(e)
+    }
+  }
+
+  function stateTone(s: string): 'success' | 'warn' | 'error' | 'neutral' {
+    if (s === 'running' || s === 'pending') return 'warn'
+    if (s === 'completed' || s === 'succeeded') return 'success'
+    if (s === 'failed' || s === 'errored') return 'error'
+    return 'neutral'
+  }
+
+  onMount(() => {
+    void refresh()
+    void refreshRunning()
+    pollTimer = setInterval(() => void refreshRunning(), 5000)
+  })
+  onDestroy(() => {
+    if (pollTimer) clearInterval(pollTimer)
+  })
 </script>
 
 <div class="delegation-page">
   <header class="page-header">
-    <h2>{t('delegation.title')}</h2>
-    <p class="muted">{t('delegation.intro')}</p>
+    <h2 class="display-h2">Delegation</h2>
+    <p class="lede">
+      Run sub-agents on other AI CLIs installed on your machine. The conductor stays in
+      charge — sub-agents execute, the Gatekeeper still decides.
+    </p>
   </header>
 
   {#if error}
-    <p class="error">{error}</p>
+    <p class="error" role="alert">{error}</p>
   {/if}
 
-  <section class="glass-card card">
-    <h3>{t('delegation.available_title')}</h3>
-    <p class="muted">
-      {t('delegation.available_intro')}
-    </p>
-    {#if loading}
-      <p class="muted">{t('common.loading')}</p>
+  <!-- ── Spawn panel ───────────────────────────────── -->
+  <Card elevation="glass" padding="md">
+    <div class="spawn-panel">
+      <div class="spawn-head">
+        <h3>Spawn a sub-agent</h3>
+        <p class="muted">Task and budget. The agent picks the model unless overridden.</p>
+      </div>
+
+      <form
+        class="spawn-form"
+        onsubmit={(e) => {
+          e.preventDefault()
+          void spawn()
+        }}
+      >
+        <div class="form-row">
+          <Select
+            label="Agent"
+            bind:value={selectedAgent}
+            options={agents.map((a) => ({ value: a.name, label: a.name }))}
+            fullWidth
+            disabled={spawning || agents.length === 0}
+          />
+
+          <Input
+            label="Model (optional)"
+            bind:value={modelInput}
+            fullWidth
+            placeholder="claude-sonnet-4-5"
+            disabled={spawning}
+          />
+
+          <Input
+            label="Budget (USD)"
+            type="number"
+            bind:value={budgetInput as unknown as string}
+            fullWidth
+            disabled={spawning}
+          />
+        </div>
+
+        <Textarea
+          label="Task"
+          bind:value={taskInput}
+          fullWidth
+          rows={4}
+          placeholder="What should this sub-agent do?"
+          disabled={spawning}
+          autoresize
+        />
+
+        <div class="form-actions">
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            loading={spawning}
+            disabled={!selectedAgent || !taskInput.trim()}
+          >
+            {spawning ? 'Spawning…' : 'Spawn sub-agent'}
+          </Button>
+        </div>
+      </form>
+    </div>
+  </Card>
+
+  <!-- ── Running ────────────────────────────────────── -->
+  {#if running.length > 0}
+    <Card elevation="glass" padding="md">
+      <header class="row-head">
+        <h3>Running <span class="count mono">{running.length}</span></h3>
+      </header>
+      <ul class="running-list">
+        {#each running as r (r.spawn_id)}
+          <li class="running-row">
+            <span class="mono spawn-id">{r.spawn_id.slice(0, 12)}</span>
+            <span class="agent-name">{r.agent_name}</span>
+            <Badge tone={stateTone(r.state)} size="sm" dot pulse={r.state === 'running'}>
+              {r.state}
+            </Badge>
+            <span class="started">{new Date(r.started).toLocaleTimeString()}</span>
+            <Button variant="danger" size="xs" onclick={() => cancel(r.spawn_id)}>Cancel</Button>
+          </li>
+        {/each}
+      </ul>
+    </Card>
+  {/if}
+
+  <!-- ── Available backends ─────────────────────────── -->
+  <Card elevation="glass" padding="md">
+    <header class="row-head">
+      <h3>Available backends</h3>
+      <Button variant="ghost" size="sm" onclick={refresh} loading={loading}>Refresh</Button>
+    </header>
+    {#if loading && agents.length === 0}
+      <p class="muted">Loading…</p>
     {:else if agents.length === 0}
-      <p class="muted">{t('delegation.no_agents')}</p>
+      <p class="muted">No backends discovered. Install a CLI (e.g. <code>npm i -g @anthropic-ai/claude-code</code>) and refresh.</p>
     {:else}
-      <ul class="agent-list">
-        {#each agents as a, i}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <li class="agent-card glass-card stagger-item" class:selected={a.name === selectedAgent} style="--stagger-index: {i}" onclick={() => (selectedAgent = a.name)}>
-            <strong>{a.name}</strong>
-            <span class="desc">{a.description}</span>
-            <span class="binary">{t('delegation.binary', a.binary)}</span>
+      <ul class="backend-list">
+        {#each agents as a, i (a.name)}
+          <li class="backend-row" style:--stagger-index={i}>
+            <div class="backend-info">
+              <h4>{a.name}</h4>
+              <p class="desc">{a.description}</p>
+              <span class="binary mono">binary: {a.binary}</span>
+            </div>
+
+            <div class="backend-controls">
+              {#if a.available_models && a.available_models.length > 0}
+                <Select
+                  value={modelMap[a.name] || a.available_models[0]}
+                  options={a.available_models.map((m) => ({ value: m, label: m }))}
+                  onchange={(v: string) => void setDefaultModel(a.name, v)}
+                  label="Default model"
+                />
+              {/if}
+
+              <Switch
+                checked={enabledMap[a.name] !== false}
+                onchange={(v: boolean) => void setEnabled(a.name, v)}
+                label="Enabled"
+                description="Disable to hide from spawn menu."
+              />
+            </div>
+
+            <div class="backend-meta">
+              <Badge tone={a.installed === false ? 'warn' : 'success'} size="xs">
+                {a.installed === false ? 'Not installed' : 'Installed'}
+              </Badge>
+            </div>
           </li>
         {/each}
       </ul>
     {/if}
-    <button class="btn btn-ghost btn-sm" onclick={refresh} disabled={loading}>{t('delegation.refresh')}</button>
-  </section>
+  </Card>
 
-  <section class="glass-card card">
-    <h3>{t('delegation.spawn_title')}</h3>
-    <form onsubmit={(e) => { e.preventDefault(); void spawn(); }}>
-      <label class="field">
-        <span>{t('delegation.agent_label')}</span>
-        <select class="input" bind:value={selectedAgent} disabled={spawning || agents.length === 0}>
-          {#each agents as a}
-            <option value={a.name}>{a.name}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="field">
-        <span>{t('delegation.task_label')}</span>
-        <textarea
-          class="input"
-          bind:value={taskInput}
-          rows="4"
-          placeholder={t('delegation.task_placeholder')}
-          disabled={spawning}
-        ></textarea>
-      </label>
-      <label class="field">
-        <span>{t('delegation.model_label')}</span>
-        <input class="input" type="text" bind:value={modelInput} placeholder={t('delegation.model_placeholder')} disabled={spawning} />
-      </label>
-      <label class="field">
-        <span>{t('delegation.budget_label')}</span>
-        <input class="input" type="number" bind:value={budgetInput} min="0.01" step="0.10" disabled={spawning} />
-      </label>
-      <button type="submit" class="btn btn-primary" disabled={spawning || !selectedAgent || !taskInput.trim()}>
-        {spawning ? t('delegation.spawning') : t('delegation.spawn_button')}
-      </button>
-    </form>
-  </section>
-
-  {#if lastSpawn}
-    <section class="glass-card card">
-      <h3>{t('delegation.last_spawn')}</h3>
-      <div class="result">
-        <div class="kv"><span class="k">{t('delegation.spawn_id')}</span><span class="v mono">{lastSpawn.spawn_id}</span></div>
-        <div class="kv"><span class="k">{t('delegation.agent')}</span><span class="v">{lastSpawn.agent_name}</span></div>
-        <div class="kv"><span class="k">{t('delegation.state')}</span><span class="v"><span class="badge state-{lastSpawn.state}">{lastSpawn.state}</span></span></div>
-        <div class="kv"><span class="k">{t('delegation.cost')}</span><span class="v">${lastSpawn.cost?.toFixed(4) ?? '0.0000'}</span></div>
-        <div class="kv"><span class="k">{t('delegation.tokens')}</span><span class="v">{lastSpawn.tokens ?? 0}</span></div>
-        {#if lastSpawn.started}
-          <div class="kv"><span class="k">{t('delegation.started')}</span><span class="v">{new Date(lastSpawn.started).toLocaleString()}</span></div>
-        {/if}
-        {#if lastSpawn.finished}
-          <div class="kv"><span class="k">{t('delegation.finished')}</span><span class="v">{new Date(lastSpawn.finished).toLocaleString()}</span></div>
-        {/if}
-      </div>
-      {#if lastSpawn.output}
-        <details>
-          <summary>{t('delegation.output')}</summary>
-          <pre>{lastSpawn.output}</pre>
-        </details>
-      {/if}
-      {#if lastSpawn && lastSpawn.state === 'running'}
-        <button class="btn btn-danger btn-sm" onclick={() => lastSpawn && cancel(lastSpawn.spawn_id)}>{t('delegation.cancel')}</button>
-      {/if}
+  <!-- ── Pending actions from the Gatekeeper ───────── -->
+  {#if /* keep the same external surface as before */ true}
+    <section class="pending-section">
+      <PendingActions />
     </section>
   {/if}
-
-  <section class="pending-section">
-    <PendingActions />
-  </section>
 </div>
 
 <style>
   .delegation-page {
-    padding: var(--space-5);
+    padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: 900px;
+    max-width: var(--content-max-width-wide);
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
   }
+
   .page-header {
+    margin-bottom: var(--space-2);
     animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
-  .card {
-    padding: var(--space-5);
-    margin: var(--space-4) 0;
+  .display-h2 {
+    font-family: var(--font-display);
+    font-size: var(--size-2xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tight);
+    color: var(--text);
+    margin: 0 0 var(--space-2) 0;
+    line-height: var(--leading-tight);
   }
-  .card h3 {
-    font-size: var(--size-lg);
+  .lede {
+    font-size: var(--size-md);
+    color: var(--text-muted);
+    line-height: var(--leading-relaxed);
+    max-width: 720px;
+    margin: 0;
+  }
+
+  /* ── Spawn panel ────────────────────────────────── */
+  .spawn-panel { display: flex; flex-direction: column; gap: var(--space-4); }
+  .spawn-head h3 {
+    font-size: var(--size-md);
     font-weight: var(--weight-semibold);
-    margin-bottom: var(--space-3);
+    color: var(--text);
+    margin: 0 0 var(--space-1) 0;
   }
-  .agent-list {
-    list-style: none;
-    padding: 0;
-    margin: var(--space-2) 0;
-    display: grid;
-    gap: var(--space-2);
-  }
-  .agent-card {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--space-3);
-    cursor: pointer;
+  .muted {
+    color: var(--text-muted);
     font-size: var(--size-sm);
-    transition: border-color var(--transition-base), background var(--transition-base);
+    margin: 0;
   }
-  .agent-card:hover:not(.selected) {
-    border-color: var(--glass-border-hover);
-    box-shadow: var(--shadow-glow-accent);
-  }
-  .agent-card.selected {
-    border-color: var(--color-border-accent);
-    background: var(--color-accent-gradient-subtle), var(--glass-bg);
-    box-shadow: var(--shadow-glow-accent);
-  }
-  .agent-card .desc { color: var(--color-text-muted); }
-  .agent-card .binary {
-    font-family: var(--font-mono);
-    font-size: var(--size-xs);
-    color: var(--color-text-faint);
-  }
-  form {
-    display: flex;
-    flex-direction: column;
+
+  .spawn-form { display: flex; flex-direction: column; gap: var(--space-3); }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 0.6fr;
     gap: var(--space-3);
   }
-  .field {
+  @media (max-width: 720px) {
+    .form-row { grid-template-columns: 1fr; }
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* ── Row heads (running, backends) ──────────────── */
+  .row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+  }
+  .row-head h3 {
+    font-size: var(--size-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .count {
+    font-size: var(--size-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: var(--radius-pill);
+  }
+
+  /* ── Running ────────────────────────────────────── */
+  .running-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
   }
-  .field > span {
-    color: var(--color-text-muted);
-    font-size: var(--size-sm);
-  }
-  .kv :global(.state-running) {
-    color: var(--color-warn);
-    border-color: var(--color-warn);
-    background: var(--color-warn-soft);
-  }
-  .kv :global(.state-completed) {
-    color: var(--color-success);
-    border-color: var(--color-success);
-    background: var(--color-success-soft);
-  }
-  .kv :global(.state-failed) {
-    color: var(--color-error);
-    border-color: var(--color-error);
-    background: var(--color-error-soft);
-  }
-  .kv :global(.state-cancelled) {
-    color: var(--color-text-muted);
-  }
-  pre {
-    background: var(--glass-bg-active);
-    padding: var(--space-3);
+  .running-row {
+    display: grid;
+    grid-template-columns: 100px 1fr auto auto auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    overflow: auto;
-    max-height: 300px;
-    font-size: var(--size-xs);
-    line-height: var(--leading-relaxed);
-  }
-  .pending-section {
-    margin: var(--space-4) 0;
-  }
-  .error {
-    color: var(--color-error);
-    margin: var(--space-2) 0;
     font-size: var(--size-sm);
+  }
+  .spawn-id { color: var(--text-muted); }
+  .agent-name { color: var(--text); font-weight: var(--weight-semibold); }
+  .started { font-size: var(--size-xs); color: var(--text-muted); }
+
+  /* ── Backend list ───────────────────────────────── */
+  .backend-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .backend-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1.4fr auto;
+    gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast);
+    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+    animation-delay: calc(var(--stagger-index, 0) * 50ms);
+  }
+  .backend-row:hover {
+    background: var(--surface-2);
+    border-color: var(--border-strong);
+  }
+  .backend-info h4 {
+    font-size: var(--size-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text);
+    margin: 0 0 2px 0;
+  }
+  .desc {
+    font-size: var(--size-sm);
+    color: var(--text-muted);
+    margin: 0 0 2px 0;
+    line-height: var(--leading-snug);
+  }
+  .binary {
+    font-size: var(--size-xs);
+    color: var(--text-faint);
+  }
+  .backend-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: stretch;
+  }
+  .backend-meta {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .error {
+    color: var(--error);
+    font-size: var(--size-sm);
+    padding: var(--space-2) var(--space-3);
+    background: var(--error-soft);
+    border: 1px solid var(--border-danger);
+    border-radius: var(--radius-md);
+  }
+
+  .pending-section {
+    margin-top: var(--space-3);
   }
 </style>
