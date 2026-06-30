@@ -7,7 +7,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background: var(--void);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--size-md);
@@ -15,39 +15,16 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   letter-spacing: var(--tracking-normal);
   overflow: hidden;
   color-scheme: dark;
 }
 
-/* ── Ambient backdrop — dark-glass halo ────────────────── */
-/* Two slow-moving accent halos and a faint neutral glow. The app
-   feels alive without distracting from content. */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-ambient);
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 50% 50% at 12% 18%, rgba(126, 234, 203, 0.06), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 88% 82%, rgba(126, 234, 203, 0.04), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(255, 255, 255, 0.02), transparent 70%);
-  animation: mesh-drift 28s ease-in-out infinite;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  inset: -10%;
-  z-index: var(--z-ambient);
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(126, 234, 203, 0.03), transparent 50%),
-    radial-gradient(ellipse 35% 35% at 20% 80%, rgba(142, 182, 255, 0.025), transparent 50%);
-  animation: mesh-drift-alt 32s ease-in-out infinite;
-  opacity: 0.7;
+/* Editorial display face uses optical sizing + a soft axis so big
+   Fraunces moments feel authored rather than generic. */
+:where(h1, h2, h3, .font-display) {
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 40, 'WONK' 0;
 }
 
 #app {
@@ -55,9 +32,8 @@ body::after {
   display: flex;
   flex-direction: column;
   position: relative;
+  background: transparent;
 }
-
-/* Scrollbars + selection now live in reset.css — locked global styles. */
 
 /* Link defaults */
 a {
@@ -70,7 +46,7 @@ a:hover {
   text-decoration: none;
 }
 
-/* Code blocks */
+/* Inline code / pre */
 code {
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -89,7 +65,8 @@ pre code {
   padding: 0;
 }
 
-/* ── Global animation utilities ─────────────────────────── */
+/* ── Global helpers ─────────────────────────────────────── */
+.font-display { font-family: var(--font-display); }
 .route-enter {
   animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
 }

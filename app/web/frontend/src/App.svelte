@@ -12,17 +12,18 @@
   import Channels from './lib/routes/Channels.svelte'
   import Delegation from './lib/routes/Delegation.svelte'
   import DevComponents from './lib/routes/dev/Components.svelte'
-  import Sidebar from './lib/components/Sidebar.svelte'
+  import Aurora from './lib/components/Aurora.svelte'
+  import Dock from './lib/components/Dock.svelte'
+  import ContextBar from './lib/components/ContextBar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import LiveTranscript from './lib/components/LiveTranscript.svelte'
   import OverlayPrompt from './lib/components/OverlayPrompt.svelte'
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte'
   import ConsentModal from './lib/components/ConsentModal.svelte'
-  import StatusRail from './lib/components/StatusRail.svelte'
-  import TitleBar from './lib/components/TitleBar.svelte'
   import CommandPalette from './lib/components/ui/CommandPalette.svelte'
   import { daemon } from './lib/stores/daemon.svelte'
   import { consent } from './lib/stores/consent.svelte'
+  import { conversation } from './lib/stores/conversation.svelte'
   import { overlay } from './lib/stores/overlay.svelte'
   import { ipc } from './lib/ipc/client'
   import { initStores } from './lib/stores/init'
@@ -59,11 +60,44 @@
     t('nav.chat')
   )
 
+  // Editorial eyebrow per surface — a small flourish of soul.
+  let routeEyebrow = $derived(
+    route === 'settings' ? 'Control' :
+    route === 'audit' ? 'Forensics' :
+    route === 'replay' ? 'Memory' :
+    route === 'about' ? 'The mission' :
+    route === 'hub' ? 'Community' :
+    route === 'sync' ? 'Your devices' :
+    route === 'skills' ? 'Capabilities' :
+    route === 'channels' ? 'Reach' :
+    route === 'delegation' ? 'Sub-agents' :
+    route === 'dev-components' ? 'Design system' :
+    'Conductor'
+  )
+
+  // The Iris state — one organism reflecting the agent everywhere.
+  let orbState = $derived(
+    !daemon.connected ? 'offline' :
+    consent.ticket ? 'consent' :
+    conversation.isStreaming ? 'thinking' :
+    'idle'
+  ) as 'idle' | 'listening' | 'thinking' | 'acting' | 'consent' | 'offline'
+
+  // Drive the living room (Aurora drift speed) from the agent state.
+  $effect(() => {
+    const el = document.documentElement
+    el.dataset.agentState = orbState === 'thinking' ? 'thinking'
+      : orbState === 'acting' ? 'acting' : 'idle'
+  })
+
   onMount(() => {
     currentHash = window.location.hash || '#/'
 
+    if (currentHash.startsWith('#/setup')) showOnboarding = true
+
     const onHashChange = (): void => {
       currentHash = window.location.hash
+      if (currentHash.startsWith('#/setup')) showOnboarding = true
     }
     window.addEventListener('hashchange', onHashChange)
 
@@ -73,18 +107,21 @@
       ipc.firstRunStatus().catch(() => ({ complete: false })),
       ipc.onboardingIsComplete().catch(() => true)
     ]).then(([fr, onboardComplete]) => {
-      showOnboarding = !fr.complete && !onboardComplete
+      // Respect an explicit #/setup deep-link (re-run setup).
+      if (!currentHash.startsWith('#/setup')) {
+        showOnboarding = !fr.complete && !onboardComplete
+      }
     }).catch(() => {})
 
     const onShowOnboarding = (): void => {
       showOnboarding = true
       window.location.hash = '#/'
     }
+    window.addEventListener('condura:show-onboarding', onShowOnboarding)
     window.addEventListener('synaptic:show-onboarding', onShowOnboarding)
 
     consent.start()
 
-    // Global ⌘K / Ctrl+K opens the command palette from anywhere
     const onKey = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
@@ -94,11 +131,14 @@
     window.addEventListener('keydown', onKey)
 
     const onOpenPalette = (): void => { paletteOpen = true }
+    window.addEventListener('condura:open-palette', onOpenPalette)
     window.addEventListener('synaptic:open-palette', onOpenPalette)
 
     return () => {
       window.removeEventListener('hashchange', onHashChange)
+      window.removeEventListener('condura:show-onboarding', onShowOnboarding)
       window.removeEventListener('synaptic:show-onboarding', onShowOnboarding)
+      window.removeEventListener('condura:open-palette', onOpenPalette)
       window.removeEventListener('synaptic:open-palette', onOpenPalette)
       window.removeEventListener('keydown', onKey)
       consent.stop()
@@ -125,26 +165,23 @@
   ])
 </script>
 
+<Aurora dim={showOnboarding} />
+
 {#if showOnboarding}
   <div class="onboarding-shell">
-    <div class="onboarding-glow"></div>
     <OnboardingWizard onComplete={completeOnboarding} />
   </div>
 {:else}
   <div class="app-shell" class:overlay-mode={overlay.active}>
-    {#if !overlay.active}
-      <Sidebar />
-    {/if}
+    {#if overlay.active}
+      <OverlayPrompt />
+    {:else}
+      <Dock orbState={orbState} />
 
-    <div class="content" class:overlay-mode={overlay.active}>
-      {#if !overlay.active}
-        <TitleBar title={routeTitle} />
-      {/if}
+      <div class="stage">
+        <ContextBar title={routeTitle} eyebrow={routeEyebrow} orbState={orbState} />
 
-      <main class="main">
-        {#if overlay.active}
-          <OverlayPrompt />
-        {:else}
+        <main class="main">
           {#key route}
             <div class="route-container">
               {#if route === 'settings'}
@@ -172,16 +209,12 @@
               {/if}
             </div>
           {/key}
-        {/if}
-      </main>
+        </main>
+      </div>
 
-      {#if !overlay.active}
-        <StatusRail />
-      {/if}
-    </div>
-
-    <Toasts />
-    <LiveTranscript />
+      <Toasts />
+      <LiveTranscript />
+    {/if}
   </div>
 {/if}
 
@@ -195,30 +228,32 @@
 
 <style>
   .app-shell {
-    display: flex;
-    height: 100vh;
-    width: 100vw;
+    position: fixed;
+    inset: 0;
     overflow: hidden;
-    background: var(--bg);
   }
-
   .app-shell.overlay-mode { background: transparent; }
 
-  .content {
-    flex: 1;
+  /* Content stage floats to the right of the dock, inset on all
+     sides so the Aurora rims every edge. */
+  .stage {
+    position: absolute;
+    top: var(--app-pad);
+    right: var(--app-pad);
+    bottom: var(--app-pad);
+    left: calc(var(--app-pad) * 2 + var(--dock-width));
     display: flex;
     flex-direction: column;
+    gap: var(--app-pad);
     min-width: 0;
-    position: relative;
   }
-
-  .content.overlay-mode { background: transparent; }
 
   .main {
     flex: 1;
     overflow: hidden;
     display: flex;
     position: relative;
+    border-radius: var(--radius-xl);
   }
 
   .route-container {
@@ -232,27 +267,15 @@
     min-height: 0;
   }
 
-  /* ── Onboarding shell — cinematic ─────────────────── */
   .onboarding-shell {
     position: fixed;
     inset: 0;
-    background: var(--bg);
     z-index: var(--z-overlay);
     animation: fade-in var(--transition-slow) var(--ease-out-expo) both;
     overflow: hidden;
   }
 
-  .onboarding-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 720px;
-    height: 720px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
-    pointer-events: none;
-    animation: breathe-soft 6s ease-in-out infinite;
-    opacity: 0.7;
+  @media (max-width: 720px) {
+    .stage { left: calc(var(--app-pad) * 2 + var(--dock-width)); }
   }
 </style>

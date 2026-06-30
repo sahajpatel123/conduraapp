@@ -280,3 +280,65 @@
   transform: scale(0.97);
   transition-duration: var(--transition-instant);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   IRIS — the living light. Aurora drift + Iris orb states.
+   All loops are pure transform/opacity (compositor-only) and stop
+   under prefers-reduced-motion via the global rule in tokens.css.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Aurora Field — three large blobs drift on independent slow loops. */
+@keyframes aurora-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(6vmax, 4vmax, 0) scale(1.12); }
+}
+@keyframes aurora-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50%      { transform: translate3d(-5vmax, -3vmax, 0) scale(0.92); }
+}
+@keyframes aurora-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-4vmax, 5vmax, 0) scale(1.1); }
+}
+
+/* Iris orb — idle breath (scale + opacity). */
+@keyframes iris-breath {
+  0%, 100% { transform: scale(1);    opacity: 0.78; }
+  50%      { transform: scale(1.045); opacity: 1; }
+}
+
+/* Iris orb — thinking shimmer (conic core rotation). */
+@keyframes iris-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Iris orb — listening / acting ring expanding outward. */
+@keyframes iris-ring {
+  0%   { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Editorial entrance for display moments. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); filter: blur(2px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* Onboarding stage glide. */
+@keyframes stage-in {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes stage-in-back {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Soft hint shake — disabled primary actions nudge the eye. */
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+
+.anim-rise { animation: rise-in var(--transition-slow) var(--ease-out-expo) both; animation-delay: var(--anim-delay, 0ms); }
