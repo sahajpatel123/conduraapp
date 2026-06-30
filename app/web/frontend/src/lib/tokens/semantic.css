@@ -1,0 +1,241 @@
+/*
+ * Synaptic — Semantic (Layer 2)
+ *
+ * Purpose-mapped tokens. Names describe intent ("the surface that holds a
+ * card"), not appearance. Components consume ONLY Layer 2.
+ *
+ * Every value here MUST reference a primitive (var(--primitive-*)). No raw
+ * hex, no raw px. ESLint enforces this (see scripts/eslint-rules/).
+ *
+ * Light mode is the default. Dark / HC / System overrides live in
+ * themes/{dark,hc,system}.css and remap the semantic layer onto different
+ * primitives via the [data-mode="..."] attribute on <html>.
+ *
+ * Locked: see docs/design-v1-redesign.md §4, §5, §6.
+ */
+
+:root,
+[data-mode="light"],
+[data-mode="system"] {
+  /* ---------------------------------------------------------------------- *
+   * SURFACE — page, panel, background tones
+   * ---------------------------------------------------------------------- */
+
+  --surface-base:      var(--paper-warm-0);     /* page background */
+  --surface-sunken:    var(--paper-warm-50);    /* slightly recessed */
+  --surface-raised:    var(--paper-warm-100);   /* cards, panels */
+  --surface-overlay:   var(--paper-warm-100);   /* floating panels, drawer */
+  --surface-scrim:     rgba(14, 16, 20, 0.32);  /* modal backdrop */
+  --surface-inverted:  var(--ink-cool-900);     /* dark surface on light bg */
+  --surface-glass:     rgba(250, 246, 238, 0.72); /* command overlay backdrop */
+
+  /* ---------------------------------------------------------------------- *
+   * CONTENT — text + icons (rendered ON a surface)
+   * ---------------------------------------------------------------------- */
+
+  --content-primary:    var(--ink-cool-900);
+  --content-secondary:  var(--ink-cool-700);
+  --content-tertiary:   var(--ink-cool-500);
+  --content-muted:      var(--ink-cool-400);
+  --content-disabled:   var(--ink-cool-300);
+  --content-inverse:    var(--paper-warm-0);   /* text on dark surface */
+  --content-link:       var(--plum-700);
+  --content-link-hover: var(--plum-800);
+  --content-on-accent:  var(--paper-warm-0);   /* text on plum button */
+  --content-accent:     var(--plum-600);       /* the ONE brand accent in text */
+
+  /* ---------------------------------------------------------------------- *
+   * BORDER — separators, edges
+   * ---------------------------------------------------------------------- */
+
+  --border-subtle:  var(--ink-cool-100);
+  --border-default: var(--ink-cool-50);
+  --border-strong:  var(--ink-cool-200);
+  --border-focus:   var(--focus-ring-light);
+  --border-inverse: var(--ink-cool-900);
+
+  /* ---------------------------------------------------------------------- *
+   * ACTION — primary, secondary, tertiary, destructive × states
+   * ---------------------------------------------------------------------- */
+
+  /* Primary (the ONE plum button) */
+  --action-primary-idle-bg:      var(--plum-600);
+  --action-primary-idle-fg:      var(--content-on-accent);
+  --action-primary-hover-bg:     var(--plum-700);
+  --action-primary-hover-fg:     var(--content-on-accent);
+  --action-primary-active-bg:    var(--plum-800);
+  --action-primary-active-fg:    var(--content-on-accent);
+  --action-primary-disabled-bg:  var(--ink-cool-100);
+  --action-primary-disabled-fg:  var(--content-disabled);
+
+  /* Secondary (outline / ghost button) */
+  --action-secondary-idle-bg:      transparent;
+  --action-secondary-idle-fg:      var(--content-primary);
+  --action-secondary-idle-border:  var(--border-default);
+  --action-secondary-hover-bg:     var(--paper-warm-50);
+  --action-secondary-hover-fg:     var(--content-primary);
+  --action-secondary-hover-border: var(--border-strong);
+  --action-secondary-active-bg:    var(--paper-warm-100);
+  --action-secondary-active-fg:    var(--content-primary);
+  --action-secondary-disabled-bg:  transparent;
+  --action-secondary-disabled-fg:  var(--content-disabled);
+  --action-secondary-disabled-border: var(--border-subtle);
+
+  /* Tertiary (text-only button) */
+  --action-tertiary-idle-fg:       var(--content-secondary);
+  --action-tertiary-hover-fg:      var(--content-primary);
+  --action-tertiary-hover-bg:      var(--paper-warm-50);
+  --action-tertiary-active-fg:     var(--content-primary);
+  --action-tertiary-active-bg:     var(--paper-warm-100);
+  --action-tertiary-disabled-fg:   var(--content-disabled);
+
+  /* Destructive (rare, slow, never red-button) */
+  --action-destructive-idle-bg:      transparent;
+  --action-destructive-idle-fg:      var(--error-500);
+  --action-destructive-idle-border:  var(--border-default);
+  --action-destructive-hover-bg:     var(--error-100);
+  --action-destructive-hover-fg:     var(--error-700);
+  --action-destructive-hover-border: var(--error-500);
+  --action-destructive-active-bg:    var(--error-100);
+  --action-destructive-active-fg:    var(--error-700);
+
+  /* ---------------------------------------------------------------------- *
+   * STATUS — success, warning, error, info, neutral × bg/fg/border
+   *
+   * Used for STATE only (a destructive result, a warning dialog). Never for
+   * emphasis in chrome. Status indicators in chrome prefer shape & icon.
+   * ---------------------------------------------------------------------- */
+
+  --status-success-bg:     var(--success-100);
+  --status-success-fg:     var(--success-700);
+  --status-success-border: var(--success-300);
+
+  --status-warning-bg:     var(--warning-100);
+  --status-warning-fg:     var(--warning-700);
+  --status-warning-border: var(--warning-300);
+
+  --status-error-bg:       var(--error-100);
+  --status-error-fg:       var(--error-700);
+  --status-error-border:   var(--error-300);
+
+  --status-info-bg:        var(--info-100);
+  --status-info-fg:        var(--info-700);
+  --status-info-border:    var(--info-300);
+
+  --status-neutral-bg:     var(--paper-warm-50);
+  --status-neutral-fg:     var(--content-secondary);
+  --status-neutral-border: var(--border-default);
+
+  /* ---------------------------------------------------------------------- *
+   * FOCUS — visible focus ring, hue-agnostic
+   * ---------------------------------------------------------------------- */
+
+  --focus-ring:        var(--focus-ring-light);
+  --focus-ring-offset: var(--space-1);  /* 4px gap between element and ring */
+
+  /* ---------------------------------------------------------------------- *
+   * SELECTION — text selection
+   * ---------------------------------------------------------------------- */
+
+  --selection-bg: rgba(110, 58, 255, 0.18);  /* plum-600 at 18% */
+  --selection-fg: var(--content-primary);
+}
+
+/* ---------------------------------------------------------------------- *
+ * DARK MODE — separately-tuned, NOT inverted light
+ * ---------------------------------------------------------------------- */
+
+[data-mode="dark"] {
+  --surface-base:      #0E1014;
+  --surface-sunken:    #161922;
+  --surface-raised:    #1C1F2A;
+  --surface-overlay:   #1C1F2A;
+  --surface-scrim:     rgba(0, 0, 0, 0.60);
+  --surface-inverted:  #F0EDE5;
+  --surface-glass:     rgba(28, 31, 42, 0.78);
+
+  --content-primary:    #F0EDE5;  /* warm off-white, not pure #FFF */
+  --content-secondary:  #C8CAD2;
+  --content-tertiary:   #8E919C;
+  --content-muted:      #6A6E78;
+  --content-disabled:   #4A4D55;
+  --content-inverse:    #0E1014;
+  --content-link:       #B89AFF;
+  --content-link-hover: #CDB8FF;
+  --content-on-accent:  #FBF8F2;
+  --content-accent:     #B89AFF;
+
+  --border-subtle:  #2A2D36;
+  --border-default: #3A3D47;
+  --border-strong:  #4A4D55;
+  --border-focus:   var(--focus-ring-dark);
+  --border-inverse: #F0EDE5;
+
+  --action-secondary-idle-border:    #3A3D47;
+  --action-secondary-hover-border:   #4A4D55;
+
+  --action-tertiary-hover-bg: #2A2D36;
+  --action-tertiary-active-bg: #3A3D47;
+
+  --action-destructive-hover-bg: #2D1B1B;
+
+  --status-success-bg:     #1A2A22;
+  --status-success-fg:     #8FB39E;
+  --status-warning-bg:     #2A221A;
+  --status-warning-fg:     #D4B47A;
+  --status-error-bg:       #2A1A1A;
+  --status-error-fg:       #C88080;
+  --status-info-bg:        #1A2230;
+  --status-info-fg:        #8FA3C3;
+  --status-neutral-bg:     #2A2D36;
+  --status-neutral-fg:     #C8CAD2;
+
+  --focus-ring: var(--focus-ring-dark);
+
+  --selection-bg: rgba(184, 154, 255, 0.22);
+  --selection-fg: #F0EDE5;
+}
+
+/* ---------------------------------------------------------------------- *
+ * HIGH-CONTRAST MODE — WCAG 2.2 AAA
+ * ---------------------------------------------------------------------- */
+
+[data-mode="hc"] {
+  --surface-base:      #FFFFFF;
+  --surface-sunken:    #F0F0F0;
+  --surface-raised:    #FFFFFF;
+  --surface-overlay:   #FFFFFF;
+  --surface-scrim:     rgba(0, 0, 0, 0.75);
+  --surface-inverted:  #000000;
+  --surface-glass:     #FFFFFF;  /* no transparency in HC */
+
+  --content-primary:    #000000;
+  --content-secondary:  #1A1A1A;
+  --content-tertiary:   #333333;
+  --content-muted:      #4D4D4D;
+  --content-disabled:   #707070;
+  --content-inverse:    #FFFFFF;
+  --content-link:       #4D1FCC;
+  --content-link-hover: #2A0F8A;
+  --content-on-accent:  #FFFFFF;
+  --content-accent:     #4D1FCC;
+
+  --border-subtle:  #B0B0B0;
+  --border-default: #707070;
+  --border-strong:  #000000;
+  --border-focus:   #4D1FCC;
+  --border-inverse: #FFFFFF;
+
+  /* All borders in HC are 2px (enforced by component CSS, not token) */
+  --action-primary-idle-bg:      #4D1FCC;
+  --action-primary-hover-bg:     #2A0F8A;
+  --action-primary-active-bg:    #1A0A60;
+  --action-primary-disabled-bg:  #B0B0B0;
+
+  --status-success-fg:     #0E3D24;
+  --status-warning-fg:     #5A3A0E;
+  --status-error-fg:       #5A1818;
+  --status-info-fg:        #0E2440;
+
+  --focus-ring: #4D1FCC;
+}

@@ -1,25 +1,36 @@
 <script lang="ts">
   // About — mission, architecture, non-negotiables, tech stack, team, legal.
   // This is the canonical "what is Condura?" page.
-  import { Card } from '../components/ui'
-  import Badge from '../components/ui/Badge.svelte'
+  import Card from '$components/v1/Card.svelte';
+  import Surface from '$components/v1/Surface.svelte';
+  import Stack from '$components/v1/Stack.svelte';
+  import Inline from '$components/v1/Inline.svelte';
+  import Hairline from '$components/v1/Hairline.svelte';
+  import Pill from '$components/v1/Pill.svelte';
 
   interface Invariant {
-    id: string
-    title: string
-    body: string
+    id: string;
+    title: string;
+    body: string;
   }
 
   interface ArmorModule {
-    code: string
-    name: string
-    summary: string
-    package: string
+    code: string;
+    name: string;
+    summary: string;
+    package: string;
   }
 
   interface StackBadge {
-    name: string
-    tone: 'neutral' | 'accent' | 'success' | 'warn' | 'info'
+    name: string;
+    tone: 'neutral' | 'accent' | 'success' | 'warn' | 'info';
+  }
+
+  type PillVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'accent';
+
+  function pillVariant(tone: StackBadge['tone']): PillVariant {
+    if (tone === 'warn') return 'warning';
+    return tone;
   }
 
   const invariants: Invariant[] = [
@@ -58,7 +69,7 @@
       title: 'OS permissions are granted by the user, on their machine.',
       body: "We don't have access. We ask. The onboarding flow makes this easy and clear.",
     },
-  ]
+  ];
 
   const armor: ArmorModule[] = [
     {
@@ -115,7 +126,7 @@
       summary: 'Per-task-type and per-app autonomy. Default cautious, user dial.',
       package: 'internal/autonomy',
     },
-  ]
+  ];
 
   const stack: StackBadge[] = [
     { name: 'Go 1.22+', tone: 'info' },
@@ -130,12 +141,12 @@
     { name: 'Next.js 14', tone: 'info' },
     { name: 'GoReleaser', tone: 'neutral' },
     { name: 'JSON-RPC 2.0', tone: 'neutral' },
-  ]
+  ];
 </script>
 
-<div class="about-page">
+<Stack class="about-page" gap="10" padding="7">
   <!-- ── Mission ────────────────────────────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Mission</h2>
       <p class="lede">
@@ -143,20 +154,22 @@
         No tracking. No compromise on speed or safety.
       </p>
     </header>
-    <Card elevation="glass" padding="lg">
-      <p class="mission-body">
-        Build a free, downloadable, OS-native AI agent that lives on a user's computer
-        and acts as the conductor of every other AI tool installed there. It opens with a
-        custom global hotkey, listens for the wake word, clicks and scrolls through any
-        app, and runs sub-agents across Claude Code, Codex, Antigravity, OpenCode, Kilo,
-        Hermes, Ollama, and any ChatGPT Plus / Claude Pro / Gemini AI Pro / SuperGrok
-        subscription the user already has — all while costing the user nothing.
-      </p>
+    <Card variant="raised" padding="6">
+      {#snippet children()}
+        <p class="mission-body">
+          Build a free, downloadable, OS-native AI agent that lives on a user's computer
+          and acts as the conductor of every other AI tool installed there. It opens with a
+          custom global hotkey, listens for the wake word, clicks and scrolls through any
+          app, and runs sub-agents across Claude Code, Codex, Antigravity, OpenCode, Kilo,
+          Hermes, Ollama, and any ChatGPT Plus / Claude Pro / Gemini AI Pro / SuperGrok
+          subscription the user already has — all while costing the user nothing.
+        </p>
+      {/snippet}
     </Card>
-  </section>
+  </Stack>
 
   <!-- ── Architecture — Seven Invariants ─────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Architecture</h2>
       <p class="lede">
@@ -167,19 +180,21 @@
 
     <div class="invariant-grid">
       {#each invariants as inv, i (inv.id)}
-        <Card elevation="glass" padding="md">
-          <div class="inv-card">
-            <span class="inv-num mono">0{i + 1}</span>
-            <h3 class="inv-title">{inv.title}</h3>
-            <p class="inv-body">{inv.body}</p>
-          </div>
+        <Card variant="raised" padding="4">
+          {#snippet children()}
+            <Stack gap="2" class="inv-card">
+              <span class="inv-num mono">0{i + 1}</span>
+              <h3 class="inv-title">{inv.title}</h3>
+              <p class="inv-body">{inv.body}</p>
+            </Stack>
+          {/snippet}
         </Card>
       {/each}
     </div>
-  </section>
+  </Stack>
 
   <!-- ── Non-Negotiables — The Armor ─────────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Non-Negotiables</h2>
       <p class="lede">
@@ -188,138 +203,195 @@
       </p>
     </header>
 
-    <div class="armor-list">
-      {#each armor as mod (mod.code)}
-        <div class="armor-row">
-          <span class="armor-code mono">{mod.code}</span>
-          <div class="armor-text">
-            <h4>{mod.name}</h4>
-            <p>{mod.summary}</p>
-          </div>
-          <code class="armor-pkg mono">{mod.package}</code>
-        </div>
-      {/each}
-    </div>
-  </section>
+    <Surface variant="sunken" padding="2" radius="lg">
+      {#snippet children()}
+        <Stack gap="0">
+          {#each armor as mod, i (mod.code)}
+            {#if i > 0}
+              <Hairline />
+            {/if}
+            <div class="armor-row">
+              <span class="armor-code mono">{mod.code}</span>
+              <div class="armor-text">
+                <h4>{mod.name}</h4>
+                <p>{mod.summary}</p>
+              </div>
+              <code class="armor-pkg mono">{mod.package}</code>
+            </div>
+          {/each}
+        </Stack>
+      {/snippet}
+    </Surface>
+  </Stack>
 
   <!-- ── Tech Stack ──────────────────────────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Tech Stack</h2>
       <p class="lede">Locked. Local-first. Single-binary daemon, web UI, native overlay.</p>
     </header>
 
-    <div class="badges">
+    <Inline gap="2" class="badges">
       {#each stack as s (s.name)}
-        <Badge tone={s.tone} size="md">{s.name}</Badge>
+        <Pill variant={pillVariant(s.tone)} size="md" label={s.name} />
       {/each}
-    </div>
-  </section>
+    </Inline>
+  </Stack>
 
   <!-- ── Team ────────────────────────────────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Team</h2>
       <p class="lede">A human + AI partnership. Architect and product lead paired with an implementer and reviewer.</p>
     </header>
-    <Card elevation="glass" padding="lg">
-      <div class="team-grid">
-        <div class="team-card">
-          <div class="team-avatar">SP</div>
-          <h4>Human</h4>
-          <p class="team-role">Architect & product lead</p>
-          <p class="team-bio">
-            Owns direction, the locked decisions, and the partner commitment to ship the
-            best version of what we imagined.
-          </p>
+    <Card variant="raised" padding="6">
+      {#snippet children()}
+        <div class="team-grid">
+          <Stack gap="2" class="team-card">
+            <div class="team-avatar">SP</div>
+            <h4 class="team-name">Human</h4>
+            <p class="team-role">Architect & product lead</p>
+            <p class="team-bio">
+              Owns direction, the locked decisions, and the partner commitment to ship the
+              best version of what we imagined.
+            </p>
+          </Stack>
+          <Stack gap="2" class="team-card">
+            <div class="team-avatar ai">AI</div>
+            <h4 class="team-name">AI Implementer</h4>
+            <p class="team-role">Engineering & review</p>
+            <p class="team-bio">
+              Builds the components, runs the audits, writes the tests, and keeps the
+              survival invariants honest.
+            </p>
+          </Stack>
         </div>
-        <div class="team-card">
-          <div class="team-avatar ai">AI</div>
-          <h4>AI Implementer</h4>
-          <p class="team-role">Engineering & review</p>
-          <p class="team-bio">
-            Builds the components, runs the audits, writes the tests, and keeps the
-            survival invariants honest.
-          </p>
-        </div>
-      </div>
+      {/snippet}
     </Card>
-  </section>
+  </Stack>
 
   <!-- ── Legal ───────────────────────────────────────── -->
-  <section class="section">
+  <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Legal</h2>
       <p class="lede">Synaptic Freeware EULA v1 — free personal and commercial, no redistribution, revocable for abuse.</p>
     </header>
 
-    <div class="legal-links">
-      <a class="legal-link" href="https://github.com/sahajpatel123/conduraapp/blob/main/EULA.md" target="_blank" rel="noreferrer">
-        <span class="legal-name">EULA.md</span>
-        <span class="legal-sub">End-User License Agreement</span>
+    <Inline gap="3" class="legal-links">
+      <a
+        class="legal-link"
+        href="https://github.com/sahajpatel123/conduraapp/blob/main/EULA.md"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Surface variant="raised" padding="4" radius="md" class="legal-surface">
+          {#snippet children()}
+            <Stack gap="1">
+              <span class="legal-name">EULA.md</span>
+              <span class="legal-sub">End-User License Agreement</span>
+            </Stack>
+          {/snippet}
+        </Surface>
       </a>
-      <a class="legal-link" href="https://github.com/sahajpatel123/conduraapp/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">
-        <span class="legal-name">PRIVACY.md</span>
-        <span class="legal-sub">Local-first. The agent is a guest.</span>
+      <a
+        class="legal-link"
+        href="https://github.com/sahajpatel123/conduraapp/blob/main/PRIVACY.md"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Surface variant="raised" padding="4" radius="md" class="legal-surface">
+          {#snippet children()}
+            <Stack gap="1">
+              <span class="legal-name">PRIVACY.md</span>
+              <span class="legal-sub">Local-first. The agent is a guest.</span>
+            </Stack>
+          {/snippet}
+        </Surface>
       </a>
-      <a class="legal-link" href="https://github.com/sahajpatel123/conduraapp/blob/main/SECURITY.md" target="_blank" rel="noreferrer">
-        <span class="legal-name">SECURITY.md</span>
-        <span class="legal-sub">Disclosure policy</span>
+      <a
+        class="legal-link"
+        href="https://github.com/sahajpatel123/conduraapp/blob/main/SECURITY.md"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Surface variant="raised" padding="4" radius="md" class="legal-surface">
+          {#snippet children()}
+            <Stack gap="1">
+              <span class="legal-name">SECURITY.md</span>
+              <span class="legal-sub">Disclosure policy</span>
+            </Stack>
+          {/snippet}
+        </Surface>
       </a>
-    </div>
-  </section>
-</div>
+    </Inline>
+  </Stack>
+</Stack>
 
 <style>
-  .about-page {
-    padding: var(--space-7) var(--space-5);
+  :global(.about-page) {
     overflow-y: auto;
     height: 100%;
     max-width: var(--content-max-width-wide);
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-10);
+    background-color: var(--surface-base);
   }
 
   /* ── Section heads ──────────────────────────────── */
-  .section {
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  :global(.section) {
+    animation: about-fade-in var(--duration-slow) var(--ease-decelerate) both;
   }
-  .section:nth-of-type(1) { animation-delay: 40ms; }
-  .section:nth-of-type(2) { animation-delay: 120ms; }
-  .section:nth-of-type(3) { animation-delay: 200ms; }
-  .section:nth-of-type(4) { animation-delay: 280ms; }
-  .section:nth-of-type(5) { animation-delay: 360ms; }
-  .section:nth-of-type(6) { animation-delay: 440ms; }
+  :global(.section:nth-of-type(1)) { animation-delay: 40ms; }
+  :global(.section:nth-of-type(2)) { animation-delay: 120ms; }
+  :global(.section:nth-of-type(3)) { animation-delay: 200ms; }
+  :global(.section:nth-of-type(4)) { animation-delay: 280ms; }
+  :global(.section:nth-of-type(5)) { animation-delay: 360ms; }
+  :global(.section:nth-of-type(6)) { animation-delay: 440ms; }
+
+  @keyframes about-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.section) {
+      animation: none;
+    }
+  }
 
   .section-head {
-    margin-bottom: var(--space-5);
+    margin: 0;
   }
+
   .display-h2 {
-    font-family: var(--font-display);
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    letter-spacing: var(--tracking-tight);
-    color: var(--text);
+    font-family: var(--font-serif);
+    font-size: var(--text-h2-size);
+    font-weight: var(--text-h2-weight);
+    letter-spacing: var(--text-h2-tracking);
+    line-height: var(--text-h2-leading);
+    color: var(--content-primary);
     margin: 0 0 var(--space-2) 0;
-    line-height: var(--leading-tight);
   }
+
   .lede {
-    font-size: var(--size-md);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    color: var(--content-tertiary);
     max-width: 640px;
     margin: 0;
   }
 
   /* ── Mission body ────────────────────────────────── */
   .mission-body {
-    font-family: var(--font-display);
-    font-size: var(--size-lg);
-    line-height: var(--leading-snug);
-    letter-spacing: var(--tracking-normal);
-    color: var(--text);
+    font-family: var(--font-serif);
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+    color: var(--content-primary);
     margin: 0;
   }
 
@@ -329,44 +401,36 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--space-4);
   }
-  .inv-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+
+  :global(.inv-card) {
     height: 100%;
   }
+
   .inv-num {
-    font-size: var(--size-xs);
-    color: var(--accent);
-    letter-spacing: var(--tracking-widest);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-accent);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    opacity: 0.85;
   }
+
   .inv-title {
     font-family: var(--font-sans);
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    line-height: var(--leading-snug);
+    font-size: var(--text-body-size);
+    font-weight: 600;
+    color: var(--content-primary);
+    line-height: var(--text-body-leading);
     margin: 0;
   }
+
   .inv-body {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--content-tertiary);
     margin: 0;
   }
 
   /* ── Armor modules ──────────────────────────────── */
-  .armor-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-2);
-  }
   .armor-row {
     display: grid;
     grid-template-columns: 56px 1fr auto;
@@ -374,41 +438,46 @@
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-md);
-    transition: background var(--transition-fast);
+    transition: background-color var(--duration-fast) var(--ease-standard);
   }
-  .armor-row:hover { background: var(--surface-2); }
+
+  .armor-row:hover {
+    background-color: var(--surface-raised);
+  }
+
   .armor-code {
-    font-size: var(--size-xs);
-    color: var(--accent);
-    letter-spacing: var(--tracking-wide);
-    opacity: 0.85;
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-accent);
+    letter-spacing: 0.04em;
   }
+
   .armor-text h4 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+    font-size: var(--text-body-size);
+    font-weight: 600;
+    color: var(--content-primary);
     margin: 0 0 2px 0;
   }
+
   .armor-text p {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-snug);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--content-tertiary);
     margin: 0;
   }
+
   .armor-pkg {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
-    background: var(--surface-3);
-    border: 1px solid var(--border);
-    padding: 3px 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-muted);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-subtle);
+    padding: 3px var(--space-2);
     border-radius: var(--radius-sm);
   }
 
-  /* ── Stack badges ───────────────────────────────── */
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+  .mono {
+    font-family: var(--font-mono);
   }
 
   /* ── Team ───────────────────────────────────────── */
@@ -417,81 +486,89 @@
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--space-6);
   }
-  .team-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
+
   .team-avatar {
     width: 48px;
     height: 48px;
-    border-radius: 50%;
-    background: var(--accent-gradient);
-    color: var(--text-inverse);
+    border-radius: var(--radius-pill);
+    background-color: var(--plum-600);
+    color: var(--content-on-accent);
+    border: 1px solid var(--border-default);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: var(--font-mono);
-    font-size: var(--size-sm);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-wide);
-    box-shadow: var(--shadow-glow);
+    font-size: var(--text-body-sm-size);
+    font-weight: 600;
+    letter-spacing: 0.04em;
   }
+
   .team-avatar.ai {
-    background: linear-gradient(135deg, var(--info) 0%, #6b8cff 100%);
+    background-color: var(--status-info-bg);
+    color: var(--status-info-fg);
+    border-color: var(--status-info-border);
   }
-  .team-card h4 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    margin: 0;
-  }
-  .team-role {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    margin: 0;
-  }
-  .team-bio {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
+
+  .team-name {
+    font-size: var(--text-body-size);
+    font-weight: 600;
+    color: var(--content-primary);
     margin: 0;
   }
 
-  /* ── Legal links ────────────────────────────────── */
-  .legal-links {
+  .team-role {
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+  }
+
+  .team-bio {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--content-tertiary);
+    margin: 0;
+  }
+
+  /* ── Legal ──────────────────────────────────────── */
+  :global(.legal-links) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--space-3);
   }
+
   .legal-link {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--space-4);
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    display: block;
     text-decoration: none;
+    color: inherit;
     transition:
-      background var(--transition-fast),
-      border-color var(--transition-fast),
-      transform var(--transition-fast) var(--ease-spring);
+      border-color var(--duration-fast) var(--ease-standard),
+      background-color var(--duration-fast) var(--ease-standard);
   }
-  .legal-link:hover {
-    background: var(--surface-2);
-    border-color: var(--border-focus);
-    transform: translateY(-2px);
+
+  .legal-link:hover :global(.legal-surface) {
+    background-color: var(--surface-overlay);
+    border-color: var(--border-strong);
   }
+
+  .legal-link:focus-visible {
+    outline: var(--border-focus-width, 2px) solid var(--border-focus);
+    outline-offset: var(--focus-ring-offset);
+    border-radius: var(--radius-md);
+  }
+
+  :global(.legal-surface) {
+    height: 100%;
+  }
+
   .legal-name {
     font-family: var(--font-mono);
-    font-size: var(--size-sm);
-    color: var(--accent);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-link);
   }
+
   .legal-sub {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
   }
 </style>

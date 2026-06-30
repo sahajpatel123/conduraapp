@@ -1,14 +1,17 @@
 <script lang="ts">
-  // Delegation — list of CLI sub-agent backends (Claude Code, Codex,
-  // Antigravity, OpenCode, Kilo, Hermes, Gemini, Ollama) with install
-  // status, default model, and enable toggle. Spawn a sub-agent from
-  // the top panel. Cancel running spawns from the running list.
+  // Delegation — list of CLI sub-agent backends with spawn panel.
   import { ipc } from '../ipc/client'
   import type { AppConfig } from '../ipc/types'
   import { onMount, onDestroy } from 'svelte'
   import { notifications } from '../stores/notifications.svelte'
   import PendingActions from '../components/PendingActions.svelte'
-  import { Button, Card, Switch, Input, Textarea, Select, Badge } from '../components/ui'
+  import Button from '$components/v1/Button.svelte'
+  import Card from '$components/v1/Card.svelte'
+  import Switch from '$components/v1/Switch.svelte'
+  import Input from '$components/v1/Input.svelte'
+  import Textarea from '$components/v1/Textarea.svelte'
+  import Pill from '$components/v1/Pill.svelte'
+  import Inline from '$components/v1/Inline.svelte'
 
   interface Agent {
     name: string
@@ -51,9 +54,6 @@
   let running = $state<Running[]>([])
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
-  // Per-agent enabled / default model state. We cache locally so
-  // toggling the switch feels instant; the daemon is updated
-  // optimistically via ipc.config.update on each change.
   let enabledMap = $state<Record<string, boolean>>({})
   let modelMap = $state<Record<string, string>>({})
 
@@ -65,7 +65,6 @@
       const list = resp?.agents ?? []
       agents = list
       if (list.length > 0 && !selectedAgent) selectedAgent = list[0].name
-      // Initialise local cache.
       for (const a of list) {
         if (enabledMap[a.name] === undefined) enabledMap[a.name] = a.enabled !== false
         if (!modelMap[a.name]) modelMap[a.name] = a.default_model || a.available_models?.[0] || ''
@@ -134,7 +133,6 @@
     try {
       await ipc.configUpdate({ delegation: { enabled: { [name]: on } } } as Partial<AppConfig>)
     } catch (e) {
-      // revert
       enabledMap[name] = !on
       enabledMap = { ...enabledMap }
       error = String(e)
@@ -151,8 +149,8 @@
     }
   }
 
-  function stateTone(s: string): 'success' | 'warn' | 'error' | 'neutral' {
-    if (s === 'running' || s === 'pending') return 'warn'
+  function statePill(s: string): 'success' | 'warning' | 'error' | 'neutral' {
+    if (s === 'running' || s === 'pending') return 'warning'
     if (s === 'completed' || s === 'succeeded') return 'success'
     if (s === 'failed' || s === 'errored') return 'error'
     return 'neutral'
@@ -170,7 +168,7 @@
 
 <div class="delegation-page">
   <header class="page-header">
-    <h2 class="display-h2">Delegation</h2>
+    <h2 class="page-title">Delegation</h2>
     <p class="lede">
       Run sub-agents on other AI CLIs installed on your machine. The conductor stays in
       charge — sub-agents execute, the Gatekeeper still decides.
@@ -178,17 +176,11 @@
   </header>
 
   {#if error}
-    <p class="error" role="alert">{error}</p>
+    <p class="error-banner" role="alert">{error}</p>
   {/if}
 
-  <!-- ── Spawn panel ───────────────────────────────── -->
-  <Card elevation="glass" padding="md">
-    <div class="spawn-panel">
-      <div class="spawn-head">
-        <h3>Spawn a sub-agent</h3>
-        <p class="muted">Task and budget. The agent picks the model unless overridden.</p>
-      </div>
-
+  <Card title="Spawn a sub-agent" description="Task and budget. The agent picks the model unless overridden." variant="raised" padding="4">
+    {#snippet children()}
       <form
         class="spawn-form"
         onsubmit={(e) => {
@@ -197,42 +189,53 @@
         }}
       >
         <div class="form-row">
-          <Select
-            label="Agent"
-            bind:value={selectedAgent}
-            options={agents.map((a) => ({ value: a.name, label: a.name }))}
-            fullWidth
-            disabled={spawning || agents.length === 0}
-          />
+          <div class="field">
+            <label class="field-label" for="delegate-agent">Agent</label>
+            <select
+              id="delegate-agent"
+              class="select"
+              bind:value={selectedAgent}
+              disabled={spawning || agents.length === 0}
+            >
+              {#each agents as a (a.name)}
+                <option value={a.name}>{a.name}</option>
+              {/each}
+            </select>
+          </div>
 
-          <Input
-            label="Model (optional)"
-            bind:value={modelInput}
-            fullWidth
-            placeholder="claude-sonnet-4-5"
-            disabled={spawning}
-          />
+          <div class="field">
+            <label class="field-label" for="delegate-model">Model (optional)</label>
+            <Input
+              id="delegate-model"
+              bind:value={modelInput}
+              placeholder="claude-sonnet-4-5"
+              disabled={spawning}
+            />
+          </div>
 
-          <Input
-            label="Budget (USD)"
-            type="number"
-            bind:value={budgetInput as unknown as string}
-            fullWidth
+          <div class="field">
+            <label class="field-label" for="delegate-budget">Budget (USD)</label>
+            <Input
+              id="delegate-budget"
+              type="number"
+              bind:value={budgetInput as unknown as string}
+              disabled={spawning}
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="delegate-task">Task</label>
+          <Textarea
+            id="delegate-task"
+            bind:value={taskInput}
+            rows={4}
+            placeholder="What should this sub-agent do?"
             disabled={spawning}
           />
         </div>
 
-        <Textarea
-          label="Task"
-          bind:value={taskInput}
-          fullWidth
-          rows={4}
-          placeholder="What should this sub-agent do?"
-          disabled={spawning}
-          autoresize
-        />
-
-        <div class="form-actions">
+        <Inline gap="2" justify="end" class="form-actions">
           <Button
             type="submit"
             variant="primary"
@@ -242,88 +245,98 @@
           >
             {spawning ? 'Spawning…' : 'Spawn sub-agent'}
           </Button>
-        </div>
+        </Inline>
       </form>
-    </div>
+    {/snippet}
   </Card>
 
-  <!-- ── Running ────────────────────────────────────── -->
   {#if running.length > 0}
-    <Card elevation="glass" padding="md">
-      <header class="row-head">
-        <h3>Running <span class="count mono">{running.length}</span></h3>
-      </header>
-      <ul class="running-list">
-        {#each running as r (r.spawn_id)}
-          <li class="running-row">
-            <span class="mono spawn-id">{r.spawn_id.slice(0, 12)}</span>
-            <span class="agent-name">{r.agent_name}</span>
-            <Badge tone={stateTone(r.state)} size="sm" dot pulse={r.state === 'running'}>
-              {r.state}
-            </Badge>
-            <span class="started">{new Date(r.started).toLocaleTimeString()}</span>
-            <Button variant="danger" size="xs" onclick={() => cancel(r.spawn_id)}>Cancel</Button>
-          </li>
-        {/each}
-      </ul>
+    <Card variant="raised" padding="4">
+      {#snippet children()}
+        <header class="row-head">
+          <h3 class="section-title">Running <span class="count">{running.length}</span></h3>
+        </header>
+        <ul class="running-list">
+          {#each running as r (r.spawn_id)}
+            <li class="running-row">
+              <span class="mono spawn-id">{r.spawn_id.slice(0, 12)}</span>
+              <span class="agent-name">{r.agent_name}</span>
+              <Pill variant={statePill(r.state)} size="sm" label={r.state} />
+              <span class="started">{new Date(r.started).toLocaleTimeString()}</span>
+              <Button variant="destructive" size="sm" onclick={() => cancel(r.spawn_id)}>Cancel</Button>
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
     </Card>
   {/if}
 
-  <!-- ── Available backends ─────────────────────────── -->
-  <Card elevation="glass" padding="md">
-    <header class="row-head">
-      <h3>Available backends</h3>
-      <Button variant="ghost" size="sm" onclick={refresh} loading={loading}>Refresh</Button>
-    </header>
-    {#if loading && agents.length === 0}
-      <p class="muted">Loading…</p>
-    {:else if agents.length === 0}
-      <p class="muted">No backends discovered. Install a CLI (e.g. <code>npm i -g @anthropic-ai/claude-code</code>) and refresh.</p>
-    {:else}
-      <ul class="backend-list">
-        {#each agents as a, i (a.name)}
-          <li class="backend-row" style:--stagger-index={i}>
-            <div class="backend-info">
-              <h4>{a.name}</h4>
-              <p class="desc">{a.description}</p>
-              <span class="binary mono">binary: {a.binary}</span>
-            </div>
+  <Card variant="raised" padding="4">
+    {#snippet actions()}
+      <Button variant="tertiary" size="sm" onclick={refresh} loading={loading}>Refresh</Button>
+    {/snippet}
+    {#snippet children()}
+      <header class="row-head">
+        <h3 class="section-title">Available backends</h3>
+      </header>
+      {#if loading && agents.length === 0}
+        <p class="muted">Loading…</p>
+      {:else if agents.length === 0}
+        <p class="muted">
+          No backends discovered. Install a CLI (e.g. <code>npm i -g @anthropic-ai/claude-code</code>) and refresh.
+        </p>
+      {:else}
+        <ul class="backend-list">
+          {#each agents as a, i (a.name)}
+            <li class="backend-row" style:--stagger-index={i}>
+              <div class="backend-info">
+                <h4 class="backend-name">{a.name}</h4>
+                <p class="desc">{a.description}</p>
+                <span class="binary mono">binary: {a.binary}</span>
+              </div>
 
-            <div class="backend-controls">
-              {#if a.available_models && a.available_models.length > 0}
-                <Select
-                  value={modelMap[a.name] || a.available_models[0]}
-                  options={a.available_models.map((m) => ({ value: m, label: m }))}
-                  onchange={(v: string) => void setDefaultModel(a.name, v)}
-                  label="Default model"
+              <div class="backend-controls">
+                {#if a.available_models && a.available_models.length > 0}
+                  <div class="field field--compact">
+                    <label class="field-label" for="model-{a.name}">Default model</label>
+                    <select
+                      id="model-{a.name}"
+                      class="select"
+                      value={modelMap[a.name] || a.available_models[0]}
+                      onchange={(e) => void setDefaultModel(a.name, (e.currentTarget as HTMLSelectElement).value)}
+                    >
+                      {#each a.available_models as m (m)}
+                        <option value={m}>{m}</option>
+                      {/each}
+                    </select>
+                  </div>
+                {/if}
+
+                <Switch
+                  checked={enabledMap[a.name] !== false}
+                  onchange={(v: boolean) => void setEnabled(a.name, v)}
+                  label="Enabled"
+                  description="Disable to hide from spawn menu."
                 />
-              {/if}
+              </div>
 
-              <Switch
-                checked={enabledMap[a.name] !== false}
-                onchange={(v: boolean) => void setEnabled(a.name, v)}
-                label="Enabled"
-                description="Disable to hide from spawn menu."
-              />
-            </div>
-
-            <div class="backend-meta">
-              <Badge tone={a.installed === false ? 'warn' : 'success'} size="xs">
-                {a.installed === false ? 'Not installed' : 'Installed'}
-              </Badge>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
+              <div class="backend-meta">
+                <Pill
+                  variant={a.installed === false ? 'warning' : 'success'}
+                  size="xs"
+                  label={a.installed === false ? 'Not installed' : 'Installed'}
+                />
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/snippet}
   </Card>
 
-  <!-- ── Pending actions from the Gatekeeper ───────── -->
-  {#if /* keep the same external surface as before */ true}
-    <section class="pending-section">
-      <PendingActions />
-    </section>
-  {/if}
+  <section class="pending-section">
+    <PendingActions />
+  </section>
 </div>
 
 <style>
@@ -331,87 +344,130 @@
     padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: var(--content-max-width-wide);
+    max-width: 56rem;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    background-color: var(--surface-base);
   }
 
   .page-header {
     margin-bottom: var(--space-2);
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
-  .display-h2 {
-    font-family: var(--font-display);
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    letter-spacing: var(--tracking-tight);
-    color: var(--text);
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: var(--text-h2-size);
+    font-weight: var(--text-h2-weight);
+    letter-spacing: var(--text-h2-tracking);
+    color: var(--content-primary);
     margin: 0 0 var(--space-2) 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-h2-leading);
   }
+
   .lede {
-    font-size: var(--size-md);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 720px;
+    font-size: var(--text-body-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
+    max-width: 45rem;
     margin: 0;
   }
 
-  /* ── Spawn panel ────────────────────────────────── */
-  .spawn-panel { display: flex; flex-direction: column; gap: var(--space-4); }
-  .spawn-head h3 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    margin: 0 0 var(--space-1) 0;
-  }
-  .muted {
-    color: var(--text-muted);
-    font-size: var(--size-sm);
+  .section-title {
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
-  .spawn-form { display: flex; flex-direction: column; gap: var(--space-3); }
+  .spawn-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
   .form-row {
     display: grid;
     grid-template-columns: 1.4fr 1fr 0.6fr;
     gap: var(--space-3);
   }
+
   @media (max-width: 720px) {
-    .form-row { grid-template-columns: 1fr; }
-  }
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
+    .form-row {
+      grid-template-columns: 1fr;
+    }
   }
 
-  /* ── Row heads (running, backends) ──────────────── */
+  .form-actions {
+    width: 100%;
+  }
+
+  .field-label {
+    display: block;
+    font-size: var(--text-caption-size);
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--content-tertiary);
+    margin-bottom: var(--space-2);
+  }
+
+  .field--compact {
+    margin-bottom: var(--space-1);
+  }
+
+  .select {
+    width: 100%;
+    height: 36px;
+    padding: 0 var(--space-3);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--content-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-body-sm-size);
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .select:focus-visible {
+    outline: var(--border-focus) solid var(--border-focus-width, 2px);
+    outline-offset: 2px;
+    border-color: var(--border-focus);
+  }
+
+  .select:disabled {
+    color: var(--content-disabled);
+    cursor: not-allowed;
+  }
+
+  .delegation-page :global(.field .input) {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-3);
+  }
+
   .row-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--space-3);
   }
-  .row-head h3 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
+
   .count {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
-    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-secondary);
+    background-color: var(--surface-sunken);
     padding: 2px 6px;
     border-radius: var(--radius-pill);
+    font-weight: 400;
   }
 
-  /* ── Running ────────────────────────────────────── */
   .running-list {
     list-style: none;
     margin: 0;
@@ -420,22 +476,44 @@
     flex-direction: column;
     gap: var(--space-2);
   }
+
   .running-row {
     display: grid;
     grid-template-columns: 100px 1fr auto auto auto;
     gap: var(--space-3);
     align-items: center;
     padding: var(--space-2) var(--space-3);
-    background: var(--surface-1);
-    border: 1px solid var(--border);
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
-    font-size: var(--size-sm);
+    font-size: var(--text-body-sm-size);
   }
-  .spawn-id { color: var(--text-muted); }
-  .agent-name { color: var(--text); font-weight: var(--weight-semibold); }
-  .started { font-size: var(--size-xs); color: var(--text-muted); }
 
-  /* ── Backend list ───────────────────────────────── */
+  @media (max-width: 720px) {
+    .running-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .spawn-id {
+    color: var(--content-secondary);
+  }
+
+  .agent-name {
+    color: var(--content-primary);
+    font-weight: 500;
+  }
+
+  .started {
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+  }
+
   .backend-list {
     list-style: none;
     margin: 0;
@@ -444,58 +522,87 @@
     flex-direction: column;
     gap: var(--space-2);
   }
+
   .backend-row {
     display: grid;
     grid-template-columns: 1.5fr 1.4fr auto;
     gap: var(--space-4);
     align-items: center;
     padding: var(--space-3) var(--space-4);
-    background: var(--surface-1);
-    border: 1px solid var(--border);
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
     transition:
-      background var(--transition-fast),
-      border-color var(--transition-fast);
-    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+      background-color var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard);
+    animation: delegation-stagger var(--duration-base) var(--ease-standard) both;
     animation-delay: calc(var(--stagger-index, 0) * 50ms);
   }
+
+  @keyframes delegation-stagger {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 880px) {
+    .backend-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .backend-row:hover {
-    background: var(--surface-2);
+    background-color: var(--surface-raised);
     border-color: var(--border-strong);
   }
-  .backend-info h4 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+
+  .backend-name {
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     margin: 0 0 2px 0;
   }
+
   .desc {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-secondary);
     margin: 0 0 2px 0;
-    line-height: var(--leading-snug);
+    line-height: 1.45;
   }
+
   .binary {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
   }
+
   .backend-controls {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     align-items: stretch;
   }
+
   .backend-meta {
     display: flex;
     justify-content: flex-end;
   }
 
-  .error {
-    color: var(--error);
-    font-size: var(--size-sm);
+  .muted {
+    color: var(--content-tertiary);
+    font-size: var(--text-body-sm-size);
+    margin: 0;
+  }
+
+  .muted code {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+  }
+
+  .error-banner {
+    color: var(--status-error-fg);
+    font-size: var(--text-body-sm-size);
     padding: var(--space-2) var(--space-3);
-    background: var(--error-soft);
-    border: 1px solid var(--border-danger);
+    background-color: var(--status-error-bg);
+    border: 1px solid var(--status-error-border);
     border-radius: var(--radius-md);
   }
 

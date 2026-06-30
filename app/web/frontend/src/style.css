@@ -1,5 +1,8 @@
 @import './lib/styles/reset.css';
-@import './lib/styles/tokens.css';
+@import './lib/tokens/primitives.css';
+@import './lib/tokens/semantic.css';
+@import './lib/tokens/motion.css';
+@import './lib/tokens/themes/system.css';
 @import './lib/styles/utilities.css';
 @import './lib/styles/animations.css';
 
@@ -7,47 +10,38 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--surface-base);
+  color: var(--content-primary);
   font-family: var(--font-sans);
-  font-size: var(--size-md);
-  line-height: var(--leading-normal);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  letter-spacing: var(--tracking-normal);
+  letter-spacing: 0.01em;
   overflow: hidden;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-/* ── Ambient backdrop — dark-glass halo ────────────────── */
-/* Two slow-moving accent halos and a faint neutral glow. The app
-   feels alive without distracting from content. */
+[data-mode='dark'],
+[data-mode='system'] {
+  color-scheme: light dark;
+}
+
+/* Subtle paper warmth — no neon halos (per design-v1-redesign §15) */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: var(--z-ambient);
+  z-index: var(--z-base);
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 50% 50% at 12% 18%, rgba(126, 234, 203, 0.06), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 88% 82%, rgba(126, 234, 203, 0.04), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(255, 255, 255, 0.02), transparent 70%);
-  animation: mesh-drift 28s ease-in-out infinite;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  inset: -10%;
-  z-index: var(--z-ambient);
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(126, 234, 203, 0.03), transparent 50%),
-    radial-gradient(ellipse 35% 35% at 20% 80%, rgba(142, 182, 255, 0.025), transparent 50%);
-  animation: mesh-drift-alt 32s ease-in-out infinite;
-  opacity: 0.7;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    color-mix(in srgb, var(--plum-50) 35%, transparent),
+    transparent 70%
+  );
+  opacity: 0.45;
 }
 
 #app {
@@ -57,28 +51,23 @@ body::after {
   position: relative;
 }
 
-/* Scrollbars + selection now live in reset.css — locked global styles. */
-
-/* Link defaults */
 a {
-  color: var(--accent);
+  color: var(--content-link);
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard);
 }
 a:hover {
-  color: var(--accent-hover);
-  text-decoration: none;
+  color: var(--content-link-hover);
 }
 
-/* Code blocks */
 code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  color: var(--text);
+  color: var(--content-primary);
 }
 pre {
   font-family: var(--font-mono);
@@ -89,7 +78,13 @@ pre code {
   padding: 0;
 }
 
-/* ── Global animation utilities ─────────────────────────── */
 .route-enter {
-  animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
+  animation: fade-in-up var(--duration-slow) var(--ease-decelerate) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-enter,
+  body::before {
+    animation: none;
+  }
 }

@@ -6,13 +6,26 @@
   import { notifications } from '../stores/notifications.svelte'
   import PublishModal from '../components/PublishModal.svelte'
   import ConfirmDialog from '../components/ConfirmDialog.svelte'
-  import { Button, Card, Input, Badge } from '../components/ui'
+  import Button from '$components/v1/Button.svelte'
+  import Card from '$components/v1/Card.svelte'
+  import Input from '$components/v1/Input.svelte'
+  import Pill from '$components/v1/Pill.svelte'
+  import EmptyState from '$components/v1/EmptyState.svelte'
+  import Inline from '$components/v1/Inline.svelte'
+  import Hairline from '$components/v1/Hairline.svelte'
 
   let showPublish = $state(false)
   let query = $state('')
   let cursor = $state(0)
   let confirmOpen = $state(false)
   let confirmAction = $state<(() => void) | null>(null)
+
+  function trustPill(trust: string): 'accent' | 'neutral' | 'warning' | 'info' {
+    if (trust === 'official') return 'accent'
+    if (trust === 'experimental') return 'warning'
+    if (trust === 'community') return 'info'
+    return 'neutral'
+  }
 
   async function search(): Promise<void> {
     if (!query.trim()) return
@@ -61,18 +74,20 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="hub-page" onkeydown={onKey} role="region" aria-label="Skills Hub">
   <header class="page-header">
-    <div class="title-row">
+    <Inline gap="4" align="end" justify="between" class="title-row">
       <div>
-        <h2 class="display-h2">Skills Hub</h2>
+        <h2 class="page-title">Skills Hub</h2>
         <p class="lede">Browse community skills, or publish your own. Safety-scanned on import.</p>
       </div>
       <Button variant="primary" size="md" onclick={() => (showPublish = true)}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        {#snippet icon()}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        {/snippet}
         Publish a skill
       </Button>
-    </div>
+    </Inline>
 
     <form
       class="search-row"
@@ -82,20 +97,18 @@
       }}
     >
       <div class="search-input-wrap">
+        <span class="search-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+        </span>
         <Input
           bind:value={query}
-          fullWidth
           size="lg"
           placeholder="Search the hub…"
-          aria-label="Search skills hub"
-        >
-          {#snippet leading()}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-          {/snippet}
-        </Input>
+          ariaLabel="Search skills hub"
+        />
       </div>
       <Button
         type="submit"
@@ -110,21 +123,18 @@
   </header>
 
   {#if hub.error}
-    <p class="error" role="alert">{hub.error}</p>
+    <p class="error-banner" role="alert">{hub.error}</p>
   {/if}
 
   {#if hub.results.length === 0 && !hub.loading}
-    <Card elevation="glass" padding="lg">
-      <div class="empty">
-        <div class="empty-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 010 18M12 3a14 14 0 000 18" />
-          </svg>
-        </div>
-        <h3>Search the Skills Hub</h3>
-        <p>Find reusable procedures contributed by the community. Installs are safety-scanned before they land on your machine.</p>
-      </div>
+    <Card variant="raised" padding="6">
+      {#snippet children()}
+        <EmptyState
+          primary="Search the Skills Hub"
+          secondary="Find reusable procedures contributed by the community. Installs are safety-scanned before they land on your machine."
+          voice="serif"
+        />
+      {/snippet}
     </Card>
   {:else}
     <ul class="results" role="listbox" aria-label="Search results">
@@ -138,44 +148,45 @@
           onclick={() => (cursor = i)}
           onkeydown={() => {}}
         >
-          <div class="row-main">
+          <Inline gap="4" align="start" justify="between" wrap={false} class="row-main">
             <div class="name-block">
               <h3 class="result-name">{r.name}</h3>
-              <div class="meta-row">
-                <Badge tone={r.trust === 'official' ? 'accent' : 'neutral'} size="xs">{r.trust}</Badge>
-                <span class="version mono">v{r.version}</span>
+              <Inline gap="2" align="center" class="meta-row">
+                <Pill variant={trustPill(r.trust)} size="xs" label={r.trust} />
+                <span class="version">v{r.version}</span>
                 <span class="by">by {r.author}</span>
-              </div>
+              </Inline>
             </div>
 
             <div class="install-cell">
               {#if hub.installed.has(r.id)}
-                <Badge tone="success" size="sm" dot>Installed</Badge>
+                <Pill variant="success" size="sm" label="Installed" />
               {:else}
                 <Button variant="primary" size="sm" onclick={(e) => { e.stopPropagation(); install(r.id) }}>Install</Button>
               {/if}
             </div>
-          </div>
+          </Inline>
 
           {#if r.description}
             <p class="desc">{r.description}</p>
           {/if}
 
-          <div class="id-row">
-            <span class="id mono">{r.id}</span>
+          <Inline gap="2" justify="between" align="center" class="id-row">
+            <span class="id">{r.id}</span>
             {#if r.downloads != null}
-              <span class="downloads mono">↓ {r.downloads.toLocaleString()}</span>
+              <span class="downloads">↓ {r.downloads.toLocaleString()}</span>
             {/if}
-          </div>
+          </Inline>
         </li>
       {/each}
     </ul>
   {/if}
 
   <footer class="page-foot">
+    <Hairline />
     <p class="muted">
-      Skills are signed and safety-scanned before installation. Trust levels: <strong>official</strong>,
-      <strong>community</strong>, <strong>experimental</strong>.
+      Skills are signed and safety-scanned before installation. Trust levels:
+      <strong>official</strong>, <strong>community</strong>, <strong>experimental</strong>.
     </p>
   </footer>
 </div>
@@ -198,8 +209,9 @@
     padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: var(--content-max-width-wide);
+    max-width: 56rem;
     margin: 0 auto;
+    background-color: var(--surface-base);
   }
 
   .page-header {
@@ -207,29 +219,27 @@
     flex-direction: column;
     gap: var(--space-5);
     margin-bottom: var(--space-6);
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
+
   .title-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
+    width: 100%;
   }
-  .display-h2 {
-    font-family: var(--font-display);
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    letter-spacing: var(--tracking-tight);
-    color: var(--text);
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: var(--text-h2-size);
+    font-weight: var(--text-h2-weight);
+    letter-spacing: var(--text-h2-tracking);
+    color: var(--content-primary);
     margin: 0 0 var(--space-1) 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-h2-leading);
   }
+
   .lede {
-    font-size: var(--size-md);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 560px;
+    font-size: var(--text-body-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
+    max-width: 35rem;
     margin: 0;
   }
 
@@ -238,49 +248,29 @@
     gap: var(--space-2);
     align-items: stretch;
   }
+
   .search-input-wrap {
     flex: 1;
     min-width: 0;
-  }
-
-  /* ── Empty state card ─────────────────────────── */
-  .empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: var(--space-3);
-    padding: var(--space-7) var(--space-5);
-  }
-  .empty-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: var(--radius-xl);
-    background: var(--surface-2);
-    border: 1px solid var(--border-strong);
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: var(--text-faint);
-    margin-bottom: var(--space-2);
-  }
-  .empty h3 {
-    font-family: var(--font-display);
-    font-size: var(--size-xl);
-    font-weight: var(--weight-medium);
-    color: var(--text);
-    margin: 0;
-    letter-spacing: var(--tracking-tight);
-  }
-  .empty p {
-    color: var(--text-muted);
-    font-size: var(--size-md);
-    line-height: var(--leading-relaxed);
-    max-width: 480px;
-    margin: 0;
   }
 
-  /* ── Results ──────────────────────────────────── */
+  .search-icon {
+    position: absolute;
+    left: var(--space-3);
+    color: var(--content-tertiary);
+    pointer-events: none;
+    display: flex;
+  }
+
+  .hub-page :global(.search-input-wrap .input) {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-3) 0 calc(var(--space-3) + 24px);
+  }
+
   .results {
     list-style: none;
     padding: 0;
@@ -289,65 +279,74 @@
     flex-direction: column;
     gap: var(--space-3);
   }
+
   .result-row {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     padding: var(--space-4);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition:
-      background-color var(--transition-base),
-      border-color var(--transition-base),
-      box-shadow var(--transition-base);
-    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+      background-color var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard);
+    animation: hub-stagger var(--duration-base) var(--ease-standard) both;
     animation-delay: calc(var(--stagger-index, 0) * 60ms);
   }
+
+  @keyframes hub-stagger {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .result-row:hover,
   .result-row.selected {
     border-color: var(--border-focus);
-    background: var(--glass-bg-hover);
-    box-shadow: var(--shadow-glow);
+    background-color: var(--surface-sunken);
   }
 
   .row-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--space-4);
+    width: 100%;
   }
-  .name-block { min-width: 0; }
+
+  .name-block {
+    min-width: 0;
+    flex: 1;
+  }
+
   .result-name {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     margin: 0 0 var(--space-1) 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-body-leading, 1.5);
   }
+
   .meta-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
     flex-wrap: wrap;
   }
+
   .version {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
   }
+
   .by {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
+    font-size: var(--text-caption-size);
+    color: var(--content-secondary);
   }
+
   .install-cell {
     flex-shrink: 0;
   }
 
   .desc {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -356,38 +355,38 @@
   }
 
   .id-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-2);
+    width: 100%;
   }
-  .id {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
-  }
+
+  .id,
   .downloads {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
   }
 
   .page-foot {
     margin-top: var(--space-7);
     padding-top: var(--space-4);
-    border-top: 1px solid var(--border);
   }
-  .muted {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
-    margin: 0;
-  }
-  .muted strong { color: var(--text); font-weight: var(--weight-semibold); }
 
-  .error {
-    color: var(--error);
-    font-size: var(--size-sm);
+  .muted {
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    margin: var(--space-3) 0 0 0;
+  }
+
+  .muted strong {
+    color: var(--content-primary);
+    font-weight: 500;
+  }
+
+  .error-banner {
+    color: var(--status-error-fg);
+    font-size: var(--text-body-sm-size);
     padding: var(--space-2) var(--space-3);
-    background: var(--error-soft);
-    border: 1px solid var(--border-danger);
+    background-color: var(--status-error-bg);
+    border: 1px solid var(--status-error-border);
     border-radius: var(--radius-md);
     margin: 0 0 var(--space-3) 0;
   }

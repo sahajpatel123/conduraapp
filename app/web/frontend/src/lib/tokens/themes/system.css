@@ -1,0 +1,63 @@
+/*
+ * Synaptic — System Theme (auto light/dark based on OS preference)
+ *
+ * Applied when [data-mode="system"]. Follows the OS appearance setting
+ * and updates live when the user toggles it.
+ *
+ * Locked: see docs/design-v1-redesign.md §4.2.
+ */
+
+[data-mode="system"] {
+  /* Light values are inherited from :root defaults. */
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-mode="system"] {
+    --surface-base:      #0E1014;
+    --surface-sunken:    #161922;
+    --surface-raised:    #1C1F2A;
+    --surface-overlay:   #1C1F2A;
+    --surface-scrim:     rgba(0, 0, 0, 0.60);
+    --surface-inverted:  #F0EDE5;
+    --surface-glass:     rgba(28, 31, 42, 0.78);
+
+    --content-primary:    #F0EDE5;
+    --content-secondary:  #C8CAD2;
+    --content-tertiary:   #8E919C;
+    --content-muted:      #6A6E78;
+    --content-disabled:   #4A4D55;
+    --content-inverse:    #0E1014;
+    --content-link:       #B89AFF;
+    --content-link-hover: #CDB8FF;
+    --content-on-accent:  #FBF8F2;
+    --content-accent:     #B89AFF;
+
+    --border-subtle:  #2A2D36;
+    --border-default: #3A3D47;
+    --border-strong:  #4A4D55;
+    --border-focus:   #B89AFF;
+    --border-inverse: #F0EDE5;
+
+    --action-secondary-idle-border:    #3A3D47;
+    --action-secondary-hover-border:   #4A4D55;
+
+    --action-tertiary-hover-bg: #2A2D36;
+    --action-tertiary-active-bg: #3A3D47;
+
+    --status-success-bg: #1A2A22;
+    --status-success-fg: #8FB39E;
+    --status-warning-bg: #2A221A;
+    --status-warning-fg: #D4B47A;
+    --status-error-bg:   #2A1A1A;
+    --status-error-fg:   #C88080;
+    --status-info-bg:    #1A2230;
+    --status-info-fg:    #8FA3C3;
+    --status-neutral-bg: #2A2D36;
+    --status-neutral-fg: #C8CAD2;
+
+    --focus-ring: #B89AFF;
+
+    --selection-bg: rgba(184, 154, 255, 0.22);
+    --selection-fg: #F0EDE5;
+  }
+}

@@ -1,14 +1,16 @@
 <script lang="ts">
   // Skills — local installed skills.
-  //
-  // Header: search input + filter chips (All / Built-in / Community / Experimental).
-  // Body: a grid of Skill cards with icon, name, description, version, "Use" button.
-  // Empty state: EmptyState with "Browse the Hub" CTA.
-  // Loading state: Skeleton rows.
   import { ipc } from '../ipc/client'
   import { onMount } from 'svelte'
   import ConfirmDialog from '../components/ConfirmDialog.svelte'
-  import { Button, Card, Input, Badge, EmptyState, Skeleton } from '../components/ui'
+  import Button from '$components/v1/Button.svelte'
+  import Card from '$components/v1/Card.svelte'
+  import Input from '$components/v1/Input.svelte'
+  import Pill from '$components/v1/Pill.svelte'
+  import Chip from '$components/v1/Chip.svelte'
+  import EmptyState from '$components/v1/EmptyState.svelte'
+  import LoadingState from '$components/v1/LoadingState.svelte'
+  import Inline from '$components/v1/Inline.svelte'
 
   function goto(hash: string): void {
     window.location.hash = hash
@@ -34,6 +36,13 @@
 
   let query = $state('')
   let filter = $state<Filter>('all')
+
+  const filters: { id: Filter; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'built-in', label: 'Built-in' },
+    { id: 'community', label: 'Community' },
+    { id: 'experimental', label: 'Experimental' },
+  ]
 
   async function refresh(): Promise<void> {
     loading = true
@@ -67,15 +76,14 @@
     if (c.includes('mail') || c.includes('email')) return 'M3 7l9 6 9-6M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7'
     if (c.includes('time') || c.includes('schedule')) return 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z'
     if (c.includes('search')) return 'M21 21l-4.3-4.3M11 18a7 7 0 100-14 7 7 0 000 14z'
-    // default sparkle
     return 'M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8'
   }
 
-  function trustTone(t: string): 'neutral' | 'accent' | 'success' | 'warn' | 'error' | 'info' {
+  function trustPill(t: string): 'neutral' | 'accent' | 'success' | 'warning' | 'info' {
     const v = (t || '').toLowerCase()
     if (v === 'official') return 'accent'
     if (v === 'community') return 'info'
-    if (v === 'experimental') return 'warn'
+    if (v === 'experimental') return 'warning'
     return 'neutral'
   }
 
@@ -112,122 +120,107 @@
 
 <div class="skills-page">
   <header class="page-header">
-    <div class="title-row">
+    <Inline gap="4" align="end" justify="between" class="title-row">
       <div>
-        <h2 class="display-h2">Skills</h2>
+        <h2 class="page-title">Skills</h2>
         <p class="lede">Reusable procedures the agent can call by name. Built-in and installed.</p>
       </div>
-      <div class="header-actions">
-        <Button variant="ghost" size="sm" onclick={() => goto('#/hub')}>Browse the Hub</Button>
+      <Inline gap="2">
+        <Button variant="tertiary" size="sm" onclick={() => goto('#/hub')}>Browse the Hub</Button>
         <Button variant="secondary" size="sm" onclick={refresh} loading={loading}>Refresh</Button>
-      </div>
-    </div>
+      </Inline>
+    </Inline>
 
-    <div class="filters">
+    <Inline gap="3" align="center" class="filters">
       <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+        </span>
         <Input
           bind:value={query}
-          fullWidth
           size="md"
           placeholder="Search skills…"
-          aria-label="Search skills"
-        >
-          {#snippet leading()}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-          {/snippet}
-        </Input>
+          ariaLabel="Search skills"
+        />
       </div>
 
       <div class="chips" role="tablist" aria-label="Filter skills">
-        {#each [
-          { id: 'all', label: 'All' },
-          { id: 'built-in', label: 'Built-in' },
-          { id: 'community', label: 'Community' },
-          { id: 'experimental', label: 'Experimental' },
-        ] as f (f.id)}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === f.id}
-            class="chip"
-            class:active={filter === f.id}
+        {#each filters as f (f.id)}
+          <Chip
+            selected={filter === f.id}
             onclick={() => (filter = f.id as Filter)}
           >
             {f.label}
-          </button>
+          </Chip>
         {/each}
       </div>
-    </div>
+    </Inline>
   </header>
 
   {#if error}
-    <p class="error" role="alert">{error}</p>
+    <p class="error-banner" role="alert">{error}</p>
   {/if}
 
   {#if loading && skills.length === 0}
     <div class="grid">
       {#each Array(6) as _, i (i)}
-        <Card elevation={1} padding="md">
-          <div class="skel-stack">
-            <Skeleton width="36px" height="36px" rounded="md" count={1} />
-            <Skeleton width="60%" height="14px" rounded="sm" count={1} />
-            <Skeleton width="100%" height="12px" rounded="sm" count={1} />
-            <Skeleton width="80%" height="12px" rounded="sm" count={1} />
-          </div>
+        <Card variant="raised" padding="4">
+          {#snippet children()}
+            <LoadingState kind="cold" />
+          {/snippet}
         </Card>
       {/each}
     </div>
   {:else if skills.length === 0}
     <EmptyState
-      title="No skills installed yet"
-      description="Skills are reusable procedures the agent can call by name. Install some from the Hub."
+      primary="No skills installed yet"
+      secondary="Skills are reusable procedures the agent can call by name. Install some from the Hub."
+      voice="mono"
     >
-      {#snippet icon()}
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />
-        </svg>
-      {/snippet}
-      {#snippet action()}
+      {#snippet children()}
         <Button variant="primary" size="md" onclick={() => goto('#/hub')}>Browse the Hub</Button>
       {/snippet}
     </EmptyState>
   {:else if visible.length === 0}
     <EmptyState
-      title="No skills match that filter"
-      description="Try a different search term or switch the chip filter."
+      primary="No skills match that filter"
+      secondary="Try a different search term or switch the chip filter."
+      voice="mono"
     />
   {:else}
     <div class="grid">
       {#each visible as s, i (s.id)}
         <div class="grid-item" style:--stagger-index={i}>
-          <Card elevation="glass" interactive padding="md">
-            <div class="card-top">
-              <span class="icon-tile">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d={iconForCategory(categoryOf(s))} />
-                </svg>
-              </span>
-              <div class="card-meta">
-                <h3 class="skill-name">{s.name}</h3>
-                <span class="skill-version mono">v{s.version}</span>
-              </div>
-              <Badge tone={trustTone(s.trust)} size="xs">{s.trust}</Badge>
-            </div>
+          <Card variant="raised" padding="4">
+            {#snippet children()}
+              <Inline gap="3" align="center" class="card-top">
+                <span class="icon-tile">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d={iconForCategory(categoryOf(s))} />
+                  </svg>
+                </span>
+                <div class="card-meta">
+                  <h3 class="skill-name">{s.name}</h3>
+                  <span class="skill-version">v{s.version}</span>
+                </div>
+                <Pill variant={trustPill(s.trust)} size="xs" label={s.trust} />
+              </Inline>
 
-            {#if s.description}
-              <p class="skill-desc">{s.description}</p>
-            {/if}
+              {#if s.description}
+                <p class="skill-desc">{s.description}</p>
+              {/if}
 
-            <div class="card-foot">
-              <span class="skill-id mono">{s.id}</span>
-              <div class="card-actions">
-                <Button variant="primary" size="sm" onclick={() => goto(`#/skills`)}>Use</Button>
-                <Button variant="ghost" size="sm" onclick={() => remove(s.id)}>Remove</Button>
-              </div>
-            </div>
+              <Inline gap="2" justify="between" align="center" class="card-foot">
+                <span class="skill-id">{s.id}</span>
+                <Inline gap="1">
+                  <Button variant="primary" size="sm" onclick={() => goto('#/skills')}>Use</Button>
+                  <Button variant="tertiary" size="sm" onclick={() => remove(s.id)}>Remove</Button>
+                </Inline>
+              </Inline>
+            {/snippet}
           </Card>
         </div>
       {/each}
@@ -249,8 +242,9 @@
     padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: var(--content-max-width-wide);
+    max-width: 56rem;
     margin: 0 auto;
+    background-color: var(--surface-base);
   }
 
   .page-header {
@@ -258,171 +252,153 @@
     flex-direction: column;
     gap: var(--space-5);
     margin-bottom: var(--space-6);
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
   }
+
   .title-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
+    width: 100%;
   }
-  .display-h2 {
-    font-family: var(--font-display);
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    letter-spacing: var(--tracking-tight);
-    color: var(--text);
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: var(--text-h2-size);
+    font-weight: var(--text-h2-weight);
+    letter-spacing: var(--text-h2-tracking);
+    color: var(--content-primary);
     margin: 0 0 var(--space-1) 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-h2-leading);
   }
+
   .lede {
-    font-size: var(--size-md);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 560px;
+    font-size: var(--text-body-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
+    max-width: 35rem;
     margin: 0;
-  }
-  .header-actions {
-    display: flex;
-    gap: var(--space-2);
   }
 
   .filters {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
     flex-wrap: wrap;
   }
+
   .search-wrap {
     flex: 1 1 280px;
     min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: var(--space-3);
+    color: var(--content-tertiary);
+    pointer-events: none;
+    display: flex;
+  }
+
+  .skills-page :global(.search-wrap .input) {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-3) 0 calc(var(--space-3) + 22px);
   }
 
   .chips {
     display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--space-1);
+    flex-wrap: wrap;
   }
-  .chip {
-    appearance: none;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-family: var(--font-sans);
-    font-size: var(--size-sm);
-    font-weight: var(--weight-medium);
-    padding: 5px 12px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition:
-      background-color var(--transition-fast) ease,
-      color var(--transition-fast) ease,
-      transform var(--transition-fast) var(--ease-spring);
-  }
-  .chip:hover:not(.active) { color: var(--text); }
-  .chip.active {
-    background: var(--surface-3);
-    color: var(--text);
-    box-shadow: var(--shadow-xs);
-  }
-  .chip:active:not(.active) { transform: scale(0.97); }
 
-  /* ── Skill grid ────────────────────────────────── */
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--space-4);
   }
+
   .grid-item {
-    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+    animation: skills-stagger var(--duration-base) var(--ease-standard) both;
     animation-delay: calc(var(--stagger-index, 0) * 50ms);
   }
 
+  @keyframes skills-stagger {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .card-top {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+    width: 100%;
     margin-bottom: var(--space-3);
   }
+
   .icon-tile {
     width: 36px;
     height: 36px;
     border-radius: var(--radius-md);
-    background: var(--accent-faint);
-    border: 1px solid var(--border);
-    color: var(--accent);
+    background-color: var(--plum-50);
+    border: 1px solid var(--border-default);
+    color: var(--content-accent);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
+
   .card-meta {
     flex: 1;
     min-width: 0;
   }
+
   .skill-name {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     margin: 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-body-leading, 1.5);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
   .skill-version {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
   }
+
   .skill-desc {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
     margin: 0 0 var(--space-3) 0;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
   .card-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
+    width: 100%;
     padding-top: var(--space-3);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
   }
+
   .skill-id {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-  }
-  .card-actions {
-    display: flex;
-    gap: var(--space-1);
-    flex-shrink: 0;
+    flex: 1;
   }
 
-  /* ── Skeleton ─────────────────────────────────── */
-  .skel-stack {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .error {
-    color: var(--error);
-    font-size: var(--size-sm);
+  .error-banner {
+    color: var(--status-error-fg);
+    font-size: var(--text-body-sm-size);
     padding: var(--space-2) var(--space-3);
-    background: var(--error-soft);
-    border: 1px solid var(--border-danger);
+    background-color: var(--status-error-bg);
+    border: 1px solid var(--status-error-border);
     border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
   }
 </style>

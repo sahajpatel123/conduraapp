@@ -1,0 +1,137 @@
+/*
+ * Synaptic — Motion Tokens (CSS)
+ *
+ * The CSS-facing motion grammar. Components consume these via:
+ *   transition: opacity var(--duration-base) var(--ease-standard);
+ *
+ * Spring values (used by Svelte's spring/tweened stores) live in motion.ts
+ * because they need JS-side computation, not CSS.
+ *
+ * Locked: see docs/design-v1-redesign.md §6.
+ *
+ * Performance budget (per spec §6.6):
+ *   - High (plugged in):    full motion grammar
+ *   - Balanced (default):   ambient breath at 50%, drift paused, stagger halved
+ *   - Low (battery):        no breath, no drift, linear easings
+ *
+ * The energy-mode override is applied by themes/system.css via media queries.
+ */
+
+:root {
+  /* ---------------------------------------------------------------------- *
+   * DURATIONS
+   * ---------------------------------------------------------------------- */
+
+  --duration-instant:    50ms;
+  --duration-fast:       120ms;
+  --duration-base:       220ms;
+  --duration-slow:       320ms;
+  --duration-emphasized: 420ms;
+  --duration-epic:       800ms;
+
+  /* ---------------------------------------------------------------------- *
+   * EASINGS — cubic-bezier curves
+   * ---------------------------------------------------------------------- */
+
+  --ease-standard:     cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate:   cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate:   cubic-bezier(0.4, 0, 1, 1);
+  --ease-emphasized:   cubic-bezier(0.3, 0, 0, 1);
+
+  /* ---------------------------------------------------------------------- *
+   * DISTANCES — translate offsets
+   * ---------------------------------------------------------------------- */
+
+  --distance-micro:   4px;
+  --distance-base:    8px;
+  --distance-near:    12px;
+  --distance-far:     32px;
+
+  /* ---------------------------------------------------------------------- *
+   * STAGGER — inter-element delay
+   * ---------------------------------------------------------------------- */
+
+  --stagger-fast:       30ms;
+  --stagger-base:       60ms;
+  --stagger-slow:       120ms;
+  --stagger-deliberate: 180ms;
+
+  /* ---------------------------------------------------------------------- *
+   * THE PULSE — signature vital sign (5s cycle, 12 cycles/min)
+   *
+   * Components use these to render the Pulse primitive's keyframes. The
+   * actual keyframes live in the Pulse component, not here.
+   * ---------------------------------------------------------------------- */
+
+  --pulse-period-idle:    5000ms;  /* 12 cycles/min */
+  --pulse-period-thinking: 7500ms; /* 8 cycles/min */
+  --pulse-period-awaiting: 3000ms; /* 20 cycles/min */
+
+  /* ---------------------------------------------------------------------- *
+   * COMMON TRANSITION PRESETS — for the 10 signature transitions
+   *
+   * Use these in component CSS so transition behavior stays uniform.
+   * ---------------------------------------------------------------------- */
+
+  /* Hover state */
+  --transition-hover:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+
+  /* Press feedback */
+  --transition-press:
+    transform var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+
+  /* Panel open / close */
+  --transition-panel:
+    transform var(--duration-base) var(--ease-standard),
+    opacity var(--duration-base) var(--ease-standard);
+
+  /* Overlay appear */
+  --transition-overlay-in:
+    transform var(--duration-emphasized) var(--ease-decelerate),
+    opacity var(--duration-emphasized) var(--ease-decelerate);
+
+  /* Overlay dismiss */
+  --transition-overlay-out:
+    transform var(--duration-fast) var(--ease-accelerate),
+    opacity var(--duration-fast) var(--ease-accelerate);
+
+  /* Consent moment (deliberate, slow) */
+  --transition-consent:
+    transform var(--duration-emphasized) var(--ease-emphasized),
+    opacity var(--duration-emphasized) var(--ease-emphasized);
+
+  /* Kill switch (instant, never reduced) */
+  --transition-killswitch: 16ms linear;
+}
+
+/* ---------------------------------------------------------------------- *
+ * ENERGY MODES — system preference aware
+ * ---------------------------------------------------------------------- */
+
+/* Reduced-motion preference: preserve INTENT, not movement.
+   Components should still convey state, just without time-based change. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant:    0ms;
+    --duration-fast:       0ms;
+    --duration-base:       0ms;
+    --duration-slow:       0ms;
+    --duration-emphasized: 0ms;
+    --duration-epic:       0ms;
+
+    /* But kill switch and consent still need a beat for the user to read.
+       These are the ONLY overrides allowed in reduced-motion. */
+    --transition-killswitch: 16ms linear;
+  }
+}
+
+/* Battery-aware (low-power mode). Currently a no-op until the desktop
+   shell exposes an energy-mode attribute. Hook point reserved. */
+[data-energy="low"] {
+  --stagger-base: 30ms;
+  --stagger-slow: 60ms;
+}

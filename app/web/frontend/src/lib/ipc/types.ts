@@ -523,6 +523,37 @@ export interface ReplayExportResult {
   path: string
 }
 
+// ----- Adaptive engine -----
+
+export type AdaptiveStrength = 'off' | 'cautious' | 'balanced' | 'aggressive'
+
+export interface InferredField {
+  value: string
+  confidence: number
+  evidence: string[]
+  last_seen?: string
+  source?: string
+}
+
+export interface AdaptiveUserModel {
+  preferences: InferredField[]
+  style: InferredField
+  expertise: InferredField[]
+  pet_peeves: InferredField[]
+  communication: InferredField
+  risk_tolerance: InferredField
+  last_updated?: string
+  version?: number
+}
+
+export interface VoiceProbeResult {
+  mic_available: boolean
+  voice_enabled: boolean
+  wake_word_enabled: boolean
+  wake_word: string
+  ready: boolean
+}
+
 // ----- Phase 12: Skills Hub -----
 
 export interface HubSkillMeta {

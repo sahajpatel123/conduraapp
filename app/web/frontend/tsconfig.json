@@ -14,7 +14,11 @@
      */
     "allowJs": true,
     "checkJs": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": {
+      "$tokens/*": ["src/lib/tokens/*"],
+      "$components/*": ["src/lib/components/*"]
+    }
   },
   "include": [
     "src/**/*.d.ts",

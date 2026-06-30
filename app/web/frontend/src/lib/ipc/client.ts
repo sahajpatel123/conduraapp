@@ -410,6 +410,28 @@ class IPCClient {
     return this.call('gatekeeper.deny', { nonce })
   }
 
+  // ----- Adaptive engine -----
+  adaptiveProfile(): Promise<import('./types').AdaptiveUserModel> {
+    return this.call('adaptive.profile', {})
+  }
+  adaptiveForget(field: string, value: string): Promise<{ ok: boolean }> {
+    return this.call('adaptive.forget', { field, value })
+  }
+  adaptiveReset(): Promise<{ ok: boolean }> {
+    return this.call('adaptive.reset', {})
+  }
+  adaptiveStrengthGet(): Promise<{ strength: import('./types').AdaptiveStrength }> {
+    return this.call('adaptive.strength.get', {})
+  }
+  adaptiveStrengthSet(
+    strength: import('./types').AdaptiveStrength
+  ): Promise<{ ok: boolean }> {
+    return this.call('adaptive.strength.set', { strength })
+  }
+  onboardingProbeVoice(): Promise<import('./types').VoiceProbeResult> {
+    return this.call('onboarding.probe_voice', {})
+  }
+
   // ----- Phase 14B: Account (auth) -----
   // The account.* RPCs talk to the daemon's user record. The
   // magic-link OAuth flow on web talks to the Next.js

@@ -9,7 +9,13 @@
   import PairingModal from '../components/PairingModal.svelte'
   import ConfirmDialog from '../components/ConfirmDialog.svelte'
   import type { SyncStatus } from '../ipc/types'
-  import { Avatar, Badge, Button, Card } from '../components/ui'
+  import Avatar from '$components/v1/Avatar.svelte'
+  import Pill from '$components/v1/Pill.svelte'
+  import Button from '$components/v1/Button.svelte'
+  import Card from '$components/v1/Card.svelte'
+  import EmptyState from '$components/v1/EmptyState.svelte'
+  import Inline from '$components/v1/Inline.svelte'
+  import Hairline from '$components/v1/Hairline.svelte'
 
   let status = $state<SyncStatus | null>(null)
   let lastAction = $state('')
@@ -43,7 +49,7 @@
       notifications.push({
         kind: 'success',
         title: 'Paired',
-        message: `New device paired.`,
+        message: 'New device paired.',
       })
     }
   }
@@ -82,9 +88,10 @@
   const statusLabel = $derived(
     !status?.running ? 'Paused' : sync.pairs.length === 0 ? 'No peers' : 'Synced'
   )
-  const statusTone = $derived(
-    !status?.running ? 'warn' : sync.pairs.length === 0 ? 'neutral' : 'success'
-  ) as 'warn' | 'neutral' | 'success'
+
+  const statusVariant = $derived(
+    !status?.running ? 'warning' as const : sync.pairs.length === 0 ? 'neutral' as const : 'success' as const
+  )
 
   function fmtLastSeen(iso?: string): string {
     if (!iso) return '—'
@@ -111,122 +118,117 @@
 
 <div class="sync-page">
   <header class="page-header">
-    <div class="title-row">
+    <Inline gap="4" align="end" justify="between" class="title-row">
       <div>
-        <h2 class="display-h2">P2P sync</h2>
+        <h2 class="page-title">P2P sync</h2>
         <p class="lede">
           Device-to-device, E2E encrypted. No central server. Memory, skills, and config — never logs or API keys.
         </p>
       </div>
-      <Badge tone={statusTone} size="md" dot pulse={statusTone === 'success'}>
-        {statusLabel}
-      </Badge>
-    </div>
+      <Pill variant={statusVariant} size="md" label={statusLabel} />
+    </Inline>
 
     {#if sync.error}
-      <p class="error" role="alert">{sync.error}</p>
+      <p class="error-banner" role="alert">{sync.error}</p>
     {/if}
     {#if lastAction}
-      <p class="success">{lastAction}</p>
+      <p class="success-banner">{lastAction}</p>
     {/if}
   </header>
 
-  <!-- ── This device card ───────────────────────── -->
-  <Card elevation="glass" padding="md">
-    <div class="this-device">
-      <div class="td-info">
-        <h3>This device</h3>
-        {#if status}
-          <dl class="kv-list">
-            <div class="kv"><dt>Device ID</dt><dd class="mono">{status.device_id || '—'}</dd></div>
-            <div class="kv"><dt>Name</dt><dd>{status.name || '—'}</dd></div>
-            <div class="kv"><dt>Running</dt><dd>{status.running ? 'yes' : 'no'}</dd></div>
-            <div class="kv"><dt>Entries</dt><dd>{status.entries ?? 0}</dd></div>
-            <div class="kv"><dt>Paired</dt><dd>{sync.pairs.length}</dd></div>
-          </dl>
-        {:else}
-          <p class="muted">Loading…</p>
-        {/if}
-      </div>
-      <Button variant="ghost" size="sm" onclick={refreshAll} loading={sync.loading}>Refresh</Button>
-    </div>
+  <Card variant="raised" padding="4">
+    {#snippet children()}
+      <Inline gap="4" align="start" justify="between" class="this-device">
+        <div class="td-info">
+          <h3 class="section-title">This device</h3>
+          {#if status}
+            <dl class="kv-list">
+              <div class="kv"><dt>Device ID</dt><dd class="mono">{status.device_id || '—'}</dd></div>
+              <div class="kv"><dt>Name</dt><dd>{status.name || '—'}</dd></div>
+              <div class="kv"><dt>Running</dt><dd>{status.running ? 'yes' : 'no'}</dd></div>
+              <div class="kv"><dt>Entries</dt><dd>{status.entries ?? 0}</dd></div>
+              <div class="kv"><dt>Paired</dt><dd>{sync.pairs.length}</dd></div>
+            </dl>
+          {:else}
+            <p class="muted">Loading…</p>
+          {/if}
+        </div>
+        <Button variant="tertiary" size="sm" onclick={refreshAll} loading={sync.loading}>Refresh</Button>
+      </Inline>
+    {/snippet}
   </Card>
 
-  <!-- ── Two columns: Peers | Paired ──────────────── -->
   <div class="columns">
-    <!-- Peers -->
     <section class="col">
       <header class="col-head">
-        <h3>Discovered peers <span class="count mono">{sync.peers.length}</span></h3>
+        <h3 class="section-title">
+          Discovered peers <span class="count">{sync.peers.length}</span>
+        </h3>
         <p class="col-sub">Devices on your LAN via mDNS.</p>
       </header>
 
       {#if sync.peers.length === 0}
-        <Card elevation={1} padding="lg">
-          <div class="empty">
-            <div class="empty-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 010 18M12 3a14 14 0 000 18" />
-              </svg>
-            </div>
-            <h4>Looking for peers…</h4>
-            <p>Make sure another Condura instance is on the same network and awake. Refresh in a few seconds.</p>
-          </div>
+        <Card variant="sunken" padding="5">
+          {#snippet children()}
+            <EmptyState
+              primary="Looking for peers…"
+              secondary="Make sure another Condura instance is on the same network and awake. Refresh in a few seconds."
+              voice="mono"
+            />
+          {/snippet}
         </Card>
       {:else}
         <ul class="peer-list">
           {#each sync.peers as p, i (p.device_id)}
             <li class="peer-row" style:--stagger-index={i}>
-              <Avatar name={p.name} size="md" status="online" />
+              <Avatar name={p.name} variant="user" size="md" />
               <div class="peer-info">
                 <span class="peer-name">{p.name}</span>
-                <span class="peer-meta mono">{p.device_id}</span>
+                <span class="peer-meta">{p.device_id}</span>
                 <span class="peer-seen">last seen {fmtLastSeen(p.last_seen)}</span>
               </div>
-              <div class="peer-actions">
+              <Inline gap="2" class="peer-actions">
                 <Button variant="primary" size="sm" onclick={() => startPair(p.device_id)} disabled={sync.loading}>Pair</Button>
-                <Button variant="ghost" size="sm" onclick={() => syncWith(p.device_id)}>Sync now</Button>
-              </div>
+                <Button variant="tertiary" size="sm" onclick={() => syncWith(p.device_id)}>Sync now</Button>
+              </Inline>
             </li>
           {/each}
         </ul>
       {/if}
     </section>
 
-    <!-- Paired -->
     <section class="col">
       <header class="col-head">
-        <h3>Paired devices <span class="count mono">{sync.pairs.length}</span></h3>
+        <h3 class="section-title">
+          Paired devices <span class="count">{sync.pairs.length}</span>
+        </h3>
         <p class="col-sub">Trusted. Memory and skills flow automatically.</p>
       </header>
 
       {#if sync.pairs.length === 0}
-        <Card elevation={1} padding="lg">
-          <div class="empty">
-            <div class="empty-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 2l2 5h5l-4 3 1.5 5L12 12l-4.5 3L9 10 5 7h5z" />
-              </svg>
-            </div>
-            <h4>No paired devices yet</h4>
-            <p>Pair with a peer to start syncing memory, skills, and config across machines.</p>
-          </div>
+        <Card variant="sunken" padding="5">
+          {#snippet children()}
+            <EmptyState
+              primary="No paired devices yet"
+              secondary="Pair with a peer to start syncing memory, skills, and config across machines."
+              voice="mono"
+            />
+          {/snippet}
         </Card>
       {:else}
         <ul class="peer-list">
           {#each sync.pairs as p, i (p.device_id)}
             <li class="peer-row paired" style:--stagger-index={i}>
-              <Avatar name={p.device_name} size="md" status="online" />
+              <Avatar name={p.device_name} variant="user" size="md" />
               <div class="peer-info">
                 <span class="peer-name">{p.device_name}</span>
-                <span class="peer-meta mono">{p.device_id}</span>
+                <span class="peer-meta">{p.device_id}</span>
                 <span class="peer-seen">paired {fmtLastSeen(p.paired_at)}</span>
               </div>
-              <div class="peer-actions">
+              <Inline gap="2" class="peer-actions">
                 <Button variant="primary" size="sm" onclick={() => syncWith(p.device_id)}>Sync now</Button>
-                <Button variant="danger" size="sm" onclick={() => revoke(p.device_id)}>Revoke</Button>
-              </div>
+                <Button variant="destructive" size="sm" onclick={() => revoke(p.device_id)}>Revoke</Button>
+              </Inline>
             </li>
           {/each}
         </ul>
@@ -263,113 +265,124 @@
     padding: var(--space-6) var(--space-5);
     overflow-y: auto;
     height: 100%;
-    max-width: var(--content-max-width-wide);
+    max-width: 56rem;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    background-color: var(--surface-base);
   }
 
   .page-header {
-    animation: fade-in-up var(--transition-slow) var(--ease-out-expo) both;
-  }
-  .title-row {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
-    margin-bottom: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-3);
   }
-  .display-h2 {
-    font-family: var(--font-display);
-    font-size: var(--size-2xl);
-    font-weight: var(--weight-medium);
-    letter-spacing: var(--tracking-tight);
-    color: var(--text);
+
+  .title-row {
+    width: 100%;
+  }
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: var(--text-h2-size);
+    font-weight: var(--text-h2-weight);
+    letter-spacing: var(--text-h2-tracking);
+    color: var(--content-primary);
     margin: 0 0 var(--space-2) 0;
-    line-height: var(--leading-tight);
+    line-height: var(--text-h2-leading);
   }
+
   .lede {
-    font-size: var(--size-md);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 640px;
+    font-size: var(--text-body-size);
+    color: var(--content-secondary);
+    line-height: 1.55;
+    max-width: 40rem;
     margin: 0;
   }
 
-  /* ── This device ───────────────────────────────── */
-  .this-device {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--space-4);
-  }
-  .td-info h3 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+  .section-title {
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     margin: 0 0 var(--space-3) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
+
+  .this-device {
+    width: 100%;
+  }
+
   .kv-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--space-2) var(--space-5);
     margin: 0;
   }
+
   .kv {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
+
   .kv dt {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
+    font-size: var(--text-caption-size);
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
+    color: var(--content-tertiary);
   }
+
   .kv dd {
-    font-size: var(--size-sm);
-    color: var(--text);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-primary);
     margin: 0;
   }
 
-  /* ── Two columns ───────────────────────────────── */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
   .columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-5);
   }
+
   @media (max-width: 880px) {
-    .columns { grid-template-columns: 1fr; }
+    .columns {
+      grid-template-columns: 1fr;
+    }
   }
 
   .col-head {
     margin-bottom: var(--space-3);
   }
-  .col-head h3 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    margin: 0 0 var(--space-1) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+
+  .col-head .section-title {
+    margin-bottom: var(--space-1);
   }
+
   .count {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
-    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-secondary);
+    background-color: var(--surface-sunken);
     padding: 2px 6px;
     border-radius: var(--radius-pill);
+    font-weight: 400;
   }
+
   .col-sub {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
     margin: 0;
   }
 
-  /* ── Peer lists ───────────────────────────────── */
   .peer-list {
     list-style: none;
     margin: 0;
@@ -378,30 +391,36 @@
     flex-direction: column;
     gap: var(--space-2);
   }
+
   .peer-row {
     display: grid;
     grid-template-columns: auto 1fr auto;
     gap: var(--space-3);
     align-items: center;
     padding: var(--space-3) var(--space-4);
-    background: var(--surface-1);
-    border: 1px solid var(--border);
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
     transition:
-      background var(--transition-fast),
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast);
-    animation: stagger-in var(--transition-base) var(--ease-out-expo) both;
+      background-color var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard);
+    animation: sync-stagger var(--duration-base) var(--ease-standard) both;
     animation-delay: calc(var(--stagger-index, 0) * 60ms);
   }
-  .peer-row:hover {
-    background: var(--surface-2);
-    border-color: var(--border-strong);
-    box-shadow: var(--shadow-sm);
+
+  @keyframes sync-stagger {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
   }
+
+  .peer-row:hover {
+    background-color: var(--surface-sunken);
+    border-color: var(--border-strong);
+  }
+
   .peer-row.paired {
     border-color: var(--border-focus);
-    background: var(--accent-faint);
+    background-color: var(--plum-50);
   }
 
   .peer-info {
@@ -410,83 +429,53 @@
     flex-direction: column;
     gap: 2px;
   }
+
   .peer-name {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
+    font-size: var(--text-body-size);
+    font-weight: 500;
+    color: var(--content-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
   .peer-meta {
-    font-size: var(--size-xs);
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
   .peer-seen {
-    font-size: var(--size-xs);
-    color: var(--text-muted);
+    font-size: var(--text-caption-size);
+    color: var(--content-secondary);
   }
 
   .peer-actions {
-    display: flex;
-    gap: var(--space-2);
+    flex-shrink: 0;
   }
 
-  /* ── Empty state ──────────────────────────────── */
-  .empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: var(--space-2);
-    padding: var(--space-5);
-  }
-  .empty-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-lg);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-faint);
-    margin-bottom: var(--space-2);
-  }
-  .empty h4 {
-    font-size: var(--size-md);
-    font-weight: var(--weight-semibold);
-    color: var(--text);
-    margin: 0;
-  }
-  .empty p {
-    font-size: var(--size-sm);
-    color: var(--text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 360px;
-    margin: 0;
-  }
-
-  .error {
-    color: var(--error);
-    font-size: var(--size-sm);
+  .error-banner {
+    color: var(--status-error-fg);
+    font-size: var(--text-body-sm-size);
     padding: var(--space-2) var(--space-3);
-    background: var(--error-soft);
-    border: 1px solid var(--border-danger);
+    background-color: var(--status-error-bg);
+    border: 1px solid var(--status-error-border);
     border-radius: var(--radius-md);
-    margin: var(--space-3) 0 0 0;
+    margin: 0;
   }
-  .success {
-    color: var(--success);
-    font-size: var(--size-sm);
-    margin: var(--space-3) 0 0 0;
+
+  .success-banner {
+    color: var(--status-success-fg);
+    font-size: var(--text-body-sm-size);
+    margin: 0;
   }
+
   .muted {
-    color: var(--text-muted);
-    font-size: var(--size-sm);
+    color: var(--content-tertiary);
+    font-size: var(--text-body-sm-size);
     margin: 0;
   }
 </style>

@@ -1,6 +1,9 @@
 import './style.css'
 import { mount } from 'svelte'
+import { initTheme } from '$tokens/themes'
 import App from './App.svelte'
+
+initTheme()
 
 // Svelte 5 uses mount() instead of the legacy `new Component()` API.
 // The legacy constructor may not survive minification in the Wails
