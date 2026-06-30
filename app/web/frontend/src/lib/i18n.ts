@@ -19,6 +19,44 @@ const localeCatalogs: Catalogs = {
 
 const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
 
+// Built-in English fallback for the always-on-screen shell strings.
+// Consulted *last* (after the loaded daemon/static catalogs), so real
+// translations always win. This guarantees the navigation, command
+// palette, and onboarding chrome read correctly on first paint —
+// before the daemon catalog has loaded, and in offline/dev preview.
+const BUILTIN_FALLBACK: Catalog = {
+	'nav.chat': 'Chat',
+	'nav.settings': 'Settings',
+	'nav.audit': 'Audit',
+	'nav.replay': 'Replay',
+	'nav.about': 'About',
+	'nav.hub': 'Hub',
+	'nav.sync': 'Sync',
+	'nav.skills': 'Skills',
+	'nav.channels': 'Channels',
+	'nav.delegation': 'Delegation',
+	'common.search': 'Search or run a command',
+	'common.no_results': 'No results',
+	'common.back': 'Back',
+	'common.continue': 'Continue',
+	'common.skip': 'Skip for now',
+	'common.cancel': 'Cancel',
+	'chat.new_chat': 'New chat',
+	'chat.placeholder': 'Message Condura…',
+	'chat.send': 'Send',
+	'chat.stop': 'Stop',
+	'chat.assistant': 'Condura',
+	'chat.streaming': 'Streaming',
+	'chat.thinking': 'Thinking…',
+	'chat.messages': 'messages',
+	'chat.no_conversations': 'No conversations yet.',
+	'chat.composer_hint': 'Shift+Enter for a newline. / for commands.',
+	'app.status.connected': 'Connected',
+	'app.status.disconnected': 'Disconnected',
+	'composer.model_picker_label': 'Model',
+	'composer.voice_idle': 'Listening… speak now'
+};
+
 // currentLocale is the source of truth for synchronous lookups.
 // locale (the writable store below) is still exported for callers
 // that need to subscribe/react. We mirror every locale change into
@@ -86,6 +124,7 @@ export function t(key: string, ...args: unknown[]): string {
 	if (!template && currentLocale !== DEFAULT_LOCALE) {
 		template = localeCatalogs[DEFAULT_LOCALE][key];
 	}
+	if (!template) template = BUILTIN_FALLBACK[key];
 	if (!template) return key;
 	try {
 		return template.replace(/{(\d+)}/g, (_match: string, i: string) => {

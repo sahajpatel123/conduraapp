@@ -15,7 +15,14 @@
   import Badge from '../components/ui/Badge.svelte'
   import Select from '../components/ui/Select.svelte'
   import VoiceOrb from '../components/VoiceOrb.svelte'
-  import EmptyState from '../components/ui/EmptyState.svelte'
+  import IrisOrb from '../components/IrisOrb.svelte'
+
+  const suggestions = [
+    { verb: 'summarize', text: 'Summarize my recent file changes' },
+    { verb: 'draft', text: 'Draft a release note for the next version' },
+    { verb: 'inspect', text: 'Summarize my audit log from today' },
+    { verb: 'run', text: 'Run my test suite and report failures' }
+  ]
 
   let inputText = $state('')
   let voiceOn = $state(false)
@@ -184,35 +191,29 @@
 
     <div class="chat-scroll" bind:this={scrollerEl}>
       {#if conversation.messages.length === 0 && !conversation.isStreaming}
-        <EmptyState
-          title={t('chat.welcome_title') ?? 'Ask Condura anything.'}
-          description={t('chat.welcome_lede') ?? 'A free, local AI conductor for everything on your computer.'}
-        >
-          {#snippet icon()}
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5" />
-            </svg>
-          {/snippet}
-          {#snippet action()}
-            <div class="welcome-actions">
-              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Review my recent file changes' }}>
-                Review my recent file changes
-              </Button>
-              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Draft a release note for v0.1.0' }}>
-                Draft a release note for v0.1.0
-              </Button>
-              <Button variant="accent-ghost" size="sm" onclick={() => { inputText = 'Summarize the audit log' }}>
-                Summarize the audit log
-              </Button>
-            </div>
-          {/snippet}
-        </EmptyState>
+        <div class="welcome">
+          <div class="welcome-orb"><IrisOrb state={daemon.connected ? 'idle' : 'offline'} size={60} title="Condura" /></div>
+          <h2 class="welcome-title">I'm awake.</h2>
+          <p class="welcome-lede">Type a task, or say <span class="wake">"hey condura."</span> I'll ask before I touch anything that matters.</p>
+          <div class="welcome-suggest">
+            {#each suggestions as s (s.text)}
+              <button type="button" class="suggest" onclick={() => { inputText = s.text }}>
+                <span class="suggest-verb">{s.verb}</span>
+                <span class="suggest-text">{s.text}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
       {:else}
         <div class="chat-messages">
           {#each conversation.messages as msg, i (i)}
             <article class="msg msg-{msg.role}">
+              {#if msg.role === 'assistant'}
+                <span class="gutter" aria-hidden="true"><span class="glyph"></span></span>
+              {/if}
+              <div class="bubble">
               <div class="msg-meta">
-                <span class="msg-role">{msg.role}</span>
+                <span class="msg-role">{msg.role === 'assistant' ? 'Condura' : msg.role === 'user' ? 'You' : msg.role}</span>
                 {#if msg.tool_calls && msg.tool_calls.length > 0}
                   <Badge tone="accent" size="xs">{msg.tool_calls.length} tool calls</Badge>
                 {/if}
@@ -236,11 +237,14 @@
                   </div>
                 {/if}
               </div>
+              </div>
             </article>
           {/each}
 
           {#if conversation.isStreaming}
             <article class="msg msg-assistant msg-streaming">
+              <span class="gutter" aria-hidden="true"><span class="glyph live"></span></span>
+              <div class="bubble">
               <div class="msg-meta">
                 <span class="msg-role">{t('chat.assistant')}</span>
                 <Badge tone="accent" dot pulse size="xs">{t('chat.streaming')}</Badge>
@@ -266,6 +270,7 @@
                     {/each}
                   </div>
                 {/if}
+              </div>
               </div>
             </article>
           {/if}
@@ -475,22 +480,45 @@
   .chat-messages {
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
-    max-width: 820px;
+    gap: var(--space-7);
+    max-width: var(--content-max);
     margin: 0 auto;
+    padding-bottom: var(--space-4);
   }
 
   .msg {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-3);
     animation: fade-in-up var(--transition-base) var(--ease-out-expo) both;
   }
+  /* Assistant — full-column flow text with an Iris glyph in the gutter. */
+  .msg-assistant { align-items: flex-start; }
+  .msg-assistant .bubble { flex: 1; min-width: 0; }
+  /* User — right-aligned bubble. */
+  .msg-user { justify-content: flex-end; }
+  .msg-user .bubble {
+    max-width: 78%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-4);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .gutter { flex-shrink: 0; width: 22px; display: flex; justify-content: center; padding-top: 2px; }
+  .glyph {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, var(--aurora-2), var(--aurora-0) 70%, transparent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+  .glyph.live { animation: iris-breath 1.6s var(--ease-glide) infinite; }
 
   .msg-meta {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    margin-bottom: var(--space-1);
   }
   .msg-role {
     font-family: var(--font-mono);
@@ -592,9 +620,8 @@
   }
 
   .composer {
-    padding: var(--space-3) var(--space-5) var(--space-4);
-    background: var(--surface-1);
-    border-top: 1px solid var(--border);
+    padding: var(--space-2) var(--space-5) var(--space-5);
+    background: transparent;
   }
   .composer-voice {
     display: flex;
@@ -647,15 +674,18 @@
     display: flex;
     align-items: end;
     gap: var(--space-2);
-    background: var(--surface-2);
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur-base);
+    -webkit-backdrop-filter: var(--blur-base);
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-3);
+    border-radius: var(--radius-xl);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+    box-shadow: var(--shadow-lg), var(--inset-hair);
     transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
   }
   .composer-input-row:focus-within {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow: var(--shadow-lg), var(--glow-focus);
   }
 
   .composer-input {
@@ -694,11 +724,73 @@
   }
   .composer-hint .dot { opacity: 0.5; }
 
-  .welcome-actions {
+  /* ── Soulful empty state ──────────────────────────── */
+  .welcome {
+    height: 100%;
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    margin-top: var(--space-3);
+    text-align: center;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: var(--space-8) 0 var(--space-10);
+    animation: rise-in var(--transition-slow) var(--ease-out-expo) both;
+  }
+  .welcome-orb { margin-bottom: var(--space-5); }
+  .welcome-title {
+    font-family: var(--font-display);
+    font-weight: var(--weight-medium);
+    font-size: var(--display-md);
+    letter-spacing: var(--tracking-tight);
+    color: var(--text);
+    line-height: 1.05;
+    margin-bottom: var(--space-3);
+  }
+  .welcome-lede {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--size-lg);
+    color: var(--text-muted);
+    line-height: var(--leading-snug);
+    max-width: 44ch;
+    margin-bottom: var(--space-7);
+  }
+  .wake { color: var(--accent-hover); font-style: italic; }
+
+  .welcome-suggest {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    width: 100%;
+  }
+  .suggest {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--space-4);
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: transform var(--transition-fast) var(--ease-spring),
+                border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .suggest:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md), var(--inset-hair);
+  }
+  .suggest-verb {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--accent);
+  }
+  .suggest-text { font-size: var(--size-sm); color: var(--text); line-height: var(--leading-snug); }
+
+  @media (max-width: 620px) {
+    .welcome-suggest { grid-template-columns: 1fr; }
   }
 </style>
