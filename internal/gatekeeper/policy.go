@@ -2,6 +2,7 @@ package gatekeeper
 
 import (
 	_ "embed"
+	"fmt"
 	"strings"
 	"sync/atomic"
 
@@ -12,6 +13,52 @@ import (
 
 //go:embed defaults.yaml
 var defaultPolicyYAML []byte
+
+// PolicySchemaError is returned by LoadPolicy when the user-supplied
+// YAML violates a hard invariant the engine cannot honor. It is
+// exported so the daemon can distinguish schema violations from
+// generic parse errors and surface them to the user.
+type PolicySchemaError struct {
+	// Reason is a stable, programmatic identifier for the violation
+	// (e.g. "destructive_downgraded_to_allow"). Suitable for logs,
+	// telemetry, and i18n lookup.
+	Reason string
+	// RuleIndex is the 1-based index of the offending rule in the
+	// parsed Rules slice. 0 if the error is not tied to a specific
+	// rule.
+	RuleIndex int
+	// Rule is a short, human-readable summary of the offending rule.
+	Rule string
+	// Detail is the full sentence shown to the user / log.
+	Detail string
+}
+
+// Error implements the error interface.
+func (e *PolicySchemaError) Error() string {
+	return e.Detail
+}
+
+// Is supports errors.Is(target, *PolicySchemaError) so callers can
+// branch on the underlying reason even when the error has been wrapped
+// with %w.
+func (e *PolicySchemaError) Is(target error) bool {
+	var t *PolicySchemaError
+	if !asSchemaError(target, &t) {
+		return false
+	}
+	return e.Reason == t.Reason
+}
+
+func asSchemaError(err error, out **PolicySchemaError) bool {
+	if err == nil {
+		return false
+	}
+	if pe, ok := err.(*PolicySchemaError); ok {
+		*out = pe
+		return true
+	}
+	return false
+}
 
 // Rule defines a single policy rule.
 type Rule struct {
@@ -79,12 +126,76 @@ type Policy struct {
 }
 
 // LoadPolicy parses YAML into a Policy. Must succeed at startup.
+//
+// Schema invariants enforced:
+//   - No rule may match class == "destructive" with decide == "allow".
+//     CLAUDE.md (and formerly MISSION.md) §2.1 invariant #3 requires
+//     DESTRUCTIVE actions to always need fresh user consent — a
+//     permissive policy downgrades the entire Survival Rule to a
+//     soft contract. Violators return *PolicySchemaError.
+//   - No rule may match class == "destructive" with decide == "queue".
+//     Silently queueing a destructive action is nearly as bad as
+//     allowing it: the action still executes without a confirming
+//     native modal. Only "deny" and "require_*" decisions are legal
+//     for DESTRUCTIVE matches.
 func LoadPolicy(data []byte) (*Policy, error) {
 	var raw policyYAML
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
+	if err := validatePolicySchema(raw.Rules); err != nil {
+		return nil, err
+	}
 	return &Policy{rules: raw.Rules}, nil
+}
+
+// validatePolicySchema walks the rule list and rejects any rule that
+// would let a DESTRUCTIVE-class action execute without a fresh consent
+// modal. See CLAUDE.md §2.1 invariant #3.
+func validatePolicySchema(rules []Rule) error {
+	for i, r := range rules {
+		classes := strings.Split(strings.ToLower(r.Match.Class), ",")
+		for _, c := range classes {
+			c = strings.TrimSpace(c)
+			// "any" is a wildcard — treat it as covering all classes
+			// including DESTRUCTIVE for the purpose of this invariant.
+			if c != "destructive" && c != "any" {
+				continue
+			}
+			switch r.Decide {
+			case "allow":
+				return &PolicySchemaError{
+					Reason:    "destructive_downgraded_to_allow",
+					RuleIndex: i + 1,
+					Rule:      ruleSummary(r),
+					Detail: fmt.Sprintf(
+						"policy.yaml: rule %d downgrades DESTRUCTIVE to allow — this is forbidden by spec §2.1 invariant #3 (DESTRUCTIVE always requires fresh consent)",
+						i+1),
+				}
+			case "queue":
+				return &PolicySchemaError{
+					Reason:    "destructive_silently_queued",
+					RuleIndex: i + 1,
+					Rule:      ruleSummary(r),
+					Detail: fmt.Sprintf(
+						"policy.yaml: rule %d silently queues DESTRUCTIVE — forbidden by spec §2.1 invariant #3 (DESTRUCTIVE must require consent, not queue)",
+						i+1),
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// ruleSummary renders a one-line description of a rule for error
+// messages. Best-effort: we never fail to surface an error just
+// because the summary is awkward.
+func ruleSummary(r Rule) string {
+	class := r.Match.Class
+	if class == "" {
+		class = "<any>"
+	}
+	return fmt.Sprintf("match=%s decide=%s", class, r.Decide)
 }
 
 // DefaultPolicy returns the embedded defaults.

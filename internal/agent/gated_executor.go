@@ -7,6 +7,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/audit"
 	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 )
 
 // GatedExecutor wraps any Executor and routes every action through the
@@ -83,7 +84,10 @@ func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, clas
 		App:         action.Target,
 		Level:       level,
 		Result:      result,
-		Message:     fmt.Sprintf("%s [%s]: %s", class, decision, reason),
+		// FIX B: reason can quote user-derived text (utterances,
+		// paths, error strings). Redact before writing to the
+		// chain.
+		Message:     sanitize.RedactSecrets(fmt.Sprintf("%s [%s]: %s", class, decision, reason)),
 		SSBeforeRef: ssBeforeRef,
 		SSAfterRef:  ssAfterRef,
 	})

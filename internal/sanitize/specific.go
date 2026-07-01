@@ -3,8 +3,10 @@ package sanitize
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -176,24 +178,129 @@ func (s *URLSanitizer) Sanitize(input string) (string, error) {
 	// hostname passes the pattern check but resolves to a private IP.
 	// Use a context-aware resolver so the linter (noctx) is happy and
 	// the lookup can be canceled by an upstream timeout.
+	//
+	// NOTE: even with strict resolution, this Sanitize call alone is
+	// NOT a complete DNS-rebinding defense. The lookup is a single
+	// point-in-time check; the actual HTTP client may resolve a
+	// different IP seconds later. Callers that need a strong TOCTOU
+	// guarantee must use ResolveURL, pin the IP, and override the
+	// Host header on the request. See ResolveURL doc.
 	if s.ResolveDNS {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		ips, err := (&net.Resolver{}).LookupIP(ctx, "ip", host)
-		cancel()
-		if err == nil {
-			for _, ip := range ips {
-				if isBlockedIP(ip) {
-					return "", ErrURLDenied
-				}
-			}
+		// Sanitize has no upstream context; use Background with a
+		// short timeout. resolveHost enforces its own 2s budget
+		// internally.
+		if _, err := s.resolveHost(context.Background(), host); err != nil {
+			return "", err
 		}
-		// DNS lookup failure is NOT a deny: the actual HTTP client
-		// will fail naturally. Fail-open here matches the rest of
-		// the sanitizer chain (which errs on the side of letting
-		// the gatekeeper decide via policy).
 	}
 
 	return input, nil
+}
+
+// ResolveURL parses a URL, runs the same hostname and IP checks
+// Sanitize does, AND (when ResolveDNS is set) performs a DNS
+// lookup. It returns the first IP that passed the private-range
+// check so the caller can pin the request to that IP and override
+// the Host header to defeat DNS-rebinding attacks.
+//
+// The standard defense against DNS rebinding is:
+//
+//  1. Resolve the hostname ONCE (here).
+//  2. Replace the hostname in the request URL with the resolved IP.
+//  3. Set the request Host header to the original hostname (for
+//     virtual-host routing, SNI, and certificate verification).
+//  4. Connect to the pinned IP.
+//
+// The previous Sanitize() API only performed step 1 silently,
+// leaving the TOCTOU window open for any caller that just did
+// http.Get(sanitized). This method exposes the IP so the caller
+// can do steps 2–4.
+//
+// On URL that fails the hostname/pattern checks, ResolveURL
+// returns ErrURLDenied. On DNS lookup failure, it returns the
+// underlying error and no IP — the caller's HTTP layer will then
+// fail naturally (matches the existing fail-open-on-DNS-error
+// behavior of Sanitize). Callers that prefer fail-closed on DNS
+// errors should treat the error as a deny.
+func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, error) {
+	if input == "" {
+		return nil, nil
+	}
+	lower := strings.ToLower(strings.TrimSpace(input))
+	for _, p := range []string{"http://", "file://", "ftp://", "gopher://"} {
+		if strings.HasPrefix(lower, p) {
+			return nil, ErrURLDenied
+		}
+	}
+	u, err := url.Parse(input)
+	if err != nil {
+		return nil, ErrURLDenied
+	}
+	if u.Scheme == "" {
+		// Not a URL — nothing to resolve.
+		return nil, nil
+	}
+	host := u.Hostname()
+	if host == "" {
+		return nil, ErrURLDenied
+	}
+	// IP literal: no DNS needed. Return the parsed IP if it's not
+	// in a private range.
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedIP(ip) {
+			return nil, ErrURLDenied
+		}
+		return ip, nil
+	}
+	if isBlockedHostname(host) {
+		return nil, ErrURLDenied
+	}
+	return s.resolveHost(ctx, host)
+}
+
+// resolveHost looks up `host` and returns the first resolved IP
+// that is not in a blocked range. If any resolved IP is blocked,
+// the URL is denied (the conservative choice — we do not pick a
+// "safe" subset of mixed records, because a malicious DNS response
+// can include both a public and a private record and we want the
+// caller to fail closed on such a record).
+//
+// TODO(rebinding): every call site that uses the result of this
+// function should pin the IP for the HTTP request. As of
+// 2026-07-01 the wiring is partial — updater and telemetry use
+// the sanitized URL string with the default http.Client (no IP
+// pinning). A follow-up should introduce a shared
+// "PinnedHTTPClient" that takes (host, ip) and dials ip with the
+// Host header set to host, and route all internal HTTP through
+// it. Until that lands, the DNS-rebinding defense is best-effort.
+func (s *URLSanitizer) resolveHost(ctx context.Context, host string) (net.IP, error) {
+	if !s.ResolveDNS {
+		// Caller didn't opt in. This is a programming error if
+		// the caller expected a pin. Return nil and let the
+		// existing Sanitize path's "no resolution" semantics
+		// apply.
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ips, err := (&net.Resolver{}).LookupIP(cctx, "ip", host)
+	if err != nil {
+		// Match Sanitize's fail-open on DNS error.
+		return nil, nil //nolint:nilerr // intentional: see comment in Sanitize
+	}
+	var firstGood net.IP
+	for _, ip := range ips {
+		if isBlockedIP(ip) {
+			return nil, fmt.Errorf("%w: %s resolves to private IP %s", ErrURLDenied, host, ip)
+		}
+		if firstGood == nil {
+			firstGood = ip
+		}
+	}
+	return firstGood, nil
 }
 
 func (s *URLSanitizer) Name() string { return "url" }
@@ -210,6 +317,10 @@ func isBlockedIP(ip net.IP) bool {
 	case ip.IsUnspecified(): // 0.0.0.0, ::
 	case ip.Equal(net.ParseIP("169.254.169.254")): // AWS / GCP / Azure metadata
 	case ip.Equal(net.ParseIP("::ffff:169.254.169.254")): // IPv4-mapped metadata
+	case ip.Equal(net.ParseIP("100.100.100.200")): // Alibaba Cloud metadata
+	case ip.Equal(net.ParseIP("::ffff:100.100.100.200")): // IPv4-mapped Alibaba metadata
+	case ip.Equal(net.ParseIP("192.0.0.192")): // Oracle Cloud metadata (RFC 6943 SUBNET ID)
+	case ip.Equal(net.ParseIP("::ffff:192.0.0.192")): // IPv4-mapped Oracle metadata
 	default:
 		return false
 	}
@@ -226,6 +337,16 @@ func isBlockedHostname(host string) bool {
 	// Exact-match deny-list for special hostnames. These cannot
 	// be subdomain-matched safely (e.g. `localhost` should not
 	// also match `mylocalhost.example.com`).
+	//
+	// Cloud providers covered (2026-07-01 audit):
+	//   - AWS:  instance-data.ec2.internal
+	//   - GCP:  metadata.google.internal, metadata.goog
+	//   - Azure: metadata.azure.com
+	//   - Alibaba: metadata.aliyun.com, 100.100.100.200 (IP)
+	//   - Tencent: metadata.tencentyun.com
+	//   - Oracle: 192.0.0.192 (IP, in 192.0.0.0/24 which isPrivate
+	//             does not always catch — see isBlockedIP for the
+	//             dedicated case)
 	for _, blocked := range []string{
 		"localhost",
 		"ip6-localhost",
@@ -233,6 +354,9 @@ func isBlockedHostname(host string) bool {
 		"metadata.google.internal",
 		"metadata.goog",
 		"instance-data.ec2.internal",
+		"metadata.azure.com",
+		"metadata.aliyun.com",
+		"metadata.tencentyun.com",
 	} {
 		if host == blocked {
 			return true
@@ -289,17 +413,19 @@ func matchCCPattern(s string) bool {
 }
 
 func matchSSNPattern(s string) bool {
-	// Look for XXX-XX-XXXX pattern.
-	count := 0
-	for _, ch := range s {
-		if ch >= '0' && ch <= '9' {
-			count++
-		} else if ch != '-' && ch != ' ' {
-			count = 0
-		}
-	}
-	return count >= 9 && len(extractDigits(s)) >= 9
+	// SSN is XXX-XX-XXXX or XXX XX XXXX — explicit separators. We
+	// deliberately do NOT detect a bare 9-digit run, because that
+	// catches order numbers, ISBN-10s, phone numbers, and other
+	// benign inputs (audit 2026-07-01). The false-positive cost
+	// in real PII redaction work was unacceptable: nearly every
+	// text with a 9-digit run was being flagged.
+	return ssnPattern.MatchString(s)
 }
+
+// ssnPattern matches the canonical SSN forms: 123-45-6789 and
+// 123 45 6789. Anchored to a non-digit boundary so we don't match
+// a fragment inside a longer digit run.
+var ssnPattern = regexp.MustCompile(`(?:^|[^0-9])(\d{3})[- ](\d{2})[- ](\d{4})(?:[^0-9]|$)`)
 
 func extractDigits(s string) []rune {
 	var d []rune

@@ -59,9 +59,20 @@ type Action struct {
 	Body      string // message/text/code body (chat, type, email, python)
 }
 
-// classByKind maps known action kinds to their blast radius.
+// ClassByKind maps known action kinds to their blast radius.
 // Missing or empty kinds classify to DESTRUCTIVE (conservative default).
-var classByKind = map[string]Class{
+//
+// This map is the closed set of valid Kind values for any action
+// reaching the classifier from outside the daemon (sub-agent
+// ActionRequests, MCP tool-call wrappers, network IPC handlers).
+// It is read-only after package init. Callers MUST NOT mutate it;
+// treat it as immutable. The sanitize package reads from it via
+// AllowedSubAgentKinds() to enforce the allowlist at construction
+// sites — see internal/sanitize/subagent_kind.go.
+//
+// Mutating this map at runtime would let an attacker re-classify a
+// DESTRUCTIVE kind as READ across the entire process.
+var ClassByKind = map[string]Class{
 	// READ
 	"chat":                   READ,
 	"llm.complete":           READ,
@@ -116,7 +127,7 @@ var classByKind = map[string]Class{
 // DESTRUCTIVE.
 func Classify(a Action) Class {
 	kind := strings.ToLower(strings.TrimSpace(a.Kind))
-	if c, ok := classByKind[kind]; ok {
+	if c, ok := ClassByKind[kind]; ok {
 		return c
 	}
 	return DESTRUCTIVE

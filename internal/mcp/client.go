@@ -12,6 +12,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/internal/blastradius"
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 )
 
 // Client communicates with a single MCP server via JSON-RPC.
@@ -182,7 +183,20 @@ func (g *GatedClient) CallTool(ctx context.Context, name string, args map[string
 	start := time.Now()
 
 	// Gatekeeper: evaluate before execution.
-	ba := blastradius.Action{Kind: "mcp.tool_call", TargetApp: g.client.cfg.Name, Body: fmt.Sprintf("%v", args)}
+	// P0-A: normalize Kind at the construction site so a
+	// malformed/forward-compat/literal from MCP server config or
+	// future caller cannot slip a permissive Kind past the
+	// gatekeeper. Today the literal "mcp.tool_call" is hard-coded,
+	// but the normalizer is the single trust boundary at this site
+	// and any future change that supplies the kind dynamically
+	// inherits the protection for free.
+	//
+	// P0-4 fix: the raw args map is NOT safe to put in the
+	// gatekeeper body as-is. Any embedded credential (token,
+	// api_key, password, secret, etc.) would land in both the
+	// consent modal display and the audit chain. Redact known
+	// secret shapes first.
+	ba := blastradius.Action{Kind: sanitize.NormalizeSubAgentKind("mcp.tool_call"), TargetApp: g.client.cfg.Name, Body: sanitize.RedactSecrets(fmt.Sprintf("%v", args))}
 	decision, reason := g.gate.Evaluate(ctx, ba)
 	if decision != gatekeeper.Allow {
 		return &ToolCallResult{

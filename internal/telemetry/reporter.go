@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
@@ -178,6 +179,21 @@ func (r *Reporter) sendAsync(ev Event) {
 	go func() {
 		endpoint := r.Endpoint()
 		if endpoint == "" {
+			return
+		}
+		// Audit 2026-07-01: telemetry was previously posting to
+		// the configured endpoint with no SSRF check, mirroring
+		// the updater gap. If a user (or an attacker who can
+		// write the config dir) points the endpoint at a local
+		// service, telemetry will probe that service with our
+		// outbound connection. The strict sanitizer rejects
+		// private/metadata IPs and (with DNS resolution) blocks
+		// the common rebinding targets. See the TODO in
+		// internal/sanitize/specific.go for the residual TOCTOU
+		// window.
+		if _, err := sanitize.NewStrictURLSanitizer().Sanitize(endpoint); err != nil {
+			// Drop the event. Telemetry is best-effort; refusing
+			// a request silently is the documented contract.
 			return
 		}
 		body, err := json.Marshal(ev)

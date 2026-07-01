@@ -131,6 +131,12 @@ func registerSafetyMethods(srv *ipc.Server, subs *Subsystems) {
 // Returns the source string ("embedded default" or the user path)
 // and an error. nil error means a *gatekeeper.Policy was loaded
 // and applied to subs.Safety.Engine.
+//
+// If the user YAML loads but violates a hard schema invariant (e.g.
+// a rule that downgrades DESTRUCTIVE to allow) we DO NOT refuse to
+// run — refusing to start would leave the user with a broken agent
+// and no path to recovery. We log at ERROR level, surface a daemon
+// notification, and fall back to the embedded default-deny policy.
 func loadPolicyFromDisk(subs *Subsystems) (string, error) {
 	dataDir := subs.GeneralDataDir()
 	var policyPath string
@@ -143,20 +149,48 @@ func loadPolicyFromDisk(subs *Subsystems) (string, error) {
 	)
 	if policyPath != "" {
 		//nolint:gosec // G304: policyPath is server-controlled.
-		if b, err := os.ReadFile(policyPath); err == nil {
+		if b, rerr := readPolicyFile(policyPath); rerr == nil {
 			parsed, perr := gatekeeper.LoadPolicy(b)
 			if perr != nil {
-				return "", &ipc.Error{
-					Code:    ipc.CodeInvalidParams,
-					Message: fmt.Sprintf("policy reload: parse %s: %v", policyPath, perr),
+				var schemaErr *gatekeeper.PolicySchemaError
+				if errors.As(perr, &schemaErr) {
+					// P0-B fix: a user policy cannot silently
+					// weaken the Survival Rule. Log loud, notify
+					// the GUI, fall back to defaults. We do not
+					// surface this as an IPC error to the caller
+					// because starting up with the embedded
+					// default-deny policy is strictly safer than
+					// refusing to serve at all.
+					slog.Error("policy.yaml rejected by schema validator; falling back to defaults",
+						"path", policyPath,
+						"rule_index", schemaErr.RuleIndex,
+						"rule", schemaErr.Rule,
+						"reason", schemaErr.Reason,
+						"detail", schemaErr.Detail,
+					)
+					if subs.Broker != nil {
+						subs.Broker.PublishJSON("daemon.policy.rejected", map[string]any{
+							"path":       policyPath,
+							"rule_index": schemaErr.RuleIndex,
+							"rule":       schemaErr.Rule,
+							"reason":     schemaErr.Reason,
+							"detail":     schemaErr.Detail,
+						})
+					}
+				} else {
+					return "", &ipc.Error{
+						Code:    ipc.CodeInvalidParams,
+						Message: fmt.Sprintf("policy reload: parse %s: %v", policyPath, perr),
+					}
 				}
+			} else {
+				p = parsed
+				src = policyPath
 			}
-			p = parsed
-			src = policyPath
-		} else if !errors.Is(err, os.ErrNotExist) {
+		} else if !errors.Is(rerr, os.ErrNotExist) {
 			return "", &ipc.Error{
 				Code:    ipc.CodeInternalError,
-				Message: fmt.Sprintf("policy reload: read %s: %v", policyPath, err),
+				Message: fmt.Sprintf("policy reload: read %s: %v", policyPath, rerr),
 			}
 		}
 	}
@@ -166,4 +200,37 @@ func loadPolicyFromDisk(subs *Subsystems) (string, error) {
 	}
 	subs.Safety.Engine.ReloadPolicy(p)
 	return src, nil
+}
+
+// readPolicyFile reads the policy file at `path` after enforcing
+// a hard upper bound on its permissions. The gatekeeper policy
+// decides what the agent may do on the user's machine; loading it
+// from a file that any local user can rewrite means a local
+// attacker can downgrade the safety layer before we ever parse a
+// byte.
+//
+// Audit 2026-07-01 (P1-4): policy.yaml must be mode 0600 or
+// stricter. Anything else (0644, 0660, 0664, 0755, …) is refused
+// with a clear error so the operator knows what to chmod. The
+// underlying os.ReadFile is G304-tainted only when the path is
+// attacker-controlled; here the path is computed from
+// subs.GeneralDataDir() and is server-controlled.
+//
+// A missing file is NOT an error here — it just means "fall back
+// to the embedded default policy". Stat errors that aren't
+// IsNotExist are treated as a hard error so a temporary FS issue
+// is surfaced rather than silently ignored.
+func readPolicyFile(path string) ([]byte, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil //nolint:nilnil // missing policy file → fall back to defaults
+		}
+		return nil, err
+	}
+	if mode := fi.Mode().Perm(); mode > 0o600 {
+		return nil, fmt.Errorf("policy file mode %o is too permissive (must be 0600 or stricter)", mode)
+	}
+	//nolint:gosec // G304: path is server-controlled.
+	return os.ReadFile(path)
 }

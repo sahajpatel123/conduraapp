@@ -13,6 +13,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/internal/backup"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 )
 
 // registerBackupMethods wires the backup.* and uninstall.* RPC
@@ -176,7 +177,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		// requiring the user to restart the daemon.
 		if subs.Storage != nil {
 			if rerr := subs.Storage.Reload(ctx); rerr != nil {
-				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appCondurad, auditResultError, rerr.Error()))
+				_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.reload_failed", appCondurad, auditResultError, sanitize.RedactSecrets(rerr.Error())))
 				return nil, fmt.Errorf("backup: restore succeeded on disk but storage reload failed: %w (daemon restart required to see restored data)", rerr)
 			}
 		}
@@ -184,16 +185,16 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		// calls (memory.recall, skills.list) see the restored
 		// data, not the stale handles from before the swap.
 		if rerr := subs.ReloadAuxiliaryDatabases(); rerr != nil {
-			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.aux_reload_failed", appCondurad, auditResultError, rerr.Error()))
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.aux_reload_failed", appCondurad, auditResultError, sanitize.RedactSecrets(rerr.Error())))
 			return nil, fmt.Errorf("backup: restore succeeded but auxiliary db reload failed: %w", rerr)
 		}
 		// Run integrity checks on all three restored databases.
 		// If any database is corrupt, report it (best-effort;
 		// we don't abort since the main data is already swapped in).
 		if ierr := runPostRestoreIntegrityChecks(ctx, subs); ierr != nil {
-			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.integrity_warning", appCondurad, auditResultError, ierr.Error()))
+			_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore.integrity_warning", appCondurad, auditResultError, sanitize.RedactSecrets(ierr.Error())))
 		}
-		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appCondurad, auditResultAllow, "path="+p.Path))
+		_ = subs.Audit.Append(ctx, buildAuditEvent("backup.restore", appCondurad, auditResultAllow, sanitize.RedactSecrets("path="+p.Path)))
 		return auditOK(), nil
 	})
 

@@ -197,5 +197,20 @@ func escapeAppleScript(s string) string {
 	// expression. This is the osascript injection vector flagged in
 	// the security audit (F-11) and the backend audit (B-11).
 	s = strings.ReplaceAll(s, "`", "\\`")
+	// Escape the ampersand. In AppleScript, "&" is the string
+	// concatenation operator, so an unescaped "&" inside a string
+	// literal breaks the literal boundary and lets a model-controlled
+	// value splice in a second expression (`"x" & do shell script "y"`
+	// evaluates y). Audit 2026-07-01 hardening.
+	s = strings.ReplaceAll(s, "&", "\\&")
+	// Escape newlines, carriage returns, and tabs. AppleScript
+	// treats literal CR/LF inside double-quoted strings as expression
+	// terminators, so a newline in a model-controlled value can
+	// inject a sibling statement. Use the four-character escape
+	// sequences that AppleScript parses back to the original byte.
+	// Audit 2026-07-01 hardening.
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
 	return s
 }

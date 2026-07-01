@@ -357,6 +357,36 @@ CREATE INDEX IF NOT EXISTS idx_pa_spawn ON pending_actions(spawn_id);
 CREATE INDEX IF NOT EXISTS idx_pa_expires ON pending_actions(expires_at) WHERE status = 'pending';
 `,
 	},
+	{
+		// Phase 15 audit hardening (close §2.1 invariant #5 weak
+		// enforcement). The audit log is "append-only" semantically,
+		// but Prune deletes rows that exceed the retention window.
+		// After Prune, VerifyChain reports the pruned log as a valid
+		// standalone chain — but a forensic investigator cannot tell
+		// whether 50 rows were always present or whether 100 existed
+		// and 50 were pruned.
+		//
+		// The tombstone closes that gap. Prune inserts one row per
+		// invocation recording: how many rows were deleted, the id
+		// and HMAC of the oldest surviving row at prune time (which
+		// gives the investigator a starting point to reconstruct the
+		// pre-prune chain), the wall-clock timestamp, and the
+		// retention window in days. tombstones are themselves
+		// append-only — Prune never deletes a tombstone.
+		Version: 7, //nolint:mnd // migration version
+		Name:    "audit prune tombstones (tamper-evident retention)",
+		SQL: `
+CREATE TABLE IF NOT EXISTS prune_tombstone (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pruned_count INTEGER NOT NULL,
+    oldest_surviving_id INTEGER NOT NULL,
+    oldest_surviving_hmac TEXT NOT NULL,
+    pruned_at TEXT NOT NULL,
+    retention_window_days INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prune_tombstone_pruned_at ON prune_tombstone(pruned_at DESC);
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

@@ -16,6 +16,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/pending"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 )
 
 func buildDelegationBus(engine gatekeeper.Gatekeeper, sp *failover.SpendMonitor) *delegation.GatedRunner {
@@ -356,8 +357,11 @@ func auditExecution(ctx context.Context, subs *Subsystems, row *pending.Action) 
 		App:    appConduraG,
 		Level:  level,
 		Result: res,
-		Message: fmt.Sprintf("id=%s exit=%d duration_ms=%d err=%s",
-			row.ID, row.ExitCode, row.DurationMS, row.ExecutionError),
+		// FIX B: ExecutionError is a sub-agent error string that
+		// can include user paths, command fragments, or quoted
+		// payload text. Redact before writing to the chain.
+		Message: sanitize.RedactSecrets(fmt.Sprintf("id=%s exit=%d duration_ms=%d err=%s",
+			row.ID, row.ExitCode, row.DurationMS, row.ExecutionError)),
 	})
 }
 
@@ -406,8 +410,14 @@ func gateAndPersistParsedActions(ctx context.Context, subs *Subsystems, result *
 // for a single ActionRequest. Returns nil for requests whose
 // persist failed (the warning was already logged).
 func processOneActionRequest(ctx context.Context, subs *Subsystems, spawnID string, ar delegation.ActionRequest) *pending.Action {
+	// P0-A: normalize the sub-agent Kind at the construction site.
+	// A compromised sub-agent can emit any Kind string; without
+	// normalization a Kind like "chat" (READ) could carry a
+	// destructive Command past the classifier. See
+	// internal/sanitize/subagent_kind.go.
+	normalizedKind := sanitize.NormalizeSubAgentKind(ar.Kind)
 	ba := blastradius.Action{
-		Kind:      ar.Kind,
+		Kind:      normalizedKind,
 		TargetApp: ar.AgentName,
 		Body:      ar.Body,
 		Path:      ar.Path,
@@ -423,11 +433,13 @@ func processOneActionRequest(ctx context.Context, subs *Subsystems, spawnID stri
 		}
 		_ = subs.Audit.Append(ctx, audit.Event{
 			Actor:   "sub-agent:" + ar.AgentName,
-			Action:  "subagent.action:" + ar.Kind,
+			Action:  "subagent.action:" + normalizedKind,
 			App:     appConduraG,
 			Level:   level,
 			Result:  decStr,
-			Message: reason,
+			// FIX B: reason can contain sub-agent payload text
+			// (file paths, command bodies, URLs). Redact.
+			Message: sanitize.RedactSecrets(reason),
 		})
 	}
 
@@ -437,7 +449,7 @@ func processOneActionRequest(ctx context.Context, subs *Subsystems, spawnID stri
 	row, perr := subs.Pending.Insert(ctx, pending.InsertInput{
 		SpawnID:      spawnID,
 		AgentName:    ar.AgentName,
-		Kind:         ar.Kind,
+		Kind:         normalizedKind,
 		Payload:      pending.Payload{Command: ar.Command, Path: ar.Path, Body: ar.Body},
 		GateDecision: decStr,
 		GateReason:   reason,

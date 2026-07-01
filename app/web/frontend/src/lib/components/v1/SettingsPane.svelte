@@ -44,11 +44,12 @@
   import type {
     AdaptiveStrength,
     AdaptiveUserModel,
+    DaemonCapabilities,
     InferredField,
     ReplayFrame,
   } from '../../ipc/types';
 
-  type Section = 'replay' | 'adaptive' | 'permissions' | 'hotkey' | 'autonomy' | 'backup' | 'account';
+  type Section = 'replay' | 'adaptive' | 'permissions' | 'hotkey' | 'autonomy' | 'backup' | 'account' | 'trust';
   type AutonomyLevel = 'autonomous' | 'warn' | 'block';
   type ReceiptState = 'done' | 'paused' | 'error' | 'pending';
 
@@ -86,8 +87,36 @@
   >(null);
   let permPollTimer: ReturnType<typeof setInterval> | null = null;
 
+  // Trust & safety: read-only "what this build can and can't do"
+  // panel. The shape comes from daemon.capabilities (CLAUDE.md
+  // §2.1 invariant #4). Honest disclosure is the whole point —
+  // a kill switch the agent process can disable is not a kill
+  // switch. Loaded lazily on first visit to the trust section.
+  let capabilities = $state<DaemonCapabilities | null>(null);
+  let capabilitiesLoading = $state(false);
+  let capabilitiesError = $state<string | null>(null);
+
   $effect(() => {
     current = activeSection;
+  });
+
+  // Load capabilities on first visit to the trust section.
+  $effect(() => {
+    if (current !== 'trust') return;
+    if (capabilities !== null || capabilitiesLoading) return;
+    capabilitiesLoading = true;
+    capabilitiesError = null;
+    ipc
+      .daemonCapabilities()
+      .then((c) => {
+        capabilities = c;
+      })
+      .catch((err: unknown) => {
+        capabilitiesError = err instanceof Error ? err.message : String(err);
+      })
+      .finally(() => {
+        capabilitiesLoading = false;
+      });
   });
 
   const SECTIONS: Array<{ id: Section; label: string; hint: string }> = [
@@ -98,6 +127,7 @@
     { id: 'autonomy',    label: '05', hint: 'Autonomy matrix' },
     { id: 'backup',      label: '06', hint: 'Backup & restore' },
     { id: 'account',     label: '07', hint: 'Account & sync' },
+    { id: 'trust',       label: '08', hint: 'Trust & safety' },
   ];
 
   const PERM_KINDS = ['accessibility', 'screen_recording', 'microphone', 'notifications'] as const;
@@ -747,6 +777,88 @@
         <div class="account-note">
           <p>Sync is device-to-device, E2E encrypted. No central server. No account required.</p>
         </div>
+      {:else if current === 'trust'}
+        <header class="content__header">
+          <h2>Trust &amp; safety</h2>
+          <p class="content__lede">
+            What this build can and can't do. Read-only — these are the safety mechanisms actually wired into this binary, not marketing copy.
+          </p>
+        </header>
+
+        {#if capabilitiesLoading}
+          <p class="content__lede">Loading capabilities…</p>
+        {:else if capabilitiesError}
+          <p class="content__lede">Could not load capabilities: {capabilitiesError}</p>
+        {:else if capabilities}
+          {@const l3 = capabilities.kill_switch.layer3_network_isolation}
+          <div class="trust">
+            <div class="trust__card">
+              <div class="trust__card-header">
+                <span class="trust__pill" data-on={capabilities.kill_switch.layer1_hotkey}>layer 1</span>
+                <h3>Hard hotkey</h3>
+              </div>
+              <p>Press the kill-switch combo (default Cmd+Shift+Esc) to halt the agent immediately. Independent of the agent process.</p>
+              <p class="trust__status">
+                Status: {capabilities.kill_switch.layer1_hotkey ? 'wired' : 'not wired'}
+              </p>
+            </div>
+
+            <div class="trust__card">
+              <div class="trust__card-header">
+                <span class="trust__pill" data-on={capabilities.kill_switch.layer2_watchdog}>layer 2</span>
+                <h3>Watchdog timer</h3>
+              </div>
+              <p>Auto-halt the daemon after a period of inactivity. The user arms this in cfg; it never runs by default.</p>
+              <p class="trust__status">
+                Available: {capabilities.kill_switch.layer2_watchdog ? 'yes' : 'no'}
+              </p>
+            </div>
+
+            <div class="trust__card" data-warn={l3.in_process}>
+              <div class="trust__card-header">
+                <span class="trust__pill" data-on={!l3.in_process}>layer 3</span>
+                <h3>Network isolation</h3>
+              </div>
+              {#if l3.in_process}
+                <p>
+                  The kill switch's network guard runs <strong>inside the daemon process</strong>. A misbehaving agent that
+                  bypasses the daemon's HTTP transport can still reach the network. This is a known v0.1.0 limitation.
+                </p>
+                <p class="trust__caveat">
+                  A real OS-level guard (pf / netsh) in a separate process the agent cannot influence ships in {l3.deferred_to}.
+                  See {l3.reference}.
+                </p>
+              {:else}
+                <p>
+                  The kill switch's network guard runs in a <strong>separate OS process</strong> the agent cannot disable. Hard layer 3.
+                </p>
+              {/if}
+            </div>
+
+            <div class="trust__card">
+              <div class="trust__card-header">
+                <h3>Computer-use backends</h3>
+              </div>
+              <ul class="trust__list">
+                <li><strong>ORAX Eye:</strong> {capabilities.computer_use.orax}</li>
+                <li><strong>mac-cua:</strong> {capabilities.computer_use.mac_cua}</li>
+                <li><strong>macOS-MCP:</strong> {capabilities.computer_use.macos_mcp}</li>
+                <li><strong>Vision CUA:</strong> {capabilities.computer_use.vision_cua}</li>
+              </ul>
+            </div>
+
+            <div class="trust__card">
+              <div class="trust__card-header">
+                <h3>Audit log</h3>
+              </div>
+              <ul class="trust__list">
+                <li>Secret redaction in audit messages: {capabilities.audit.redaction ? 'on' : 'off'}</li>
+                <li>HMAC chain tombstones after prune: {capabilities.audit.prune_tombstone ? 'on' : 'off'}</li>
+                <li>HMAC subkey (HKDF-derived): {capabilities.audit.hmac_subkey ? 'on' : 'off'}</li>
+              </ul>
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
   </div>
@@ -1215,6 +1327,71 @@
     font-size: var(--text-body-sm-size);
     color: var(--content-tertiary);
     line-height: 1.5;
+  }
+
+  /* Trust & safety panel — read-only, honest disclosure of what
+     the kill switch can and can't do. */
+  .trust {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .trust__card {
+    padding: var(--space-4);
+    background-color: var(--surface-sunken);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+  }
+  .trust__card[data-warn='true'] {
+    border-color: var(--accent-warn, #c98a2b);
+  }
+  .trust__card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .trust__card-header h3 {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-body-sm-size);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .trust__pill {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background-color: var(--surface-base);
+    color: var(--content-tertiary);
+    border: 1px solid var(--border-subtle);
+  }
+  .trust__pill[data-on='true'] {
+    color: var(--content-primary);
+    background-color: var(--surface-raised, var(--surface-base));
+  }
+  .trust__card p {
+    margin: 0 0 var(--space-2) 0;
+    font-size: var(--text-body-sm-size);
+    color: var(--content-secondary);
+    line-height: 1.5;
+  }
+  .trust__status {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--content-tertiary);
+  }
+  .trust__caveat {
+    font-size: 0.75rem;
+    color: var(--accent-warn, #c98a2b);
+  }
+  .trust__list {
+    margin: 0;
+    padding-left: var(--space-4);
+    font-size: var(--text-body-sm-size);
+    color: var(--content-secondary);
+    line-height: 1.6;
   }
 
   @media (max-width: 720px) {

@@ -66,6 +66,16 @@ type ServerTransport struct {
 	// checked before the broker takes over the response.
 	SSE *sse.Broker
 
+	// Health is an optional http.Handler that serves /livez and
+	// /readyz on the SAME listener as the IPC server. The handler
+	// is mounted BEFORE the auth check, so health probes are
+	// unauthenticated by design (k8s/systemd/launchd don't carry
+	// bearer tokens). The caller is responsible for restricting
+	// the listen addr to loopback (or a trusted network) — the
+	// transport does NOT enforce that for you. The daemon's
+	// ListenSpec.Health opt-in defaults off for non-loopback.
+	Health http.Handler
+
 	mu        sync.Mutex
 	closed    bool
 	listeners []net.Listener
@@ -119,12 +129,24 @@ func (t *ServerTransport) serveListener(ln net.Listener) {
 }
 
 // handleHTTP dispatches HTTP requests:
-//   - GET /healthz -> 200 OK
+//   - GET /livez, /readyz -> unauthenticated health probes (if Health wired)
+//   - GET /healthz -> 200 OK (back-compat, used by some clients; auth required)
 //   - POST /sse-ticket -> exchange bearer token for one-time SSE ticket
 //   - GET /events  -> SSE broker (if configured), ticket or token auth
 //   - GET /ws      -> WebSocket upgrade
 //   - POST /       -> JSON-RPC
+//
+// Health probes (/livez, /readyz) are checked BEFORE auth so an
+// orchestrator (systemd, k8s, launchd) can poll without a bearer
+// token. The caller is responsible for keeping the listen addr on
+// loopback (or a trusted network); the transport does not enforce
+// that for you. See CLAUDE.md FIX A.
 func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
+	// Health probes first. No auth, no logging of the request body.
+	if t.Health != nil && (r.URL.Path == "/livez" || r.URL.Path == "/readyz") {
+		t.Health.ServeHTTP(w, r)
+		return
+	}
 	if r.Method == http.MethodGet && r.URL.Path == "/healthz" {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))

@@ -11,9 +11,11 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/internal/audit"
 	"github.com/sahajpatel123/conduraapp/internal/config"
+	"github.com/sahajpatel123/conduraapp/internal/halt"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/overlay"
 	"github.com/sahajpatel123/conduraapp/internal/updater"
+	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
 // Permissions for the first-run marker file.
@@ -364,6 +366,77 @@ func boolStr(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+// registerCapabilitiesMethods wires daemon.capabilities. This is
+// the GUI's "Trust & Safety" surface — it MUST reflect reality,
+// not aspirations. The shape is consumed by app/web/frontend's
+// SettingsPane and rendered as a read-only "What this build can
+// and can't do" panel.
+//
+// See CLAUDE.md §2.1 invariant #4 (user can always stop the
+// agent) and §33.5.2 row C4.14 (Layer 3 in-process limitation).
+// Honest disclosure is the whole point: a kill switch that the
+// agent process can disable is not a kill switch. Until the real
+// pf/netsh companion ships in v0.2.0, Layer 3 in_process = true.
+func registerCapabilitiesMethods(srv *ipc.Server) {
+	srv.Register("daemon.capabilities", func(_ context.Context, _ json.RawMessage) (any, error) {
+		killSwitch := map[string]any{
+			// Layer 1 — hard hotkey. Wired into internal/hotkey +
+			// kill switch overlay; works on macOS, Windows, Linux.
+			"layer1_hotkey": true,
+			// Layer 2 — in-process watchdog (CLAUDE.md §5.3,
+			// §16 Rec 2). Auto-halt on inactivity. Defaults off
+			// (user opts in via cfg.Daemon.Watchdog.Enabled); the
+			// capability shape reports "available" rather than
+			// "armed" because the user's choice is what matters.
+			"layer2_watchdog": true,
+			// Layer 3 — network isolation. Today the only
+			// implementation is the in-process guard; the
+			// `os_process` flag stays false until v0.2.0 swaps
+			// to a real pf/netsh companion process the agent
+			// cannot influence.
+			"layer3_network_isolation": map[string]any{
+				"in_process":   halt.IsLayer3InProcess(),
+				"os_process":   false,
+				"deferred_to":  "v0.2.0",
+				"reference":    "CLAUDE.md §33.5.2 row C4.14",
+			},
+		}
+		computerUse := map[string]any{
+			// ORAX Eye (AX-tree, MIT) is shipped as a stub because
+			// the native bridge is not built for v0.1.0; the agent
+			// falls back to the next non-stub backend.
+			"orax":      "stub",
+			"mac_cua":   "wrapper",
+			"macos_mcp": "wrapper",
+			// Vision CUA is intentionally disabled by default per
+			// the v0.1.0 cost policy. The wrapper is present so a
+			// user can opt in per-call via cfg.computer_use.
+			"vision_cua": "disabled_default",
+		}
+		audit := map[string]any{
+			// Redaction: secret-shaped strings in audit Message
+			// fields are masked via internal/sanitize. Wired in
+			// 2026-06-29.
+			"redaction": true,
+			// Prune tombstone: when audit pruning deletes a row,
+			// a tombstone is kept so the HMAC chain's prev_hash
+			// linkage stays verifiable across retention windows.
+			"prune_tombstone": true,
+			// HMAC subkey: the audit chain's HMAC key is derived
+			// via HKDF from the master key (FIX 1, 2026-06-29) so
+			// disclosure of the audit HMAC doesn't compromise the
+			// master key.
+			"hmac_subkey": true,
+		}
+		return map[string]any{
+			"version":      version.Get(),
+			"kill_switch":  killSwitch,
+			"computer_use": computerUse,
+			"audit":        audit,
+		}, nil
+	})
 }
 
 // auditOK returns a stable ack value for void RPC handlers. We return

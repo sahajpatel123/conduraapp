@@ -71,10 +71,19 @@ func (i *imessageChannel) Send(ctx context.Context, chatID, text string) error {
 // backslash, double-quote, and backtick. The backtick escape closes
 // the osascript injection vector (F-11/B-11) where a model-controlled
 // value could otherwise inject a `do shell script "..."` expression.
+//
+// Audit 2026-07-01: also escape the ampersand ("&" is the AppleScript
+// string-concat operator and breaks the literal boundary when used
+// unescaped), CR, LF, and TAB (which AppleScript treats as expression
+// terminators inside double-quoted strings).
 func escapeAppleScriptString(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "\"", "\\\"")
 	s = strings.ReplaceAll(s, "`", "\\`")
+	s = strings.ReplaceAll(s, "&", "\\&")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
 	return s
 }
 

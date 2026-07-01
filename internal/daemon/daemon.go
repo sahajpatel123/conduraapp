@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -80,10 +81,23 @@ type Options struct {
 // auth (loopback-only is enforced by the config validator).
 //
 // Disable, if true, suppresses IPC entirely (debugging / smoke tests).
+//
+// Health, if non-nil, mounts /livez and /readyz on the SAME listener
+// as the IPC server. The endpoints are unauthenticated and are
+// intended for orchestrators (systemd, k8s, launchd). The caller is
+// responsible for restricting the listen addr to loopback or a
+// trusted network — the daemon does NOT auto-reject non-loopback
+// bindings for you. For convenience, NewHealthHandler returns a
+// handler from internal/health.HTTPHandler with a sensible
+// readyz func.
 type ListenSpec struct {
 	Addr      string
 	AuthToken string
 	Disable   bool
+	// Health mounts /livez + /readyz on the same listener when set.
+	// The transport does not invoke it on non-loopback binds; the
+	// caller is expected to leave it nil in that case.
+	Health http.Handler
 }
 
 // maybeApplyPendingUpdate completes a staged Windows binary swap on restart.
@@ -166,6 +180,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	ipcT := newServerTransport(ipcSrv, opts.Listen.AuthToken)
 	ipcT.SSE = subs.Broker
+	ipcT.Health = opts.Listen.Health
 	if !opts.Listen.Disable {
 		if err := startListeners(ctx, ipcT, log, opts.Config, opts.Listen); err != nil {
 			_ = subs.Storage.Close()

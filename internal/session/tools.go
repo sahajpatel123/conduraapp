@@ -26,6 +26,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
 	"github.com/sahajpatel123/conduraapp/internal/pending"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/status"
 )
 
@@ -141,7 +142,9 @@ func (s *Session) dispatchTool(ctx context.Context, tc llm.ToolCall) string {
 		_ = s.cfg.Audit.Append(ctx, audit.Event{
 			Actor: auditApp, Action: "tool_dispatch", App: auditApp,
 			Level: level, Result: result,
-			Message: fmt.Sprintf("tool=%s kind=%s decision=%s reason=%q", tc.Function.Name, pa.Kind, decision, reason),
+			// FIX B: reason can quote user-derived tool inputs.
+			// Redact.
+			Message: sanitize.RedactSecrets(fmt.Sprintf("tool=%s kind=%s decision=%s reason=%q", tc.Function.Name, pa.Kind, decision, reason)),
 		})
 	}
 	if decision != gatekeeper.Allow {

@@ -17,6 +17,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/conversation"
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/sse"
 	"github.com/sahajpatel123/conduraapp/internal/stream"
 	"github.com/sahajpatel123/conduraapp/internal/voice"
@@ -84,13 +85,28 @@ func (l *Loop) auditUtterance(ctx context.Context, text string, decision gatekee
 	if l.Audit == nil {
 		return
 	}
+	// P0-4 fix: do not write the raw voice transcript into the audit
+	// chain. The full text may carry credentials the user spoke
+	// aloud (e.g. "use token ghp_..."), PII (names, addresses), or
+	// other content the user did not expect to be persisted at this
+	// blast radius. Record transcript metadata only — also runs the
+	// text through RedactSecrets so the length/flag fields are not
+	// derived from a payload that obviously contains a credential.
+	piiFlag := "N"
+	cleaned := sanitize.RedactSecrets(text)
+	if cleaned != text {
+		piiFlag = "Y"
+	}
+	// FIX B: reason is gatekeeper-derived and may contain quoted user
+	// text (e.g. "user typed: 'greet my friend alice@…'"). Redact
+	// before writing to the audit chain.
 	_ = l.Audit.Append(ctx, audit.Event{
 		Actor:   "user",
 		Action:  "utterance",
 		App:     "voice",
 		Level:   "info",
 		Result:  decision.String(),
-		Message: fmt.Sprintf("text=%q reason=%q", text, reason),
+		Message: sanitize.RedactSecrets(fmt.Sprintf("[utterance: len=%d, contains_pii=%s] reason=%q", len(cleaned), piiFlag, reason)),
 	})
 }
 
@@ -107,13 +123,16 @@ func (l *Loop) blockedResult(
 	}
 	result.Finish = "blocked"
 	if l.Audit != nil {
+		// FIX B: req.Text is the raw user utterance; reason is
+		// gatekeeper-derived and may quote it. Both must be
+		// redacted before going to the audit chain.
 		_ = l.Audit.Append(ctx, audit.Event{
 			Actor:   "agent",
 			Action:  "blocked",
 			App:     "voice",
 			Level:   "warn",
 			Result:  "deny",
-			Message: fmt.Sprintf("text=%q reason=%q class=%s", req.Text, reason, blastradius.Classify(action)),
+			Message: sanitize.RedactSecrets(fmt.Sprintf("text=%q reason=%q class=%s", req.Text, reason, blastradius.Classify(action))),
 		})
 	}
 	return result, true

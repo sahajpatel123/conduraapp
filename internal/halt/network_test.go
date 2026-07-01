@@ -205,3 +205,17 @@ func TestConnect(t *testing.T) {
 		t.Error("connect after Halt should fail")
 	}
 }
+
+// TestIsLayer3InProcess pins the v0.1.0 Layer 3 status. The
+// honest answer is "yes, the guard runs in-process" — which is
+// precisely why the GUI surfaces this via daemon.capabilities.
+// When v0.2.0 swaps to a real pf/netsh separate process, this
+// test must be updated to assert false AND the test below must
+// be inverted. Reference: CLAUDE.md §33.5.2 row C4.14.
+func TestIsLayer3InProcess(t *testing.T) {
+	if !IsLayer3InProcess() {
+		t.Fatal("IsLayer3InProcess = false; v0.1.0 ships an in-process guard. " +
+			"If you flipped this to false, also update the documentation " +
+			"in CLAUDE.md §33.5.2 row C4.14 and the v0.2.0 milestone list.")
+	}
+}

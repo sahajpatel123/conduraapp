@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
@@ -82,6 +83,22 @@ type Updater struct {
 	cacheDir string
 	stdin    io.Reader // for os.Stdin in tests
 	execPath string    // test override for target binary path
+
+	// skipURLSanitize, when true, bypasses the manifest/download
+	// URL sanitizer. Intended for tests that point the updater at
+	// a loopback httptest server (which is a private IP, so the
+	// strict sanitizer would block it). The production default is
+	// false; production callers never set this. The flag is
+	// unexported so the test must use SetURLSanitizeForTest.
+	skipURLSanitize bool
+}
+
+// SetURLSanitizeForTest disables the URL sanitizer for the
+// updater. ONLY for use in tests that point the updater at a
+// loopback httptest server. Returns the Updater for chaining.
+func (u *Updater) SetURLSanitizeForTest(skip bool) *Updater {
+	u.skipURLSanitize = skip
+	return u
 }
 
 // New returns a secure Updater with the embedded public key.
@@ -147,8 +164,25 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 	if u.manifest == "" {
 		return skipResult(cur, "no manifest URL"), nil
 	}
+	// Audit 2026-07-01: a manifest URL is the start of an external
+	// fetch path. Run it through the strict URL sanitizer so a
+	// tampered config (or a malicious default) cannot point us at
+	// a private/metadata IP, where an attacker on the same network
+	// could MITM the update and slip a signed-looking manifest past
+	// the Ed25519 check (a real signing key is only as strong as
+	// where the manifest is fetched from). Sanitize is
+	// best-effort-DNS-rebinding here — see the TODO in
+	// internal/sanitize/specific.go.
+	sanitizedManifest := u.manifest
+	if !u.skipURLSanitize {
+		s, err := sanitizeUpdaterURL(u.manifest)
+		if err != nil {
+			return Result{}, fmt.Errorf("manifest URL rejected: %w", err)
+		}
+		sanitizedManifest = s
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.manifest, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedManifest, nil)
 	if err != nil {
 		return Result{}, err
 	}
@@ -227,7 +261,15 @@ func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 	r = fresh
 
 	// Download.
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, r.DownloadURL, nil)
+	sanitizedDownload := r.DownloadURL
+	if !u.skipURLSanitize {
+		s, err := sanitizeUpdaterURL(r.DownloadURL)
+		if err != nil {
+			return r, fmt.Errorf("download URL rejected: %w", err)
+		}
+		sanitizedDownload = s
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedDownload, nil)
 	resp, err := u.client.Do(req)
 	if err != nil {
 		return r, fmt.Errorf("download: %w", err)
@@ -366,4 +408,30 @@ func readAll(r io.Reader) ([]byte, error) {
 			return out, err
 		}
 	}
+}
+
+// sanitizeUpdaterURL runs an updater-controlled URL through the
+// strict URL sanitizer. A nil URL (empty string) returns an empty
+// string and no error, so callers that intentionally skip the
+// updater when no manifest is configured keep working.
+//
+// Audit 2026-07-01: the manifest URL and the per-update download
+// URL were both fetched directly with the default http.Client,
+// with no SSRF check. A tampered config (or a malicious default
+// in a downgrade) could point the updater at a private/metadata
+// IP and serve a forged manifest. The Ed25519 check would still
+// fail on the bytes — but only AFTER the request reached the
+// attacker, which is itself a privacy/availability problem
+// (DNS-rebinding-style local-network attack). The strict
+// sanitizer catches the obvious cases (loopback, RFC1918, link-
+// local, cloud-metadata) before any network call is made.
+func sanitizeUpdaterURL(raw string) (string, error) {
+	if raw == "" {
+		return raw, nil
+	}
+	// The updater is a daemon-internal, not user-in-the-loop
+	// surface; we use the strict sanitizer so even the test
+	// environment gets DNS resolution. In production, hostnames
+	// must resolve to a public IP.
+	return sanitize.NewStrictURLSanitizer().Sanitize(raw)
 }

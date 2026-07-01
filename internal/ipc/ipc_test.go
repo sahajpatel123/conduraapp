@@ -21,6 +21,8 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sahajpatel123/conduraapp/internal/health"
 )
 
 // -----------------------------------------------------------------------------
@@ -425,6 +427,97 @@ func TestTransport_HTTP_GET(t *testing.T) {
 	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "ok", string(body))
+}
+
+func TestTransport_Health_LivezReadyz_NoAuth(t *testing.T) {
+	// Pins CLAUDE.md FIX A: /livez and /readyz are unauthenticated
+	// even when the IPC transport has a bearer token. The handler
+	// is mounted BEFORE the auth check.
+	s := NewServer()
+	st := &ServerTransport{
+		S:      s,
+		Token:  "supersecret", // transport requires auth for /api etc.
+		Health: healthForTest(),
+	}
+	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
+	defer func() { _ = st.Close() }()
+	addr := "http://" + st.Addr()
+
+	// No Authorization header on either probe. Both must return 200.
+	resp, err := http.Get(addr + "/livez")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "alive\n", string(body))
+
+	resp, err = http.Get(addr + "/readyz")
+	require.NoError(t, err)
+	body, _ = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "ready\n", string(body))
+}
+
+func TestTransport_Health_Readyz_ReflectsFunc(t *testing.T) {
+	// The readyz func's verdict flows to the wire: 503 with the
+	// reason when the func errors. Probes are still public.
+	s := NewServer()
+	st := &ServerTransport{
+		S:     s,
+		Token: "supersecret",
+		Health: healthForDownTest("migrations pending"),
+	}
+	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
+	defer func() { _ = st.Close() }()
+	addr := "http://" + st.Addr()
+
+	resp, err := http.Get(addr + "/readyz")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Contains(t, string(body), "migrations pending")
+}
+
+func TestTransport_Health_AbsentByDefault(t *testing.T) {
+	// When Health is nil, /livez and /readyz return 401 (the
+	// transport is in auth mode but the path is otherwise
+	// unhandled). The legacy /healthz endpoint still works.
+	s := NewServer()
+	st := &ServerTransport{S: s, Token: "supersecret"}
+	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
+	defer func() { _ = st.Close() }()
+	addr := "http://" + st.Addr()
+
+	resp, err := http.Get(addr + "/livez")
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	// Without Health wired, the request falls through to the
+	// /healthz branch (which is also off) and then to auth
+	// (Token is set), so the response is 401. The exact code is
+	// not load-bearing for the FIX A contract; what matters is
+	// that the handler is OFF when Health is nil.
+	assert.True(t, resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound,
+		"unexpected status %d", resp.StatusCode)
+}
+
+// healthForTest and healthForDownTest build the http.Handler
+// fixture for the transport tests. They use the production health
+// package so the tests exercise the same code path the daemon uses
+// at runtime.
+func healthForTest() http.Handler {
+	return health.HTTPHandler(
+		func() error { return nil },
+		func() error { return nil },
+	)
+}
+
+func healthForDownTest(reason string) http.Handler {
+	return health.HTTPHandler(
+		func() error { return nil },
+		func() error { return errors.New(reason) },
+	)
 }
 
 func TestTransport_HTTP_POST(t *testing.T) {

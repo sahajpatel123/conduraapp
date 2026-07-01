@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -67,7 +68,7 @@ func TestUpdater_SignedManifestAccepted(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := New(nil, srv.URL)
+	u := New(nil, srv.URL).SetURLSanitizeForTest(true)
 	u.pubKey = pub
 
 	result, err := u.Check(context.Background())
@@ -96,7 +97,7 @@ func TestUpdater_BadSignatureRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := New(nil, srv.URL)
+	u := New(nil, srv.URL).SetURLSanitizeForTest(true)
 	u.pubKey = pub // correct pub key — signature should NOT verify
 
 	result, err := u.Check(context.Background())
@@ -124,7 +125,7 @@ func TestUpdater_NoSignatureRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := New(nil, srv.URL)
+	u := New(nil, srv.URL).SetURLSanitizeForTest(true)
 	u.pubKey = pub
 
 	result, _ := u.Check(context.Background())
@@ -149,7 +150,7 @@ func TestUpdater_SameVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := New(nil, srv.URL)
+	u := New(nil, srv.URL).SetURLSanitizeForTest(true)
 	u.pubKey = pub
 
 	result, _ := u.Check(context.Background())
@@ -218,7 +219,7 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 	}))
 	defer manifestSrv.Close()
 
-	u := New(nil, manifestSrv.URL)
+	u := New(nil, manifestSrv.URL).SetURLSanitizeForTest(true)
 	u.pubKey = pub
 	u.cacheDir = t.TempDir()
 	target := filepath.Join(t.TempDir(), "condurad")
@@ -264,5 +265,83 @@ func TestUpdater_Apply_WritesBinary(t *testing.T) {
 	}
 	if !bytes.Equal(got, binContent) {
 		t.Errorf("binary content mismatch after swap")
+	}
+}
+
+// Audit 2026-07-01: updater manifest + download URLs now run
+// through the strict URL sanitizer before any HTTP call. A
+// tampered config (or downgrade default) that points the updater
+// at a private/metadata IP must be refused at the sanitizer, not
+// silently fetched.
+func TestUpdater_RejectsMetadataIPManifest(t *testing.T) {
+	pub, _ := testKeyPair()
+
+	u := New(nil, "http://169.254.169.254/latest.json")
+	u.pubKey = pub
+
+	// The sanitizer is host-blocklist aware (cloud metadata IP).
+	// Check must fail before any HTTP request.
+	_, err := u.Check(context.Background())
+	if err == nil {
+		t.Fatal("Check accepted http://169.254.169.254/latest.json; expected SSRF refusal")
+	}
+	if !strings.Contains(err.Error(), "rejected") && !strings.Contains(err.Error(), "denied") {
+		t.Errorf("error must explain rejection, got: %v", err)
+	}
+}
+
+func TestUpdater_RejectsLoopbackManifest(t *testing.T) {
+	pub, _ := testKeyPair()
+
+	u := New(nil, "http://localhost/manifest.json")
+	u.pubKey = pub
+
+	_, err := u.Check(context.Background())
+	if err == nil {
+		t.Fatal("Check accepted http://localhost/manifest.json; expected SSRF refusal")
+	}
+}
+
+func TestUpdater_RejectsPlainHTTPManifest(t *testing.T) {
+	pub, _ := testKeyPair()
+
+	u := New(nil, "http://example.com/manifest.json")
+	u.pubKey = pub
+
+	_, err := u.Check(context.Background())
+	if err == nil {
+		t.Fatal("Check accepted http:// (plain HTTP) manifest; expected protocol refusal")
+	}
+}
+
+func TestSanitizeUpdaterURL_AcceptsHTTPSPublic(t *testing.T) {
+	// Positive case for the helper. The httptest server URL is
+	// plain HTTP, which the sanitizer rejects, so we test the
+	// HTTPS shape directly to pin the "public URL passes" path.
+	if _, err := sanitizeUpdaterURL("https://example.com/manifest.json"); err != nil {
+		t.Errorf("HTTPS public URL must pass sanitizer, got: %v", err)
+	}
+}
+
+func TestSanitizeUpdaterURL_RejectsBlocklist(t *testing.T) {
+	cases := []string{
+		"https://metadata.azure.com/",
+		"https://metadata.aliyun.com/",
+		"https://metadata.tencentyun.com/",
+		"https://100.100.100.200/",
+		"https://192.0.0.192/",
+	}
+	for _, u := range cases {
+		if _, err := sanitizeUpdaterURL(u); err == nil {
+			t.Errorf("blocklisted URL %q must be denied by sanitizeUpdaterURL", u)
+		}
+	}
+}
+
+func TestSanitizeUpdaterURL_EmptyPasses(t *testing.T) {
+	// Empty string is the "no manifest configured" case — must
+	// not error so the updater falls back to the default skip.
+	if _, err := sanitizeUpdaterURL(""); err != nil {
+		t.Errorf("empty URL must pass sanitizeUpdaterURL, got: %v", err)
 	}
 }

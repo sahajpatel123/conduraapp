@@ -44,6 +44,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/permissions"
 	"github.com/sahajpatel123/conduraapp/internal/reach"
 	"github.com/sahajpatel123/conduraapp/internal/replay"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/secrets"
 	"github.com/sahajpatel123/conduraapp/internal/session"
 	"github.com/sahajpatel123/conduraapp/internal/skills"
@@ -445,11 +446,13 @@ func (s *Subsystems) GatekeeperAllow(ctx context.Context, kind, detail string) b
 	auditCtx, auditCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer auditCancel()
 	if s.AuditLog != nil {
+		// FIX B: reason can contain quoted user text or paths.
+		// Redact before writing.
 		_ = s.AuditLog.Append(auditCtx, buildAuditEvent(
 			"gate."+decisionName(decision),
 			appCondurad,
 			auditResultFromDecision(decision),
-			"kind="+kind+" reason="+reason,
+			sanitize.RedactSecrets("kind="+kind+" reason="+reason),
 		))
 	}
 	return decision == gatekeeper.Allow
@@ -1644,7 +1647,9 @@ func (a watchdogAuditAdapter) RecordHalt(ctx context.Context, e watchdog.AuditEv
 		App:     a.appName,
 		Level:   e.Level,
 		Result:  e.Result,
-		Message: e.Detail,
+		// FIX B: watchdog Detail may include sub-agent reasons
+		// and exception text. Redact.
+		Message: sanitize.RedactSecrets(e.Detail),
 	})
 }
 

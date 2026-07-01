@@ -15,6 +15,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/halt"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/stream"
 	"github.com/sahajpatel123/conduraapp/internal/watchdog"
 )
@@ -377,7 +378,9 @@ func registerHaltMethods(
 			_ = auditLog.Append(ctx, audit.Event{
 				Actor: actorIPC, Action: "daemon.resume_request", App: appConduraG,
 				Level: auditLevelWarn, Result: auditResultError,
-				Message: err.Error(),
+				// FIX B: err.Error() can include secrets paths or
+				// ticket material. Redact defensively.
+				Message: sanitize.RedactSecrets(err.Error()),
 			})
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
@@ -410,7 +413,8 @@ func registerHaltMethods(
 			_ = auditLog.Append(ctx, audit.Event{
 				Actor: actorIPC, Action: "halt.confirm_resume", App: appConduraG,
 				Level: auditLevelError, Result: auditResultError,
-				Message: "secret load failed: " + secErr.Error(),
+				// FIX B: err.Error() may include disk paths.
+				Message: sanitize.RedactSecrets("secret load failed: " + secErr.Error()),
 			})
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "resume secret unavailable"}
 		}
@@ -422,7 +426,9 @@ func registerHaltMethods(
 			_ = auditLog.Append(ctx, audit.Event{
 				Actor: actorIPC, Action: "halt.confirm_resume", App: appConduraG,
 				Level: auditLevelWarn, Result: auditResultDeny,
-				Message: err.Error(),
+				// FIX B: err.Error() may include user-supplied
+				// ticket/secret material. Redact defensively.
+				Message: sanitize.RedactSecrets(err.Error()),
 			})
 			return nil, &ipc.Error{Code: ipc.CodeInvalidRequest, Message: err.Error()}
 		}
@@ -436,7 +442,9 @@ func registerHaltMethods(
 			_ = auditLog.Append(ctx, audit.Event{
 				Actor: actorGUIHuman, Action: "halt.confirm_resume", App: appConduraG,
 				Level: auditLevelWarn, Result: auditResultDeny,
-				Message: "resume cooldown: " + err.Error(),
+				// FIX B: cooldown err.Error() typically only carries
+				// a duration string, but redact defensively.
+				Message: sanitize.RedactSecrets("resume cooldown: " + err.Error()),
 			})
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}

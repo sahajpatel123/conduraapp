@@ -13,6 +13,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/onboarding"
 	"github.com/sahajpatel123/conduraapp/internal/permissions"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/uninstall"
 )
 
@@ -289,7 +290,7 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 
 		_ = subs.Audit.Append(ctx, buildAuditEvent("onboarding.finish", appCondurad, auditResultAllow,
-			fmt.Sprintf("hotkey=%s power=%s", p.Hotkey, power.Recommended)))
+			sanitize.RedactSecrets(fmt.Sprintf("hotkey=%s power=%s", p.Hotkey, power.Recommended))))
 
 		return map[string]any{
 			"power":        power,

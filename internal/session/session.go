@@ -32,6 +32,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/executor"
 	"github.com/sahajpatel123/conduraapp/internal/gatekeeper"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/sse"
 	"github.com/sahajpatel123/conduraapp/internal/status"
 	"github.com/sahajpatel123/conduraapp/internal/stream"
@@ -361,7 +362,10 @@ func (s *Session) evaluateUtterance(runCtx context.Context, query string) error 
 			App:     "session",
 			Level:   level,
 			Result:  result,
-			Message: fmt.Sprintf("%s [%s]: text=%q reason=%q", class, decision, query, reason),
+			// FIX B: query is the raw user prompt; reason is
+			// gatekeeper-derived and may quote it. Both must be
+			// redacted.
+			Message: sanitize.RedactSecrets(fmt.Sprintf("%s [%s]: text=%q reason=%q", class, decision, query, reason)),
 		})
 	}
 	if decision != gatekeeper.Allow {

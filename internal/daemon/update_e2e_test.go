@@ -21,6 +21,7 @@ func TestE2E_UpdateCheck_NoManifest(t *testing.T) {
 	}))
 	defer srv.Close()
 	subs.Updater.SetManifestURL(srv.URL)
+	subs.Updater.SetURLSanitizeForTest(true)
 
 	raw, err := trustCallRPC(t, addr, "update.check", map[string]any{})
 	if err != nil {
@@ -77,6 +78,7 @@ func TestE2E_UpdateCheck_SignedManifest(t *testing.T) {
 	}
 	// Point updater at test manifest with test key.
 	subs.Updater.SetManifestURL(srv.URL)
+	subs.Updater.SetURLSanitizeForTest(true)
 	subs.Updater.SetPublicKey(pub)
 
 	raw, err := trustCallRPC(t, addr, "update.check", map[string]any{})
@@ -127,6 +129,7 @@ func TestE2E_UpdateCheck_BadSignatureRejected(t *testing.T) {
 	addr, subs, cleanup := startTrustDaemon(t)
 	defer cleanup()
 	subs.Updater.SetManifestURL(srv.URL)
+	subs.Updater.SetURLSanitizeForTest(true)
 	subs.Updater.SetPublicKey(pub)
 
 	raw, err := trustCallRPC(t, addr, "update.check", map[string]any{})

@@ -10,6 +10,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/internal/account"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 )
 
 // OAuthRedirectURI is the desktop deep-link the OAuth providers redirect to.
@@ -102,7 +103,10 @@ func accountOAuthCallbackHandler(subs *Subsystems) ipc.HandlerFunc {
 			"account.oauth_callback",
 			appCondurad,
 			auditResultAllow,
-			"email="+sess.Email+" provider="+sess.Provider,
+			// FIX B: sess.Email is user-provided during OAuth.
+			// Redact defensively (could include tokens in rare
+			// misconfigurations).
+			sanitize.RedactSecrets("email="+sess.Email+" provider="+sess.Provider),
 		))
 		return signedInStatus(sess, configuredProviders(subs)), nil
 	}

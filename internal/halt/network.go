@@ -298,3 +298,27 @@ func FromURL(u *url.URL) string {
 	}
 	return u.Hostname()
 }
+
+// IsLayer3InProcess reports whether the kill switch's Layer 3
+// (network isolation) is implemented as a process-local guard or
+// as a real OS-level separate process.
+//
+// In v0.1.0 the answer is always true: the in-process guard
+// (InProcessGuard) wraps every LLM provider's HTTP transport, so
+// well-behaved code paths honor the policy. But because it lives
+// in the same address space as the agent, a misbehaving agent
+// that bypasses the transport can still reach the network. That
+// is a real gap in the §2.1 invariant #4 guarantee ("user can
+// always stop the agent, four independent mechanisms, the agent
+// cannot disable any of them"): three layers are independent, but
+// Layer 3 in-process is not.
+//
+// The GUI surfaces this fact via the daemon.capabilities RPC so
+// the user knows that today, "the agent can't reach the network"
+// is enforced by the in-process guard — not by an OS-level
+// firewall / pf / netsh rule owned by a process the agent cannot
+// influence. v0.2.0 will swap the answer to false once the
+// real pf/netsh companion lands.
+//
+// Reference: CLAUDE.md §5.3, decision #26, §33.5.2 row C4.14.
+func IsLayer3InProcess() bool { return true }

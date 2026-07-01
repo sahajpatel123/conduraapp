@@ -13,6 +13,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/internal/halt"
 	"github.com/sahajpatel123/conduraapp/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/internal/llm"
+	"github.com/sahajpatel123/conduraapp/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/internal/version"
 )
 
@@ -84,6 +85,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerReachMethods(srv, subs)
 	registerWatchdogMethods(srv, subs)
 	registerTrustMethods(srv, subs)
+	registerCapabilitiesMethods(srv)
 }
 
 // registerAPIKeyMethods wires the apikeys.* method family.
@@ -249,7 +251,9 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorGUI, Action: "llm.chat", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
-			Message: "provider=" + p.Provider + " model=" + p.Request.Model,
+			// FIX B: model strings can come from user config;
+			// redact defensively.
+			Message: sanitize.RedactSecrets("provider=" + p.Provider + " model=" + p.Request.Model),
 		})
 		return map[string]any{
 			"response": resp,

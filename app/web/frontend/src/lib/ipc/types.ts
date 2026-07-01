@@ -342,6 +342,42 @@ export interface HaltState {
   reason?: string
 }
 
+// ----- Trust & Safety surface (CLAUDE.md §2.1 invariant #4) -----
+// The GUI's "What this build can and can't do" panel reads this
+// shape. Every field reflects a runtime fact — never an
+// aspiration. The kill_switch.layer3_network_isolation.in_process
+// flag is honest about v0.1.0's soft network guard.
+export interface DaemonCapabilityKillSwitchLayer3 {
+  in_process: boolean
+  os_process: boolean
+  deferred_to: string
+}
+
+export interface DaemonCapabilityKillSwitch {
+  layer1_hotkey: boolean
+  layer2_watchdog: boolean
+  layer3_network_isolation: DaemonCapabilityKillSwitchLayer3
+}
+
+export interface DaemonCapabilityComputerUse {
+  orax: string
+  mac_cua: string
+  macos_mcp: string
+  vision_cua: string
+}
+
+export interface DaemonCapabilityAudit {
+  redaction: boolean
+  prune_tombstone: boolean
+  hmac_subkey: boolean
+}
+
+export interface DaemonCapabilities {
+  kill_switch: DaemonCapabilityKillSwitch
+  computer_use: DaemonCapabilityComputerUse
+  audit: DaemonCapabilityAudit
+}
+
 // ----- Phase 11: Trust & Recovery -----
 
 export interface BackupEntry {

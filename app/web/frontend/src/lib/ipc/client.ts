@@ -40,6 +40,7 @@ import type {
   DaemonResumeRequestResult,
   DaemonUpdateResult,
   HaltState,
+  DaemonCapabilities,
   LLMStreamParams,
   LLMCancelParams,
 } from './types'
@@ -229,6 +230,14 @@ class IPCClient {
   }
   haltState(): Promise<HaltState> {
     return this.call<HaltState>('halt.state', {})
+  }
+  // daemonCapabilities returns the runtime "Trust & Safety" surface
+  // — the GUI's read-only "What this build can and can't do" panel
+  // renders from this. The shape reflects reality, not aspirations:
+  // the Layer 3 in_process flag is honest about v0.1.0's soft
+  // network guard. CLAUDE.md §2.1 invariant #4, §33.5.2 row C4.14.
+  daemonCapabilities(): Promise<DaemonCapabilities> {
+    return this.call<DaemonCapabilities>('daemon.capabilities', {})
   }
   telemetrySetEnabled(enabled: boolean): Promise<void> {
     return this.call<void>('telemetry.setEnabled', { enabled })
