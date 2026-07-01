@@ -8,6 +8,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte'
   import { marked } from 'marked'
+  import DOMPurify from 'dompurify'
   import { ipc } from '../ipc/client'
   import { t } from '../i18n'
   import Card from './ui/Card.svelte'
@@ -66,11 +67,14 @@
     void scrollToBottom()
   }
 
-  function renderMarkdown(text: string): string {
+  function renderSafeMarkdown(text: string): string {
     if (!text) return ''
     try {
+      // Voice transcripts flow through this renderer with full IPC
+      // access behind them, so any <script> / event handler / data: URL
+      // that survives marked.parse must be stripped before {@html}.
       const html = marked.parse(text, { async: false, breaks: true }) as string
-      return html
+      return DOMPurify.sanitize(html)
     } catch {
       // Fall back to plain text on parse failure.
       return text.replace(/[&<>"']/g, (c) =>
@@ -153,7 +157,7 @@
           </div>
           <Card elevation="glass" padding="sm">
             <div class="line-text markdown">
-              {@html renderMarkdown(entry.text)}
+              {@html renderSafeMarkdown(entry.text)}
             </div>
           </Card>
         </div>
