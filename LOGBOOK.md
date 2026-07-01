@@ -5850,3 +5850,44 @@ docs/superpowers/specs/
 
 **Next steps:** UX-02 onward per the audit, if assigned.
 ---
+
+## [2026-07-01 09:05] AI Model: Implementation Engineer (z-ai/glm-5.2)
+**Session ID:** UX-01-CONFIRM-DIALOG
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+
+**Task:** UX-01 (extension of the prior sidebar aria-label work) — replace the 2 remaining `window.confirm()` blocking-dialog calls in `SettingsPane.svelte` with the app's existing `ConfirmDialog.svelte` component, and audit the rest of the GUI for similar blocking native-dialog usage.
+
+**Audit findings (pre-fix):**
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:381` — `confirm('Delete all learned inferences and start fresh? This cannot be undone.')`
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:436` — `window.prompt('Path to backup .zip archive')` (renderer-blocking; same class of issue)
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:438` — `confirm(\`Restore from ${path}? ...\`)`
+- `app/web/frontend/src/lib/routes/dev/Components.svelte:222` — `alert('clicked')` (dev playground only; out of scope)
+- `app/web/frontend/src/lib/components/PairingModal.svelte:113,163` — `confirm` is a local function, NOT a `window.confirm` call. False positive, skipped.
+- No other `window.confirm` / `window.alert` / `window.prompt` anywhere in `app/web/frontend/src/`.
+
+**Files modified:**
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte` — refactored both destructive-action handlers (`resetAdaptive`, `restoreBackup`) to use a state-driven `confirmDialog` + a state-driven path-prompt `Dialog`. The destructive action bodies (`performResetAdaptive`, `performRestoreBackup`) were extracted so the confirm/cancel decisions stay clean. Imports added: `ConfirmDialog` from `../ConfirmDialog.svelte`, `Dialog` from `../ui`, `Input` from `./Input.svelte`. Two styles added (`.path-prompt-body`, `.path-prompt-footer`).
+
+**Decisions made:**
+- **State-driven modal, not promise-based.** The existing `ConfirmDialog.svelte` is `bind:open`-based (matching `Hub.svelte`, `Sync.svelte`, `Channels.svelte`, `Skills.svelte`). Followed that pattern for consistency rather than introducing a promise-wrapped `confirm()` shim.
+- **Two separate confirm kinds via a tagged union.** `confirmDialog: { kind: 'reset-adaptive' } | { kind: 'restore-backup'; path: string } | null`. One `<ConfirmDialog>` per kind, each guarded by `open={confirmDialog?.kind === '<kind>'}`. Cleaner than a generic description-builder and avoids string interpolation in the description.
+- **Path-input gets its own `<Dialog>` (not `<ConfirmDialog>`).** `ConfirmDialog` only renders a description paragraph — it has no body slot for an `<Input>`. Reusing the underlying `Dialog` primitive (`from '../ui'`, the same primitive ConfirmDialog is built on) keeps the modal consistent in styling/behavior and lets us embed the Input + a Continue button inside the dialog body. The path-input only opens when no backup is currently listed.
+- **Tone = `danger` for both destructive dialogs.** Reset is irreversible; Restore overwrites user data. `danger` tints the dialog border + reddens the confirm button.
+- **`onkeydown` Enter submits the path-input dialog.** Matches the keyboard flow users expect from native prompt dialogs.
+
+**Bugs/issues encountered:**
+- Bash CWD resets between calls (per env note) — `cd app/web/frontend && ...` needs the explicit `cd` every call.
+- One transient false-positive "Permission denied" classification on the first `npx svelte-check` invocation that vanished on retry. Logged here for the next agent in case they see it; not a real issue.
+
+**Open questions for next session:**
+- The path-input dialog is a stopgap: long-term, the Restore button should open a native file picker (e.g., `Wails runtime.OpenFileDialog` bridge in `app/web/main.go`) rather than a free-text path field. Not in scope for this UX fix.
+- The 4 pre-existing `svelte-check` errors in `Sheet.svelte` and `v2/ChatSurface.svelte` are unrelated to this change and not touched.
+
+**Verification:**
+- `cd app/web/frontend && npx svelte-check 2>&1 | grep -i SettingsPane` → 0 matches (no errors/warnings in the changed file). Repo total still 4 pre-existing errors + 38 warnings, all in unrelated files.
+- `cd app/web/frontend && npm run build` → `built in 1.86s`, 421.91 kB / 136.64 kB gzipped. No errors.
+- `grep -rE "window\\.confirm|window\\.alert|window\\.prompt" app/web/frontend/src/` → only matches are comments mentioning the removed calls.
+
+**Next steps:**
+- None for UX-01 itself. The native-file-picker improvement is a separate, larger piece of work (daemon RPC + Wails bridge).
