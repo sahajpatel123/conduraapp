@@ -79,11 +79,11 @@ func (g *GatedExecutor) recordDecision(ctx context.Context, action *Action, clas
 		result = "deny"
 	}
 	_ = g.audit.Append(ctx, audit.Event{
-		Actor:       "gatekeeper",
-		Action:      action.Type,
-		App:         action.Target,
-		Level:       level,
-		Result:      result,
+		Actor:  "gatekeeper",
+		Action: action.Type,
+		App:    action.Target,
+		Level:  level,
+		Result: result,
 		// FIX B: reason can quote user-derived text (utterances,
 		// paths, error strings). Redact before writing to the
 		// chain.

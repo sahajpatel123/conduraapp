@@ -2,6 +2,7 @@ package gatekeeper
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -53,7 +54,8 @@ func asSchemaError(err error, out **PolicySchemaError) bool {
 	if err == nil {
 		return false
 	}
-	if pe, ok := err.(*PolicySchemaError); ok {
+	var pe *PolicySchemaError
+	if errors.As(err, &pe) {
 		*out = pe
 		return true
 	}
@@ -153,7 +155,8 @@ func LoadPolicy(data []byte) (*Policy, error) {
 // would let a DESTRUCTIVE-class action execute without a fresh consent
 // modal. See CLAUDE.md §2.1 invariant #3.
 func validatePolicySchema(rules []Rule) error {
-	for i, r := range rules {
+	for i := range rules {
+		r := &rules[i]
 		classes := strings.Split(strings.ToLower(r.Match.Class), ",")
 		for _, c := range classes {
 			c = strings.TrimSpace(c)
@@ -190,7 +193,7 @@ func validatePolicySchema(rules []Rule) error {
 // ruleSummary renders a one-line description of a rule for error
 // messages. Best-effort: we never fail to surface an error just
 // because the summary is awkward.
-func ruleSummary(r Rule) string {
+func ruleSummary(r *Rule) string {
 	class := r.Match.Class
 	if class == "" {
 		class = "<any>"
