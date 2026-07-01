@@ -42,7 +42,11 @@ cleanup() {
     rm -rf "$WORKDIR"
   fi
 }
-trap cleanup EXIT ERR
+# ERR trap: surface a clear line-numbered failure message and remove any
+# per-PID temp files that may have been written before the error. EXIT trap
+# still runs `cleanup` afterwards to detach the volume and rm the workspace.
+trap 'echo "[install.sh] FAILED at line $LINENO. Cleaning up."; rm -f "${TMPDIR:-/tmp}/condura-install.$$".* 2>/dev/null || true' ERR
+trap cleanup EXIT
 
 WORKDIR="$(mktemp -d)"
 DMG_PATH="${WORKDIR}/${DMG}"
