@@ -81,8 +81,8 @@ func TestNormalizeSubAgentKind_UnknownForcesShellExec(t *testing.T) {
 		in   string
 	}{
 		{"clearly-unknown-bareword", "wibble.frobnicate"},
-		{"mimic-existing-namespace", "shell.exec.cmd"},                  // dot-separated prefix-bait
-		{"shell-like-but-wrong", "Shell.Exec"},                          // case tampered — passes through after lower? verify
+		{"mimic-existing-namespace", "shell.exec.cmd"}, // dot-separated prefix-bait
+		{"shell-like-but-wrong", "Shell.Exec"},         // case tampered — passes through after lower? verify
 		{"uppercase prefix", "Shell.exec"},
 		{"unicode bait", "🦀.exec"},
 		{"control chars", "shell.exec\n"},

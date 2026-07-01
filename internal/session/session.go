@@ -357,11 +357,11 @@ func (s *Session) evaluateUtterance(runCtx context.Context, query string) error 
 			level, result = "warn", "deny"
 		}
 		_ = s.cfg.Audit.Append(runCtx, audit.Event{
-			Actor:   "gatekeeper",
-			Action:  "utterance",
-			App:     "session",
-			Level:   level,
-			Result:  result,
+			Actor:  "gatekeeper",
+			Action: "utterance",
+			App:    "session",
+			Level:  level,
+			Result: result,
 			// FIX B: query is the raw user prompt; reason is
 			// gatekeeper-derived and may quote it. Both must be
 			// redacted.

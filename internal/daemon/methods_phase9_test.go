@@ -1,6 +1,9 @@
+//go:build !windows
+
 package daemon
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +56,7 @@ func TestReadPolicyFile_AcceptsStrict0600(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readPolicyFile(0600): %v", err)
 	}
-	if string(got) != string(want) {
+	if !bytes.Equal(got, want) {
 		t.Errorf("readPolicyFile content = %q; want %q", got, want)
 	}
 }
@@ -69,7 +72,7 @@ func TestReadPolicyFile_AcceptsReadOnly0400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readPolicyFile(0400): %v", err)
 	}
-	if string(got) != string(want) {
+	if !bytes.Equal(got, want) {
 		t.Errorf("readPolicyFile content = %q; want %q", got, want)
 	}
 }

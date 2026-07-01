@@ -305,7 +305,7 @@ func TestNew_DerivesDomainSeparatedKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	masterA := []byte("masterkeybytes1234567890")
 	masterB := []byte("differentkey1234567890123456")
 
@@ -490,7 +490,7 @@ func TestVerifyChainWithHistory_ReturnsTombstones(t *testing.T) {
 }
 
 // TestPruneTombstones_ForensicQuery verifies the ordering and the
-// accumulation behaviour: multiple prune invocations produce
+// accumulation behavior: multiple prune invocations produce
 // multiple tombstones, ordered by pruned_at DESC. This is what an
 // investigator would render in the GUI's "history" view.
 func TestPruneTombstones_ForensicQuery(t *testing.T) {

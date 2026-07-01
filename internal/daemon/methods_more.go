@@ -397,10 +397,10 @@ func registerCapabilitiesMethods(srv *ipc.Server) {
 			// to a real pf/netsh companion process the agent
 			// cannot influence.
 			"layer3_network_isolation": map[string]any{
-				"in_process":   halt.IsLayer3InProcess(),
-				"os_process":   false,
-				"deferred_to":  "v0.2.0",
-				"reference":    "CLAUDE.md §33.5.2 row C4.14",
+				"in_process":  halt.IsLayer3InProcess(),
+				"os_process":  false,
+				"deferred_to": "v0.2.0",
+				"reference":   "CLAUDE.md §33.5.2 row C4.14",
 			},
 		}
 		computerUse := map[string]any{
@@ -415,7 +415,7 @@ func registerCapabilitiesMethods(srv *ipc.Server) {
 			// user can opt in per-call via cfg.computer_use.
 			"vision_cua": "disabled_default",
 		}
-		audit := map[string]any{
+		auditMap := map[string]any{
 			// Redaction: secret-shaped strings in audit Message
 			// fields are masked via internal/sanitize. Wired in
 			// 2026-06-29.
@@ -434,7 +434,7 @@ func registerCapabilitiesMethods(srv *ipc.Server) {
 			"version":      version.Get(),
 			"kill_switch":  killSwitch,
 			"computer_use": computerUse,
-			"audit":        audit,
+			"audit":        auditMap,
 		}, nil
 	})
 }

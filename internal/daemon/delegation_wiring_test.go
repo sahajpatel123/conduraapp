@@ -201,7 +201,7 @@ func TestP0A_MaliciousChatKindClassifiesAsDestructive(t *testing.T) {
 			row.Status, pending.StatusPending)
 	}
 
-	// Defence-in-depth: confirm the gatekeeper saw the NORMALIZED
+	// Defense-in-depth: confirm the gatekeeper saw the NORMALIZED
 	// kind on the blastradius.Action it received, not the
 	// attacker literal. If a regression bypassed the normalizer
 	// (e.g. someone wires ar.Kind straight back into ba.Kind),
@@ -219,10 +219,10 @@ func TestP0A_MaliciousChatKindClassifiesAsDestructive(t *testing.T) {
 			blastradius.Classify(gotAction))
 	}
 
-	// Defence-in-depth check: confirm the classifier labels the
+	// Defense-in-depth check: confirm the classifier labels the
 	// attacker's literal "mallory.payload_run" as DESTRUCTIVE.
 	// The P0-A fix does NOT change the classifier — that
-	// behaviour already existed. What P0-A changes is the
+	// behavior already existed. What P0-A changes is the
 	// *trust boundary*: the kind that lands on the row, in the
 	// audit log, and on the blastradius.Action the
 	// gatekeeper/policy code sees is always the canonical
@@ -242,7 +242,7 @@ func TestP0A_MaliciousChatKindClassifiesAsDestructive(t *testing.T) {
 
 	// Mirror check: confirm the normalize step rewrites the
 	// attacker's literal to the canonical "shell.exec" Kind.
-	// If this assertion ever fails the normalizer behaviour
+	// If this assertion ever fails the normalizer behavior
 	// has changed and the audit/pending rows that assume Kind
 	// is a closed-set value are no longer guaranteed.
 	got := sanitize.NormalizeSubAgentKind("mallory.payload_run")

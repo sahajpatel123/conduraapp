@@ -1,4 +1,4 @@
-// Health HTTP handler — cheap, unauthenticated probe endpoints for
+// Package health provides cheap, unauthenticated probe endpoints for
 // orchestrators (systemd, k8s, launchd) that need to poll the daemon's
 // liveness and readiness without a bearer token.
 //

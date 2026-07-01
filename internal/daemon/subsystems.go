@@ -1642,11 +1642,11 @@ func (a watchdogAuditAdapter) RecordHalt(ctx context.Context, e watchdog.AuditEv
 		return
 	}
 	_ = a.log.Append(ctx, audit.Event{
-		Actor:   e.Actor,
-		Action:  e.Action,
-		App:     a.appName,
-		Level:   e.Level,
-		Result:  e.Result,
+		Actor:  e.Actor,
+		Action: e.Action,
+		App:    a.appName,
+		Level:  e.Level,
+		Result: e.Result,
 		// FIX B: watchdog Detail may include sub-agent reasons
 		// and exception text. Redact.
 		Message: sanitize.RedactSecrets(e.Detail),

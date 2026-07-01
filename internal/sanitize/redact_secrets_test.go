@@ -16,21 +16,21 @@ import (
 // [A-Za-z0-9]; sk-ant-/sk-proj- allow [A-Za-z0-9_-]; AWS/Google
 // follow the same alpha class as their body.
 const (
-	ghp_ = "ghp_" + "FAKEABCDEFGHIJKLMNOP"
-	gho_ = "gho_" + "FAKEABCDEFGHIJKLMNOP"
-	ghu_ = "ghu_" + "FAKEABCDEFGHIJKLMNOP"
-	ghs_ = "ghs_" + "FAKEABCDEFGHIJKLMNOP"
-	ghr_ = "ghr_" + "FAKEABCDEFGHIJKLMNOP"
-	sk_  = "sk" + "-FAKEABCDEFGHIJKLMNOP"
-	skA  = "sk" + "-ant" + "-FAKE-ABCDEFGHIJKLMNOP"
-	skP  = "sk" + "-proj" + "-FAKE-ABCDEFGHIJKLMNOP"
-	xoxB = "xox" + "b-"
-	xoxP = "xox" + "p-"
-	xoxR = "xox" + "r-"
-	xoxS = "xox" + "s-"
-	xoxO = "xox" + "o-"
-	akia = "AKIA" + "FAKEIOSFODNN7EX"
-	aiza = "AIza" + "FAKESyDdI0hCZtE6vySjMm-WEfRq3CPzWv9sCK"
+	ghpFake  = "ghp_" + "FAKEABCDEFGHIJKLMNOP"
+	ghoFake  = "gho_" + "FAKEABCDEFGHIJKLMNOP"
+	ghuFake  = "ghu_" + "FAKEABCDEFGHIJKLMNOP"
+	ghsFake  = "ghs_" + "FAKEABCDEFGHIJKLMNOP"
+	ghrFake  = "ghr_" + "FAKEABCDEFGHIJKLMNOP"
+	skFake   = "sk" + "-FAKEABCDEFGHIJKLMNOP"
+	skAFake  = "sk" + "-ant" + "-FAKE-ABCDEFGHIJKLMNOP"
+	skPFake  = "sk" + "-proj" + "-FAKE-ABCDEFGHIJKLMNOP"
+	xoxB     = "xox" + "b-"
+	xoxP     = "xox" + "p-"
+	xoxR     = "xox" + "r-"
+	xoxS     = "xox" + "s-"
+	xoxO     = "xox" + "o-"
+	akiaFake = "AKIA" + "FAKEIOSFODNN7EX"
+	aizaFake = "AIza" + "FAKESyDdI0hCZtE6vySjMm-WEfRq3CPzWv9sCK"
 )
 
 func TestRedactSecrets_GitHub(t *testing.T) {
@@ -41,21 +41,21 @@ func TestRedactSecrets_GitHub(t *testing.T) {
 	}{
 		{
 			name: "ghp_ PAT mid-string",
-			in:   `config={"token":"` + ghp_ + `abc123def456ghi789jkl012mno345pqr6789st"}`,
+			in:   `config={"token":"` + ghpFake + `abc123def456ghi789jkl012mno345pqr6789st"}`,
 			want: "<redacted>",
 		},
 		{
 			name: "gho_ OAuth",
-			in:   "curl -H 'Authorization: Bearer " + gho_ + "abcdefghijklmnopqrstuvwxyz0123456789' https://api.github.com",
+			in:   "curl -H 'Authorization: Bearer " + ghoFake + "abcdefghijklmnopqrstuvwxyz0123456789' https://api.github.com",
 			want: "curl -H 'Authorization: Bearer <redacted> https://api.github.com",
 		},
 		{
 			name: "all five gh-prefixes",
-			in: ghp_ + "aaaaaaaaaaaaaaaaaaaa " +
-				gho_ + "bbbbbbbbbbbbbbbbbbbb " +
-				ghu_ + "cccccccccccccccccccc " +
-				ghs_ + "dddddddddddddddddddd " +
-				ghr_ + "eeeeeeeeeeeeeeeeeeee with surrounding text",
+			in: ghpFake + "aaaaaaaaaaaaaaaaaaaa " +
+				ghoFake + "bbbbbbbbbbbbbbbbbbbb " +
+				ghuFake + "cccccccccccccccccccc " +
+				ghsFake + "dddddddddddddddddddd " +
+				ghrFake + "eeeeeeeeeeeeeeeeeeee with surrounding text",
 			want: "<redacted> <redacted> <redacted> <redacted> <redacted> with surrounding text",
 		},
 	}
@@ -79,9 +79,9 @@ func TestRedactSecrets_OpenAIAndAnthropic(t *testing.T) {
 		name string
 		in   string
 	}{
-		{"sk- OpenAI", "openai key " + skP + "abcdefghijklmnopqrstuvwxyz0123456789"},
-		{"sk- generic", "key=" + sk_ + "abcdefghijklmnopqrstuvwxyz012345"},
-		{"sk-ant- Anthropic", "auth " + skA + "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"},
+		{"sk- OpenAI", "openai key " + skPFake + "abcdefghijklmnopqrstuvwxyz0123456789"},
+		{"sk- generic", "key=" + skFake + "abcdefghijklmnopqrstuvwxyz012345"},
+		{"sk-ant- Anthropic", "auth " + skAFake + "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -109,9 +109,9 @@ func TestRedactSecrets_Slack(t *testing.T) {
 }
 
 func TestRedactSecrets_AWS(t *testing.T) {
-	in := akia + "IOSFODNN7EXAMPLE rest of message"
+	in := akiaFake + "IOSFODNN7EXAMPLE rest of message"
 	got := RedactSecrets(in)
-	if strings.Contains(got, akia+"IOSFODNN7EXAMPLE") {
+	if strings.Contains(got, akiaFake+"IOSFODNN7EXAMPLE") {
 		t.Errorf("AWS access key leaked: %q", got)
 	}
 	if !strings.Contains(got, "<redacted>") {
@@ -120,9 +120,9 @@ func TestRedactSecrets_AWS(t *testing.T) {
 }
 
 func TestRedactSecrets_GoogleAPIKey(t *testing.T) {
-	in := "api_key=" + aiza + "SyDdI0hCZtE6vySjMm-WEfRq3CPzWv9sCKU"
+	in := "api_key=" + aizaFake + "SyDdI0hCZtE6vySjMm-WEfRq3CPzWv9sCKU"
 	got := RedactSecrets(in)
-	if strings.Contains(got, aiza) {
+	if strings.Contains(got, aizaFake) {
 		t.Errorf("Google API key leaked: %q", got)
 	}
 	if !strings.Contains(got, "<redacted>") {
@@ -185,7 +185,7 @@ func TestRedactSecrets_DoesNotRedactBenignText(t *testing.T) {
 }
 
 func TestRedactSecrets_MultipleSecretsInOneString(t *testing.T) {
-	in := `user reported token=abcdefghijklmnop and earlier ` + sk_ + `abcdefghijklmnopqrstuvwxyz012345 and ` + akia + `IOSFODNN7EXAMPLE`
+	in := `user reported token=abcdefghijklmnop and earlier ` + skFake + `abcdefghijklmnopqrstuvwxyz012345 and ` + akiaFake + `IOSFODNN7EXAMPLE`
 	got := RedactSecrets(in)
 	if strings.Contains(got, "abcdefghijklmnop") ||
 		strings.Contains(got, "sk-") ||
@@ -210,7 +210,7 @@ func TestRedactSecrets_NoRegexReuseLeakage(t *testing.T) {
 	// against accidentally caching a stale result).
 	a := RedactSecrets("token=aaaaaa1234567890")
 	b := RedactSecrets("benign log line")
-	c := RedactSecrets(skP + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	c := RedactSecrets(skPFake + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
 	if strings.Contains(a, "aaaaaa1234567890") {
 		t.Errorf("first call leaked: %q", a)

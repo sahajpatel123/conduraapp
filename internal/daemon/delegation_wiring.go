@@ -432,11 +432,11 @@ func processOneActionRequest(ctx context.Context, subs *Subsystems, spawnID stri
 			level = auditLevelWarn
 		}
 		_ = subs.Audit.Append(ctx, audit.Event{
-			Actor:   "sub-agent:" + ar.AgentName,
-			Action:  "subagent.action:" + normalizedKind,
-			App:     appConduraG,
-			Level:   level,
-			Result:  decStr,
+			Actor:  "sub-agent:" + ar.AgentName,
+			Action: "subagent.action:" + normalizedKind,
+			App:    appConduraG,
+			Level:  level,
+			Result: decStr,
 			// FIX B: reason can contain sub-agent payload text
 			// (file paths, command bodies, URLs). Redact.
 			Message: sanitize.RedactSecrets(reason),

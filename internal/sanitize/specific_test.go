@@ -2,6 +2,7 @@ package sanitize
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -14,17 +15,17 @@ import (
 func TestURLSanitizer_RejectsCloudMetadataHostnames(t *testing.T) {
 	s := NewURLSanitizer()
 	cases := []string{
-		"https://metadata.google.internal/",         // AWS/GCP
-		"https://metadata.goog/",                     // GCP
-		"https://instance-data.ec2.internal/",        // AWS EC2
-		"https://metadata.azure.com/",                // Azure
-		"https://metadata.aliyun.com/",               // Alibaba
-		"https://metadata.tencentyun.com/",           // Tencent
+		"https://metadata.google.internal/",   // AWS/GCP
+		"https://metadata.goog/",              // GCP
+		"https://instance-data.ec2.internal/", // AWS EC2
+		"https://metadata.azure.com/",         // Azure
+		"https://metadata.aliyun.com/",        // Alibaba
+		"https://metadata.tencentyun.com/",    // Tencent
 	}
 	for _, u := range cases {
 		if _, err := s.Sanitize(u); err == nil {
 			t.Errorf("hostname in %q must be denied", u)
-		} else if err != ErrURLDenied {
+		} else if !errors.Is(err, ErrURLDenied) {
 			t.Errorf("hostname in %q returned wrong error type: %v", u, err)
 		}
 	}
@@ -42,7 +43,7 @@ func TestURLSanitizer_RejectsCloudMetadataIPs(t *testing.T) {
 		"https://192.0.0.192/",     // Oracle metadata
 	}
 	for _, u := range cases {
-		if _, err := s.Sanitize(u); err != ErrURLDenied {
+		if _, err := s.Sanitize(u); !errors.Is(err, ErrURLDenied) {
 			t.Errorf("cloud-metadata IP %q must be denied, got: %v", u, err)
 		}
 	}
@@ -52,7 +53,7 @@ func TestURLSanitizer_RejectsCloudMetadataIPs(t *testing.T) {
 // isBlockedIP but pin explicitly to ensure it stays.
 func TestURLSanitizer_RejectsAWSMetadataIP(t *testing.T) {
 	s := NewURLSanitizer()
-	if _, err := s.Sanitize("https://169.254.169.254/"); err != ErrURLDenied {
+	if _, err := s.Sanitize("https://169.254.169.254/"); !errors.Is(err, ErrURLDenied) {
 		t.Errorf("AWS metadata IP must be denied, got: %v", err)
 	}
 }
@@ -135,14 +136,14 @@ func TestResolveURL_NonURLReturnsNil(t *testing.T) {
 // The new rule: explicit XXX-XX-XXXX or XXX XX XXXX only.
 func TestSSNPattern_DetectsCanonicalDashed(t *testing.T) {
 	s := NewPIIRegexSanitizer()
-	if _, err := s.Sanitize("SSN: 123-45-6789"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("SSN: 123-45-6789"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("XXX-XX-XXXX must be detected, got: %v", err)
 	}
 }
 
 func TestSSNPattern_DetectsCanonicalSpaced(t *testing.T) {
 	s := NewPIIRegexSanitizer()
-	if _, err := s.Sanitize("SSN: 123 45 6789"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("SSN: 123 45 6789"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("XXX XX XXXX must be detected, got: %v", err)
 	}
 }
@@ -150,15 +151,15 @@ func TestSSNPattern_DetectsCanonicalSpaced(t *testing.T) {
 func TestSSNPattern_DetectsAtStartAndEnd(t *testing.T) {
 	s := NewPIIRegexSanitizer()
 	// Anchored at start of string.
-	if _, err := s.Sanitize("123-45-6789 is the SSN"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("123-45-6789 is the SSN"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("leading SSN must be detected, got: %v", err)
 	}
 	// Anchored at end of string.
-	if _, err := s.Sanitize("the SSN is 123-45-6789"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("the SSN is 123-45-6789"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("trailing SSN must be detected, got: %v", err)
 	}
 	// Standalone.
-	if _, err := s.Sanitize("123-45-6789"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("123-45-6789"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("bare SSN must be detected, got: %v", err)
 	}
 }
@@ -179,7 +180,7 @@ func TestSSNPattern_AllowsBareNineDigits(t *testing.T) {
 		"code: 123456789 and another", // surrounded by other digits
 	}
 	for _, c := range cases {
-		if _, err := s.Sanitize(c); err == ErrPIIDetected {
+		if _, err := s.Sanitize(c); errors.Is(err, ErrPIIDetected) {
 			t.Errorf("bare-9digit input %q must NOT be detected as SSN", c)
 		}
 	}
@@ -189,7 +190,7 @@ func TestSSNPattern_AllowsFormattedButNotSSN(t *testing.T) {
 	// "1234-56-7890" is a different shape (4-2-4). Even though it
 	// has dashes, it doesn't match XXX-XX-XXXX, so it must pass.
 	s := NewPIIRegexSanitizer()
-	if _, err := s.Sanitize("not-an-ssn: 1234-56-7890"); err == ErrPIIDetected {
+	if _, err := s.Sanitize("not-an-ssn: 1234-56-7890"); errors.Is(err, ErrPIIDetected) {
 		t.Error("1234-56-7890 is not a canonical SSN shape; must pass")
 	}
 }
@@ -198,7 +199,7 @@ func TestSSNPattern_AllowsFormattedButNotSSN(t *testing.T) {
 // know the refactor didn't break adjacent behavior.
 func TestPIIRegexSanitizer_StillDetectsCreditCard(t *testing.T) {
 	s := NewPIIRegexSanitizer()
-	if _, err := s.Sanitize("card 4532015112830366"); err != ErrPIIDetected {
+	if _, err := s.Sanitize("card 4532015112830366"); !errors.Is(err, ErrPIIDetected) {
 		t.Errorf("credit card must still be detected, got: %v", err)
 	}
 }
@@ -211,7 +212,7 @@ func TestSanitize_Strict_StillRejectsHTTPSubsumedByNewHelper(t *testing.T) {
 	// go through resolveHost, but pinning the prefix block is
 	// cheap and prevents future refactors from regressing it.
 	s := NewStrictURLSanitizer()
-	if _, err := s.Sanitize("http://example.com"); err != ErrURLDenied {
+	if _, err := s.Sanitize("http://example.com"); !errors.Is(err, ErrURLDenied) {
 		t.Errorf("http:// must still be denied, got: %v", err)
 	}
 }

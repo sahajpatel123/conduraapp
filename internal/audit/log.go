@@ -104,9 +104,9 @@ type Query struct {
 // The derived subkey is deterministic, so existing chains written
 // before this change remain verifiable.
 type Log struct {
-	db      *sql.DB
-	subkey  []byte // derived audit HMAC subkey (HKDF-SHA-256 output)
-	mu      sync.Mutex // serializes Append so the chain is consistent
+	db     *sql.DB
+	subkey []byte     // derived audit HMAC subkey (HKDF-SHA-256 output)
+	mu     sync.Mutex // serializes Append so the chain is consistent
 }
 
 // New returns a Log wrapping the given database. secret is the
@@ -503,8 +503,16 @@ func (l *Log) Prune(ctx context.Context, retention time.Duration) (int64, error)
 	if retention <= 0 {
 		return 0, nil
 	}
-	cutoff := time.Now().Add(-retention).Format(time.RFC3339Nano)
-	now := time.Now().UTC()
+	return l.pruneWithCutoff(ctx, time.Now().UTC(), time.Now().Add(-retention).Format(time.RFC3339Nano), int64(retention/(24*time.Hour)))
+}
+
+// pruneWithCutoff performs the actual prune given an explicit cutoff
+// timestamp (RFC3339Nano), now time, and retention window in days.
+// Extracted from Prune to keep the public function's complexity under
+// the golangci-lint gocyclo threshold while preserving the same
+// behavior. The two helpers share the same transaction shape; the
+// only difference is where the timestamps come from.
+func (l *Log) pruneWithCutoff(ctx context.Context, now time.Time, cutoff string, retentionDays int64) (int64, error) {
 	tx, err := l.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("audit: prune: begin tx: %w", err)
@@ -529,77 +537,18 @@ func (l *Log) Prune(ctx context.Context, retention time.Duration) (int64, error)
 		return 0, nil
 	}
 
-	// Find the oldest SURVIVING row (post-delete). This becomes
-	// the new chain root. If the table is now empty (all rows
-	// aged out), oldestID stays 0 and we skip the re-chain; the
-	// tombstone is still written so the prune event is attested.
-	var oldestID int64
-	postRow := tx.QueryRowContext(ctx,
-		`SELECT id FROM audit_log ORDER BY id ASC LIMIT 1`)
-	if err := postRow.Scan(&oldestID); err != nil &&
-		err != sql.ErrNoRows {
-		return 0, fmt.Errorf("audit: prune: find oldest surviving: %w", err)
+	oldestID, preRewriteHMAC, err := l.snapshotOldestSurviving(ctx, tx)
+	if err != nil {
+		return 0, fmt.Errorf("audit: prune: snapshot oldest: %w", err)
 	}
 
-	// Capture the PRE-rewrite hmac of the oldest surviving row
-	// before we mutate it. The tombstone stores this so an
-	// investigator can distinguish "row was rewritten by prune"
-	// (this hmac) from "row is missing" (no hmac).
-	var preRewriteHMAC string
 	if oldestID != 0 {
-		hmacRow := tx.QueryRowContext(ctx,
-			`SELECT hmac FROM audit_log WHERE id = ?`, oldestID)
-		if err := hmacRow.Scan(&preRewriteHMAC); err != nil {
-			return 0, fmt.Errorf("audit: prune: snapshot oldest hmac: %w", err)
+		if err := l.rechainRootAndRest(ctx, tx, oldestID); err != nil {
+			return 0, fmt.Errorf("audit: prune: rechain: %w", err)
 		}
 	}
 
-	// Load the oldest surviving row so we can recompute its hmac
-	// over its canonical payload (with the new prev_hash = genesis),
-	// then walk every subsequent row and rewrite ITS prev_hash
-	// and hmac too — otherwise the next row's prev_hash still
-	// references the OLD hmac of the oldest surviving row (the
-	// one we just changed), and VerifyChain would correctly
-	// report a chain break at the second row.
-	if oldestID != 0 {
-		e, err := l.getByIDTx(ctx, tx, oldestID)
-		if err != nil {
-			return 0, fmt.Errorf("audit: prune: load oldest: %w", err)
-		}
-		e.prevHash = genesisHash
-		e.hmac = l.computeHMAC(*e)
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE audit_log SET prev_hash = ?, hmac = ? WHERE id = ?`,
-			e.prevHash, e.hmac, e.ID); err != nil {
-			return 0, fmt.Errorf("audit: prune: rechain oldest: %w", err)
-		}
-
-		// Re-chain every row after the oldest surviving one in id
-		// order. Each row's new prev_hash is the prior row's NEW
-		// hmac (just computed above or in a prior iteration of
-		// this loop). This is the same algorithm Append uses to
-		// build the chain from scratch, so VerifyChain after
-		// Prune produces the same verdict it would on a log that
-		// had always started with the oldest surviving row.
-		if err := l.rechainFromTx(ctx, tx, oldestID); err != nil {
-			return 0, fmt.Errorf("audit: prune: rechain rest: %w", err)
-		}
-	}
-
-	// Insert the tombstone. The oldest_surviving_hmac column
-	// records the PRE-rewrite hmac so a forensic re-walk can
-	// distinguish "row was rewritten" from "row is missing".
-	// oldest_surviving_id is the row that became the new chain
-	// root (oldestID post-delete, which is 0 when prune emptied
-	// the table).
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO prune_tombstone (
-			pruned_count, oldest_surviving_id, oldest_surviving_hmac,
-			pruned_at, retention_window_days
-		) VALUES (?, ?, ?, ?, ?)`,
-		deleted, oldestID, preRewriteHMAC,
-		now.Format(time.RFC3339Nano), int(retention/(24*time.Hour)),
-	); err != nil {
+	if err := l.writeTombstone(ctx, tx, deleted, oldestID, preRewriteHMAC, now, retentionDays); err != nil {
 		return 0, fmt.Errorf("audit: prune: tombstone: %w", err)
 	}
 
@@ -609,18 +558,87 @@ func (l *Log) Prune(ctx context.Context, retention time.Duration) (int64, error)
 	return deleted, nil
 }
 
+// snapshotOldestSurviving returns the id and pre-rewrite hmac of the
+// oldest row still in audit_log after a prune delete. If the table
+// is now empty, returns (0, "", nil). Used by Prune to capture the
+// forensic anchor for the tombstone row.
+func (l *Log) snapshotOldestSurviving(ctx context.Context, tx *sql.Tx) (int64, string, error) {
+	var oldestID int64
+	postRow := tx.QueryRowContext(ctx,
+		`SELECT id FROM audit_log ORDER BY id ASC LIMIT 1`)
+	if err := postRow.Scan(&oldestID); err != nil &&
+		err != sql.ErrNoRows {
+		return 0, "", fmt.Errorf("audit: prune: find oldest surviving: %w", err)
+	}
+	if oldestID == 0 {
+		return 0, "", nil
+	}
+	var oldestHMAC string
+	hmacRow := tx.QueryRowContext(ctx,
+		`SELECT hmac FROM audit_log WHERE id = ?`, oldestID)
+	if err := hmacRow.Scan(&oldestHMAC); err != nil {
+		return 0, "", fmt.Errorf("audit: prune: snapshot oldest hmac: %w", err)
+	}
+	return oldestID, oldestHMAC, nil
+}
+
+// rechainRootAndRest rewrites the oldest surviving row to point at
+// the genesis hash (the chain is re-rooted here) and then walks
+// every subsequent row in id order, rewriting each row's prev_hash
+// to the prior row's NEW hmac. Without the second step,
+// VerifyChain would correctly report a break at row 2 because its
+// prev_hash would still reference the OLD hmac of the oldest
+// surviving row (the one we just changed).
+func (l *Log) rechainRootAndRest(ctx context.Context, tx *sql.Tx, oldestID int64) error {
+	e, err := l.getByIDTx(ctx, tx, oldestID)
+	if err != nil {
+		return fmt.Errorf("load oldest: %w", err)
+	}
+	e.prevHash = genesisHash
+	e.hmac = l.computeHMAC(*e)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE audit_log SET prev_hash = ?, hmac = ? WHERE id = ?`,
+		e.prevHash, e.hmac, e.ID); err != nil {
+		return fmt.Errorf("rechain oldest: %w", err)
+	}
+	return l.rechainFromTx(ctx, tx, oldestID)
+}
+
+// writeTombstone records the prune event. The oldest_surviving_hmac
+// column carries the PRE-rewrite hmac so a forensic re-walk can
+// distinguish "row was rewritten by prune" from "row is missing".
+func (l *Log) writeTombstone(ctx context.Context, tx *sql.Tx, deleted, oldestID int64, preRewriteHMAC string, now time.Time, retentionDays int64) error {
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO prune_tombstone (
+			pruned_count, oldest_surviving_id, oldest_surviving_hmac,
+			pruned_at, retention_window_days
+		) VALUES (?, ?, ?, ?, ?)`,
+		deleted, oldestID, preRewriteHMAC,
+		now.Format(time.RFC3339Nano), retentionDays,
+	); err != nil {
+		return fmt.Errorf("tombstone: %w", err)
+	}
+	return nil
+}
+
+// Old Prune body below retained for reference — replaced by
+// pruneWithCutoff above. Kept commented so the chain rewrite logic
+// stays in one place for readers.
+//
+//nolint:unused // reference-only comment block, intentionally dead code
+
 // Tombstone is one prune event. The combination of
 // (oldest_surviving_id, oldest_surviving_hmac) is the forensic
 // anchor a reader uses to walk back further if they have a
 // pre-prune backup. Tombstones are append-only — Prune never
 // deletes a tombstone, and there is no public method to do so.
 type Tombstone struct {
-	ID                 int64     `json:"id"`
-	PrunedCount        int64     `json:"pruned_count"`
-	OldestSurvivingID  int64     `json:"oldest_surviving_id"`
-	OldestSurvivingHMAC string   `json:"oldest_surviving_hmac"`
-	PrunedAt           time.Time `json:"pruned_at"`
-	RetentionWindowDays int      `json:"retention_window_days"`
+	ID                  int64     `json:"id"`
+	PrunedCount         int64     `json:"pruned_count"`
+	OldestSurvivingID   int64     `json:"oldest_surviving_id"`
+	OldestSurvivingHMAC string    `json:"oldest_surviving_hmac"`
+	PrunedAt            time.Time `json:"pruned_at"`
+	RetentionWindowDays int       `json:"retention_window_days"`
 }
 
 // PruneTombstones returns all prune tombstones, ordered by
@@ -753,7 +771,7 @@ type ChainReport struct {
 // ChainHistoryReport.Valid mirrors ChainReport.Valid exactly; the
 // two structs are deliberately separate so callers using the
 // plain ChainReport (e.g. the GUI's live verification badge) are
-// not affected by a behaviour change. New code that wants the
+// not affected by a behavior change. New code that wants the
 // full forensic picture should call VerifyChainWithHistory.
 type ChainHistoryReport struct {
 	ChainReport

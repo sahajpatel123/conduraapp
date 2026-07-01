@@ -464,8 +464,8 @@ func TestTransport_Health_Readyz_ReflectsFunc(t *testing.T) {
 	// reason when the func errors. Probes are still public.
 	s := NewServer()
 	st := &ServerTransport{
-		S:     s,
-		Token: "supersecret",
+		S:      s,
+		Token:  "supersecret",
 		Health: healthForDownTest("migrations pending"),
 	}
 	require.NoError(t, st.Listen(context.Background(), "tcp://127.0.0.1:0"))
