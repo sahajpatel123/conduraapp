@@ -108,3 +108,6 @@ condura_*.html
 
 # Superpowers SDD scratch (progress ledger, briefs, review packages)
 .superpowers/
+
+# Claude Code agent scratch
+.claude/
