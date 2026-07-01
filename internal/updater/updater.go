@@ -164,51 +164,12 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 	if u.manifest == "" {
 		return skipResult(cur, "no manifest URL"), nil
 	}
-	// Audit 2026-07-01: a manifest URL is the start of an external
-	// fetch path. Run it through the strict URL sanitizer so a
-	// tampered config (or a malicious default) cannot point us at
-	// a private/metadata IP, where an attacker on the same network
-	// could MITM the update and slip a signed-looking manifest past
-	// the Ed25519 check (a real signing key is only as strong as
-	// where the manifest is fetched from). Sanitize is
-	// best-effort-DNS-rebinding here — see the TODO in
-	// internal/sanitize/specific.go.
-	sanitizedManifest := u.manifest
-	if !u.skipURLSanitize {
-		s, err := sanitizeUpdaterURL(u.manifest)
-		if err != nil {
-			return Result{}, fmt.Errorf("manifest URL rejected: %w", err)
-		}
-		sanitizedManifest = s
+	sm, skipMsg, hardErr := u.fetchAndVerifyManifest(ctx)
+	if hardErr != nil {
+		return Result{}, hardErr
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedManifest, nil)
-	if err != nil {
-		return Result{}, err
-	}
-	resp, err := u.client.Do(req)
-	if err != nil {
-		return skipResult(cur, err.Error()), nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 200 {
-		return skipResult(cur, fmt.Sprintf("HTTP %d", resp.StatusCode)), nil
-	}
-
-	var sm SignedManifest
-	if err := json.NewDecoder(resp.Body).Decode(&sm); err != nil {
-		return Result{}, fmt.Errorf("manifest parse: %w", err)
-	}
-
-	// Verify Ed25519 signature.
-	if err := u.verifyManifest(sm); err != nil {
-		return skipResult(cur, fmt.Sprintf("signature verification failed: %v", err)), nil
-	}
-
-	// Anti-downgrade: reject an older version.
-	if sm.MinVersion != "" && compareVersions(sm.Version, sm.MinVersion) < 0 {
-		return skipResult(cur, "version below minimum"), nil
+	if skipMsg != "" {
+		return skipResult(cur, skipMsg), nil
 	}
 
 	if sm.Version == cur || sm.Version == "" {
@@ -229,14 +190,88 @@ func (u *Updater) Check(ctx context.Context) (Result, error) {
 		Mandatory:       sm.Mandatory,
 	}
 
-	// Cache the result.
-	if u.db != nil {
-		_, _ = u.db.ExecContext(context.Background(),
-			`UPDATE update_cache SET last_check_ts=?, latest_version=?, download_url=? WHERE id=1`,
-			time.Now().UTC().Format(time.RFC3339), sm.Version, sm.DownloadURL,
-		)
-	}
+	u.writeCheckCache(sm)
 	return res, nil
+}
+
+// fetchAndVerifyManifest fetches the signed manifest, runs it
+// through the strict URL sanitizer, verifies the Ed25519
+// signature, and applies the anti-downgrade version check.
+// Extracted from Check to keep the public function's cyclomatic
+// complexity under the golangci-lint gocyclo threshold; behavior
+// is unchanged.
+//
+// Returns:
+//   - (sm, "", nil) on success — manifest is verified and ready.
+//   - (zero, skipMsg, nil) when the caller should treat this as a
+//     "skip" Result (network error, bad HTTP status, signature
+//     failure, anti-downgrade rejection). The skipMsg becomes the
+//     Result's skip reason.
+//   - (zero, "", err) when the caller must surface an error
+//     (sanitize rejected the URL, parse failure). The Result is
+//     not useful; the caller returns (Result{}, err).
+//
+// Audit 2026-07-01: a manifest URL is the start of an external
+// fetch path. Run it through the strict URL sanitizer so a
+// tampered config (or a malicious default) cannot point us at
+// a private/metadata IP, where an attacker on the same network
+// could MITM the update and slip a signed-looking manifest past
+// the Ed25519 check (a real signing key is only as strong as
+// where the manifest is fetched from). Sanitize is
+// best-effort-DNS-rebinding here — see the TODO in
+// internal/sanitize/specific.go.
+func (u *Updater) fetchAndVerifyManifest(ctx context.Context) (sm SignedManifest, skipMsg string, hardErr error) {
+	sanitizedManifest := u.manifest
+	if !u.skipURLSanitize {
+		s, err := sanitizeUpdaterURL(u.manifest)
+		if err != nil {
+			return SignedManifest{}, "", fmt.Errorf("manifest URL rejected: %w", err)
+		}
+		sanitizedManifest = s
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedManifest, nil)
+	if err != nil {
+		return SignedManifest{}, "", err
+	}
+	resp, err := u.client.Do(req)
+	if err != nil {
+		return SignedManifest{}, err.Error(), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		return SignedManifest{}, fmt.Sprintf("HTTP %d", resp.StatusCode), nil
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&sm); err != nil {
+		return SignedManifest{}, "", fmt.Errorf("manifest parse: %w", err)
+	}
+
+	if err := u.verifyManifest(sm); err != nil {
+		return SignedManifest{}, fmt.Sprintf("signature verification failed: %v", err), nil
+	}
+
+	// Anti-downgrade: reject an older version.
+	if sm.MinVersion != "" && compareVersions(sm.Version, sm.MinVersion) < 0 {
+		return SignedManifest{}, "version below minimum", nil
+	}
+
+	return sm, "", nil
+}
+
+// writeCheckCache best-effort persists the latest successful
+// check into the update_cache table. Cache failures are not
+// surfaced to the caller — a stale cache just means the next
+// check re-fetches the manifest.
+func (u *Updater) writeCheckCache(sm SignedManifest) {
+	if u.db == nil {
+		return
+	}
+	_, _ = u.db.ExecContext(context.Background(),
+		`UPDATE update_cache SET last_check_ts=?, latest_version=?, download_url=? WHERE id=1`,
+		time.Now().UTC().Format(time.RFC3339), sm.Version, sm.DownloadURL,
+	)
 }
 
 // Apply downloads, verifies SHA256, swaps the binary, and returns restart guidance.
