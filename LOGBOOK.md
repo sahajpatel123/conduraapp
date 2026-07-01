@@ -5780,3 +5780,73 @@ docs/superpowers/specs/
 **Open questions for next session:** None.
 **Next steps:** None for this commit. The two install.sh copies are now byte-identical, hardened, and the SHA-256 served at condura.app/install.sh will match the repo after the Vercel/host redeploy picks up the new file.
 ---
+
+## [2026-07-01 UTC] AI Model: Claude Sonnet 4 (implementation-engineer)
+**Session ID:** safe-01-cooling-window-verify
+**Branch:** phase-15-ship-readiness
+**Task:** Add a 5-second post-halt cooling window to `daemon.resume` so the kill switch is sticky (audit finding SAFE-01).
+
+**Outcome:** **Already shipped — no redundant commit.** Per the task instructions ("If the fix is already shipped, do NOT make a redundant commit — just report the existing commit hash"), I verified and reported instead of implementing.
+
+**Verification performed:**
+- `git log --oneline -20` on `internal/daemon/methods_phase2.go`, `methods_phase9.go`, `halt_adapter.go`, `safety_wiring.go` — surfaced commits `74b9640`, `37259e6`, `71ee63b`, and `870e7c9`.
+- Grep for `sticky | cooling | LastHalt | SAFE-01 | cooldown` across `internal/daemon/*.go` — found the cooldown wiring is live.
+- Read `internal/halt/flag.go` end-to-end. The `Flag.Resume(ctx)` method enforces a configurable cooldown via `SetCooldown(d)`; below the threshold it returns `*NotYetResumableError{Remaining, Since, Cooldown}` and refuses the resume.
+- Read `internal/daemon/methods_phase2.go` `registerHaltMethods` (lines 301-479). The shipped design is **strictly stronger than the spec**:
+  - `daemon.halt` halts the flag, toggles the network guard, cancels streams, audits `actorIPC`.
+  - `daemon.resume_request` (IPC) only **mints a 32-byte hex ticket** with 5-min TTL — does NOT resume.
+  - `halt.confirm_resume` (IPC) requires the **ticket + a human-only secret** (loaded from `<data_dir>/resume.secret`, mode 0600, 32-byte hex, `CONDURA_RESUME_SECRET` env override for headless) — constant-time compare via `ticketStore.Consume(...)`. On valid pair it then calls `haltFlag.Resume(ctx)` which enforces the cooldown.
+  - The old `daemon.resume` IPC is a deprecation shim that audits `actorIPC / deny` and returns a migration error pointing at the new flow.
+  - The CLI `condura resume --confirm <ticket>` runs in a **separate OS process**, prompts the human at a terminal, opens its own IPC client, and calls `halt.confirm_resume`. The human-confirmation path is OUT of the in-process trust boundary — which is the actual SAFE-01 invariant the audit flagged.
+- Read `internal/daemon/subsystems.go:552` — `haltFlag.SetCooldown(5 * time.Minute)`. Production cooldown is **5 minutes, not 5 seconds** — strictly longer than the spec asked for.
+- Read `internal/halt/flag_test.go` — covers default state, halt/resume round-trip, and persistence across `Refresh`. Does **not** have an explicit `NotYetResumableError` unit test; this is a small coverage gap (not a behavior gap) noted below.
+
+**Files reviewed (no edits):**
+- `internal/halt/flag.go` — `Flag`, `Resume`, `NotYetResumableError`, `SetCooldown`
+- `internal/daemon/methods_phase2.go` — `registerHaltMethods` (lines 301-479)
+- `internal/daemon/methods_phase9.go` — confirms `safety.halt` (different surface, also calls `subs.Halt.Halt` + `NetGuard.Halt`)
+- `internal/daemon/subsystems.go` line 552 — `SetCooldown(5 * time.Minute)` wiring
+- `internal/halt/flag_test.go` — current halt tests
+- `internal/daemon/resume_e2e_test.go` — covered via `halt.confirm_resume` happy-path + bad-secret; not the raw cooldown path
+
+**Decisions made:**
+- **Do not add a redundant 5-second window.** The shipped `Flag.Resume` cooldown is a *building block* (configurable via `SetCooldown`). The SAFE-01 invariant ("a prompt-injected agent cannot undo the user's kill switch") is enforced by the **two-step human-confirmed flow** (`daemon.resume_request` → `halt.confirm_resume` with a secret only a human can provide), not by a short cooldown on a single RPC. Adding a 5-second cooldown to a no-longer-existing IPC path would either be dead code (since `daemon.resume` is a deny-only shim) or would have to be added to `halt.confirm_resume` — which would conflict with the existing test in `resume_e2e_test.go` (happy path expects to succeed immediately after a halt, not after 5 seconds).
+- **Reported existing commits.** Per the explicit "do not make a redundant commit" instruction.
+
+**Concerns / open questions for next session:**
+- `internal/halt/flag_test.go` has no explicit `TestFlag_ResumeCooldown` — worth adding one (call `SetCooldown(50*ms)`, `Halt`, `Resume` → expect `NotYetResumableError`, sleep 60ms, `Resume` → success). Coverage gap, not a behavior gap.
+- `safety.halt` (registered in `methods_phase9.go:109`) calls `subs.Halt.Halt(ctx, ...)` directly + `NetGuard.Halt` — it does NOT go through `daemon.halt`'s audit/stream-cancel path. If the audit/stream-cancel invariant matters for `safety.halt` too, that path is inconsistent with `daemon.halt`. Flag for review.
+- The `SetCooldown` default is zero (no cooldown). `internal/halt/flag.go:37` documents this as "safe test default"; the daemon wires 5min at startup. If `internal/halt.Flag` is ever constructed without going through the daemon wiring (e.g., a new entrypoint, a test harness, a library consumer), the cooldown silently disappears. Consider making the constructor take an explicit cooldown, or defaulting to a non-zero safe value.
+
+**Next steps:**
+- If the user wants the explicit cooldown unit test (open question above), that's a small 30-line addition to `flag_test.go` — happy to do that as a separate follow-up.
+- No further action needed for SAFE-01 itself.
+
+---
+
+## [] AI Model: Implementation Engineer
+**Session ID:** 01JFY-SIDEBAR-ARIA-LABEL
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+**Commit:** 34a5c45
+
+**Task:** UX-01 — add `aria-label` to each route button in `app/web/frontend/src/lib/components/v1/Sidebar.svelte` so screen readers announce the destination, especially in collapsed mode where only the decorative icon is visible.
+
+**Files modified:**
+- `app/web/frontend/src/lib/components/v1/Sidebar.svelte` — added `aria-label={route.label}` to the route `<button>` inside the `{#each ROUTES as route}` loop (1 line). No other attributes touched. Visual output is unchanged (`aria-label` is a no-op for sighted users; the `{#if !collapsed}<span class="route__label">{route.label}</span>{/if}` block still gates the visible label and the `title=` attribute still surfaces a tooltip when collapsed).
+
+**Verification:**
+- `npx svelte-check`: passes for `Sidebar.svelte` (zero matches for sidebar in output). The repo has 4 pre-existing errors and 38 warnings, all in unrelated files (`v2/ChatSurface.svelte` errors; Sync/Skills/Channels/Delegation/Permissions/StatusBar/ConversationDrawer warnings). None introduced by this change.
+- `npm run build`: green (`✓ built in 1.83s`, 390 modules transformed).
+- Toggle button at the bottom already had `aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}` — verified dynamic and correct, no change needed.
+
+**Decisions made:**
+- **Bare `aria-label`, not conditional.** Spec says use `route.label` regardless of `collapsed` state. In expanded mode this duplicates the visible label, which is allowed by WAI-ARIA and is the correct pattern for buttons whose label text is hidden in some states (otherwise a screen reader hears the icon glyph when the sidebar collapses).
+- **Did not touch `title={collapsed ? route.label : undefined}`.** `title` is a hover-tooltip affordance, complementary to `aria-label`; keeping it conditional preserves the visual economy in expanded mode (no duplicate tooltip next to the visible label).
+
+**Concerns:** None. Diff is a single attribute addition.
+
+**Open questions:** None.
+
+**Next steps:** UX-02 onward per the audit, if assigned.
+---
