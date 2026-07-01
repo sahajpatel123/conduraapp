@@ -5764,3 +5764,19 @@ docs/superpowers/specs/
 - `@synaptic/security` may not yet have members — verify before relying on the rules.
 **Next steps:** Branch-protection setup (human/UI action), then verify the rules by opening a test PR against `phase-15-ship-readiness`.
 ---
+
+## [2026-07-01 18:55] AI Model: GLM 5.2 (z.ai)
+**Session ID:** 01J8Y5XCA8F4P7T6M2Q9R3W1K0
+**Task:** Harden `scripts/install.sh` with explicit ERR trap + per-PID temp-file cleanup. (Task brief's premise that the script lacked `set -euo pipefail` was stale — that gap was closed by commit c636c26 on this branch. Real delta was splitting the existing combined `trap cleanup EXIT ERR` into a separate inline ERR trap with a line-numbered failure echo and per-PID `condura-install.$$` cleanup, while keeping the existing `cleanup` function for EXIT.)
+**Files modified:**
+- `scripts/install.sh` — replaced `trap cleanup EXIT ERR` with: (a) an inline ERR trap that echoes `[install.sh] FAILED at line $LINENO. Cleaning up.` and removes `${TMPDIR:-/tmp}/condura-install.$$.*`, and (b) `trap cleanup EXIT` so the existing WORKDIR/VOLUME cleanup still runs. Added a 4-line comment explaining the split.
+- `web/public/install.sh` — byte-identical change to keep the served copy in sync with the source (both files hash `cd4409a4eb0fc50cb9b629ec89bfd6867f9a436e8394ad05c867083e9636bd81`).
+- `LOGBOOK.md` — this entry.
+**Decisions made:**
+- **Split the trap, don't replace cleanup** — the spec said "Do NOT change the actual install logic". The existing `cleanup` function correctly detaches the mounted DMG volume and removes the WORKDIR; replacing it would risk breaking the volume-detach path. Adding a separate inline ERR trap that runs first, then `trap cleanup EXIT`, gives the spec'd `[install.sh] FAILED at line N` echo + per-PID temp-file cleanup while preserving every existing guarantee. (Bash runs ERR then EXIT, so the order is correct.)
+- **`condura-install.$$` glob + `|| true`** — the spec's `rm -f ... 2>/dev/null || true` is necessary because (a) no files may match the glob (rm returns 23), and (b) if `set -e` were ever lost inside the trap, we must not silently abort before the user sees the FAILED line. The `|| true` belt-and-suspenders matches the spec verbatim.
+- **No new dependencies, no debug noise** — kept the change to a 10-line diff per file, no `set -x`, no logging library. Shellcheck 0.11.0 passes clean, `bash -n` parses both files, both the failure path (ERR fires, leftover tempfiles removed, cleanup still runs on EXIT, exit 1) and the success path (no FAILED echo, cleanup runs, exit 0) verified with synthetic scripts in `/tmp`.
+**Bugs/issues encountered:** None — initial read of the brief flagged it as stale (premise said no strict-mode at all), confirmed via `grep` that `set -euo pipefail` is already on line 16 from c636c26, scoped the diff to just the trap split.
+**Open questions for next session:** None.
+**Next steps:** None for this commit. The two install.sh copies are now byte-identical, hardened, and the SHA-256 served at condura.app/install.sh will match the repo after the Vercel/host redeploy picks up the new file.
+---
