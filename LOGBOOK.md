@@ -5891,3 +5891,31 @@ docs/superpowers/specs/
 
 **Next steps:**
 - None for UX-01 itself. The native-file-picker improvement is a separate, larger piece of work (daemon RPC + Wails bridge).
+
+## [2026-07-01 13:15] AI Model: z-ai/glm-5.2
+**Session ID:** 01JFY-PHASE15-REVIEW-FIXES
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+
+**Task:** Apply review-feedback fixes from the 4-agent pre-merge review of the Phase 15 ship-readiness wave, then merge the branch to `main` and push to `origin`.
+
+**Pre-merge review results (4 parallel agents):**
+- **Code reviewer:** NOT READY — flagged 1 critical (root `package-lock.json:2` polluted with worktree name `"phase-15-ship-readiness"` by a stray `npm install` at the worktree root), 1 important (CLAUDE.md §30.5 hard rule "Never introduce a new dependency without documenting it in CLAUDE.md" violated by the DOMPurify addition), 1 cosmetic (SettingsPane.svelte missing trailing newline).
+- **Test reviewer:** READY — 67/67 Go packages pass with `-race`, `golangci-lint` 0 issues, frontend `svelte-check` 0 NEW errors, `npm run build` green, install.sh `bash -n` + `shellcheck` clean, 2 install.sh copies byte-identical, 0 secrets in diff.
+- **Security reviewer:** READY — XSS fix verified at Chat.svelte + LiveTranscript.svelte (both wrap `marked.parse()` with `DOMPurify.sanitize` before `{@html}`), DOMPurify license (MPL-2.0 OR Apache-2.0) compatible with proprietary binary per CLAUDE.md §2.2 row 6, no Go safety code modified, destructive-action flow in ConfirmDialog refactor still requires explicit user click.
+- **Production-readiness reviewer:** READY — workflow files unchanged, Go code unchanged, TUI unchanged, marketing/web unchanged, CLAUDE.md/MISSION.md unchanged, LOGBOOK.md append-only honored.
+
+**Files modified in this session (review-fix patch):**
+- `package-lock.json` — restored `"name": "synaptic"` (was `"phase-15-ship-readiness"` worktree pollution)
+- `CLAUDE.md` — added one row to §8 Tech Stack table documenting DOMPurify ^3.4.11 as the frontend markdown sanitizer, per §30.5 hard rule #4 ("Never introduce a new dependency without documenting it in CLAUDE.md"). MPL-2.0 / Apache-2.0 dual-license; compatible with proprietary binary distribution.
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte` — added trailing newline at EOF.
+
+**Decisions made:** All three review findings accepted as merge-blockers. Code reviewer's verdict ("NOT READY") was correct; the other three reviewers focused on different lenses and missed the lockfile pollution. The package-lock.json:2 issue is a worktree-name artifact from running `npm install` at the worktree root (which has no `package.json`); restoring the name is a 1-character fix and doesn't require re-running `npm install`.
+
+**Bugs/issues encountered:** The package-lock.json pollution is a documented hazard of working in a worktree without a root `package.json`. Future agents should run `npm install` only inside `app/web/frontend/`, never at the worktree root.
+
+**Open questions for next session:** The 4 pre-existing svelte-check errors in `src/lib/v2/ChatSurface.svelte` (lines 27, 32, 135) remain untouched. These are a v0.2.0 design-system task (v2/ is the next-gen redesign per the wave 2 commit `5936fc4`).
+
+**Next steps:** Merge `phase-15-ship-readiness` to `main` with `--no-ff` (preserve the Phase 15 wave grouping on main per the code reviewer's recommendation), then push to `origin/main`. CI will re-run the full suite on the merge commit.
+
+---
