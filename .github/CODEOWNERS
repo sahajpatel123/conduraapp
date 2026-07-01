@@ -18,3 +18,43 @@
 /CLAUDE.md                 @synaptic/core
 /LOGBOOK.md                @synaptic/core
 /EULA.md                   @synaptic/core
+
+# -----------------------------------------------------------------------------
+# Ship-readiness coverage (Phase 15)
+#
+# Rationale:
+#   - CI workflows and Dependabot config can publish binaries, rotate secrets,
+#     or expand the supply-chain attack surface. Security must approve.
+#   - The auto-updater signs binaries with an Ed25519 key; the embedded
+#     PublicKey constant is the trust root. Any change here can let an attacker
+#     push a "legitimate" update to every user. Security alone owns this file.
+#   - go.mod / go.sum govern the entire dependency graph. A poisoned transitive
+#     dependency is one of the most realistic v0.1.0 supply-chain risks; the
+#     core team must review every bump.
+#   - The remaining paths below are the components that physically touch the
+#     user's machine (gatekeeper decisions, audit writes, kill-switch triggers,
+#     model output sanitizers, computer-use actuators, secret storage). They
+#     inherit the existing safety-bar and require a joint security + core
+#     review so neither team can change the contract alone.
+# -----------------------------------------------------------------------------
+
+# CI, release, and supply-chain automation
+/.github/workflows/       @synaptic/security @synaptic/core
+/.github/dependabot.yml   @synaptic/security
+
+# Auto-updater: Ed25519-signed binary updates. The trust root lives here.
+/internal/updater/        @synaptic/security @synaptic/core
+/internal/updater/updater.go @synaptic/security
+
+# Dependency graph
+/go.mod                    @synaptic/core
+/go.sum                    @synaptic/core
+
+# Safety-critical subsystems (already partially covered; tightened to ensure
+# every change is reviewed by both core and security).
+/internal/secrets/         @synaptic/security @synaptic/core
+/internal/gatekeeper/      @synaptic/security @synaptic/core
+/internal/audit/           @synaptic/security
+/internal/halt/            @synaptic/security @synaptic/core
+/internal/sanitize/        @synaptic/security
+/internal/computeruse/     @synaptic/security @synaptic/core
