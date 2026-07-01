@@ -5746,3 +5746,176 @@ docs/superpowers/specs/
 
 13 components + V2Shell + 10 preview routes + 1 spec doc + 14 LOGBOOK entries documenting every iteration. **Zero** changes to v1 WIP, the marketing site, or any Go code.
 
+
+---
+
+## [2026-07-01 18:30] AI Model: GLM 5.2 (z.ai)
+**Session ID:** 01J8Y5X9K3R7M2V4Q8N6B5D1C0
+**Task:** Extend `.github/CODEOWNERS` to cover ship-readiness paths missing reviewer enforcement (CI workflows, updater trust root, go.mod/go.sum, safety subsystems). Purely additive append — no existing rule was changed or removed.
+**Files modified:**
+- `.github/CODEOWNERS` — appended 40-line Phase 15 ship-readiness section with rationale comment block. Added rules for `.github/workflows/`, `.github/dependabot.yml`, `/internal/updater/` (plus single-owner override on `/internal/updater/updater.go` where the embedded Ed25519 `PublicKey` constant lives), `/go.mod`, `/go.sum`, `/internal/secrets/`, `/internal/gatekeeper/`, `/internal/audit/`, `/internal/halt/`, `/internal/sanitize/`, `/internal/computeruse/`.
+**Decisions made:**
+- **Last-matching-rule semantics** — GitHub CODEOWNERS evaluates bottom-up. The pre-existing rule `/internal/secrets/ @synaptic/core @synaptic/security` on line 14 is now superseded by the new `/internal/secrets/ @synaptic/security @synaptic/core` on line 55. Order is irrelevant when both teams are listed (reviewer requirement is OR across listed teams), but listing `@synaptic/security` first matches the original ordering for readers. Kept both teams on the new line so no team is silently dropped.
+- **`/internal/updater/updater.go` ownership override** — the embedded `var PublicKey = ed25519.PublicKey{...}` trust root lives in `updater.go`, not `manifest.go` as the original task brief assumed. Verified with `grep` and targeted that file specifically with `@synaptic/security` only, so changing the trust root requires an explicit security-team review even though the broader `/internal/updater/` package allows joint ownership.
+- **No `/internal/safety/` rewrite** — line 8 already covers that path with `@synaptic/core @synaptic/security`; the new section does not duplicate it. (Note for next session: the live package layout in `internal/audit/`, `internal/halt/`, `internal/sanitize/` etc. suggests the umbrella `/internal/safety/` path is now mostly a meta-stylistic grouping — the per-package rules below it are what actually triggers reviews. Worth a Phase 15 follow-up to confirm `internal/safety/` still maps to real files.)
+**Bugs/issues encountered:** None.
+**Open questions for next session:**
+- Branch protection rules still need to be enabled in the GitHub UI (the task brief explicitly deferred this). Required reviewers from `@synaptic/core` and `@synaptic/security` must exist as GitHub teams with members before CODEOWNERS is meaningful.
+- `@synaptic/security` may not yet have members — verify before relying on the rules.
+**Next steps:** Branch-protection setup (human/UI action), then verify the rules by opening a test PR against `phase-15-ship-readiness`.
+---
+
+## [2026-07-01 18:55] AI Model: GLM 5.2 (z.ai)
+**Session ID:** 01J8Y5XCA8F4P7T6M2Q9R3W1K0
+**Task:** Harden `scripts/install.sh` with explicit ERR trap + per-PID temp-file cleanup. (Task brief's premise that the script lacked `set -euo pipefail` was stale — that gap was closed by commit c636c26 on this branch. Real delta was splitting the existing combined `trap cleanup EXIT ERR` into a separate inline ERR trap with a line-numbered failure echo and per-PID `condura-install.$$` cleanup, while keeping the existing `cleanup` function for EXIT.)
+**Files modified:**
+- `scripts/install.sh` — replaced `trap cleanup EXIT ERR` with: (a) an inline ERR trap that echoes `[install.sh] FAILED at line $LINENO. Cleaning up.` and removes `${TMPDIR:-/tmp}/condura-install.$$.*`, and (b) `trap cleanup EXIT` so the existing WORKDIR/VOLUME cleanup still runs. Added a 4-line comment explaining the split.
+- `web/public/install.sh` — byte-identical change to keep the served copy in sync with the source (both files hash `cd4409a4eb0fc50cb9b629ec89bfd6867f9a436e8394ad05c867083e9636bd81`).
+- `LOGBOOK.md` — this entry.
+**Decisions made:**
+- **Split the trap, don't replace cleanup** — the spec said "Do NOT change the actual install logic". The existing `cleanup` function correctly detaches the mounted DMG volume and removes the WORKDIR; replacing it would risk breaking the volume-detach path. Adding a separate inline ERR trap that runs first, then `trap cleanup EXIT`, gives the spec'd `[install.sh] FAILED at line N` echo + per-PID temp-file cleanup while preserving every existing guarantee. (Bash runs ERR then EXIT, so the order is correct.)
+- **`condura-install.$$` glob + `|| true`** — the spec's `rm -f ... 2>/dev/null || true` is necessary because (a) no files may match the glob (rm returns 23), and (b) if `set -e` were ever lost inside the trap, we must not silently abort before the user sees the FAILED line. The `|| true` belt-and-suspenders matches the spec verbatim.
+- **No new dependencies, no debug noise** — kept the change to a 10-line diff per file, no `set -x`, no logging library. Shellcheck 0.11.0 passes clean, `bash -n` parses both files, both the failure path (ERR fires, leftover tempfiles removed, cleanup still runs on EXIT, exit 1) and the success path (no FAILED echo, cleanup runs, exit 0) verified with synthetic scripts in `/tmp`.
+**Bugs/issues encountered:** None — initial read of the brief flagged it as stale (premise said no strict-mode at all), confirmed via `grep` that `set -euo pipefail` is already on line 16 from c636c26, scoped the diff to just the trap split.
+**Open questions for next session:** None.
+**Next steps:** None for this commit. The two install.sh copies are now byte-identical, hardened, and the SHA-256 served at condura.app/install.sh will match the repo after the Vercel/host redeploy picks up the new file.
+---
+
+## [2026-07-01 UTC] AI Model: Claude Sonnet 4 (implementation-engineer)
+**Session ID:** safe-01-cooling-window-verify
+**Branch:** phase-15-ship-readiness
+**Task:** Add a 5-second post-halt cooling window to `daemon.resume` so the kill switch is sticky (audit finding SAFE-01).
+
+**Outcome:** **Already shipped — no redundant commit.** Per the task instructions ("If the fix is already shipped, do NOT make a redundant commit — just report the existing commit hash"), I verified and reported instead of implementing.
+
+**Verification performed:**
+- `git log --oneline -20` on `internal/daemon/methods_phase2.go`, `methods_phase9.go`, `halt_adapter.go`, `safety_wiring.go` — surfaced commits `74b9640`, `37259e6`, `71ee63b`, and `870e7c9`.
+- Grep for `sticky | cooling | LastHalt | SAFE-01 | cooldown` across `internal/daemon/*.go` — found the cooldown wiring is live.
+- Read `internal/halt/flag.go` end-to-end. The `Flag.Resume(ctx)` method enforces a configurable cooldown via `SetCooldown(d)`; below the threshold it returns `*NotYetResumableError{Remaining, Since, Cooldown}` and refuses the resume.
+- Read `internal/daemon/methods_phase2.go` `registerHaltMethods` (lines 301-479). The shipped design is **strictly stronger than the spec**:
+  - `daemon.halt` halts the flag, toggles the network guard, cancels streams, audits `actorIPC`.
+  - `daemon.resume_request` (IPC) only **mints a 32-byte hex ticket** with 5-min TTL — does NOT resume.
+  - `halt.confirm_resume` (IPC) requires the **ticket + a human-only secret** (loaded from `<data_dir>/resume.secret`, mode 0600, 32-byte hex, `CONDURA_RESUME_SECRET` env override for headless) — constant-time compare via `ticketStore.Consume(...)`. On valid pair it then calls `haltFlag.Resume(ctx)` which enforces the cooldown.
+  - The old `daemon.resume` IPC is a deprecation shim that audits `actorIPC / deny` and returns a migration error pointing at the new flow.
+  - The CLI `condura resume --confirm <ticket>` runs in a **separate OS process**, prompts the human at a terminal, opens its own IPC client, and calls `halt.confirm_resume`. The human-confirmation path is OUT of the in-process trust boundary — which is the actual SAFE-01 invariant the audit flagged.
+- Read `internal/daemon/subsystems.go:552` — `haltFlag.SetCooldown(5 * time.Minute)`. Production cooldown is **5 minutes, not 5 seconds** — strictly longer than the spec asked for.
+- Read `internal/halt/flag_test.go` — covers default state, halt/resume round-trip, and persistence across `Refresh`. Does **not** have an explicit `NotYetResumableError` unit test; this is a small coverage gap (not a behavior gap) noted below.
+
+**Files reviewed (no edits):**
+- `internal/halt/flag.go` — `Flag`, `Resume`, `NotYetResumableError`, `SetCooldown`
+- `internal/daemon/methods_phase2.go` — `registerHaltMethods` (lines 301-479)
+- `internal/daemon/methods_phase9.go` — confirms `safety.halt` (different surface, also calls `subs.Halt.Halt` + `NetGuard.Halt`)
+- `internal/daemon/subsystems.go` line 552 — `SetCooldown(5 * time.Minute)` wiring
+- `internal/halt/flag_test.go` — current halt tests
+- `internal/daemon/resume_e2e_test.go` — covered via `halt.confirm_resume` happy-path + bad-secret; not the raw cooldown path
+
+**Decisions made:**
+- **Do not add a redundant 5-second window.** The shipped `Flag.Resume` cooldown is a *building block* (configurable via `SetCooldown`). The SAFE-01 invariant ("a prompt-injected agent cannot undo the user's kill switch") is enforced by the **two-step human-confirmed flow** (`daemon.resume_request` → `halt.confirm_resume` with a secret only a human can provide), not by a short cooldown on a single RPC. Adding a 5-second cooldown to a no-longer-existing IPC path would either be dead code (since `daemon.resume` is a deny-only shim) or would have to be added to `halt.confirm_resume` — which would conflict with the existing test in `resume_e2e_test.go` (happy path expects to succeed immediately after a halt, not after 5 seconds).
+- **Reported existing commits.** Per the explicit "do not make a redundant commit" instruction.
+
+**Concerns / open questions for next session:**
+- `internal/halt/flag_test.go` has no explicit `TestFlag_ResumeCooldown` — worth adding one (call `SetCooldown(50*ms)`, `Halt`, `Resume` → expect `NotYetResumableError`, sleep 60ms, `Resume` → success). Coverage gap, not a behavior gap.
+- `safety.halt` (registered in `methods_phase9.go:109`) calls `subs.Halt.Halt(ctx, ...)` directly + `NetGuard.Halt` — it does NOT go through `daemon.halt`'s audit/stream-cancel path. If the audit/stream-cancel invariant matters for `safety.halt` too, that path is inconsistent with `daemon.halt`. Flag for review.
+- The `SetCooldown` default is zero (no cooldown). `internal/halt/flag.go:37` documents this as "safe test default"; the daemon wires 5min at startup. If `internal/halt.Flag` is ever constructed without going through the daemon wiring (e.g., a new entrypoint, a test harness, a library consumer), the cooldown silently disappears. Consider making the constructor take an explicit cooldown, or defaulting to a non-zero safe value.
+
+**Next steps:**
+- If the user wants the explicit cooldown unit test (open question above), that's a small 30-line addition to `flag_test.go` — happy to do that as a separate follow-up.
+- No further action needed for SAFE-01 itself.
+
+---
+
+## [] AI Model: Implementation Engineer
+**Session ID:** 01JFY-SIDEBAR-ARIA-LABEL
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+**Commit:** 34a5c45
+
+**Task:** UX-01 — add `aria-label` to each route button in `app/web/frontend/src/lib/components/v1/Sidebar.svelte` so screen readers announce the destination, especially in collapsed mode where only the decorative icon is visible.
+
+**Files modified:**
+- `app/web/frontend/src/lib/components/v1/Sidebar.svelte` — added `aria-label={route.label}` to the route `<button>` inside the `{#each ROUTES as route}` loop (1 line). No other attributes touched. Visual output is unchanged (`aria-label` is a no-op for sighted users; the `{#if !collapsed}<span class="route__label">{route.label}</span>{/if}` block still gates the visible label and the `title=` attribute still surfaces a tooltip when collapsed).
+
+**Verification:**
+- `npx svelte-check`: passes for `Sidebar.svelte` (zero matches for sidebar in output). The repo has 4 pre-existing errors and 38 warnings, all in unrelated files (`v2/ChatSurface.svelte` errors; Sync/Skills/Channels/Delegation/Permissions/StatusBar/ConversationDrawer warnings). None introduced by this change.
+- `npm run build`: green (`✓ built in 1.83s`, 390 modules transformed).
+- Toggle button at the bottom already had `aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}` — verified dynamic and correct, no change needed.
+
+**Decisions made:**
+- **Bare `aria-label`, not conditional.** Spec says use `route.label` regardless of `collapsed` state. In expanded mode this duplicates the visible label, which is allowed by WAI-ARIA and is the correct pattern for buttons whose label text is hidden in some states (otherwise a screen reader hears the icon glyph when the sidebar collapses).
+- **Did not touch `title={collapsed ? route.label : undefined}`.** `title` is a hover-tooltip affordance, complementary to `aria-label`; keeping it conditional preserves the visual economy in expanded mode (no duplicate tooltip next to the visible label).
+
+**Concerns:** None. Diff is a single attribute addition.
+
+**Open questions:** None.
+
+**Next steps:** UX-02 onward per the audit, if assigned.
+---
+
+## [2026-07-01 09:05] AI Model: Implementation Engineer (z-ai/glm-5.2)
+**Session ID:** UX-01-CONFIRM-DIALOG
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+
+**Task:** UX-01 (extension of the prior sidebar aria-label work) — replace the 2 remaining `window.confirm()` blocking-dialog calls in `SettingsPane.svelte` with the app's existing `ConfirmDialog.svelte` component, and audit the rest of the GUI for similar blocking native-dialog usage.
+
+**Audit findings (pre-fix):**
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:381` — `confirm('Delete all learned inferences and start fresh? This cannot be undone.')`
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:436` — `window.prompt('Path to backup .zip archive')` (renderer-blocking; same class of issue)
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte:438` — `confirm(\`Restore from ${path}? ...\`)`
+- `app/web/frontend/src/lib/routes/dev/Components.svelte:222` — `alert('clicked')` (dev playground only; out of scope)
+- `app/web/frontend/src/lib/components/PairingModal.svelte:113,163` — `confirm` is a local function, NOT a `window.confirm` call. False positive, skipped.
+- No other `window.confirm` / `window.alert` / `window.prompt` anywhere in `app/web/frontend/src/`.
+
+**Files modified:**
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte` — refactored both destructive-action handlers (`resetAdaptive`, `restoreBackup`) to use a state-driven `confirmDialog` + a state-driven path-prompt `Dialog`. The destructive action bodies (`performResetAdaptive`, `performRestoreBackup`) were extracted so the confirm/cancel decisions stay clean. Imports added: `ConfirmDialog` from `../ConfirmDialog.svelte`, `Dialog` from `../ui`, `Input` from `./Input.svelte`. Two styles added (`.path-prompt-body`, `.path-prompt-footer`).
+
+**Decisions made:**
+- **State-driven modal, not promise-based.** The existing `ConfirmDialog.svelte` is `bind:open`-based (matching `Hub.svelte`, `Sync.svelte`, `Channels.svelte`, `Skills.svelte`). Followed that pattern for consistency rather than introducing a promise-wrapped `confirm()` shim.
+- **Two separate confirm kinds via a tagged union.** `confirmDialog: { kind: 'reset-adaptive' } | { kind: 'restore-backup'; path: string } | null`. One `<ConfirmDialog>` per kind, each guarded by `open={confirmDialog?.kind === '<kind>'}`. Cleaner than a generic description-builder and avoids string interpolation in the description.
+- **Path-input gets its own `<Dialog>` (not `<ConfirmDialog>`).** `ConfirmDialog` only renders a description paragraph — it has no body slot for an `<Input>`. Reusing the underlying `Dialog` primitive (`from '../ui'`, the same primitive ConfirmDialog is built on) keeps the modal consistent in styling/behavior and lets us embed the Input + a Continue button inside the dialog body. The path-input only opens when no backup is currently listed.
+- **Tone = `danger` for both destructive dialogs.** Reset is irreversible; Restore overwrites user data. `danger` tints the dialog border + reddens the confirm button.
+- **`onkeydown` Enter submits the path-input dialog.** Matches the keyboard flow users expect from native prompt dialogs.
+
+**Bugs/issues encountered:**
+- Bash CWD resets between calls (per env note) — `cd app/web/frontend && ...` needs the explicit `cd` every call.
+- One transient false-positive "Permission denied" classification on the first `npx svelte-check` invocation that vanished on retry. Logged here for the next agent in case they see it; not a real issue.
+
+**Open questions for next session:**
+- The path-input dialog is a stopgap: long-term, the Restore button should open a native file picker (e.g., `Wails runtime.OpenFileDialog` bridge in `app/web/main.go`) rather than a free-text path field. Not in scope for this UX fix.
+- The 4 pre-existing `svelte-check` errors in `Sheet.svelte` and `v2/ChatSurface.svelte` are unrelated to this change and not touched.
+
+**Verification:**
+- `cd app/web/frontend && npx svelte-check 2>&1 | grep -i SettingsPane` → 0 matches (no errors/warnings in the changed file). Repo total still 4 pre-existing errors + 38 warnings, all in unrelated files.
+- `cd app/web/frontend && npm run build` → `built in 1.86s`, 421.91 kB / 136.64 kB gzipped. No errors.
+- `grep -rE "window\\.confirm|window\\.alert|window\\.prompt" app/web/frontend/src/` → only matches are comments mentioning the removed calls.
+
+**Next steps:**
+- None for UX-01 itself. The native-file-picker improvement is a separate, larger piece of work (daemon RPC + Wails bridge).
+
+## [2026-07-01 13:15] AI Model: z-ai/glm-5.2
+**Session ID:** 01JFY-PHASE15-REVIEW-FIXES
+**Worktree:** `.worktrees/phase-15-ship-readiness`
+**Branch:** `phase-15-ship-readiness`
+
+**Task:** Apply review-feedback fixes from the 4-agent pre-merge review of the Phase 15 ship-readiness wave, then merge the branch to `main` and push to `origin`.
+
+**Pre-merge review results (4 parallel agents):**
+- **Code reviewer:** NOT READY — flagged 1 critical (root `package-lock.json:2` polluted with worktree name `"phase-15-ship-readiness"` by a stray `npm install` at the worktree root), 1 important (CLAUDE.md §30.5 hard rule "Never introduce a new dependency without documenting it in CLAUDE.md" violated by the DOMPurify addition), 1 cosmetic (SettingsPane.svelte missing trailing newline).
+- **Test reviewer:** READY — 67/67 Go packages pass with `-race`, `golangci-lint` 0 issues, frontend `svelte-check` 0 NEW errors, `npm run build` green, install.sh `bash -n` + `shellcheck` clean, 2 install.sh copies byte-identical, 0 secrets in diff.
+- **Security reviewer:** READY — XSS fix verified at Chat.svelte + LiveTranscript.svelte (both wrap `marked.parse()` with `DOMPurify.sanitize` before `{@html}`), DOMPurify license (MPL-2.0 OR Apache-2.0) compatible with proprietary binary per CLAUDE.md §2.2 row 6, no Go safety code modified, destructive-action flow in ConfirmDialog refactor still requires explicit user click.
+- **Production-readiness reviewer:** READY — workflow files unchanged, Go code unchanged, TUI unchanged, marketing/web unchanged, CLAUDE.md/MISSION.md unchanged, LOGBOOK.md append-only honored.
+
+**Files modified in this session (review-fix patch):**
+- `package-lock.json` — restored `"name": "synaptic"` (was `"phase-15-ship-readiness"` worktree pollution)
+- `CLAUDE.md` — added one row to §8 Tech Stack table documenting DOMPurify ^3.4.11 as the frontend markdown sanitizer, per §30.5 hard rule #4 ("Never introduce a new dependency without documenting it in CLAUDE.md"). MPL-2.0 / Apache-2.0 dual-license; compatible with proprietary binary distribution.
+- `app/web/frontend/src/lib/components/v1/SettingsPane.svelte` — added trailing newline at EOF.
+
+**Decisions made:** All three review findings accepted as merge-blockers. Code reviewer's verdict ("NOT READY") was correct; the other three reviewers focused on different lenses and missed the lockfile pollution. The package-lock.json:2 issue is a worktree-name artifact from running `npm install` at the worktree root (which has no `package.json`); restoring the name is a 1-character fix and doesn't require re-running `npm install`.
+
+**Bugs/issues encountered:** The package-lock.json pollution is a documented hazard of working in a worktree without a root `package.json`. Future agents should run `npm install` only inside `app/web/frontend/`, never at the worktree root.
+
+**Open questions for next session:** The 4 pre-existing svelte-check errors in `src/lib/v2/ChatSurface.svelte` (lines 27, 32, 135) remain untouched. These are a v0.2.0 design-system task (v2/ is the next-gen redesign per the wave 2 commit `5936fc4`).
+
+**Next steps:** Merge `phase-15-ship-readiness` to `main` with `--no-ff` (preserve the Phase 15 wave grouping on main per the code reviewer's recommendation), then push to `origin/main`. CI will re-run the full suite on the merge commit.
+
+---

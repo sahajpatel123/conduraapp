@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { marked } from 'marked'
+  import DOMPurify from 'dompurify'
 
   import { conversation } from '../stores/conversation.svelte'
   import { daemon } from '../stores/daemon.svelte'
@@ -125,8 +126,14 @@
     return () => conversation.stopListening()
   })
 
-  function renderMarkdown(text: string): string {
-    return marked.parse(text, { async: false }) as string
+  function renderSafeMarkdown(text: string): string {
+    // marked.parse() emits raw HTML; tool output, prompt-injected
+    // model replies, and crafted STT transcripts all flow through
+    // this path with full IPC access behind it. DOMPurify strips
+    // <script>, event handlers, javascript: URLs, and any other
+    // XSS vectors before the result reaches {@html}.
+    const html = marked.parse(text, { async: false }) as string
+    return DOMPurify.sanitize(html)
   }
 </script>
 
@@ -219,7 +226,7 @@
               </div>
               <div class="msg-body">
                 {#if msg.role === 'assistant'}
-                  <div class="msg-markdown">{@html renderMarkdown(msg.content)}</div>
+                  <div class="msg-markdown">{@html renderSafeMarkdown(msg.content)}</div>
                 {:else}
                   <div class="msg-text">{msg.content}</div>
                 {/if}
@@ -247,7 +254,7 @@
               </div>
               <div class="msg-body">
                 {#if conversation.streamingDelta}
-                  <div class="msg-markdown">{@html renderMarkdown(conversation.streamingDelta)}</div>
+                  <div class="msg-markdown">{@html renderSafeMarkdown(conversation.streamingDelta)}</div>
                 {:else}
                   <div class="msg-thinking">
                     <span class="dot-loader"><span></span><span></span><span></span></span>

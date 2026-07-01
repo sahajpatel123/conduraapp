@@ -31,6 +31,9 @@
   import Receipt from './Receipt.svelte';
   import Dot from './Dot.svelte';
   import HotkeyRecorder from './HotkeyRecorder.svelte';
+  import Input from './Input.svelte';
+  import ConfirmDialog from '../ConfirmDialog.svelte';
+  import { Dialog } from '../ui';
 
   import { replay } from '../../stores/replay.svelte';
   import { trust } from '../../stores/trust.svelte';
@@ -74,6 +77,13 @@
   let exportBusy = $state(false);
   let backupBusy = $state(false);
   let restoreBusy = $state(false);
+  let restorePathInput = $state('');
+  let restorePathPromptOpen = $state(false);
+  let confirmDialog = $state<
+    | null
+    | { kind: 'reset-adaptive' }
+    | { kind: 'restore-backup'; path: string }
+  >(null);
   let permPollTimer: ReturnType<typeof setInterval> | null = null;
 
   $effect(() => {
@@ -378,7 +388,10 @@
   }
 
   async function resetAdaptive(): Promise<void> {
-    if (!confirm('Delete all learned inferences and start fresh? This cannot be undone.')) return;
+    confirmDialog = { kind: 'reset-adaptive' };
+  }
+
+  async function performResetAdaptive(): Promise<void> {
     adaptiveBusy = true;
     try {
       await ipc.adaptiveReset();
@@ -433,9 +446,30 @@
 
   async function restoreBackup(): Promise<void> {
     const latest = trust.backups[0];
-    const path = latest?.path ?? window.prompt('Path to backup .zip archive');
+    if (latest?.path) {
+      confirmDialog = { kind: 'restore-backup', path: latest.path };
+      return;
+    }
+    // No backup on the list yet — ask for a path via the in-app prompt
+    // (not window.prompt: that freezes the renderer thread).
+    restorePathInput = '';
+    restorePathPromptOpen = true;
+  }
+
+  function submitRestorePathPrompt(): void {
+    const path = restorePathInput.trim();
+    restorePathPromptOpen = false;
+    restorePathInput = '';
     if (!path) return;
-    if (!confirm(`Restore from ${path}? Current data will be replaced.`)) return;
+    confirmDialog = { kind: 'restore-backup', path };
+  }
+
+  function cancelRestorePathPrompt(): void {
+    restorePathPromptOpen = false;
+    restorePathInput = '';
+  }
+
+  async function performRestoreBackup(path: string): Promise<void> {
     restoreBusy = true;
     try {
       await ipc.backupRestore({ path });
@@ -717,6 +751,69 @@
     </div>
   </div>
 </div>
+
+<!-- Native confirmation dialogs (replace blocking window.confirm / window.prompt) -->
+<ConfirmDialog
+  open={confirmDialog?.kind === 'reset-adaptive'}
+  title="Reset everything?"
+  description="Delete all learned inferences and start fresh. This cannot be undone."
+  tone="danger"
+  confirmLabel="Reset"
+  onconfirm={() => {
+    confirmDialog = null;
+    void performResetAdaptive();
+  }}
+  oncancel={() => { confirmDialog = null; }}
+/>
+
+<ConfirmDialog
+  open={confirmDialog?.kind === 'restore-backup'}
+  title="Restore from backup?"
+  description={`Restore from ${confirmDialog?.kind === 'restore-backup' ? confirmDialog.path : ''}? Current data will be replaced.`}
+  tone="danger"
+  confirmLabel="Restore"
+  onconfirm={() => {
+    const path = confirmDialog?.kind === 'restore-backup' ? confirmDialog.path : '';
+    confirmDialog = null;
+    if (path) void performRestoreBackup(path);
+  }}
+  oncancel={() => { confirmDialog = null; }}
+/>
+
+<!-- Path-input dialog: only opens when no backup is currently listed.
+     Replaces window.prompt() so the renderer thread isn't blocked. -->
+<Dialog
+  bind:open={restorePathPromptOpen}
+  title="Path to backup"
+  description="No backup is currently listed. Enter the full path to a .zip archive on this machine."
+  size="sm"
+  onclose={cancelRestorePathPrompt}
+>
+  {#snippet children()}
+    <div class="path-prompt-body">
+      <Input
+        bind:value={restorePathInput}
+        variant="sans"
+        size="md"
+        placeholder="/Users/me/Documents/condura-backups/synaptic-backup-2026-07-01.zip"
+        monospace
+        ariaLabel="Path to backup .zip archive"
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitRestorePathPrompt();
+          }
+        }}
+      />
+    </div>
+  {/snippet}
+  {#snippet footer()}
+    <div class="path-prompt-footer">
+      <Button variant="tertiary" onclick={cancelRestorePathPrompt}>Cancel</Button>
+      <Button variant="primary" onclick={submitRestorePathPrompt}>Continue</Button>
+    </div>
+  {/snippet}
+</Dialog>
 
 <style>
   .pane {
@@ -1130,5 +1227,15 @@
       border-right: none;
       border-bottom: 1px solid var(--border-subtle);
     }
+  }
+
+  /* Path-prompt dialog */
+  .path-prompt-body {
+    padding: var(--space-2) 0;
+  }
+  .path-prompt-footer {
+    display: flex;
+    gap: var(--space-2);
+    margin-left: auto;
   }
 </style>

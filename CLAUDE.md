@@ -334,6 +334,7 @@ When the user is typing, **the agent is asleep**. When the user clicks, the agen
 | Wake word | **openWakeWord** (local, custom phrase "hey synaptic") | Open source, runs offline |
 | Auto-update | **`go-update` + Sparkle-like delta** (mac) / Squirrel (win) | Standard pattern, signed |
 | Code signing | Apple Developer ID + `codesign --deep --strict --options=runtime`; Microsoft Authenticode | Required for distribution |
+| Frontend markdown sanitizer | **DOMPurify ^3.4.11** (dual-licensed MPL-2.0 OR Apache-2.0) | Strips `<script>`, event handlers, and `javascript:` URLs from LLM-generated markdown before `{@html}` rendering; closes the XSS sink in `Chat.svelte` and `LiveTranscript.svelte` |
 | Notarization | `notarytool` + altool for macOS | Required for Gatekeeper |
 | Installers | **GoReleaser** (macOS dmg/pkg, Windows msi/exe, Linux deb/AppImage) | One config, all OSes |
 | P2P sync | **Custom Kademlia DHT + Noise XX handshake** OR Syncthing-fork | E2E encrypted, no server |

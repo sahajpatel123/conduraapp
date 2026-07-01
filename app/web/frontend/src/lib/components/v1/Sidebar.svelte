@@ -58,6 +58,7 @@
         class:route--collapsed={collapsed}
         type="button"
         onclick={() => onnavigate?.(route.id)}
+        aria-label={route.label}
         aria-current={active === route.id ? 'page' : undefined}
         title={collapsed ? route.label : undefined}
       >
