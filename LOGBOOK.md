@@ -5746,3 +5746,21 @@ docs/superpowers/specs/
 
 13 components + V2Shell + 10 preview routes + 1 spec doc + 14 LOGBOOK entries documenting every iteration. **Zero** changes to v1 WIP, the marketing site, or any Go code.
 
+
+---
+
+## [2026-07-01 18:30] AI Model: GLM 5.2 (z.ai)
+**Session ID:** 01J8Y5X9K3R7M2V4Q8N6B5D1C0
+**Task:** Extend `.github/CODEOWNERS` to cover ship-readiness paths missing reviewer enforcement (CI workflows, updater trust root, go.mod/go.sum, safety subsystems). Purely additive append — no existing rule was changed or removed.
+**Files modified:**
+- `.github/CODEOWNERS` — appended 40-line Phase 15 ship-readiness section with rationale comment block. Added rules for `.github/workflows/`, `.github/dependabot.yml`, `/internal/updater/` (plus single-owner override on `/internal/updater/updater.go` where the embedded Ed25519 `PublicKey` constant lives), `/go.mod`, `/go.sum`, `/internal/secrets/`, `/internal/gatekeeper/`, `/internal/audit/`, `/internal/halt/`, `/internal/sanitize/`, `/internal/computeruse/`.
+**Decisions made:**
+- **Last-matching-rule semantics** — GitHub CODEOWNERS evaluates bottom-up. The pre-existing rule `/internal/secrets/ @synaptic/core @synaptic/security` on line 14 is now superseded by the new `/internal/secrets/ @synaptic/security @synaptic/core` on line 55. Order is irrelevant when both teams are listed (reviewer requirement is OR across listed teams), but listing `@synaptic/security` first matches the original ordering for readers. Kept both teams on the new line so no team is silently dropped.
+- **`/internal/updater/updater.go` ownership override** — the embedded `var PublicKey = ed25519.PublicKey{...}` trust root lives in `updater.go`, not `manifest.go` as the original task brief assumed. Verified with `grep` and targeted that file specifically with `@synaptic/security` only, so changing the trust root requires an explicit security-team review even though the broader `/internal/updater/` package allows joint ownership.
+- **No `/internal/safety/` rewrite** — line 8 already covers that path with `@synaptic/core @synaptic/security`; the new section does not duplicate it. (Note for next session: the live package layout in `internal/audit/`, `internal/halt/`, `internal/sanitize/` etc. suggests the umbrella `/internal/safety/` path is now mostly a meta-stylistic grouping — the per-package rules below it are what actually triggers reviews. Worth a Phase 15 follow-up to confirm `internal/safety/` still maps to real files.)
+**Bugs/issues encountered:** None.
+**Open questions for next session:**
+- Branch protection rules still need to be enabled in the GitHub UI (the task brief explicitly deferred this). Required reviewers from `@synaptic/core` and `@synaptic/security` must exist as GitHub teams with members before CODEOWNERS is meaningful.
+- `@synaptic/security` may not yet have members — verify before relying on the rules.
+**Next steps:** Branch-protection setup (human/UI action), then verify the rules by opening a test PR against `phase-15-ship-readiness`.
+---
