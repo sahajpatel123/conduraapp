@@ -38,10 +38,13 @@
 
   let search = $state('');
   let searchInputEl: HTMLInputElement | undefined = $state();
+  let listEl = $state<HTMLDivElement | undefined>();
+  let focusedRowIndex = $state(-1);
 
   $effect(() => {
     if (open && searchInputEl) {
       searchInputEl.focus();
+      focusedRowIndex = -1;
     }
   });
 
@@ -52,6 +55,40 @@
         )
       : conversations
   );
+
+  function navigateList(e: KeyboardEvent): void {
+    if (!listEl) return
+    const rows = listEl.querySelectorAll<HTMLButtonElement>('.row')
+    if (rows.length === 0) return
+
+    const handleKey = (key: string) => {
+      if (key === 'ArrowDown') {
+        e.preventDefault()
+        focusedRowIndex = focusedRowIndex < rows.length - 1 ? focusedRowIndex + 1 : 0
+        rows[focusedRowIndex]?.focus()
+      } else if (key === 'ArrowUp') {
+        e.preventDefault()
+        focusedRowIndex = focusedRowIndex > 0 ? focusedRowIndex - 1 : rows.length - 1
+        rows[focusedRowIndex]?.focus()
+      } else if (key === 'Home') {
+        e.preventDefault()
+        focusedRowIndex = 0
+        rows[0]?.focus()
+      } else if (key === 'End') {
+        e.preventDefault()
+        focusedRowIndex = rows.length - 1
+        rows[rows.length - 1]?.focus()
+      } else if (key === 'Enter' || key === ' ') {
+        e.preventDefault()
+        const btn = rows[focusedRowIndex >= 0 ? focusedRowIndex : 0]
+        btn?.click()
+      } else if (key === 'Escape') {
+        onclose?.()
+      }
+    }
+
+    handleKey(e.key)
+  }
 </script>
 
 {#if open}
@@ -84,7 +121,8 @@
     </div>
   </div>
 
-  <div class="drawer__list">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div bind:this={listEl} class="drawer__list" onkeydown={navigateList}>
     {#each filtered as conv, i (conv.id)}
       <button
         class="row"

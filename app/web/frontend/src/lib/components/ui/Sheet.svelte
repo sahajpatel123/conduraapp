@@ -13,14 +13,41 @@
   let { open = $bindable(false), side = 'right', width = '420px',
         title, onclose, children }: Props = $props()
 
+  let sheetEl = $state<HTMLDivElement | null>(null)
+
   function close(): void {
     open = false
     onclose?.()
   }
 
   function onKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && open) close()
+    if (!open) return
+    if (e.key === 'Escape') { close(); return }
+    if (e.key !== 'Tab' || !sheetEl) return
+
+    const focusable = sheetEl.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length === 0) return
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement as HTMLElement
+
+    if (e.shiftKey && active === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault()
+      first.focus()
+    }
   }
+
+  $effect(() => {
+    if (open) {
+      queueMicrotask(() => sheetEl?.focus())
+    }
+  })
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -28,8 +55,12 @@
 {#if open}
   <div class="sheet-backdrop anim-fade" onclick={close} role="presentation"></div>
   <aside
+    bind:this={sheetEl}
     class="sheet sheet-{side} anim-slide-up"
+    role="dialog"
+    aria-modal="true"
     aria-label={title}
+    tabindex="-1"
     style:--sheet-width={width}
   >
     {#if title}

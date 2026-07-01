@@ -16,6 +16,11 @@
 
   let confirmingSignOut = $state(false)
 
+  $effect(() => {
+    confirmingSignOut // reset focus index when dialog state toggles
+    focusedIndex = 0
+  })
+
   function providerLabel(p: string): string {
     switch (p) {
       case 'google': return 'Google'
@@ -35,6 +40,35 @@
     onClose?.()
   }
 
+  let menuEl = $state<HTMLDivElement | null>(null)
+  let focusedIndex = $state(0)
+
+  function navigateMenu(e: KeyboardEvent): void {
+    if (!menuEl) return
+    const items = menuEl.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    if (items.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      focusedIndex = (focusedIndex + 1) % items.length
+      items[focusedIndex]?.focus()
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      focusedIndex = (focusedIndex - 1 + items.length) % items.length
+      items[focusedIndex]?.focus()
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      focusedIndex = 0
+      items[0]?.focus()
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      focusedIndex = items.length - 1
+      items[items.length - 1]?.focus()
+    } else if (e.key === 'Escape') {
+      onClose?.()
+    }
+  }
+
   function handleBackdropKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') onClose?.()
   }
@@ -47,11 +81,13 @@
   onkeydown={handleBackdropKey}
 >
   <div
+    bind:this={menuEl}
     class="account-menu anim-pop"
     role="menu"
     tabindex="-1"
     aria-label={t('account.menu.aria_label')}
     onclick={(e) => e.stopPropagation()}
+    onkeydown={navigateMenu}
   >
     <div class="who">
       <Avatar

@@ -14,18 +14,52 @@
 
   let { options, value = $bindable(), size = 'md', onchange }: Props = $props()
 
+  let segEl = $state<HTMLDivElement | null>(null)
+
   function select(v: string): void {
     value = v
     onchange?.(v)
   }
+
+  function onKeydown(e: KeyboardEvent): void {
+    if (!segEl) return
+    const buttons = segEl.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    if (buttons.length === 0) return
+    let current = Array.from(buttons).findIndex((b) => b === document.activeElement)
+    // -1 means none focused — treat as first
+    if (current < 0) current = 0
+
+    let next: number | null = null
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      next = (current + 1) % buttons.length
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      next = (current - 1 + buttons.length) % buttons.length
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      next = 0
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      next = buttons.length - 1
+    }
+
+    if (next !== null && next >= 0) {
+      const btn = buttons[next]
+      btn.focus()
+      select(btn.getAttribute('data-value') ?? btn.textContent ?? '')
+    }
+  }
 </script>
 
-<div class="seg seg-{size}" role="radiogroup">
+<div bind:this={segEl} class="seg seg-{size}" role="radiogroup" onkeydown={onKeydown}>
   {#each options as opt (opt.value)}
     <button
       type="button"
       role="radio"
       aria-checked={value === opt.value}
+      data-value={opt.value}
       class="seg-btn"
       class:active={value === opt.value}
       onclick={() => select(opt.value)}

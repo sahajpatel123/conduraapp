@@ -66,7 +66,6 @@ export async function initStores(): Promise<void> {
   spend.startPolling()
   halt.startPolling()
   updateStore.startPolling()
-  conversation.startListening()
   overlay.start()
 
   // Step 4: load initial state from the daemon. Tolerate failures
