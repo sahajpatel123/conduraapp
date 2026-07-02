@@ -6,9 +6,12 @@ import (
 	"time"
 )
 
-// TestDetector_TripRate fires TripRate by accumulating >20 actions
-// in < 1 minute. The detector's loop ticker fires checkRate() every
-// 30s; we trigger it directly here for determinism.
+// TestDetector_TripRate fires TripRate when the action rate
+// exceeds 20/min. We set state.count and state.startTime directly
+// rather than calling process() N times — process() involves
+// syscalls that are slow on Windows CI runners (~1ms each), so
+// 25 iterations can take >1.25 min, making the rate appear ≤20/min
+// and the test flaky. Direct state mutation is deterministic.
 //
 // CLAUDE.md §10.4 / §5.6: "Speed: >20 actions/minute → pause".
 // Without this test, the rate trigger could regress silently.
@@ -19,13 +22,9 @@ func TestDetector_TripRate(t *testing.T) {
 			tripped = true
 		}
 	})
-	// Simulate 25 actions within a tiny window — the rate
-	// (count / elapsed_minutes) will far exceed 20/min.
-	now := time.Now()
-	d.state.startTime = now // explicit reset
-	for i := 0; i < 25; i++ {
-		d.process(actionRecord{kind: "click", coordX: 1, coordY: 1, success: true, time: now})
-	}
+	// 25 actions in 30 seconds = 50/min, comfortably above 20.
+	d.state.count = 25
+	d.state.startTime = time.Now().Add(-30 * time.Second)
 	d.checkRate()
 	if !tripped {
 		t.Error("TripRate should fire when rate > 20 actions/minute")
@@ -35,6 +34,9 @@ func TestDetector_TripRate(t *testing.T) {
 // TestDetector_TripRateBoundary fires TripRate only when the rate
 // is > 20/min, not at exactly 20/min. The threshold is a hard >,
 // not >= (see detector.go:239). This test pins that behavior.
+//
+// As with TestDetector_TripRate, we mutate state directly rather
+// than calling process() N times to stay deterministic on Windows.
 func TestDetector_TripRateBoundary(t *testing.T) {
 	tripped := false
 	d := NewDetector(func(tr Trip) {
@@ -42,11 +44,9 @@ func TestDetector_TripRateBoundary(t *testing.T) {
 			tripped = true
 		}
 	})
-	// 20 actions in exactly 1 minute = rate of 20/min. Must NOT trip.
+	// Exactly 20 actions in exactly 1 minute = 20/min. Must NOT trip.
+	d.state.count = 20
 	d.state.startTime = time.Now().Add(-1 * time.Minute)
-	for i := 0; i < 20; i++ {
-		d.process(actionRecord{kind: "click", coordX: 1, coordY: 1, success: true, time: time.Now()})
-	}
 	d.checkRate()
 	if tripped {
 		t.Error("TripRate should NOT fire at exactly 20/min (threshold is strict >)")
