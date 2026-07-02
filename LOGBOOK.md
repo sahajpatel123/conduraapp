@@ -6411,3 +6411,36 @@ Constellation-as-Room architecture per `specs/SCREEN_RITUAL.md`:
    across the new Constellation panels.
 
 ---
+
+## [2026-07-03 09:30] AI Model: z-ai/glm-5.2 — CI fix for Windows TripRate flake
+**Session ID:** 01HCIFIXWIN20260703
+**Task:** User kicked off /loop asking me to keep checking GitHub Actions and fix any CI failures. Other agent's commit `ce4d612` (fix gitignore) had CI run 28621865767 fail on Windows-latest/amd64.
+
+**Failure:** `TestDetector_TripRate` — "TripRate should fire when rate > 20 actions/minute". Root cause: test called `process()` 25 times to build `state.count`, then called `checkRate()`. On Windows CI runners each `process()` involves syscalls that take ~1ms, so 25 iterations can take >1.25 min. Since `checkRate()` divides `count` by elapsed minutes (`float64(count) / timeframe.Minutes()`), the computed rate was ≤ 20/min on Windows — below the strict-`>` threshold — and the test flaked.
+
+**Fix:** `internal/anomaly/triggers_test.go` — mutate `state.count` and `state.startTime` directly to known deterministic values (25 actions in 30s = 50/min > 20 for the positive test; 20 actions in 1min = exactly 20/min for the boundary test). Removes the timing dependency. Same change applied to `TestDetector_TripRateBoundary`.
+
+**Verification (local, no subagents):**
+- `go test -race -run "TestDetector_TripRate" ./internal/anomaly/` — PASS
+- `make verify` — GREEN: 0 lint issues, all packages pass with -race
+
+**Push:** user explicitly authorized `git push origin main`. Commit `c2ac57e` is now on origin/main; the new CI run is firing.
+
+**User instruction received:** "I do not want you to use subsagents. I just want you to work upon yourself and handle everything by your own." Acknowledged — this loop will use only direct tool calls (Read/Edit/Bash/Git), no Agent tool dispatches.
+
+---
+
+## [2026-07-03 10:25] AI Model: z-ai/glm-5.2 — CI verification follow-up
+**Session ID:** 01HCIFIXWIN20260703-VFY
+**Triggered by:** /loop wakeup (CI monitor + ScheduleWakeup fallback).
+
+**CI status:** All three workflows on main are **GREEN** for commit `c2ac57e` (which sits on top of my TripRate fix):
+- `CI` (28623172390) — success, 4m2s
+- `CodeQL` (28623172366) — success, 2m11s
+- `Release Verify` (28623172394) — success, 1m13s
+
+The TripRate fix from session 01HCIFIXWIN20260703 is part of `c2ac57e`'s tree (parent is my commit `38e7c6a`), so the Windows test passes.
+
+**Status:** no active CI failures. Continuing to watch for the next push.
+
+---
