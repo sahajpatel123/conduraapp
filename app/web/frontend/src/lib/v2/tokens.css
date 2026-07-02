@@ -1,0 +1,123 @@
+/* ============================================================
+ * Condura v2 Design Tokens
+ *
+ * Scoped under [data-v2] so the v1 design system at the global
+ * level is left untouched. To activate v2 on a node, set
+ * `data-v2` on a containing element (commonly the root of a
+ * route component). Every v2 primitive reads these tokens
+ * via var(--v2-…).
+ * ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+[data-v2] {
+  /* ----------------------------------------------------------
+   * Color — palette
+   *
+   * 12 colors + 3 shadow stops + 1 focus. That's it. No glass,
+   * no neon, no gradient-everywhere. One accent, used sparingly.
+   * ---------------------------------------------------------- */
+
+  --v2-paper:       #F7F4EE;   /* canvas — warm white */
+  --v2-paper-2:     #EFEAE0;   /* recessed surface */
+  --v2-ink:         #1B1A17;   /* primary text — true near-black */
+  --v2-ink-2:       #4A463E;   /* secondary text */
+  --v2-ink-3:       #8A847A;   /* tertiary, captions */
+  --v2-rule:        #D9D2C2;   /* hairline borders, low alpha in use */
+  --v2-accent:      #C18A4A;   /* warm earth — the ONE color */
+  --v2-accent-ink:  #7A4F1E;   /* accent text on paper */
+  --v2-signal-go:   #5C7F4A;   /* success, quiet */
+  --v2-signal-warn: #B07A2E;   /* cautious, warm */
+  --v2-signal-stop: #A84A3F;   /* destructive, restrained */
+  --v2-surface:     #FFFFFF;   /* elevated card */
+
+  /* Shadow stops. Pre-computed triplets — CSS does not allow
+   * arithmetic on `var()` outside `calc()`, so we keep the
+   * shadow values as concrete triplets to ensure they always
+   * resolve to a real shadow.
+   *
+   * Each shadow is a two-layer stack: a sharper "contact" blur
+   * for grounding, and a softer "ambient" blur for lift.
+   * Realistic alpha values — not too heavy, not too faint. */
+  --v2-shadow-1: 0 1px 0 rgba(27, 26, 23, 0.06),
+                 0 0.5px 0.5px rgba(27, 26, 23, 0.04);
+  --v2-shadow-2: 0 6px 14px rgba(27, 26, 23, 0.10),
+                 0 2px 8px rgba(27, 26, 23, 0.05);
+  --v2-shadow-3: 0 12px 36px rgba(27, 26, 23, 0.18),
+                 0 6px 20px rgba(27, 26, 23, 0.08);
+
+  /* Focus ring — color only, rest is "no jarring outline" */
+  --v2-focus-ring: 0 0 0 2px var(--v2-paper),
+                    0 0 0 4px rgba(193, 138, 74, 0.55);
+
+  /* ----------------------------------------------------------
+   * Typography
+   * ---------------------------------------------------------- */
+
+  --v2-font-display: 'Instrument Serif', 'Iowan Old Style', 'Georgia', serif;
+  --v2-font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --v2-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Modular scale — multiples of ~1.25 */
+  --v2-text-11: 11px;
+  --v2-text-12: 12px;
+  --v2-text-14: 14px;
+  --v2-text-16: 16px;
+  --v2-text-20: 20px;
+  --v2-text-28: 28px;
+  --v2-text-40: 40px;
+  --v2-text-64: 64px;
+
+  /* Line heights — warm for screens */
+  --v2-leading-tight:   1.1;
+  --v2-leading-snug:    1.25;
+  --v2-leading-default: 1.55;
+  --v2-leading-loose:   1.75;
+
+  /* Tracking */
+  --v2-tracking-tighter: -0.02em;
+  --v2-tracking-tight:    -0.01em;
+  --v2-tracking-default:  0;
+  --v2-tracking-wide:      0.02em;
+  --v2-tracking-wider:     0.06em;
+
+  /* UI feature settings — Inter alternate glyphs that users feel */
+  --v2-font-features: 'cv11', 'cv02', 'cv03', 'cv04', 'ss01';
+  --v2-numeric-features: 'tnum', 'zero', 'ss01';
+
+  /* ----------------------------------------------------------
+   * Spacing — 4px base, 9 stops
+   * ---------------------------------------------------------- */
+
+  --v2-space-1:   4px;
+  --v2-space-2:   8px;
+  --v2-space-3:  12px;
+  --v2-space-4:  16px;
+  --v2-space-6:  24px;
+  --v2-space-8:  32px;
+  --v2-space-12: 48px;
+  --v2-space-16: 64px;
+  --v2-space-24: 96px;
+
+  /* ----------------------------------------------------------
+   * Radii — 5 stops, never larger
+   * ---------------------------------------------------------- */
+
+  --v2-radius-0:  0;
+  --v2-radius-1:  4px;
+  --v2-radius-2:  8px;
+  --v2-radius-3: 16px;
+  --v2-radius-pill: 999px;
+
+  /* ----------------------------------------------------------
+   * Z-index ladder — explicit, never improvised
+   * ---------------------------------------------------------- */
+
+  --v2-z-0:        0;
+  --v2-z-base:    10;
+  --v2-z-chrome: 100;     /* sidebar, status bar */
+  --v2-z-overlay: 200;     /* floating panels, interview */
+  --v2-z-modal:   300;     /* consent, sheets */
+  --v2-z-toast:   400;     /* toasts */
+  --v2-z-kill:    999;     /* kill switch overlay */
+}

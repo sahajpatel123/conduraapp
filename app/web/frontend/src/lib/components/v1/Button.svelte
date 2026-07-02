@@ -16,12 +16,19 @@
     onclick     — click handler
 -->
 <script lang="ts">
+  import Icon, { type IconName } from './icons/Icon.svelte';
+
   interface Props {
     variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
     size?: 'sm' | 'md' | 'lg';
     loading?: boolean;
     disabled?: boolean;
-    icon?: import('svelte').Snippet;
+    /** Native icon support — pass an IconName from the icon library. */
+    icon?: IconName;
+    /** Position of the icon relative to the label. */
+    iconPosition?: 'left' | 'right';
+    /** Hide the label text — render as icon-only square button. */
+    iconOnly?: boolean;
     children?: import('svelte').Snippet;
     type?: 'button' | 'submit' | 'reset';
     onclick?: (e: MouseEvent) => void;
@@ -33,31 +40,54 @@
     loading = false,
     disabled = false,
     icon,
+    iconPosition = 'left',
+    iconOnly = false,
     children,
     type = 'button',
     onclick,
   }: Props = $props();
 
   let isDisabled = $derived(disabled || loading);
+
+  // Icon size inside the button — scaled with button size
+  let iconPx = $derived(
+    size === 'sm' ? 14 :
+    size === 'md' ? 16 :
+    18  // lg
+  );
+
+  // When iconOnly, the button is square and sized to its size prop
+  let isIconOnly = $derived(iconOnly && !children);
+
+  function handleClick(e: MouseEvent) {
+    if (!isDisabled && onclick) onclick(e);
+  }
 </script>
 
 <button
   class="btn btn--{variant} btn--{size}"
   class:btn--loading={loading}
   class:btn--disabled={isDisabled}
+  class:btn--icon-only={isIconOnly}
+  style={isIconOnly ? `--btn-icon-size: ${size === 'sm' ? 28 : size === 'md' ? 36 : 44}px;` : ''}
   disabled={isDisabled}
   type={type}
-  onclick={(e) => {
-    if (!isDisabled && onclick) onclick(e);
-  }}
+  onclick={handleClick}
 >
   {#if loading}
     <span class="btn__spinner" aria-hidden="true"></span>
-  {:else if icon}
-    <span class="btn__icon">{@render icon()}</span>
+  {:else if icon && iconPosition === 'left'}
+    <span class="btn__icon">
+      <Icon name={icon} size="sm" stroke={1.5} />
+    </span>
   {/if}
-  {#if children}
+  {#if !isIconOnly && children}
     <span class="btn__label">{@render children()}</span>
+  {/if}
+  {#if !loading && icon && iconPosition === 'right'}
+    <span class="btn__icon">
+      <Icon name={icon} size="sm" stroke={1.5} />
+    </span>
   {/if}
 </button>
 
@@ -108,6 +138,40 @@
     height: 44px;
     padding: 0 var(--space-5);
     font-size: var(--text-body-lg-size);
+  }
+
+  /* ── Icon-only mode (square) ────────────────────────────────── */
+  .btn--icon-only {
+    width: var(--btn-icon-size, 36px);
+    height: var(--btn-icon-size, 36px);
+    padding: 0;
+    /* Tighter gap since there's only the icon */
+    gap: 0;
+  }
+
+  .btn--icon-only .btn__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn__icon {
+    display: inline-flex;
+    align-items: center;
+    /* Slight optical adjustment: icons need a bit more visual weight than
+       their literal pixel size to feel balanced with text. */
+    margin-right: -2px;
+  }
+
+  .btn__icon :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* When icon is on the right, the margin flips */
+  .btn__label + .btn__icon {
+    margin-right: 0;
+    margin-left: -2px;
   }
 
   /* ── Primary (the ONE plum button) ─────────────────────────────── */

@@ -221,7 +221,17 @@ export interface LLMCancelParams {
   conversation_id: number
 }
 
-// ----- Audit log (sub-phase 2.6) -----
+// ----- Audit log (sub-phase 2.6 + Phase 15 enrichment) -----
+
+// Blast radius class — mirrors internal/blastradius.Class.
+// The chain-dot color and badge color follow this classification.
+export type BlastClass = 'READ' | 'WRITE' | 'NETWORK' | 'DESTRUCTIVE'
+
+// Verdict — the gatekeeper's resolution. Distinct from `result`
+// (which is the legacy 3-way field) so a row can carry both
+// `blast_class: DESTRUCTIVE` and `verdict: 'block'` (the
+// "agent tried to do destructive, gatekeeper blocked it" case).
+export type Verdict = 'allow' | 'block' | 'prompt' | 'error'
 
 export interface AuditEvent {
   id: number
@@ -232,6 +242,25 @@ export interface AuditEvent {
   level: 'info' | 'warn' | 'error'
   result: 'allow' | 'block' | 'prompt'
   message: string
+
+  // Phase 15 enrichments (optional — server populates when available,
+  // derived client-side from `level`/`result` when absent).
+  blast_class?: BlastClass
+  verdict?: Verdict
+  target_app?: string
+  target_url?: string
+  path?: string
+  command?: string
+  body?: string
+  consent_result?: string
+  model?: string
+  provider?: string
+  backend?: string
+  session_id?: string
+  tokens_in?: number
+  tokens_out?: number
+  prev_hash?: string
+  this_hash?: string
 }
 
 export interface AuditListParams {
@@ -240,6 +269,46 @@ export interface AuditListParams {
   since?: string
   action?: string
   level?: 'info' | 'warn' | 'error'
+  // Phase 15 additions
+  until?: string
+  blast_classes?: BlastClass[]
+  verdict?: Verdict
+  apps?: string[]
+  models?: string[]
+  search?: string
+}
+
+// AuditFacetCounts — the per-bucket counts the FilterRail needs.
+// If the daemon doesn't implement audit.facetCounts (Phase 4 fallback),
+// the route derives this client-side from the in-memory events array.
+export interface AuditFacetCounts {
+  apps: Array<{ name: string; count: number }>
+  models: Array<{ name: string; count: number }>
+  blast_classes: Record<BlastClass, number>
+  verdicts: Record<'allow' | 'block' | 'prompt' | 'error', number>
+  total: number
+}
+
+// AuditIntegrityReport — the chain-status surface. ok=false when the
+// HMAC fails to verify; broken_at_id is the first row where the
+// prev_hash doesn't match the previous row's this_hash.
+export interface AuditIntegrityReport {
+  ok: boolean
+  broken_at_id: number | null
+  reason: string | null
+  rows_verified: number
+  rows_skipped: number
+  duration_ms: number
+}
+
+// AuditExportResult — the daemon's response to audit.export.
+// The IPC layer JSON-encodes binary as base64 automatically;
+// the GUI gets a plain path back. Writes go through the
+// Gatekeeper (WRITE blast radius) — the global ConsentModal
+// surfaces the approval prompt.
+export interface AuditExportResult {
+  path: string
+  count: number
 }
 
 // ----- Config (sub-phase 2.6) -----

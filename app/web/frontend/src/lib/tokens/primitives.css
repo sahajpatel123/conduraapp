@@ -14,35 +14,38 @@
 :root {
   /* ---------------------------------------------------------------------- *
    * COLOR — Paper-warm (light surfaces)
+   * Match website's "Synapse Garden" paper palette exactly.
    * ---------------------------------------------------------------------- */
 
-  --paper-warm-0:   #FBF8F2;  /* page background, "paper" — hero default */
-  --paper-warm-50:  #F5F1E8;  /* sunken */
-  --paper-warm-100: #FAF6EE;  /* raised */
-  --paper-warm-200: #F0EBDD;  /* overlay hint */
-  --paper-warm-300: #E8E2D0;  /* scrim base */
+  --paper-warm-0:   #F4EFE4;  /* page background — matches --color-paper */
+  --paper-warm-50:  #ECE5D4;  /* sunken — matches --color-paper-warm */
+  --paper-warm-100: #FAF6EE;  /* raised (slightly lifted) */
+  --paper-warm-200: #E2DAC6;  /* overlay hint — matches --color-paper-deep */
+  --paper-warm-300: #D8CFB8;  /* scrim base — matches --color-paper-shadow */
 
   /* ---------------------------------------------------------------------- *
-   * COLOR — Ink-cool (text + dark UI elements)
+   * COLOR — Ink (text + dark UI elements)
+   * Match website's ink palette exactly.
    * ---------------------------------------------------------------------- */
 
-  --ink-cool-50:  #E8EAEF;
-  --ink-cool-100: #D4D7DD;  /* borders-subtle */
-  --ink-cool-200: #BFC2CC;
-  --ink-cool-300: #9DA1AD;  /* muted, disabled text */
-  --ink-cool-400: #7A7E8B;
-  --ink-cool-500: #5A5E6B;  /* tertiary text, placeholders */
-  --ink-cool-600: #404552;
-  --ink-cool-700: #2A2D36;  /* secondary text */
-  --ink-cool-800: #181B22;
-  --ink-cool-900: #0E1014;  /* primary text — never pure #000 */
+  --ink-50:  #F4EFE4;   /* alias for paper-warm-0 — borders blend with paper */
+  --ink-100: #D8CFB8;   /* borders-subtle — matches --color-paper-shadow */
+  --ink-200: #B8AF98;   /* matches --color-ink-ghost */
+  --ink-300: #8A8169;   /* muted, disabled — matches --color-ink-faint */
+  --ink-400: #5C5443;   /* matches --color-ink-mute */
+  --ink-500: #5C5443;   /* tertiary text — same as mute */
+  --ink-600: #2A2519;   /* matches --color-ink-soft */
+  --ink-700: #2A2519;   /* secondary text */
+  --ink-800: #14110B;   /* matches --color-ink */
+  --ink-900: #14110B;   /* primary text — matches --color-ink */
 
   /* ---------------------------------------------------------------------- *
-   * COLOR — Electric Plum (the ONE brand accent)
+   * COLOR — Electric Plum (the brand accent)
+   * Tuned to harmonize with paper-warm + ink palette.
    * ---------------------------------------------------------------------- */
 
-  --plum-50:  #F2EDFF;
-  --plum-100: #E0D5FF;
+  --plum-50:  #F4F0FF;
+  --plum-100: #E5DBFF;
   --plum-200: #CDB8FF;
   --plum-300: #B89AFF;
   --plum-400: #9F80FF;

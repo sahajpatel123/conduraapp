@@ -31,12 +31,14 @@
 
   /* ---------------------------------------------------------------------- *
    * EASINGS — cubic-bezier curves
+   * "thread-ease" from the website is the default — slow-in-fast-out,
+   * cinematic. Everything else is opt-in for specific situations.
    * ---------------------------------------------------------------------- */
 
-  --ease-standard:     cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard:     cubic-bezier(0.22, 1, 0.36, 1);    /* the website's --thread-ease */
   --ease-decelerate:   cubic-bezier(0, 0, 0.2, 1);
   --ease-accelerate:   cubic-bezier(0.4, 0, 1, 1);
-  --ease-emphasized:   cubic-bezier(0.3, 0, 0, 1);
+  --ease-emphasized:   cubic-bezier(0.16, 1, 0.3, 1);     /* expo-out for dramatic reveals */
 
   /* ---------------------------------------------------------------------- *
    * DISTANCES — translate offsets

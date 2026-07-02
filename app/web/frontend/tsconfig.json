@@ -15,6 +15,7 @@
     "allowJs": true,
     "checkJs": true,
     "isolatedModules": true,
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "$tokens/*": ["src/lib/tokens/*"],
       "$components/*": ["src/lib/components/*"]
@@ -24,7 +25,8 @@
     "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.js",
-    "src/**/*.svelte"
+    "src/**/*.svelte",
+    "vitest.setup.ts"
   ],
   "references": [
     {

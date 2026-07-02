@@ -15,11 +15,14 @@
   import Pill from './Pill.svelte';
   import Dot from './Dot.svelte';
   import Chip from './Chip.svelte';
+  import Icon, { type IconName } from './icons/Icon.svelte';
+
+  type ActionType = 'read' | 'write' | 'network' | 'destructive';
 
   interface Action {
     id: string;
     time: string;
-    type: 'read' | 'write' | 'network' | 'destructive';
+    type: ActionType;
     target: string;
     decision: string;
     verified: boolean;
@@ -34,6 +37,31 @@
   }
 
   let { actions = [], onrowclick, selectedId }: Props = $props();
+
+  // Icon per action type — instant visual recognition
+  const TYPE_ICON: Record<ActionType, IconName> = {
+    read:        'eye',
+    write:       'edit',
+    network:     'globe',
+    destructive: 'trash',
+  };
+
+  // Color per action type — reinforces the blast-radius concept
+  // (read = neutral, write = info, network = warning, destructive = error)
+  const TYPE_COLOR: Record<ActionType, string> = {
+    read:        'var(--ink-cool-500)',
+    write:       'var(--info-500)',
+    network:     'var(--warning-500)',
+    destructive: 'var(--error-500)',
+  };
+
+  // Pre-formatted uppercase label
+  const TYPE_LABEL: Record<ActionType, string> = {
+    read:        'READ',
+    write:       'WRITE',
+    network:     'NET',
+    destructive: 'DESTROY',
+  };
 </script>
 
 <div class="log" role="table" aria-label="Agent action log">
@@ -47,38 +75,36 @@
 
   <div class="log__body">
     {#each actions as action (action.id)}
-      {#if onrowclick}
-        <button
-          type="button"
-          class="log__row log__row--interactive"
-          class:log__row--selected={selectedId === action.id}
-          role="row"
-          data-type={action.type}
-          onclick={() => onrowclick(action.id)}
-        >
-          <span role="cell" class="log__col-time">{action.time}</span>
-          <span role="cell" class="log__col-type">
-            <Chip>{action.type}</Chip>
+      {@const Icon = TYPE_ICON[action.type]}
+      <div
+        class="log__row"
+        class:log__row--interactive={!!onrowclick}
+        class:log__row--selected={selectedId === action.id}
+        role="row"
+        data-type={action.type}
+        {...(onrowclick
+          ? { onclick: () => onrowclick?.(action.id), tabindex: 0, role: 'button' as const }
+          : {})}
+        onkeydown={(e) => {
+          if (onrowclick && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onrowclick(action.id);
+          }
+        }}
+      >
+        <span role="cell" class="log__col-time">{action.time}</span>
+        <span role="cell" class="log__col-type">
+          <span class="action-badge" data-type={action.type} style="--badge-color: {TYPE_COLOR[action.type]};">
+            <Icon name={TYPE_ICON[action.type]} size="xs" />
+            <span class="action-badge__label">{TYPE_LABEL[action.type]}</span>
           </span>
-          <span role="cell" class="log__col-target">{action.target}</span>
-          <span role="cell" class="log__col-decision">{action.decision}</span>
-          <span role="cell" class="log__col-verified">
-            <Dot variant={action.verified ? 'success' : 'warning'} size="xs" />
-          </span>
-        </button>
-      {:else}
-        <div class="log__row" role="row" data-type={action.type}>
-          <div role="cell" class="log__col-time">{action.time}</div>
-          <div role="cell" class="log__col-type">
-            <Chip>{action.type}</Chip>
-          </div>
-          <div role="cell" class="log__col-target">{action.target}</div>
-          <div role="cell" class="log__col-decision">{action.decision}</div>
-          <div role="cell" class="log__col-verified">
-            <Dot variant={action.verified ? 'success' : 'warning'} size="xs" />
-          </div>
-        </div>
-      {/if}
+        </span>
+        <span role="cell" class="log__col-target">{action.target}</span>
+        <span role="cell" class="log__col-decision">{action.decision}</span>
+        <span role="cell" class="log__col-verified">
+          <Dot variant={action.verified ? 'success' : 'warning'} size="xs" />
+        </span>
+      </div>
     {/each}
   </div>
 </div>
@@ -114,7 +140,7 @@
   /* Body rows */
   .log__row {
     display: grid;
-    grid-template-columns: 80px 100px 1fr 1.5fr 32px;
+    grid-template-columns: 80px 110px 1fr 1.5fr 32px;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--border-subtle);
@@ -131,19 +157,47 @@
   }
 
   .log__row--interactive {
-    appearance: none;
-    width: 100%;
-    text-align: left;
-    font: inherit;
-    color: inherit;
     cursor: pointer;
     border: none;
+    background: transparent;
     border-bottom: 1px solid var(--border-subtle);
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+  }
+
+  .log__row--interactive:focus-visible {
+    outline: var(--border-focus) solid 2px;
+    outline-offset: -2px;
   }
 
   .log__row--interactive.log__row--selected {
     background-color: var(--plum-50);
     box-shadow: inset 2px 0 0 var(--content-accent);
+  }
+
+  /* Action type badge — icon + label, color-coded by blast radius */
+  .action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px 2px 4px;
+    border-radius: var(--radius-sm);
+    background-color: color-mix(in srgb, var(--badge-color) 8%, transparent);
+    color: var(--badge-color);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    /* Subtle left edge for instant recognition */
+    border-left: 2px solid var(--badge-color);
+  }
+
+  .action-badge :global(svg) {
+    width: 12px;
+    height: 12px;
   }
 
   /* Type-based left border (per spec: blast-radius color cue, not background fill) */

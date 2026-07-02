@@ -32,6 +32,14 @@
   import Card from '$components/v1/Card.svelte';
   import Surface from '$components/v1/Surface.svelte';
   import Pill from '$components/v1/Pill.svelte';
+  import BrandWordmark from '$components/v1/BrandWordmark.svelte';
+  import AmbientBackground from '$components/v1/AmbientBackground.svelte';
+  import CanvasBackground from '$components/v1/CanvasBackground.svelte';
+  import CursorHalo from '$components/v1/CursorHalo.svelte';
+  import Magnetic from '$components/v1/Magnetic.svelte';
+  import SynapseField from '$components/v1/SynapseField.svelte';
+  import Icon from '$components/v1/icons/Icon.svelte';
+  import IconButton from '$components/v1/IconButton.svelte';
 
   type Route = RouteId | 'home';
 
@@ -125,6 +133,11 @@
 </svelte:head>
 
 <div class="shell" data-mode={darkMode ? 'dark' : 'light'}>
+  <!-- The alive layers — the v2 alive factor -->
+  <CanvasBackground />
+  <AmbientBackground agentState={agentState} />
+  <CursorHalo />
+
   {#if onboardingOpen}
     <OnboardingWizard oncomplete={closeOnboarding} />
   {:else}
@@ -141,7 +154,10 @@
       <!-- Top bar with title and actions -->
       <header class="main__topbar">
         <div class="main__topbar-left">
-          <Pulse state="idle" size="sm" label="Synaptic" />
+          <Magnetic>
+            <BrandWordmark size="sm" pulseSize="sm" />
+          </Magnetic>
+          <Hairline orientation="vertical" />
           <span class="main__topbar-title">
             {activeRoute === 'chat' ? 'Chat' :
              activeRoute === 'settings' ? 'Settings' :
@@ -152,12 +168,17 @@
           </span>
         </div>
         <Inline gap="2">
-          <Button size="sm" variant="tertiary" onclick={() => drawerOpen = !drawerOpen}>
-            History
-          </Button>
-          <Button size="sm" variant="secondary" onclick={() => { commandOpen = true; commandMode = 'idle'; }}>
-            ⌘K Command
-          </Button>
+          <IconButton name="history" label="History" size={32} onclick={() => drawerOpen = !drawerOpen} />
+          <Magnetic>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="command"
+              onclick={() => { commandOpen = true; commandMode = 'idle'; }}
+            >
+              Command
+            </Button>
+          </Magnetic>
           <Switch label="Dark" checked={darkMode} onchange={(v) => darkMode = v} />
         </Inline>
       </header>
@@ -167,32 +188,36 @@
       <!-- Route content -->
       <div class="main__content">
         {#if activeRoute === 'chat'}
-          <ChatSurface turns={sampleTurns} />
-        {:else if activeRoute === 'settings'}
-          <SettingsPane />
+          <ChatSurface turns={sampleTurns} showEmptyHero={true} />
         {:else if activeRoute === 'home'}
           <div class="home">
             <Stack gap="6">
               <header class="home__head">
                 <Pulse state="idle" size="xl" label="Synaptic" />
                 <h1>Welcome back.</h1>
-                <p>What would you like to do today?</p>
+                <p>The agent is listening. What would you like to do?</p>
               </header>
 
               <Inline gap="3">
                 <Card title="Open chat" description="Pick up where you left off.">
                   {#snippet actions()}
-                    <Button size="sm" variant="primary" onclick={() => activeRoute = 'chat'}>Go →</Button>
+                    <Button size="sm" variant="primary" icon="chat" onclick={() => activeRoute = 'chat'}>
+                      Open
+                    </Button>
                   {/snippet}
                 </Card>
                 <Card title="Re-run onboarding" description="Walk through the 5 screens again. Useful for design review.">
                   {#snippet actions()}
-                    <Button size="sm" variant="secondary" onclick={openOnboarding}>Start →</Button>
+                    <Button size="sm" variant="secondary" icon="sparkle" onclick={openOnboarding}>
+                      Start
+                    </Button>
                   {/snippet}
                 </Card>
                 <Card title="Simulate agent working" description="See the command surface in processing state.">
                   {#snippet actions()}
-                    <Button size="sm" variant="secondary" onclick={simulateAgentWorking}>Run →</Button>
+                    <Button size="sm" variant="secondary" icon="arrow-right" onclick={simulateAgentWorking}>
+                      Run
+                    </Button>
                   {/snippet}
                 </Card>
               </Inline>
@@ -209,6 +234,20 @@
                   </div>
                 </Stack>
               </Surface>
+
+              <!-- Design system showcase -->
+              <div class="home__showcase">
+                <h3>Brand</h3>
+                <Stack gap="3">
+                  <BrandWordmark size="lg" pulseSize="md" />
+                  <BrandWordmark size="md" variant="text-only" />
+                  <Inline gap="3" align="center">
+                    <Pulse state="idle" size="md" />
+                    <Pulse state="thinking" size="md" />
+                    <Pulse state="awaiting" size="md" />
+                  </Inline>
+                </Stack>
+              </div>
             </Stack>
           </div>
         {:else}
@@ -437,5 +476,44 @@
     .overlay-surface {
       animation: none;
     }
+  }
+
+  /* The chat empty state with the SynapseField */
+  .chat-empty {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chat-empty__hints {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    margin-top: var(--space-7);
+  }
+
+  .chat-empty__hint-text {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    letter-spacing: 0.04em;
+  }
+
+  .chat-empty__hint-text kbd {
+    font-family: var(--font-mono);
+    background-color: var(--paper-warm-50);
+    border: 1px solid var(--border-default);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    color: var(--content-primary);
+    margin: 0 var(--space-1);
   }
 </style>

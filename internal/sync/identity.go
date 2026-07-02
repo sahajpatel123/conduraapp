@@ -127,12 +127,12 @@ func LoadIdentity(dataDir, name string) (*DeviceIdentity, error) {
 				if perr != nil {
 					return nil, fmt.Errorf("sync: decode fallback priv: %w", perr)
 				}
-			priv = ed25519.PrivateKey(pb)
-			if kerr := keyring.Set(keyringService, raw.DeviceID, raw.PrivateKey); kerr != nil {
-				// Log but don't fail — key is already in memory.
-				fmt.Printf("sync: keyring migration write failed: %v\n", kerr)
-			}
-			raw.PrivateKey = "" // don't keep plaintext on disk
+				priv = ed25519.PrivateKey(pb)
+				if kerr := keyring.Set(keyringService, raw.DeviceID, raw.PrivateKey); kerr != nil {
+					// Log but don't fail — key is already in memory.
+					fmt.Printf("sync: keyring migration write failed: %v\n", kerr)
+				}
+				raw.PrivateKey = "" // don't keep plaintext on disk
 				if out, mErr := json.MarshalIndent(raw, "", "  "); mErr == nil {
 					_ = os.WriteFile(path, out, 0o600)
 				}

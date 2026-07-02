@@ -34,6 +34,11 @@ type App struct {
 	// daemon is ready. Nil until then.
 	conductor *conductor.Conductor
 
+	// killSwitch is the Layer-1 hard hotkey → halt.Flag.Halt wiring
+	// (CLAUDE.md §5.3). Started alongside the overlay conductor;
+	// stopped in beforeClose to release the OS-level registration.
+	killSwitch *conductor.KillSwitchConductor
+
 	// presenceOrch is shared with the conductor so menu/tray/JS can
 	// open the quick prompt through the same summon/dismiss path.
 	presenceOrch *presence.Orchestrator
@@ -78,6 +83,10 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	if a.conductor != nil {
 		a.conductor.Stop()
 		a.conductor = nil
+	}
+	if a.killSwitch != nil {
+		a.killSwitch.Stop()
+		a.killSwitch = nil
 	}
 	return false // allow close
 }
@@ -183,6 +192,37 @@ func (a *App) startConductor(subs *daemon.Subsystems, hkSpec string) {
 
 	a.conductor = c
 	slog.Info("conductor ready", "hotkey", hkSpec)
+}
+
+// startKillSwitch wires the hard-hotkey → halt wiring (CLAUDE.md §5.3
+// Layer 1). This is the documented user-facing kill switch: pressing
+// the combo immediately halts every subsystem, persists the reason
+// ("hard_hotkey") to the audit log, and the UI overlay surfaces the
+// halt state.
+//
+// This is called from the daemon goroutine after daemonReady is
+// closed. The spec comes from cfg.Hotkey.KillSwitch (or the product
+// default Cmd+Shift+Escape if unset).
+//
+// We do NOT use the same hotkey.Manager as the overlay conductor —
+// the kill switch MUST remain independent so a misbehaving overlay
+// cannot block the user from halting the agent.
+func (a *App) startKillSwitch(subs *daemon.Subsystems, ksSpec string) {
+	if subs == nil || subs.Halt == nil {
+		slog.Warn("kill switch not wired: no halt flag available")
+		return
+	}
+	ks, err := conductor.NewKillSwitch(ksSpec, subs.Halt, nil)
+	if err != nil {
+		slog.Warn("kill switch init failed", "err", err)
+		return
+	}
+	if err := ks.Start(); err != nil {
+		slog.Warn("kill switch start failed", "err", err)
+		return
+	}
+	a.killSwitch = ks
+	slog.Info("kill switch ready", "hotkey", ksSpec)
 }
 
 // diagLog appends a line to ~/Library/Logs/condura-gui-diag.log so

@@ -1,0 +1,205 @@
+/* ══════════════════════════════════════════════════════════════
+   Living Paper — Condura design system tokens
+   
+   A warm, organic paper-and-ink aesthetic inspired by the
+   Synapse Garden brand. Not dark-glass. Not vibe-coded.
+   
+   Canvas:  Warm paper (#F4EFE4 / #16140F)
+   Ink:     Warm dark/light text (#14110B / #F0EDE5)
+   Thread:  Synapse green (#0B3D2E) — the living connection
+   Spark:   Pollen amber (#C97B2E) — CTAs, life, action
+   Breath:  Sky blue (#B4D8E8) — atmosphere, ambient glow
+   
+   Every pixel is a decision. No random values.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Paper Canvas ─────────────────────────────────────────── */
+:root, [data-mode='light'], .lp {
+  --lp-paper:        #F4EFE4;
+  --lp-paper-warm:   #ECE5D4;
+  --lp-paper-deep:   #E2DAC6;
+  --lp-paper-shadow: #D8CFB8;
+  --lp-ink:          #14110B;
+  --lp-ink-soft:     #2A2519;
+  --lp-ink-mute:     #5C5443;
+  --lp-ink-faint:    #8A8169;
+  --lp-ink-ghost:    #B8AF98;
+  --lp-synapse:      #0B3D2E;
+  --lp-synapse-deep: #06241B;
+  --lp-synapse-glow: #1A8A6A;
+  --lp-synapse-light:#9CE8C8;
+  --lp-pollen:       #C97B2E;
+  --lp-pollen-deep:  #9A5A1A;
+  --lp-pollen-glow:  #E0A862;
+  --lp-pollen-light: #F0C082;
+  --lp-sky:          #B4D8E8;
+  --lp-sky-deep:     #7FB4C8;
+  --lp-sky-warm:     #E8D8B4;
+  --lp-danger:       #A3312A;
+  --lp-ok:           #2E7D4F;
+}
+
+/* ── Warm Dark Mode ───────────────────────────────────────── */
+[data-mode='dark'] .lp, [data-mode='dark'][class~='lp'] {
+  --lp-paper:        #16140F;
+  --lp-paper-warm:   #1E1B16;
+  --lp-paper-deep:   #26231E;
+  --lp-paper-shadow: #0E0C08;
+  --lp-ink:          #F0EDE5;
+  --lp-ink-soft:     #D8D3C8;
+  --lp-ink-mute:     #A69F8E;
+  --lp-ink-faint:    #7A7262;
+  --lp-ink-ghost:    #5C5443;
+  --lp-synapse:      #1A8A6A;
+  --lp-synapse-deep: #0B3D2E;
+  --lp-synapse-glow: #2BC48E;
+  --lp-synapse-light:#6EE0B0;
+  --lp-pollen:       #E0A862;
+  --lp-pollen-deep:  #C97B2E;
+  --lp-pollen-glow:  #F0D090;
+  --lp-pollen-light: #F8E0B8;
+  --lp-sky:          #2A4A5A;
+  --lp-sky-deep:     #1A3040;
+  --lp-sky-warm:     #3A3020;
+  --lp-danger:       #D45A4A;
+  --lp-ok:           #4A9A6A;
+}
+
+/* ── Typography ───────────────────────────────────────────── */
+.lp {
+  --lp-font-display: 'Instrument Serif', Georgia, serif;
+  --lp-font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --lp-font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Compact scale for product UI */
+  --lp-text-hero:      clamp(32px, 5vw, 64px);
+  --lp-text-display:   clamp(24px, 3vw, 40px);
+  --lp-text-headline:  clamp(18px, 2vw, 28px);
+  --lp-text-title:     clamp(16px, 1.5vw, 22px);
+  --lp-text-body:      15px;
+  --lp-text-body-sm:   13px;
+  --lp-text-caption:   12px;
+  --lp-text-mono:      12px;
+  --lp-text-micro:     11px;
+
+  /* Line heights */
+  --lp-leading-tight:  1.15;
+  --lp-leading-snug:   1.35;
+  --lp-leading-normal: 1.55;
+  --lp-leading-relaxed:1.7;
+
+  /* Letter spacing */
+  --lp-tracking-tight:  -0.025em;
+  --lp-tracking-normal: -0.008em;
+  --lp-tracking-wide:   0.06em;
+  --lp-tracking-mono:   0.02em;
+}
+
+/* ── Spacing (4px base) ──────────────────────────────────── */
+.lp {
+  --lp-space-1:  4px;
+  --lp-space-2:  8px;
+  --lp-space-3:  12px;
+  --lp-space-4:  16px;
+  --lp-space-5:  20px;
+  --lp-space-6:  24px;
+  --lp-space-7:  28px;
+  --lp-space-8:  32px;
+  --lp-space-9:  36px;
+  --lp-space-10: 40px;
+  --lp-space-12: 48px;
+  --lp-space-14: 56px;
+  --lp-space-16: 64px;
+  --lp-space-20: 80px;
+}
+
+/* ── Border Radius ────────────────────────────────────────── */
+.lp {
+  --lp-radius-xs:   6px;
+  --lp-radius-sm:   10px;
+  --lp-radius-md:   16px;
+  --lp-radius-lg:   24px;
+  --lp-radius-xl:   36px;
+  --lp-radius-pill: 999px;
+}
+
+/* ── Shadows ──────────────────────────────────────────────── */
+.lp {
+  --lp-shadow-paper: 0 1px 0 rgba(20, 17, 11, 0.04), 0 8px 24px -12px rgba(20, 17, 11, 0.12);
+  --lp-shadow-card:  0 1px 0 rgba(20, 17, 11, 0.06), 0 24px 60px -28px rgba(20, 17, 11, 0.22), 0 2px 8px -4px rgba(20, 17, 11, 0.08);
+  --lp-shadow-float: 0 2px 0 rgba(20, 17, 11, 0.05), 0 40px 90px -32px rgba(20, 17, 11, 0.30), 0 4px 12px -6px rgba(20, 17, 11, 0.10);
+  --lp-shadow-raise: 0 1px 2px rgba(20, 17, 11, 0.08), 0 1px 4px -2px rgba(20, 17, 11, 0.04);
+}
+
+[data-mode='dark'] .lp, [data-mode='dark'][class~='lp'] {
+  --lp-shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.15), 0 8px 24px -12px rgba(0, 0, 0, 0.35);
+  --lp-shadow-card:  0 1px 0 rgba(0, 0, 0, 0.2), 0 24px 60px -28px rgba(0, 0, 0, 0.5), 0 2px 8px -4px rgba(0, 0, 0, 0.15);
+  --lp-shadow-float: 0 2px 0 rgba(0, 0, 0, 0.18), 0 40px 90px -32px rgba(0, 0, 0, 0.6), 0 4px 12px -6px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Motion ───────────────────────────────────────────────── */
+.lp {
+  --lp-ease-thread:  cubic-bezier(0.22, 1, 0.36, 1);
+  --lp-ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --lp-ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+  --lp-ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+
+  --lp-dur-fast:   120ms;
+  --lp-dur-normal: 250ms;
+  --lp-dur-slow:   400ms;
+  --lp-dur-reveal: 700ms;
+  --lp-dur-thread: 1200ms;
+}
+
+/* ── Paper Grain — SVG fractal noise overlay ──────────────── */
+.lp-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIj48ZmlsdGVyIGlkPSJmIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjc1IiBudW1PY3RhdmVzPSI0IiAvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNmKSIgb3BhY2l0eT0iMCIgLz48L3N2Zz4=");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: multiply;
+  opacity: var(--lp-grain-opacity, 0.035);
+}
+
+[data-mode='dark'] .lp-grain::before {
+  mix-blend-mode: screen;
+  opacity: var(--lp-grain-opacity, 0.06);
+}
+
+/* ── Ink theme — surface backgrounds ─────────────────────── */
+.lp-surface-page { background: var(--lp-paper); }
+.lp-surface-card { background: var(--lp-paper-warm); }
+.lp-surface-deep { background: var(--lp-paper-deep); }
+.lp-surface-ink  { background: var(--lp-ink); color: var(--lp-paper); }
+
+/* ── Thread rule (section dividers) ──────────────────────── */
+.lp-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--lp-ink-ghost) 8%, var(--lp-ink-ghost) 92%, transparent);
+  border: none;
+}
+
+/* ── Focus ring — synapse green ──────────────────────────── */
+.lp-focus:focus-visible {
+  outline: 2px solid var(--lp-synapse);
+  outline-offset: 2px;
+  border-radius: var(--lp-radius-xs);
+}
+
+/* ── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lp, .lp * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── Energy budget — low power disables grain + ambient ──── */
+:root[data-energy='low'] .lp-grain::before,
+:root[data-energy='low'] .lp-grain::after {
+  opacity: 0 !important;
+}

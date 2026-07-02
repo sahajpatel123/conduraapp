@@ -6260,3 +6260,154 @@ Wave 1 added `sanitize.RedactSecrets()` at `mcp/client.go:185`. Many other audit
 - Re-run a full grep for any `audit.Append(` call sites I missed (e.g. in test files — tests are exempt by design but might benefit from `AppendForTest` instead).
 
 ---
+
+## [2026-07-01 20:42] AI Model: Claude Opus 4.8
+**Session ID:** 01J8YH4R9G2X3R5N6T7V8W9X0Y
+**Task:** Drive the 2026-07-01 production audit to closure — fix every P0 + weak invariant + anti-pattern hit permanently, commit, push, verify CI.
+
+**Approach:** manager-mode dispatch. Three parallel implementation agents per wave; each got a tight scope (file:line targets, acceptance gates, no commit authority). Verified each agent's report by re-running the gates myself. Used adversarial verifier role when agents disagreed with each other.
+
+### Wave 1 — 3 P0 safety holes (commit `f17c2bc`)
+- **P0-A** sub-agent Kind allowlist: `sanitize.NormalizeSubAgentKind()` + wire at `delegation_wiring.go:410,440` and `mcp/client.go:185`. Closes attacker-controlled Kind downgrading classifier.
+- **P0-B** reject `destructive→allow` in user policy YAML: `gatekeeper.PolicySchemaError` exported with `errors.As` discrimination; daemon falls back to default-deny on schema violation. Closes §2.1 invariant #3 becoming a soft contract.
+- **P0-4+P0-5** audit redaction + HKDF subkey: `sanitize.RedactSecrets()` wired at `mcp/client.go:185` + every `audit.Append` site (12 files); `audit.New()` derives `auditSubKey = HKDF-SHA256(masterKey, info="condura-audit-hmac-v1", 32)`. Closes literal token leak into 90-day HMAC chain.
+
+### Wave 2 — invariant hardening + anti-pattern sweep (commit `79a3e29`)
+- **Invariant #5**: `audit.Prune` now writes a tamper-evident `prune_tombstone` row (migration v7 in `storage/migrations.go`); `PruneTombstones()` and `VerifyChainWithHistory()` exposed for forensic queries. Discovered latent bug during the change: original Prune re-chained row 1 but left rows 2..N pointing at pre-rewrite HMAC — `VerifyChain` would have broken at row 2. Fixed via `rechainFromTx`.
+- **Invariant #4 disclosure**: `/livez` + `/readyz` orchestrator endpoints (no auth, opt-in via `ListenSpec.Health`); `halt.IsLayer3InProcess()` + `daemon.capabilities` RPC + SettingsPane "Trust & safety" panel — honest about v0.1.0's soft network guard.
+- **6 anti-pattern hits closed**: osascript escaper now handles `&`, `\n`, `\r`, `\t`; `URLSanitizer.ResolveURL` returns the IP that passed sanitization (callers can pin at HTTP-request time); cloud metadata blocklist extended (Azure/Oracle/Alibaba/Tencent); updater + telemetry URLs sanitized; `policy.yaml` rejects files with mode > 0o600; SSN regex tightened to require explicit `XXX-XX-XXXX` shape.
+
+### Commit topology (final)
+Final state: `318694c` — single mega-commit containing Wave 1 + Wave 2 + redact-fixture push-protection fix (all 53 files). Earlier `f17c2bc` + `79a3e29` + `e47d9d5` were rewritten via `git reset --soft HEAD~2 && commit --amend` because GitHub secret-scanning's push-protection scans the *entire push delta*, not just the new commit. Original `f17c2bc` had real-prefix test fixtures (`ghp_abc...`, `sk-abc...`, `AKIAIOSFODNN7EXAMPLE`, `AIzaSyDdI0...`, `xoxb-1234...`) that tripped the scanner.
+
+**Lesson:** when secret-scanner blocks a push, the offending strings are in the *delta* — fixing them in a follow-up commit doesn't help. The fix is `git commit --amend` of the original or interactive rebase. The unblock URL was denied by the safety classifier for good reason — fixing the fixtures is the right answer.
+
+### Files changed
+- New: `internal/sanitize/{subagent_kind,redact_secrets}.go` + tests, `internal/gatekeeper/policy_test.go`, `internal/health/{http.go,_test.go}`, `internal/audit/{test_helpers.go,_test.go}`, `internal/sanitize/specific_test.go`, `internal/daemon/methods_{capabilities,phase9}_test.go`, `internal/daemon/update_e2e_test.go`, `internal/computeruse/backends/macosmcp_test.go`, `internal/halt/network_test.go`, `internal/daemon/methods_phase9_test.go`, `app/web/frontend/src/lib/ipc/client.test.ts`
+- Modified: `internal/{blastradius,audit,gatekeeper,daemon,agent,mcp,session,sanitize,computeruse/backends,reach,updater,telemetry,health,halt,ipc,storage}/...`; `app/web/frontend/src/lib/ipc/{client.ts,types.ts}`; `app/web/frontend/src/lib/components/v1/SettingsPane.svelte`; `go.mod` (HKDF); `LOGBOOK.md`
+
+### Verification (final)
+- `go build ./...` exit 0
+- `go test ./internal/{audit,sanitize,computeruse,updater,telemetry,gatekeeper,daemon,health,halt,ipc,storage,session}/... -count=1 -short -timeout 180s` all 14 packages PASS
+- `cd app/web/frontend && npx vitest run src/lib/ipc/client.test.ts` — 2/2 PASS
+- `gh run list` shows CI/CodeQL/Release Verify all `in_progress` on `318694c`
+- One pre-existing flake (`internal/secrets TestNew_NoFilePath_Auto`) passes 3/3 in isolation — LOGBOOK §33.5.2 C16.56
+
+### What was NOT done
+- Frontend GUI design system v2 (`lib/v2/`, ~30 untracked components) — owned by parallel session, not my workstream. Verified not imported by `main.ts`.
+- Kill-switch wiring (`app/web/main.go:118`, `app/web/app.go:210-226`, `internal/conductor/killswitch.go`) — owned by parallel session.
+- `internal/sync/engine.go` and `internal/sync/identity.go` modifications — owned by parallel session.
+- `app/web/web` 22.6 MB → 23.5 MB binary diff — owned by parallel session.
+
+### Open questions for next session
+- Should `daemon.capabilities` become the source of truth for the GUI's "what works in this build" copy (replacing hard-coded marketing language)? Currently both exist; consolidation is a v0.2.0 marketing question.
+- Should the `audit.AppendForTest` helper become `audit.AppendForProd` and be the only Append entry point? The current mix of `Append` (raw) and `AppendForTest` (redacted) is a footgun for future contributors.
+- DNS rebinding TOCTOU: I exposed `ResolveURL` so callers CAN pin the IP, but did not refactor every `http.Get` site to use a shared `PinnedHTTPClient`. The follow-up work is mechanical but worth doing for v0.2.0.
+
+### Next steps
+- Wait for CI on `318694c` to confirm green.
+- Once green: hand off to whoever owns the GUI v2 / kill-switch / P2P sync workstreams (those live in the working tree but aren't mine).
+- v0.2.0 backlog (now well-defined): wire `PIIRedactor` into vision CUA path before any user enables vision mode; swap `InProcessGuard` for real `pf`/`netsh` daemon to close §2.1 invariant #4 fully; refactor every `http.Get` site through `PinnedHTTPClient` to close DNS-rebinding TOCTOU end-to-end.
+
+## [2026-07-02 IST] AI Model: Claude Sonnet 4.6 (Claude Code)
+**Session:** Condura Ritual redesign — Phase 4 (Constellation-as-Room)
+**Branch:** design/ritual-constellation
+
+**Task:** Replace the 9-step forced `Ritual.svelte` wizard (1568 lines) with the 2-screen
+Constellation-as-Room architecture per `specs/SCREEN_RITUAL.md`:
+- **Screen 1 · Gate** — EULA scroll + checkbox + wax seal stamp
+- **Screen 2 · Constellation** — 6 live nodes on a ring (Perceive / Power / Summon /
+  Voice / Threads / Account), side-panel slide-in on node-click, hover preview strip,
+  bottom-center `Enter Condura →` pill with hotkey soft-lock.
+
+**Files created:**
+- `app/web/frontend/src/lib/condura/Gate.svelte` — the legal-first EULA + wax seal screen.
+  Reuses `onboarding.loadEula` / `onboarding.acceptEula` and the fallback EULA verbatim.
+- `app/web/frontend/src/lib/condura/Constellation.svelte` — the room. 6-node ring + side
+  panels + hover preview + idle invitation + Enter pill. Wires every per-node IPC probe
+  (`onboarding.probePower`, `onboarding.probeVoice`, `permissionsStatus` 2s poll,
+  `account.status`, `channelsList`).
+- `app/web/frontend/src/lib/condura/ConstellationNode.svelte` — per-node clickable
+  surface (counterclockwise from top, 80ms stagger, breath-pulse on active).
+- `app/web/frontend/src/lib/condura/HoverPreview.svelte` — 60px-tall hover strip below
+  the ring (220ms fade with 80ms delay).
+- `app/web/frontend/src/lib/condura/SidePanel.svelte` — slide-in side panel
+  (`transform: translateX(24px) → 0` + opacity, `--dur-slow`), per-node content slotted.
+  Includes `Thread.svelte` bottom-edge draw on mount.
+
+**Files modified:**
+- `app/web/frontend/src/lib/condura/Ritual.svelte` — **rewritten** as a thin orchestrator
+  (~280 lines). Owns the state machine: mounts `Gate` first, then `Constellation` after
+  seal stamps; calls `onboarding.finish` on Enter Condura →; dissolves the wrapper
+  (700ms fade + 8px blur) and invokes `onComplete(dest)`. Removes the 9-step
+  `STEPS[]` / `stepIndex` / `wired: Set<string>` model from the old wizard.
+
+**9-step flow removed:**
+- Deleted `StepId` union (`arrival | eula | permissions | power | hotkey | voice |
+  channels | account | breath`), `STEPS[]`, `stepIndex`, the `island` (top step-label
+  pill), the `spine` (bottom progress bar), the awakening keyframes
+  (`voidHold`, `moteDrift`, `wordReveal`, `fadeUp`, `firstBeat`, `breathe` arrival
+  choreography), per-step skip-notes (5 distinct skip-notes collapsed to 1 on Gate),
+  per-step `Continue →` buttons (collapsed to the Constellation's Enter pill).
+- The decorative constellation SVG (bezier paths + circles + breathing center) was
+  replaced with a **live** Constellation — nodes reflect actual system state
+  (`onboarding.probePower` results, `permissionsStatus` 2s poll, etc.) per MOAT §1.6(a).
+- The `Breath` step (`Condura is here.` hero + Enter Condura button) was collapsed to
+  the Constellation's `Enter Condura →` pill + dissolve-to-Shell exit.
+
+**2-screen flow added:**
+- **Gate (Screen 1)** — eyebrow (`— The terms`), headline (`First, the terms.`),
+  Instrument Serif 32px. Scrollable EULA well with 2px synapse progress bar on left
+  edge. Checkbox + "I have read and accept…" label. Wax seal (radial gradient
+  synapse, 64×64) as the only CTA. `sealBloom` keyframe on stamp (600ms ease) →
+  dissolves to Constellation after 650ms with `Accepted · thank you` status.
+- **Constellation (Screen 2)** — full-bleed pre-window still. Center: 6-node ring
+  (340px diameter, dashed ring). Headline `Configure, don't comply.` (italic synapse
+  on `don't`). Side panel slides in from right (380px wide) when a node is clicked.
+  Hover preview strip below ring fades in 220ms with 80ms delay. Bottom-center
+  `Enter Condura →` pill with hotkey soft-lock halo (breath-pulse 1.6s) when Summon
+  unset. Idle invitation pollen mote drifts every 14s toward unwired node.
+
+**IPC contract (preserved):**
+- `onboarding.acceptEula(version)` — unchanged, called on seal stamp.
+- `onboarding.completePermissions()` — unchanged, called on Perceive panel Continue.
+- `onboarding.skipStep('permissions' | 'hotkey')` — unchanged.
+- `onboarding.saveHotkey()`, `onboarding.setHotkey(combo)` — unchanged.
+- `onboarding.probePower()`, `onboarding.probeVoice()` — unchanged.
+- `onboarding.finish()` — unchanged payload.
+- `account.signInWithEmail(email, locale, origin)` — unchanged.
+
+**MOAT compliance:**
+- §I1 Configure, not comply — 6 independent nodes, any order, any subset.
+- §I2 Smooth is honest — every animation carries meaning (seal-stamp = consent,
+  node stagger = room becoming legible, thread-draw = connection, pill pulse = door
+  open). No decorative loops except the bounded idle pollen mote (1.4s every 14s).
+- §I3 Local-first feels local — probes render existing state (or `not detected`
+  fallback) instantly; no spinner loaders.
+- §I4 Every state is reachable — Gate has 6 states, nodes have 5, Constellation has 4.
+- §I5 The 7 invariants visible — Gate: legal consent first; About (post-Ritual)
+  renders the invariants; ConsentModal precedes every physical action.
+
+**Anti-patterns avoided:**
+- No gradient text, no emoji, no rainbow accents, no `Welcome to your future!`,
+  no fake enthusiasm (`Awesome!` / `Great choice!`), no spinner loaders, no rectangular
+  focus outlines, no double shadows, no decorative animation.
+
+**Reduced-motion contract:**
+- Honored via the global `prefers-reduced-motion` block in `condura.css` (single
+  source of truth, components never redeclare). Gate wordReveal, Constellation
+  node stagger, sealBloom, hover-lift, side-panel slide-in, dissolve-to-Shell all
+  collapse to instant per SCREEN_RITUAL §3.6.
+
+**Validation:**
+- `cd app/web/frontend && npm run build 2>&1 | tail -5` — GREEN
+- `go build ./... 2>&1 | tail -5` — GREEN
+
+**Next steps:**
+1. On-device verification of the new pre-ritual flow (Phase 15 work).
+2. Apply the same `Constellation` metaphor to the existing `V1` first-run wizard
+   (still lives at `app/web/frontend/src/lib/components/onboarding/`).
+3. Extract `ErrorState.svelte` per MOAT §2.6 and use it for all `.rit-err` blocks
+   across the new Constellation panels.
+
+---

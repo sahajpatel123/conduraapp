@@ -12,7 +12,28 @@
  * primitives via the [data-mode="..."] attribute on <html>.
  *
  * Locked: see docs/design-v1-redesign.md §4, §5, §6.
+ *
+ * --ink-cool-* alias block: semantic.css references the legacy
+ * --ink-cool-{50,100,...,900} family (kept for the v1 design-system
+ * audit trail). Primitives.css defines --ink-{50,...,900} but not the
+ * cool variants — we alias here so the v1 components that consume
+ * --ink-cool-* resolve to the correct palette. This is the contract
+ * fix for the token-reference audit (frontend critical). The aliases
+ * are read-only-safe: live `condura/` shell does not depend on
+ * --ink-cool-* and is unaffected.
  */
+:root {
+  --ink-cool-50:  var(--ink-50);
+  --ink-cool-100: var(--ink-100);
+  --ink-cool-200: var(--ink-200);
+  --ink-cool-300: var(--ink-300);
+  --ink-cool-400: var(--ink-400);
+  --ink-cool-500: var(--ink-500);
+  --ink-cool-600: var(--ink-600);
+  --ink-cool-700: var(--ink-700);
+  --ink-cool-800: var(--ink-800);
+  --ink-cool-900: var(--ink-900);
+}
 
 :root,
 [data-mode="light"],

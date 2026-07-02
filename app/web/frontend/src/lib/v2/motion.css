@@ -1,0 +1,132 @@
+/* ============================================================
+ * Condura v2 Motion
+ *
+ * Four easings, four durations, one cinematic. Every motion in
+ * the v2 system MUST mean one of:
+ *   1. arrival   (entry)
+ *   2. departure (exit)
+ *   3. acknowledgment (state change)
+ *   4. attention (rare, opt-in via focus only)
+ *
+ * No decorative motion. No infinite loops in chrome.
+ * ============================================================ */
+
+[data-v2] {
+  /* ----------------------------------------------------------
+   * Easings
+   * ---------------------------------------------------------- */
+
+  /* Soft arrival — gentle deceleration, organic */
+  --v2-ease-out-soft:    cubic-bezier(0.22, 1, 0.36, 1);
+  /* Honest exit — slight acceleration, ends cleanly */
+  --v2-ease-in-honest:   cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  /* Spring — small overshoot, used for state acknowledgment */
+  --v2-ease-spring:      cubic-bezier(0.5, 1.4, 0.4, 1);
+  /* Linear — for things that should NOT be eased (audio scrub) */
+  --v2-ease-linear:      linear;
+  /* Hold & release — for "settle" shadow stage */
+  --v2-ease-settle:      cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ----------------------------------------------------------
+   * Durations
+   * ---------------------------------------------------------- */
+
+  --v2-dur-fast:       140ms;   /* hover, focus, micro */
+  --v2-dur-mid:        280ms;   /* panel entry, list reorder */
+  --v2-dur-slow:       520ms;   /* overlay arrival, route */
+  --v2-dur-cinematic:  900ms;   /* first-paint, emergence */
+
+  /* ----------------------------------------------------------
+   * Pre-composed transitions
+   *
+   * For 90% of v2 use-cases, you want one of these.
+   * Don't compose custom durations in components —
+   * the grammar is centralized here.
+   * ---------------------------------------------------------- */
+
+  --v2-transition-fast:
+    color var(--v2-dur-fast) var(--v2-ease-out-soft),
+    background-color var(--v2-dur-fast) var(--v2-ease-out-soft),
+    border-color var(--v2-dur-fast) var(--v2-ease-out-soft),
+    transform var(--v2-dur-fast) var(--v2-ease-out-soft);
+
+  --v2-transition-mid:
+    transform var(--v2-dur-mid) var(--v2-ease-out-soft),
+    opacity   var(--v2-dur-mid) var(--v2-ease-out-soft),
+    box-shadow var(--v2-dur-mid) var(--v2-ease-settle);
+
+  --v2-transition-slow:
+    transform var(--v2-dur-slow) var(--v2-ease-out-soft),
+    opacity   var(--v2-dur-slow) var(--v2-ease-out-soft),
+    box-shadow var(--v2-dur-slow) var(--v2-ease-settle);
+
+  /* ----------------------------------------------------------
+   * Keyframes — every one is reusable, none are decorative
+   * ---------------------------------------------------------- */
+
+  @keyframes v2-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes v2-slide-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+
+  @keyframes v2-slide-down {
+    from { transform: translateY(-8px); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+
+  @keyframes v2-slide-right {
+    from { transform: translateX(-8px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  @keyframes v2-scale-in {
+    from { transform: scale(0.94); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+
+  /* The wax seal stamp — used at Gatekeeper approval */
+  @keyframes v2-stamp {
+    0%   { transform: scale(1.4); opacity: 0; }
+    50%  { transform: scale(0.96); opacity: 1; }
+    75%  { transform: scale(1.02); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* The agent's heartbeat — 1px background alpha pulse, once per second.
+     The accent RGB is hardcoded here because @keyframes can't resolve
+     var() across all browsers for the background-color property
+     reliably. The 193/138/74 triplet matches --v2-accent exactly.
+     When --v2-accent changes, this hardcoded triplet must be updated
+     in lockstep. A 4% alpha keeps the pulse whisper-quiet. */
+  @keyframes v2-heartbeat {
+    0%, 100% { background-color: transparent; }
+    50%      { background-color: rgba(193, 138, 74, 0.04); }
+  }
+
+  /* Scroll-reveal — applied via IntersectionObserver in Ink.svelte
+   * for headings as they enter the viewport */
+  @keyframes v2-reveal {
+    from { transform: translateY(12px); opacity: 0; filter: blur(2px); }
+    to   { transform: translateY(0);    opacity: 1; filter: blur(0);   }
+  }
+
+  /* ----------------------------------------------------------
+   * Reduced motion — honored across the v2 system
+   * ---------------------------------------------------------- */
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-v2] *,
+    [data-v2] *::before,
+    [data-v2] *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

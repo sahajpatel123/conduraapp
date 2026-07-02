@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/sahajpatel123/conduraapp/internal/config"
 	"github.com/sahajpatel123/conduraapp/internal/hub"
@@ -21,6 +22,17 @@ const (
 	errSyncNotConfigured  = "sync not configured"
 	errHubNotConfigured   = "hub not configured"
 	errSkillStoreNotAvail = "skill store not available"
+)
+
+// Phase 12 sync IPC wire-format keys. Defined as constants so the
+// goconst linter doesn't flag repeated literals across handlers
+// and so the wire format is documented in one place.
+const (
+	syncPendingKey  = "pending"
+	syncDeviceIDKey = "device_id"
+	syncPeerKey     = "peer"
+	syncExpiresKey  = "expires_at"
+	syncCreatedKey  = "created_at"
 )
 
 // Phase12Components bundles the Phase 12 subsystems.
@@ -354,6 +366,7 @@ func registerSyncMethods(srv *ipc.Server, p12 *Phase12Components) {
 	srv.Register("sync.list_pairs", syncListPairsHandler(p12))
 	srv.Register("sync.pair_begin", syncPairBeginHandler(p12))
 	srv.Register("sync.pair_confirm", syncPairConfirmHandler(p12))
+	srv.Register("sync.pair_status", syncPairStatusHandler(p12))
 	srv.Register("sync.revoke", syncRevokeHandler(p12))
 	srv.Register("sync.accept_revocation", syncAcceptRevocationHandler(p12))
 }
@@ -510,7 +523,7 @@ func syncPairBeginHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		return map[string]any{"ok": true, "pin": pin, "peer": p.DeviceID}, nil
+		return map[string]any{"ok": true, "pin": pin, syncPeerKey: p.DeviceID}, nil
 	}
 }
 
@@ -540,7 +553,45 @@ func syncPairConfirmHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err := p12.SyncEngine.ConfirmPairing(target, p.Pin); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
-		return map[string]any{"ok": true, "device_id": p.DeviceID}, nil
+		return map[string]any{"ok": true, syncDeviceIDKey: p.DeviceID}, nil
+	}
+}
+
+// sync.pair_status: read-only lookup of an in-flight pairing for a
+// given peer device ID. Returns whether a pairing is still pending
+// (within pendingPairingTTL) plus the expiry. The frontend polls
+// this while a pairing modal is open so the user can see when the
+// PIN window has expired and re-initiate is required. The pending
+// store is keyed by the peer's device_id, so the lookup is O(1)
+// against the engine's existing pendingPairings map.
+func syncPairStatusHandler(p12 *Phase12Components) ipc.HandlerFunc {
+	return func(_ context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			DeviceID string `json:"device_id"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		if p12.SyncEngine == nil {
+			return map[string]any{syncPendingKey: false}, nil
+		}
+		if p.DeviceID == "" {
+			return map[string]any{syncPendingKey: false}, nil
+		}
+		pp := p12.SyncEngine.PendingPairing(p.DeviceID)
+		if pp == nil {
+			return map[string]any{
+				syncPendingKey:  false,
+				syncDeviceIDKey: p.DeviceID,
+			}, nil
+		}
+		return map[string]any{
+			syncPendingKey:  true,
+			syncDeviceIDKey: pp.DeviceID,
+			syncPeerKey:     pp.PeerName,
+			"expires_at":    pp.ExpiresAt.UTC().Format(time.RFC3339Nano),
+			"created_at":    pp.CreatedAt.UTC().Format(time.RFC3339Nano),
+		}, nil
 	}
 }
 

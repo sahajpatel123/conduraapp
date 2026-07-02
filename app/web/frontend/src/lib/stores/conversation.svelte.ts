@@ -24,6 +24,13 @@ class ConversationStore {
   // show them alongside the streamed text.
   streamingToolCalls = $state<ToolCall[]>([])
 
+  // request_id of the in-flight stream, captured from llmStream()'s
+  // return value. Used to filter SSE stream events so a late event
+  // from a previous stream (or a concurrent stream on another
+  // conversation) can't contaminate this one. Reset to '' when the
+  // stream finishes or is cancelled.
+  currentRequestId = $state<string>('')
+
   private cleanups: Array<() => void> = []
 
   async refreshList(): Promise<void> {
@@ -104,9 +111,10 @@ class ConversationStore {
     this.streamingError = ''
     this.streamingToolCalls = []
     this.isStreaming = true
+    this.currentRequestId = ''
 
     try {
-      await ipc.llmStream({
+      const res = await ipc.llmStream({
         conversation_id: this.currentID,
         provider,
         request: {
@@ -115,6 +123,7 @@ class ConversationStore {
           stream: true
         }
       })
+      this.currentRequestId = res.request_id
     } catch (err) {
       this.isStreaming = false
       this.streamingError = String(err)
@@ -133,6 +142,15 @@ class ConversationStore {
     this.cleanups.push(
       ipc.on('stream', (ev: StreamEvent) => {
         if (ev.conversation_id !== this.currentID) {
+          return
+        }
+        // Cross-stream isolation: if both the event and the store
+        // carry a request_id and they disagree, the event belongs to
+        // a stale or concurrent stream — skip it. This prevents a
+        // previous stream's tail from leaking into a new send, and
+        // stops a concurrent stream on the same conversation from
+        // interleaving deltas.
+        if (ev.request_id && this.currentRequestId && ev.request_id !== this.currentRequestId) {
           return
         }
         if (ev.err) {
@@ -160,6 +178,7 @@ class ConversationStore {
           this.streamingDelta = ''
           this.streamingToolCalls = []
           this.isStreaming = false
+          this.currentRequestId = ''
           // Refresh sidebar so updated_at moves to the top.
           void this.refreshList()
           return
@@ -205,6 +224,7 @@ class ConversationStore {
     this.streamingDelta = ''
     this.streamingError = ''
     this.streamingToolCalls = []
+    this.currentRequestId = ''
   }
 
   stopListening(): void {

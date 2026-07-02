@@ -199,6 +199,57 @@ func (e *Engine) PairWith(peer *Peer) (PairingToken, string, error) {
 	return token, pin, nil
 }
 
+// PendingPairing returns a snapshot of the pending pairing for a
+// given peer device ID, or nil if there is no active (non-expired)
+// pairing. The pending store is the source of truth for the
+// pair_status RPC — anything UI-side reads about pairing freshness
+// should go through here rather than holding its own state.
+func (e *Engine) PendingPairing(peerDeviceID string) *PendingPairing {
+	if peerDeviceID == "" {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	pp, ok := e.pendingPairings[peerDeviceID]
+	if !ok {
+		return nil
+	}
+	if time.Since(pp.createdAt) > pendingPairingTTL {
+		delete(e.pendingPairings, peerDeviceID)
+		return nil
+	}
+	expiresAt := pp.createdAt.Add(pendingPairingTTL)
+	var peerName, peerPub string
+	if e.discovery != nil {
+		for _, peer := range e.discovery.Peers() {
+			if peer.DeviceID == peerDeviceID {
+				peerName = peer.Name
+				peerPub = peer.PublicKey
+				break
+			}
+		}
+	}
+	return &PendingPairing{
+		DeviceID:  peerDeviceID,
+		PeerName:  peerName,
+		PublicKey: peerPub,
+		CreatedAt: pp.createdAt,
+		ExpiresAt: expiresAt,
+	}
+}
+
+// PendingPairing is the read-only view of an in-flight pairing
+// request. It is exposed by Engine.PendingPairing so the IPC layer
+// can answer sync.pair_status without reaching into the engine's
+// private state.
+type PendingPairing struct {
+	DeviceID  string
+	PeerName  string
+	PublicKey string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
 // ConfirmPairing is the SECOND half of the pairing flow: the user
 // reads the 6-digit PIN from the new device and types it into the
 // existing device's overlay. If the PIN matches the one minted

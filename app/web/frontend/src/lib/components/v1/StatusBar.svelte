@@ -17,8 +17,10 @@
     onopen        — handler for opening the main window
 -->
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Pulse from './Pulse.svelte';
   import Dot from './Dot.svelte';
+  import Icon from './icons/Icon.svelte';
 
   interface Props {
     activeTask?: string | null;
@@ -41,6 +43,58 @@
   let paused = $state(false);
   let popoverOpen = $state(false);
 
+  // Cursor awareness — the Pulse brightens when the cursor approaches
+  // the top of the screen. The agent is "looking up" — aware of user
+  // attention. Distance threshold: 80px from top edge.
+  let cursorProximity = $state(0);  // 0..1, where 1 = at the top
+  let hostEl: HTMLDivElement | undefined = $state();
+
+  onMount(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let raf = 0;
+    let targetProx = 0;
+    let lastMove = 0;
+
+    const onMove = (e: PointerEvent) => {
+      lastMove = Date.now();
+      // 80px from the top = full proximity (1). 200px+ = no proximity (0).
+      const y = e.clientY;
+      targetProx = Math.max(0, Math.min(1, (200 - y) / 120));
+    };
+
+    const onLeave = () => { targetProx = 0; };
+
+    // Lerp the proximity over time so the brightening is smooth
+    const tick = () => {
+      cursorProximity += (targetProx - cursorProximity) * 0.06;
+      // If the user hasn't moved in 60s, fade the proximity
+      if (Date.now() - lastMove > 60000) {
+        targetProx = 0;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerleave', onLeave);
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerleave', onLeave);
+    };
+  });
+
+  // The Pulse state reflects the agent's actual state, modulated by cursor proximity
+  let effectivePulseState = $derived(
+    agentState === 'thinking' ? 'thinking' :
+    agentState === 'awaiting' ? 'awaiting' :
+    agentState === 'error' ? 'error' :
+    'idle'
+  );
+
   function togglePopover() {
     popoverOpen = !popoverOpen;
   }
@@ -61,7 +115,7 @@
     aria-label="Synaptic status"
     aria-expanded={popoverOpen}
   >
-    <Pulse state={agentState === 'thinking' ? 'thinking' : agentState === 'error' ? 'error' : 'idle'} size="sm" label="Synaptic" />
+    <Pulse state={effectivePulseState} size="sm" label="Synaptic" />
     {#if queuedCount > 0}
       <span class="badge" aria-label="{queuedCount} queued">{queuedCount}</span>
     {/if}
@@ -103,7 +157,7 @@
 
       <div class="popover__actions">
         <button class="action" type="button" onclick={onopen}>
-          <span class="action__icon">◇</span>
+          <span class="action__icon"><Icon name="home" size="sm" /></span>
           <span>Open Synaptic</span>
           <span class="action__hint">⌘⇧Space</span>
         </button>
@@ -112,11 +166,13 @@
           type="button"
           onclick={() => { paused = !paused; onpause?.(); }}
         >
-          <span class="action__icon">{paused ? '▶' : '⏸'}</span>
+          <span class="action__icon">
+            <Icon name={paused ? 'play' : 'pause'} size="sm" />
+          </span>
           <span>{paused ? 'Resume agent' : 'Pause agent'}</span>
         </button>
         <button class="action action--danger" type="button" onclick={onkill}>
-          <span class="action__icon">⏹</span>
+          <span class="action__icon"><Icon name="power" size="sm" /></span>
           <span>Stop everything</span>
           <span class="action__hint">⌘⇧⎋</span>
         </button>

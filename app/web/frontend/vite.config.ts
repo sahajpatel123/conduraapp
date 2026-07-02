@@ -22,6 +22,7 @@ export default defineConfig({
     alias: {
       $tokens: path.resolve(__dirname, 'src/lib/tokens'),
       $components: path.resolve(__dirname, 'src/lib/components'),
+      $lib: path.resolve(__dirname, 'src/lib'),
     },
   },
   build: {

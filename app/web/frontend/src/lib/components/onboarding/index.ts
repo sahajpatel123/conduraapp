@@ -1,0 +1,6 @@
+export { default as FloatingOnboarding } from './FloatingOnboarding.svelte'
+export { default as WelcomeCard } from './WelcomeCard.svelte'
+export { default as PermissionCards } from './PermissionCards.svelte'
+export { default as PowerCards } from './PowerCards.svelte'
+export { default as HotkeyCard } from './HotkeyCard.svelte'
+export { default as FirstBreath } from './FirstBreath.svelte'

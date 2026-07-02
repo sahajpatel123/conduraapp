@@ -10,6 +10,7 @@
 <script lang="ts">
   import Button from '../Button.svelte';
   import Pulse from '../Pulse.svelte';
+  import Icon, { type IconName } from '../icons/Icon.svelte';
 
   type PowerChoice = 'claude-pro' | 'chatgpt-plus' | 'api-key' | 'ollama';
 
@@ -33,6 +34,22 @@
     onback,
   }: Props = $props();
 
+  // Icon per choice — abstract enough to not fake any specific brand
+  const CHOICE_ICON: Record<PowerChoice, IconName> = {
+    'claude-pro':    'sparkle',   // "premium subscription"
+    'chatgpt-plus':  'sparkle',   // "premium subscription" (same shape, different color)
+    'api-key':       'lock',      // "key-based auth"
+    'ollama':        'globe',     // "local" — but we keep the Pulse too
+  };
+
+  // Subtle color variation per choice
+  const CHOICE_TONE: Record<PowerChoice, 'subscription-a' | 'subscription-b' | 'key' | 'local'> = {
+    'claude-pro':    'subscription-a',
+    'chatgpt-plus':  'subscription-b',
+    'api-key':       'key',
+    'ollama':        'local',
+  };
+
   function handleKeyChange(e: Event) {
     const v = (e.target as HTMLInputElement).value;
     onapiKeyChange?.(v);
@@ -50,51 +67,51 @@
 
     <div class="grid">
       <button
-        class="card"
+        class="card card--{CHOICE_TONE['claude-pro']}"
         class:card--selected={selected === 'claude-pro'}
         onclick={() => onselect?.('claude-pro')}
         type="button"
       >
         <div class="card__icon" aria-hidden="true">
-          <span class="card__letter">C</span>
+          <Icon name={CHOICE_ICON['claude-pro']} size="md" />
         </div>
         <div class="card__name">Use my Claude Pro</div>
         <div class="card__cost">Uses your existing subscription · no extra charge</div>
       </button>
 
       <button
-        class="card"
+        class="card card--{CHOICE_TONE['chatgpt-plus']}"
         class:card--selected={selected === 'chatgpt-plus'}
         onclick={() => onselect?.('chatgpt-plus')}
         type="button"
       >
-        <div class="card__icon card__icon--alt" aria-hidden="true">
-          <span class="card__letter">G</span>
+        <div class="card__icon" aria-hidden="true">
+          <Icon name={CHOICE_ICON['chatgpt-plus']} size="md" />
         </div>
         <div class="card__name">Use my ChatGPT Plus</div>
         <div class="card__cost">Uses your existing subscription · no extra charge</div>
       </button>
 
       <button
-        class="card"
+        class="card card--{CHOICE_TONE['api-key']}"
         class:card--selected={selected === 'api-key'}
         onclick={() => onselect?.('api-key')}
         type="button"
       >
-        <div class="card__icon card__icon--mono" aria-hidden="true">
-          <span class="card__letter">⌘</span>
+        <div class="card__icon" aria-hidden="true">
+          <Icon name={CHOICE_ICON['api-key']} size="md" />
         </div>
         <div class="card__name">Paste an API key</div>
         <div class="card__cost">Bring your own key · pay-as-you-go</div>
       </button>
 
       <button
-        class="card"
+        class="card card--{CHOICE_TONE['ollama']}"
         class:card--selected={selected === 'ollama'}
         onclick={() => onselect?.('ollama')}
         type="button"
       >
-        <div class="card__icon card__icon--accent" aria-hidden="true">
+        <div class="card__icon" aria-hidden="true">
           <Pulse state="idle" size="sm" label="" />
         </div>
         <div class="card__name">Use a local model</div>
@@ -126,7 +143,7 @@
     {/if}
 
     <div class="screen__actions">
-      <Button variant="tertiary" size="md" onclick={onback}>← Back</Button>
+      <Button variant="tertiary" size="md" icon="arrow-left" onclick={onback}>Back</Button>
       <div class="screen__actions-right">
         <Button variant="tertiary" size="md" onclick={onskip}>
           I'll set this up later in Settings
@@ -134,6 +151,8 @@
         <Button
           variant="primary"
           size="md"
+          icon="arrow-right"
+          iconPosition="right"
           disabled={!selected || (selected === 'api-key' && !apiKey.trim())}
         >
           {selected ? 'Continue' : 'Choose one to continue'}
@@ -222,34 +241,47 @@
   }
 
   .card__icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-md);
     background-color: var(--paper-warm-50);
     border: 1px solid var(--border-default);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--content-secondary);
+    transition: background-color var(--duration-fast) var(--ease-standard);
   }
 
-  .card__icon--alt {
-    background-color: var(--paper-warm-100);
-  }
-
-  .card__icon--mono {
-    font-family: var(--font-mono);
-  }
-
-  .card__icon--accent {
+  /* Tone-based color variations */
+  .card--subscription-a .card__icon {
+    color: var(--plum-700);
     background-color: var(--plum-50);
     border-color: var(--plum-200);
   }
 
-  .card__letter {
-    font-family: var(--font-serif);
-    font-size: 16px;
-    font-weight: 600;
+  .card--subscription-b .card__icon {
+    color: var(--info-700);
+    background-color: color-mix(in srgb, var(--info-500) 8%, transparent);
+    border-color: color-mix(in srgb, var(--info-500) 20%, transparent);
+  }
+
+  .card--key .card__icon {
     color: var(--content-secondary);
+  }
+
+  .card--local .card__icon {
+    background-color: var(--plum-50);
+    border-color: var(--plum-200);
+  }
+
+  /* On hover, the icon's color deepens slightly */
+  .card:hover .card__icon {
+    transform: scale(1.04);
+  }
+
+  .card__icon {
+    transition: transform var(--duration-fast) var(--ease-standard);
   }
 
   .card__name {

@@ -108,6 +108,14 @@ func main() {
 		// route through the Wails window methods so the overlay
 		// is a real frameless/always-on-top mode, not a noop.
 		appInstance.startConductor(subs, resolveOverlayHotkey(cfg.Hotkey.Overlay))
+
+		// Wire the kill switch (Layer 1 hard hotkey → halt.Flag.Halt).
+		// CLAUDE.md §5.3 + §2.1 invariant #4: a hard hotkey must
+		// halt the agent independently of every other mechanism.
+		// We register a SECOND hotkey.Manager (separate from the
+		// overlay) so a misbehaving overlay cannot block the user
+		// from killing the agent.
+		appInstance.startKillSwitch(subs, resolveKillSwitchHotkey(cfg.Hotkey.KillSwitch))
 	}()
 
 	// Start the Wails app. The Wails runtime takes over the main

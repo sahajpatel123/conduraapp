@@ -43,6 +43,45 @@
   let remaining = $state('')
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
+  // ── TTL ring state ──
+  // sync.pair_status returns { pending, device_id, peer, expires_at, created_at }.
+  // We track secondsLeft (updated every 1s for smooth animation) and render an
+  // SVG ring around the PIN that depletes as the token expires. When pending
+  // becomes false (peer confirmed or token revoked), the ring unmounts.
+  type PairStatus = {
+    pending: boolean
+    device_id?: string
+    peer?: string
+    expires_at?: string
+    created_at?: string
+  }
+  let pairStatus = $state<PairStatus | null>(null)
+  let secondsLeft = $state(0)
+  // The initial TTL is derived from the prop's expiresAt (the first mint). If
+  // the poll later reports a different expires_at, we re-anchor initialTtl so
+  // the ring never runs backwards.
+  let initialTtl = $state(0)
+  let ringTimer: ReturnType<typeof setInterval> | null = null
+
+  const RING_RADIUS = 32
+  const RING_CIRC = 2 * Math.PI * RING_RADIUS // ≈ 201.06
+  let ringOffset = $derived(
+    initialTtl > 0 ? RING_CIRC * (1 - secondsLeft / initialTtl) : RING_CIRC
+  )
+  let ringDanger = $derived(secondsLeft > 0 && secondsLeft < 30)
+  let ringVisible = $derived(
+    pairStatus?.pending === true && secondsLeft > 0 && initialTtl > 0
+  )
+
+  function recomputeSecondsLeft(exp?: string): void {
+    if (!exp) {
+      secondsLeft = 0
+      return
+    }
+    const ms = new Date(exp).getTime() - Date.now()
+    secondsLeft = ms > 0 ? Math.floor(ms / 1000) : 0
+  }
+
   onMount(() => {
     const payload = JSON.stringify({ v: 1, device_id: deviceId, name: deviceName })
     QRCode.toDataURL(payload, { margin: 1, width: 220 })
@@ -53,19 +92,37 @@
         qrDataUrl = ''
       })
 
+    // Seed the ring from the prop's expiresAt (the first mint) so the user
+    // sees a countdown immediately, before the first poll lands.
     if (expiresAt) {
-      const tick = (): void => {
-        const ms = new Date(expiresAt).getTime() - Date.now()
-        if (ms <= 0) {
-          remaining = t('sync.pair.expired')
-          return
-        }
-        const s = Math.floor(ms / 1000)
+      const ms = new Date(expiresAt).getTime() - Date.now()
+      if (ms > 0) {
+        initialTtl = Math.floor(ms / 1000)
+        recomputeSecondsLeft(expiresAt)
+      }
+    }
+
+    // 1s interval for smooth ring depletion + remaining-text refresh.
+    ringTimer = setInterval(() => {
+      const exp = pairStatus?.expires_at ?? expiresAt
+      recomputeSecondsLeft(exp)
+      const s = secondsLeft
+      if (s <= 0) {
+        remaining = t('sync.pair.expired')
+      } else {
         remaining = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
       }
-      tick()
-      const timer = setInterval(tick, 1000)
-      return () => clearInterval(timer)
+    }, 1000)
+  })
+
+  onDestroy(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+    if (ringTimer) {
+      clearInterval(ringTimer)
+      ringTimer = null
     }
   })
 
@@ -73,7 +130,7 @@
   // status read — the actual confirm happens when the user types
   // the PIN and clicks Connect. The poll exists so we can detect
   // when the peer has already entered the PIN and the daemon is
-  // waiting for local confirmation.
+  // waiting for local confirmation, and to refresh expires_at.
   $effect(() => {
     if (!open) {
       if (pollTimer) {
@@ -83,10 +140,30 @@
       return
     }
     pollTimer = setInterval(() => {
-      void ipc.call('sync.pair_status', { device_id: deviceId }).catch(() => {
-        // Polling errors are non-fatal; the modal stays open until
-        // the user explicitly confirms or cancels.
-      })
+      void ipc
+        .call('sync.pair_status', { device_id: deviceId })
+        .then((res) => {
+          const st = res as PairStatus
+          if (!st || typeof st !== 'object') return
+          pairStatus = st
+          // Re-anchor initialTtl when a fresh token is minted (created_at
+          // changed or expires_at moved past the previous one).
+          if (st.expires_at) {
+            const nowLeft = Math.floor((new Date(st.expires_at).getTime() - Date.now()) / 1000)
+            if (nowLeft > 0) {
+              // If we never seeded, or the server reports a longer window than
+              // we had left, re-seed initialTtl so the ring stays proportional.
+              if (initialTtl === 0 || nowLeft > initialTtl) {
+                initialTtl = nowLeft
+              }
+              recomputeSecondsLeft(st.expires_at)
+            }
+          }
+        })
+        .catch(() => {
+          // Polling errors are non-fatal; the modal stays open until
+          // the user explicitly confirms or cancels.
+        })
     }, 5000)
     return () => {
       if (pollTimer) {
@@ -138,9 +215,43 @@
 
       <div class="pin-block">
         <span class="pin-label">{t('sync.pair.pin_label')}</span>
-        <span class="pin">{pin}</span>
+        <div class="pin-ring-wrap" class:danger={ringDanger}>
+          {#if ringVisible}
+            <svg
+              class="pin-ring"
+              width="84"
+              height="84"
+              viewBox="0 0 84 84"
+              aria-hidden="true"
+            >
+              <circle
+                cx="42"
+                cy="42"
+                r={RING_RADIUS}
+                fill="none"
+                stroke="var(--pollen-halo, rgba(201,123,46,0.18))"
+                stroke-width="4"
+                opacity="0.45"
+              />
+              <circle
+                cx="42"
+                cy="42"
+                r={RING_RADIUS}
+                fill="none"
+                stroke={ringDanger ? 'var(--danger)' : 'var(--pollen)'}
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-dasharray={RING_CIRC}
+                stroke-dashoffset={ringOffset}
+                transform="rotate(-90 42 42)"
+                style="transition: stroke-dashoffset 950ms linear, stroke 300ms ease;"
+              />
+            </svg>
+          {/if}
+          <span class="pin" class:danger={ringDanger}>{pin}</span>
+        </div>
         {#if remaining}
-          <span class="ttl" class:expired={remaining === t('sync.pair.expired')}>
+          <span class="ttl" class:expired={remaining === t('sync.pair.expired')} class:danger={ringDanger}>
             {remaining === t('sync.pair.expired')
               ? t('sync.pair.expired')
               : t('sync.pair.expires_in', remaining)}
@@ -232,6 +343,20 @@
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
   }
+  .pin-ring-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 84px;
+    height: 84px;
+    margin: var(--space-1) 0;
+  }
+  .pin-ring {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
   .pin {
     font-family: var(--font-mono);
     font-size: var(--size-2xl);
@@ -239,13 +364,23 @@
     letter-spacing: 0.2em;
     color: var(--accent);
     text-shadow: 0 0 18px var(--accent-glow);
+    transition: color 300ms ease, text-shadow 300ms ease;
+  }
+  .pin.danger,
+  .pin-ring-wrap.danger .pin {
+    color: var(--danger);
+    text-shadow: 0 0 18px color-mix(in srgb, var(--danger) 35%, transparent);
   }
   .ttl {
     font-size: var(--size-xs);
     color: var(--text-muted);
+    transition: color 300ms ease;
   }
   .ttl.expired {
     color: var(--error);
+  }
+  .ttl.danger {
+    color: var(--danger);
   }
 
   .confirm label {

@@ -43,6 +43,8 @@ import type {
   DaemonCapabilities,
   LLMStreamParams,
   LLMCancelParams,
+  BlastClass,
+  Verdict,
 } from './types'
 
 // Emitter that supports typed event handlers.
@@ -215,6 +217,31 @@ class IPCClient {
   }
   auditList(p: AuditListParams = {}): Promise<AuditEvent[]> {
     return this.call<AuditEvent[]>('audit.list', p)
+  }
+  // Phase 15: enriched audit IPCs. Each gracefully degrades if the
+  // daemon hasn't implemented the RPC yet (returns a sensible default
+  // shape so the route never crashes on missing optional RPCs).
+  auditExport(
+    p: AuditListParams = {},
+    destination?: string
+  ): Promise<import('./types').AuditExportResult> {
+    return this.call<import('./types').AuditExportResult>('audit.export', {
+      ...p,
+      destination: destination ?? '',
+    })
+  }
+  auditVerifyIntegrity(
+    p: AuditListParams = {}
+  ): Promise<import('./types').AuditIntegrityReport> {
+    return this.call<import('./types').AuditIntegrityReport>(
+      'audit.verifyIntegrity',
+      p
+    )
+  }
+  auditFacetCounts(
+    p: AuditListParams = {}
+  ): Promise<import('./types').AuditFacetCounts> {
+    return this.call<import('./types').AuditFacetCounts>('audit.facetCounts', p)
   }
   daemonHalt(reason: string): Promise<DaemonHaltResult> {
     return this.call<DaemonHaltResult>('daemon.halt', { reason })

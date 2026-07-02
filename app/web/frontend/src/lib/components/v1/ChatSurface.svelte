@@ -1,147 +1,332 @@
 <!--
   ChatSurface — the editorial column.
 
-  Per spec §8.1: full-height editorial column with mono timestamps on the
-  left margin and prose flowing in proportional type. Hairline separators
-  between turns; nothing else. No avatars, no bubbles, no reaction buttons.
+  This is no longer a chat interface. This is a page from a book that
+  happens to have a thoughtful agent reading and writing in it. The
+  user's voice is a sans note in the margin. The agent's voice is the
+  serif body text. Timestamps are mono footnotes.
 
-  The agent's voice is serif ("as if written by hand"). The user's voice
-  is sans. Mono timestamps always. Surface tint distinguishes them subtly.
+  Three voices:
+    - User (sans, paper-warm tinted sticky-note background)
+    - Agent (serif, generous line-height 1.7, no background)
+    - System (italic serif, muted, for notices)
 
-  Props:
-    turns    — array of {id, role, content, timestamp, status, pausedMs?}
-    children — optional slot for empty-state
+  Per spec §11.1 + the website aesthetic. The chat is a column in a book,
+  not a messaging app.
 -->
 <script lang="ts">
-  import Hairline from './Hairline.svelte';
-  import StreamingText from './StreamingText.svelte';
+  import SynapseField from './SynapseField.svelte';
+  import Inline from './Inline.svelte';
+  import Button from './Button.svelte';
+  import Icon from './icons/Icon.svelte';
 
   type Role = 'user' | 'agent' | 'system';
-  type Status = 'streaming' | 'paused' | 'done' | 'error';
 
   interface Turn {
     id: string;
     role: Role;
     content: string;
-    timestamp: string;
-    status?: Status;
-    pausedMs?: number;
+    timestamp?: string;
+    thinking?: string;
   }
 
   interface Props {
     turns?: Turn[];
-    children?: import('svelte').Snippet;
+    showEmptyHero?: boolean;
   }
 
-  let { turns = [], children }: Props = $props();
+  let { turns = [], showEmptyHero = false }: Props = $props();
 </script>
 
-<article class="chat" role="log" aria-label="Conversation">
-  {#if turns.length === 0}
-    {#if children}
-      {@render children()}
-    {/if}
-  {:else}
-    {#each turns as turn, i}
-      <div class="chat__turn chat__turn--{turn.role}" data-status={turn.status ?? 'done'}>
-        <div class="chat__timestamp" aria-hidden="true">{turn.timestamp}</div>
-        <div class="chat__body">
-          {#if turn.role === 'agent'}
-            <StreamingText
-              text={turn.content}
-              voice="serif"
-              state={turn.status ?? 'done'}
-              pausedMs={turn.pausedMs ?? 0}
-            />
-          {:else if turn.role === 'system'}
-            <p class="chat__system">{turn.content}</p>
-          {:else}
-            <p class="chat__user">{turn.content}</p>
-          {/if}
-        </div>
+{#if turns.length === 0 && showEmptyHero}
+  <!-- The hero empty state — the SynapseField lives here -->
+  <div class="hero">
+    <SynapseField />
+    <div class="hero__hints">
+      <div class="hero__hint-chips">
+        <Inline gap="3">
+          <Button size="md" variant="secondary" icon="mail" onclick={() => {}}>
+            Summarize my last 3 emails
+          </Button>
+          <Button size="md" variant="secondary" icon="globe" onclick={() => {}}>
+            Open Safari and search
+          </Button>
+          <Button size="md" variant="secondary" icon="edit" onclick={() => {}}>
+            Rename a file
+          </Button>
+        </Inline>
       </div>
-      {#if i < turns.length - 1}
-        <Hairline variant="subtle" inset={true} />
-      {/if}
+      <p class="hero__kbd-hint">
+        or press <kbd>⌘K</kbd> for anything
+      </p>
+    </div>
+  </div>
+{:else if turns.length === 0}
+  <!-- Smaller empty state when hero is disabled -->
+  <div class="empty">
+    <p class="empty__line">Nothing yet.</p>
+    <p class="empty__hint">Press <kbd>⌘K</kbd> to start.</p>
+  </div>
+{:else}
+  <article class="column" role="log" aria-label="Conversation">
+    {#each turns as turn (turn.id)}
+      <section
+        class="turn turn--{turn.role}"
+        data-role={turn.role}
+        aria-label={turn.role === 'system' ? undefined : `${turn.role} message`}
+      >
+        <header class="turn__head">
+          <span class="turn__role" aria-hidden="true">
+            {turn.role === 'agent' ? 'Synaptic' : turn.role === 'user' ? 'You' : 'System'}
+          </span>
+          {#if turn.timestamp}
+            <time class="turn__time">{turn.timestamp}</time>
+          {/if}
+        </header>
+
+        {#if turn.thinking && turn.role === 'agent'}
+          <details class="turn__thinking">
+            <summary>
+              <Icon name="chevron-right" size="xs" />
+              Thinking
+            </summary>
+            <p class="turn__thinking-body">{turn.thinking}</p>
+          </details>
+        {/if}
+
+        <div class="turn__body">{turn.content}</div>
+      </section>
+
+      <hr class="turn__rule" aria-hidden="true" />
     {/each}
-  {/if}
-</article>
+  </article>
+{/if}
 
 <style>
-  .chat {
-    /* The editorial column — narrow, centered, generous */
-    max-width: var(--container-prose);
-    margin: 0 auto;
-    padding: var(--space-9) var(--space-6);
+  /* ── The empty state — nothing yet ─────────────────────── */
+
+  .empty {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+    padding: var(--space-7);
+    gap: var(--space-3);
+    background-color: var(--surface-base);
   }
 
-  /* Each turn — timestamp on the left margin (mono), body in the column */
-  .chat__turn {
-    display: grid;
-    grid-template-columns: 96px 1fr;
-    gap: var(--space-5);
-    padding: var(--space-5) 0;
-    transition: background-color var(--duration-base) var(--ease-standard);
-  }
-
-  /* Subtle surface tint distinguishes user from agent.
-     Per spec §11.1: agent on base, user on a slightly different tint. */
-  .chat__turn--user {
-    background-color: var(--paper-warm-50);
-    border-radius: var(--radius-md);
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
-    margin-left: calc(-1 * var(--space-3));
-    margin-right: calc(-1 * var(--space-3));
-  }
-
-  .chat__turn--system {
-    color: var(--content-tertiary);
+  .empty__line {
+    font-family: var(--font-serif);
     font-style: italic;
+    font-size: var(--text-h3-size);
+    color: var(--content-secondary);
+    margin: 0;
   }
 
-  /* Timestamp — mono, tabular, muted */
-  .chat__timestamp {
+  .empty__hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+
+  .empty__hint kbd {
+    font-family: var(--font-mono);
+    background-color: var(--paper-warm-50);
+    border: 1px solid var(--border-default);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    color: var(--content-primary);
+    margin: 0 var(--space-1);
+  }
+
+  /* ── The hero empty state with SynapseField ────────────── */
+
+  .hero {
+    position: relative;
+    width: 100%;
+    min-height: 540px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-9) var(--space-6) var(--space-7);
+    background-color: var(--surface-base);
+    overflow: hidden;
+  }
+
+  .hero__hints {
+    position: relative;
+    z-index: 3;
+    margin-top: var(--space-7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .hero__hint-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  .hero__kbd-hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+
+  .hero__kbd-hint kbd {
+    font-family: var(--font-mono);
+    background-color: var(--paper-warm-50);
+    border: 1px solid var(--border-default);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    color: var(--content-primary);
+    margin: 0 var(--space-1);
+  }
+
+  /* ── The editorial column ──────────────────────────────── */
+
+  .column {
+    /* The narrow column — like a magazine page */
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: var(--space-9) var(--space-6) var(--space-13);
+    background-color: var(--surface-base);
+  }
+
+  /* ── A turn — the unit of conversation ─────────────────── */
+
+  .turn {
+    padding: var(--space-5) 0;
+  }
+
+  /* The head — role + timestamp in a small mono caps line */
+  .turn__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .turn__role {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--content-tertiary);
+  }
+
+  .turn__time {
     font-family: var(--font-mono);
     font-size: var(--text-caption-size);
     color: var(--content-tertiary);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
-    padding-top: var(--space-1);
-    text-align: right;
   }
 
-  /* Body — serif for agent, sans for user */
-  .chat__body {
-    min-width: 0;
+  /* The body — three voices, three typography profiles */
+
+  .turn--agent .turn__body {
+    font-family: var(--font-serif);
+    font-size: 17px;       /* — not 15px, not 18px: 17 reads like a book */
+    line-height: 1.7;
+    color: var(--content-primary);
+    /* The agent's serif voice uses real italics for emphasis */
   }
 
-  .chat__user {
+  .turn--agent .turn__body :global(em) {
+    font-style: italic;
+    color: var(--content-accent);
+  }
+
+  .turn--user .turn__body {
     font-family: var(--font-sans);
     font-size: var(--text-body-size);
     line-height: 1.6;
     color: var(--content-primary);
-    margin: 0;
-    /* User typing isn't on display — the message just is. */
   }
 
-  .chat__system {
-    font-family: var(--font-sans);
+  .turn--system .turn__body {
+    font-family: var(--font-serif);
+    font-style: italic;
     font-size: var(--text-body-sm-size);
     color: var(--content-tertiary);
-    margin: 0;
+    text-align: center;
   }
 
-  /* Mobile — stack the timestamp above the body */
-  @media (max-width: 720px) {
-    .chat__turn {
-      grid-template-columns: 1fr;
-      gap: var(--space-2);
-    }
-    .chat__timestamp {
-      text-align: left;
-    }
+  /* The user's turn gets a soft paper-warm background — like a sticky note
+     on the page. Subtle, not a "card", just a tint that says "this is from
+     outside the book". */
+  .turn--user {
+    background-color: var(--paper-warm-50);
+    border-radius: var(--radius-md);
+    padding-left: var(--space-5);
+    padding-right: var(--space-5);
+  }
+
+  /* The thinking details — collapsible. Default closed. */
+  .turn__thinking {
+    margin-bottom: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--surface-sunken);
+    border-radius: var(--radius-sm);
+    border: 1px dashed var(--border-subtle);
+    font-family: var(--font-sans);
+  }
+
+  .turn__thinking summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--content-tertiary);
+    font-size: var(--text-caption-size);
+  }
+
+  .turn__thinking summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .turn__thinking-body {
+    margin: var(--space-2) 0 0;
+    font-style: italic;
+    font-size: var(--text-body-sm-size);
+    color: var(--content-tertiary);
+    line-height: 1.5;
+  }
+
+  /* The hairline rule between turns — a printed-page detail */
+  .turn__rule {
+    border: 0;
+    height: 1px;
+    background-color: var(--border-subtle);
+    margin: 0;
+    width: 100%;
+  }
+
+  /* Paper grain texture — barely perceptible, but it changes everything */
+  .column::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(20, 17, 11, 0.012) 0%, transparent 60%),
+      radial-gradient(circle at 80% 70%, rgba(20, 17, 11, 0.012) 0%, transparent 60%);
+    background-size: 100% 100%;
+  }
+
+  /* .column { position: relative } for ::before */
+  .column {
+    position: relative;
   }
 </style>

@@ -1,4 +1,3 @@
-
 //go:build synaptictest
 
 // Phase 11 trust E2E — the "fix everything" tests for the

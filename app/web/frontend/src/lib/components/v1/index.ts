@@ -11,11 +11,16 @@ export { default as Pulse }    from './Pulse.svelte';
 export { default as Dot }      from './Dot.svelte';
 export { default as Stack }    from './Stack.svelte';
 export { default as Inline }   from './Inline.svelte';
-export { default as Icon }     from './Icon.svelte';
+export { default as Icon }     from './icons/Icon.svelte';
 export { default as Spacer }   from './Spacer.svelte';
+
+// Icon library
+export { ICON_PATHS, type IconPathName } from './icons/paths';
+export type { IconName } from './icons/Icon.svelte';
 
 // ── Tier 2 — Inputs & controls ─────────────────────────────────
 export { default as Button }         from './Button.svelte';
+export { default as IconButton }     from './IconButton.svelte';
 export { default as Input }          from './Input.svelte';
 export { default as Textarea }       from './Textarea.svelte';
 export { default as Chip }           from './Chip.svelte';
@@ -47,6 +52,18 @@ export { default as StatusBar }          from './StatusBar.svelte';
 export { default as ConsentModal }       from './ConsentModal.svelte';
 export { default as KillSwitchOverlay }  from './KillSwitchOverlay.svelte';
 export { default as AgentActionLog }     from './AgentActionLog.svelte';
+export { default as BrandWordmark }      from './BrandWordmark.svelte';
+export { default as AmbientBackground }  from './AmbientBackground.svelte';
+export { default as Toast }              from './Toast.svelte';
+export { default as Toaster }            from './Toaster.svelte';
+export { default as Tip }                from './Tip.svelte';
+export { default as Tooltip }            from './Tooltip.svelte';
+export { default as SectionHeader }      from './SectionHeader.svelte';
+export { default as Sheet }              from './Sheet.svelte';
+export { default as CanvasBackground }   from './CanvasBackground.svelte';
+export { default as CursorHalo }         from './CursorHalo.svelte';
+export { default as Magnetic }           from './Magnetic.svelte';
+export { default as SynapseField }       from './SynapseField.svelte';
 
 // ── Tier 4 — Onboarding wizard ─────────────────────────────────
 export { default as OnboardingWizard }    from './onboarding/OnboardingWizard.svelte';

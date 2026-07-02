@@ -27,6 +27,9 @@
   import ProgressBar from './ProgressBar.svelte';
   import Receipt from './Receipt.svelte';
   import Button from './Button.svelte';
+  import Icon, { type IconName } from './icons/Icon.svelte';
+  import IconButton from './IconButton.svelte';
+  import KeyCombo from './KeyCombo.svelte';
 
   type Mode = 'idle' | 'active' | 'processing' | 'result';
 
@@ -151,16 +154,24 @@
 
   <!-- ── Layer 2: Omni-bar input ───────────────────────────────── -->
   <form class="surface__input-row" onsubmit={handleSubmit}>
-    <Input
-      bind:value={inputValue}
-      variant={inputVariant}
-      size={inputSize}
-      placeholder={mode === 'processing' ? 'Agent working…' : 'What would you like me to do?'}
-      ariaLabel="Command input"
-      onkeydown={handleKey}
-      disabled={mode === 'processing'}
-      monospace={mode === 'processing' || mode === 'result'}
-    />
+    <div class="surface__input-shell">
+      <span class="surface__input-prefix" aria-hidden="true">
+        <Icon name={mode === 'processing' ? 'sparkle' : 'search'} size="sm" />
+      </span>
+      <Input
+        bind:value={inputValue}
+        variant={inputVariant}
+        size={inputSize}
+        placeholder={mode === 'processing' ? 'Agent working…' : 'What would you like me to do?'}
+        ariaLabel="Command input"
+        onkeydown={handleKey}
+        disabled={mode === 'processing'}
+        monospace={mode === 'processing' || mode === 'result'}
+      />
+      <span class="surface__input-suffix" aria-hidden="true">
+        <KeyCombo combo="⌘K" size="sm" />
+      </span>
+    </div>
   </form>
 
   <!-- ── State-dependent body ──────────────────────────────────── -->
@@ -185,7 +196,8 @@
         modelName={progress.modelName}
       />
       <div class="surface__processing-actions">
-        <Button variant="tertiary" size="sm" onclick={onpause}>⏸ Pause</Button>
+        <IconButton name="pause" label="Pause" size={32} onclick={onpause} />
+        <span class="surface__processing-label">esc to interrupt</span>
       </div>
     </div>
   {/if}
@@ -199,9 +211,15 @@
         state={result.state ?? 'done'}
       />
       <div class="surface__result-actions">
-        <Button variant="secondary" size="sm" onclick={onundo}>↻ Undo</Button>
-        <Button variant="secondary" size="sm" onclick={onpin}>📌 Pin</Button>
-        <Button variant="tertiary" size="sm" onclick={onsendtochat}>⌘↩ Chat</Button>
+        <Button variant="secondary" size="sm" onclick={onundo}>
+          <Icon name="undo" size="xs" /> Undo
+        </Button>
+        <Button variant="secondary" size="sm" onclick={onpin}>
+          <Icon name="pin" size="xs" /> Pin
+        </Button>
+        <Button variant="tertiary" size="sm" onclick={onsendtochat}>
+          <Icon name="arrow-right" size="xs" /> Chat
+        </Button>
       </div>
     </div>
   {/if}
@@ -209,11 +227,15 @@
   <!-- ── Layer 3: Hint row ─────────────────────────────────────── -->
   <div class="surface__hints" aria-hidden="true">
     {#if mode === 'processing'}
-      <span>esc to interrupt</span>
+      <Icon name="x" size="xs" /> <span>esc to interrupt</span>
     {:else if mode === 'result'}
-      <span>esc to dismiss</span>
+      <Icon name="x" size="xs" /> <span>esc to dismiss</span>
     {:else}
-      <span>⌘↵ to send · esc to dismiss · ⌘K for everything</span>
+      <span><KeyCombo combo="⌘↵" size="sm" /> send</span>
+      <span class="surface__hint-sep">·</span>
+      <span><KeyCombo combo="esc" size="sm" /> dismiss</span>
+      <span class="surface__hint-sep">·</span>
+      <span><KeyCombo combo="⌘K" size="sm" /> everything</span>
     {/if}
   </div>
 </div>
@@ -278,12 +300,54 @@
     margin: 0;
   }
 
-  /* Override the input's bottom border inside the surface to feel
-     integrated rather than fielded. */
-  .surface :global(.input) {
+  /* The input shell — wraps the input with a leading icon + trailing ⌘K hint */
+  .surface__input-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+    background-color: transparent;
     border-bottom: 1px solid var(--border-subtle);
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .surface__input-shell:focus-within {
+    border-bottom-color: var(--content-accent);
+  }
+
+  .surface__input-prefix {
+    color: var(--content-tertiary);
+    flex-shrink: 0;
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+
+  .surface__input-shell:focus-within .surface__input-prefix {
+    color: var(--content-accent);
+  }
+
+  .surface__input-suffix {
+    color: var(--content-muted);
+    flex-shrink: 0;
+    transition: opacity var(--duration-base) var(--ease-standard);
+  }
+
+  .surface__input-shell:focus-within .surface__input-suffix {
+    opacity: 0.4;
+  }
+
+  /* The input inside the shell — flush, no internal padding */
+  .surface__input-shell :global(.input) {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .surface__input-shell :global(.input:focus-visible) {
+    box-shadow: none;
   }
   .surface :global(.input:focus-visible) {
     border-bottom-color: var(--content-accent);
@@ -331,13 +395,42 @@
 
   /* ── Layer 3: Hint row ───────────────────────────────────── */
   .surface__hints {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
     padding: var(--space-2) var(--space-3) 0;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.04em;
-    color: var(--content-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
     border-top: 1px solid var(--border-subtle);
     margin-top: var(--space-2);
+  }
+
+  .surface__hint-sep {
+    color: var(--content-muted);
+    opacity: 0.6;
+  }
+
+  /* Processing state — pill-style with the action grouped */
+  .surface__processing-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    justify-content: space-between;
+  }
+
+  .surface__processing-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption-size);
+    color: var(--content-tertiary);
+    letter-spacing: 0.04em;
+  }
+
+  /* Result actions — icons inline with label */
+  .surface__result-actions :global(.btn) {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   /* ── Animations ──────────────────────────────────────────── */

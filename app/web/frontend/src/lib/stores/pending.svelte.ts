@@ -72,10 +72,7 @@ export const pendingCount = derived(pendingActions, ($rows) =>
  */
 export async function refreshPendingActions(status?: PendingStatus): Promise<void> {
   try {
-    const resp = await ipc.call<{ actions: PendingAction[] }>(
-      'delegate.pending.list',
-      status ? { status } : {},
-    )
+    const resp = await ipc.delegatePendingList(status)
     pendingActions.set(resp?.actions ?? [])
   } catch (e) {
     console.error('refresh pending actions failed', e)
@@ -92,7 +89,7 @@ export async function approvePending(
   autoRun = true,
 ): Promise<PendingAction | null> {
   try {
-    const updated = await ipc.call<PendingAction>('delegate.pending.decide', {
+    const updated = await ipc.delegatePendingDecide({
       id,
       decision: 'approve',
       decided_by: currentActor,
@@ -113,7 +110,7 @@ export async function denyPending(
   note = '',
 ): Promise<PendingAction | null> {
   try {
-    const updated = await ipc.call<PendingAction>('delegate.pending.decide', {
+    const updated = await ipc.delegatePendingDecide({
       id,
       decision: 'deny',
       decided_by: currentActor,
@@ -134,9 +131,7 @@ export async function denyPending(
  */
 export async function executePending(id: string): Promise<PendingAction | null> {
   try {
-    const updated = await ipc.call<PendingAction>('delegate.pending.execute', {
-      id,
-    })
+    const updated = await ipc.delegatePendingExecute({ id })
     await refreshPendingActions()
     return updated ?? null
   } catch (e) {

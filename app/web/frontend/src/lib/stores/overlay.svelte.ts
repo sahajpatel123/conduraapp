@@ -36,7 +36,7 @@ class OverlayStore {
     // Listen for overlay show/hide events from the daemon.
     this.cleanups.push(
       ipc.on('connected', () => {
-        void ipc.call('presence.state', {}).then((state: unknown) => {
+        void ipc.presenceState().then((state: unknown) => {
           this.setFromHost(state === 'active')
         }).catch(() => {})
       }),
