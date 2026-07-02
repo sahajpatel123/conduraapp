@@ -90,13 +90,26 @@ test/fixtures/generated/
 # Wails generated Go bindings (regenerated on `wails build`)
 /app/web/frontend/wailsjs/
 
-# Built binaries (Condura rebrand)
-condurad
-condura
-condura-tui
-condurad.exe
-condura.exe
-condura-tui.exe
+# Built binaries (Condura rebrand) — only match the binary names with no path
+# prefix so the source directory `app/web/frontend/src/lib/condura/` is NOT ignored.
+/condurad
+/condura
+/condura-tui
+/condurad.exe
+/condura.exe
+/condura-tui.exe
+/bin/condurad
+/bin/condura
+/bin/condura-tui
+/bin/condurad.exe
+/bin/condura.exe
+/bin/condura-tui.exe
+/dist/condurad
+/dist/condura
+/dist/condura-tui
+/build/condurad
+/build/condura
+/build/condura-tui
 
 # Agent artifacts
 .commandcode/
