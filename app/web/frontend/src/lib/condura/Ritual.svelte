@@ -36,7 +36,10 @@
   let dissolving = $state(false);
 
   // ── Gate state ──────────────────────────────────────────────────────
-  let eulaText = $state('');
+  // Seed the EULA from the bundled fallback SYNCHRONOUSLY so the checkbox
+  // and seal are usable on first paint — don't wait for the daemon IPC.
+  // The async loadEula() below may upgrade to the live EULA if available.
+  let eulaText = $state(FALLBACK_EULA_TEXT);
   let eulaVersion = $state(FALLBACK_EULA_VERSION);
   let eulaScrolled = $state(false);
   let eulaAccepted = $state(false);
@@ -61,11 +64,32 @@
     const max = eulaEl.scrollHeight - eulaEl.clientHeight;
     const ratio = max > 0 ? eulaEl.scrollTop / max : 1;
     eulaReadPct = Math.min(100, Math.max(0, ratio * 100));
-    if (max <= 4 || max - eulaEl.scrollTop <= 8) {
-      if (ratio > 0.4) eulaScrolled = true;
+    // Short text that fits without scrolling — auto-arm immediately.
+    if (max <= 4) {
+      eulaScrolled = true;
+      return;
+    }
+    // Long text: only unlock after the reader has actually scrolled past 85%,
+    // or has reached the bottom (within 8px) and read at least 40%.
+    if (max - eulaEl.scrollTop <= 8 && ratio > 0.4) {
+      eulaScrolled = true;
+      return;
     }
     if (max > 80 && ratio >= 0.85) eulaScrolled = true;
   }
+
+  // When the EULA is the bundled fallback (daemon unreachable), the user
+  // is on their own to read it — there's no live EULA to scroll through.
+  // Auto-arm the scroll flag after a short read window so the seal isn't
+  // permanently locked behind a scroll requirement the user may not notice.
+  $effect(() => {
+    if (eulaIsFallback && eulaText && eulaText.trim().length > 100 && !eulaScrolled) {
+      const t = window.setTimeout(() => {
+        eulaScrolled = true;
+      }, 1500);
+      return () => window.clearTimeout(t);
+    }
+  });
 
   $effect(() => {
     void eulaText;
@@ -91,8 +115,15 @@
   function stampSeal(): void {
     if (!canStamp) return;
     stamped = true;
+    // Kick off the async accept (may fail silently in dev/preview when the
+    // daemon is not running — that's fine; the user already stamped the seal).
     void onboarding.acceptEula(eulaVersion).catch((e) => console.error(e));
-    setTimeout(() => (screen = 'constellation'), 650);
+    // Switch to the constellation after the seal bloom animation completes.
+    // setTimeout is reliable; the only risk is the user closing the window
+    // mid-animation, which is handled by the 'done' screen state.
+    window.setTimeout(() => {
+      screen = 'constellation';
+    }, 650);
   }
 
   function quitApp(): void {
@@ -1049,12 +1080,12 @@
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
-  .ring-slot:nth-child(1) { --rl: 50%; --rt: calc(50% - 144px); }     /* Perceive top */
+  .ring-slot:nth-child(1) { --rl: 50%; --rt: calc(50% - 128px); }     /* Perceive top */
   .ring-slot:nth-child(2) { --rl: calc(50% - 125px); --rt: calc(50% - 75px); } /* Power top-left */
   .ring-slot:nth-child(3) { --rl: calc(50% + 125px); --rt: calc(50% - 75px); } /* Summon top-right */
   .ring-slot:nth-child(4) { --rl: calc(50% - 125px); --rt: calc(50% + 75px); } /* Voice bottom-left */
   .ring-slot:nth-child(5) { --rl: calc(50% + 125px); --rt: calc(50% + 75px); } /* Threads bottom-right */
-  .ring-slot:nth-child(6) { --rl: 50%; --rt: calc(50% + 144px); }    /* Account bottom */
+  .ring-slot:nth-child(6) { --rl: 50%; --rt: calc(50% + 128px); }    /* Account bottom */
   .ring-label {
     position: absolute;
     top: 50%;
