@@ -233,3 +233,22 @@ This file should be updated when:
 Keep descriptions accurate and concise. The goal is a living reference that remains genuinely useful over time — not a document that drifts from reality.
 
 **Last updated**: 2026-06-23
+
+---
+
+## Cursor Cloud specific instructions
+
+Durable, non-obvious notes for running this repo on the Linux Cloud VM. Standard commands live in the `Makefile` (`make help`) and `README.md`; this section only captures gotchas. Dependency installation is handled by the startup update script — don't repeat it here.
+
+### Services and scope
+- **Core product = Go daemon (`condurad`) + a client (`condura` CLI or `condura-tui`).** These run fully on Linux. Build everything with `make build` (outputs to `./bin`). There is **no `go.work`**; `app/web` (the Wails GUI) is a separate Go module.
+- **Wails desktop GUI (`app/web`) is macOS-only for full features** (README: Linux/Windows GUI overlay is v0.2.0) and needs native `webkit2gtk` + a display, so do **not** try to launch the GUI binary headless here. Its Svelte frontend still builds standalone: `npm --prefix app/web/frontend run build`.
+- **`web/` is the optional Next.js marketing site:** `npm --prefix web run dev` → http://localhost:3000.
+
+### Running the daemon + driving it (gotchas)
+- The daemon picks a **random TCP port** and writes `condurad.addr` + a unix socket into its `--data-dir`. Always run the daemon and the CLI with the **same `--data-dir`** so the client can auto-discover it, e.g. `./bin/condurad --data-dir ./build/data` then `./bin/condura --data-dir ./build/data ping`.
+- **Gatekeeper consent gotcha (important):** non-READ RPCs (e.g. `apikeys.set`, computer-use, shell) are gated by the deterministic Gatekeeper with `consent_provider=rpc`. With no GUI attached, these **block until a consent ticket is approved** and then time out (300s, then queue) — the CLI shows `context deadline exceeded`. To approve headlessly, POST JSON-RPC to `http://<addr>/`: call `gatekeeper.pending_consent` to get the `nonce`, then `gatekeeper.approve` with `{"nonce":"..."}`. READ RPCs (`ping`, `status`, `version`, `llm providers`, `apikeys list`) are never gated.
+- **Benign first-run log warnings** that are safe to ignore: `auto-backup failed ... synaptic.db: no such file` and `skill store init failed ... wal`. They do not affect daemon health (`condura status` reports `state: ok`).
+
+### Lint / test
+- `make test` runs the full race-enabled suite (~100s). `make lint` requires **golangci-lint v2.12.2** on `PATH` (installed to `$(go env GOPATH)/bin` by the update script); `make verify` = vet + fmt + lint + test.
