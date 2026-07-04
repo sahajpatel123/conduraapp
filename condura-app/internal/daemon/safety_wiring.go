@@ -1,0 +1,301 @@
+package daemon
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/anomaly"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/autonomy"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/halt"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/presence"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sensitive"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/trust"
+)
+
+// SafetyComponents bundles the real safety layer.
+type SafetyComponents struct {
+	Engine    *gatekeeper.Engine
+	Anomaly   *anomaly.Detector
+	Consent   gatekeeper.ConsentProvider
+	Sanitizer []sanitize.Sanitizer
+	Trust     *trust.Store // Phase 16, Rec 5: per-workspace trust
+	Autonomy  *autonomy.Matrix
+	Presence  *presence.Detector // N1: user-presence detector; Stop on shutdown.
+}
+
+// buildSafetyLayer constructs the real safety components and wires all
+// safety hooks (Anomaly, Autonomy, Sanitize, Trust) into the
+// gatekeeper engine so that every action flows through the full
+// safety pipeline.
+//
+// The autonomy hook is driven by the user-editable config matrix
+// (config.AutonomyConfig.PerApp / PerTask / DefaultLevel). When the
+// config has no entries, the hook falls back to the conservative
+// hardcoded default (research / image_generation / code_review are
+// autonomous; everything else warns) so a fresh install still works.
+func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
+	policy := gatekeeper.DefaultPolicy()
+	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
+		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
+	}}
+	// 2026-06-29 audit P1-1: the test-only autoApproveConsentProvider
+	// and its env-var check have been moved into
+	// safety_wiring_testhook.go behind the `synaptictest` build
+	// tag. Production binaries no longer contain either symbol;
+	// setting SYNAPTIC_TEST_AUTO_CONSENT in production has no
+	// effect. The maybeAutoApproveConsent call below is a no-op
+	// (returns nil) in production and replaces consent with the
+	// auto-approve provider ONLY when -tags=synaptictest is set.
+	if alt := maybeAutoApproveConsent(log); alt != nil {
+		consent = alt
+	}
+	engine := gatekeeper.NewEngine(policy, consent, haltFlag)
+
+	// Anomaly detector — async, graduated response.
+	//
+	// Audit 2026-06-28 fix (medium): MISSION §5.6 says "If any trigger
+	// fires, the agent hard pauses and pings the user." The previous
+	// code only halted on TripLoop/TripFailures and merely warned on
+	// TripRate/TripDuration — a spec/code mismatch. The fix: every
+	// trip type now hard-pauses via haltFlag.Halt. The auto-recovery
+	// path (resume via halt.confirm_resume with a CLI ticket) is the
+	// only sanctioned way out, per the Tier-3 sticky-halt design
+	// shipped in commit 74b9640.
+	detector := anomaly.NewDetector(func(t anomaly.Trip) {
+		reason := "anomaly: " + string(t.Type) + " — " + t.Reason
+		if _, err := haltFlag.Halt(context.Background(), reason); err != nil {
+			log.Error("anomaly halt failed", "type", t.Type, "reason", t.Reason, "err", err)
+		}
+		log.Warn("anomaly halt triggered", "type", t.Type, "reason", t.Reason)
+	})
+
+	// Wire the anomaly hook so every Evaluate call feeds the detector
+	// with the engine's actual verdict. The previous wiring fired the
+	// hook pre-decision with success=false hard-coded, which made the
+	// §5.6 "5+ consecutive failures" trigger trip on every routine
+	// agent run after 5 successful actions. The hook now carries the
+	// verdict, so Allow → success=true (resets the failure counter)
+	// and Deny → success=false (increments it). RequireConsent and
+	// RequirePresenceAndConsent are treated as success=true because
+	// the gate did not reject the action — it asked for human input,
+	// which is the expected path for non-trivial actions.
+	engine.AnomalyHook = func(a blastradius.Action, d gatekeeper.Decision, reason string) {
+		detector.Record(a.Kind, 0, 0, d == gatekeeper.Allow)
+	}
+
+	// Build the autonomy matrix from config. The matrix is the
+	// user-defining setting from §27 — users dial per-cell via the
+	// YAML config. When the config is empty, fall back to the
+	// conservative hardcoded default so a fresh install still works.
+	matrix := buildAutonomyMatrix(cfg)
+
+	// Wire the autonomy hook so every Evaluate call checks autonomy.
+	engine.AutonomyHook = func(taskType, app string) int {
+		return int(matrix.Evaluate(taskType, app))
+	}
+
+	// Field-aware sanitizer dispatch: run the right sanitizer on
+	// the right field, skip empties.
+	//
+	// Audit 2026-06-28 fix (medium): PII sanitizer was previously
+	// applied only at consent display time (STEP 5). MISSION §10.6
+	// lists "Message body sanitizer: PII detection" as required,
+	// so the PII sanitizer must run on every Body field that the
+	// engine sees — including the message body sent over
+	// reach.message.send, the typed text of a chat message, and
+	// any other context string. The hook now calls
+	// PIIRegexSanitizer on every Body. If the redactor returns an
+	// error (it does NOT — Sanitize returns nil for credit-card
+	// Luhn validation success on a non-CC value) we treat it as
+	// fail-closed. The Sanitize() returns (sanitizedString, error)
+	// — we deliberately do NOT mutate Action.Body here because
+	// the gatekeeper contract is "return an error to block", not
+	// "rewrite in place"; mutating would change the action the
+	// user took. A separate downstream redactor handles display.
+	engine.SanitizeHook = func(a *blastradius.Action) error {
+		if a.Command != "" {
+			if _, err := sanitize.NewShellSanitizer(nil).Sanitize(a.Command); err != nil {
+				return err
+			}
+			if _, err := sanitize.NewPythonImportSanitizer().Sanitize(a.Command); err != nil {
+				return err
+			}
+		}
+		if a.Path != "" {
+			if _, err := sanitize.NewPathSanitizer().Sanitize(a.Path); err != nil {
+				return err
+			}
+		}
+		if a.TargetURL != "" {
+			// 2026-06-29 audit P1-4: use the strict variant that
+			// resolves the hostname via DNS and rejects any IP in a
+			// private range. The non-strict variant substring-matches
+			// the literal hostname, which misses DNS rebinding and
+			// crafted hostnames like `my-192-168-host.example.com`.
+			if _, err := sanitize.NewStrictURLSanitizer().Sanitize(a.TargetURL); err != nil {
+				return err
+			}
+		}
+		if a.Body != "" {
+			if _, err := sanitize.NewPIIRegexSanitizer().Sanitize(a.Body); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Sensitive site hook: escalate actions on banking/health URLs
+	// or data-entry contexts to RequirePresenceAndConsent.
+	sensitiveDetector := sensitive.NewDetector()
+	engine.SensitiveHook = func(url, ctx string) bool {
+		return sensitiveDetector.Match(url, ctx)
+	}
+
+	// Phase 16, Rec 5: per-workspace trust hook. The trust store
+	// is consulted by the gatekeeper before evaluating the WRITE
+	// branch: a hit short-circuits to Allow with reason
+	// "workspace trust: always-allow in this folder". The
+	// store may be nil if trust is disabled or failed to load.
+	if trustStore != nil {
+		engine.TrustHook = func(workspaceID, app string) (any, bool) {
+			entry := trustStore.Lookup(workspaceID, app)
+			if entry == nil {
+				return nil, false
+			}
+			return entry, true
+		}
+	}
+
+	// N1: user-presence detector. Polls the OS for input-idle time
+	// (macOS ioreg HIDIdleTime / Windows GetLastInputInfo / Linux
+	// fail-closed) and feeds the gatekeeper's presence gate so
+	// DESTRUCTIVE and require_user_active actions are held while the
+	// user is absent. *presence.Detector satisfies
+	// gatekeeper.PresenceChecker (IsPresent). Started here; the daemon
+	// stops it on shutdown via SafetyComponents.Presence.
+	presenceDetector := presence.NewDetector(5 * time.Second)
+	presenceDetector.Start()
+	engine.SetPresenceChecker(presenceDetector)
+
+	return &SafetyComponents{
+		Engine:    engine,
+		Anomaly:   detector,
+		Consent:   consent,
+		Sanitizer: sanitize.DefaultChain(),
+		Trust:     trustStore,
+		Autonomy:  matrix,
+		Presence:  presenceDetector,
+	}
+}
+
+// buildAutonomyMatrix translates the user-editable config.AutonomyConfig
+// into an autonomy.Matrix. PerTask entries become "task.*" wildcards;
+// PerApp entries become "*.app" pairs (matched via the default path when
+// no task wildcard hits); DefaultLevel sets the floor. When the config
+// is empty, the conservative hardcoded default from §10.9 is used so a
+// fresh install still behaves sensibly.
+func buildAutonomyMatrix(cfg *config.Config) *autonomy.Matrix {
+	if cfg == nil {
+		return autonomy.NewMatrix(autonomy.Warn, defaultAutonomyMapping())
+	}
+	defaultLevel := parseAutonomyLevel(cfg.Autonomy.DefaultLevel, autonomy.Warn)
+	mapping := defaultAutonomyMapping()
+	// PerTask → task.* wildcards. These override the hardcoded defaults.
+	for task, lvlStr := range cfg.Autonomy.PerTask {
+		mapping[task+".*"] = parseAutonomyLevel(lvlStr, defaultLevel)
+	}
+	// PerApp → *.app pairs. We register them as "<any-task>.<app>"
+	// by adding an entry for each known action kind, so the
+	// Evaluate(taskType, app) lookup hits regardless of the task
+	// type. The known action kinds are the set the engine actually
+	// passes to the hook (a.Kind).
+	for app, lvlStr := range cfg.Autonomy.PerApp {
+		lvl := parseAutonomyLevel(lvlStr, defaultLevel)
+		for _, kind := range autonomyActionKinds {
+			mapping[kind+"."+app] = lvl
+		}
+	}
+	return autonomy.NewMatrix(defaultLevel, mapping)
+}
+
+// defaultAutonomyMapping returns the conservative hardcoded default
+// from §10.9: research / image_generation / code_review are autonomous;
+// everything else warns. This is the floor when the user has not
+// configured the matrix.
+func defaultAutonomyMapping() map[string]autonomy.Level {
+	return map[string]autonomy.Level{
+		"research.*":         autonomy.Autonomous,
+		"image_generation.*": autonomy.Autonomous,
+		"code_review.*":      autonomy.Autonomous,
+	}
+}
+
+// autonomyActionKinds is the set of action kinds the engine actually
+// passes to the AutonomyHook (a.Kind). Used to expand PerApp entries
+// into per-kind rows so the Evaluate(taskType, app) lookup hits
+// regardless of the task type.
+var autonomyActionKinds = []string{
+	"chat",
+	"shell.exec",
+	"delegation.spawn",
+	"computeruse.click",
+	"computeruse.type",
+	"computeruse.scroll",
+	"computeruse.launch",
+	"computeruse.read",
+	"file.read",
+	"file.write",
+}
+
+// parseAutonomyLevel parses a level string ("block", "warn", "ask",
+// "autonomous") into an autonomy.Level, returning the fallback on
+// empty or unrecognized input.
+func parseAutonomyLevel(s string, fallback autonomy.Level) autonomy.Level {
+	switch s {
+	case "block", "0":
+		return autonomy.Block
+	case "warn", "1":
+		return autonomy.Warn
+	case "ask", "2":
+		return autonomy.Ask
+	case "autonomous", "3":
+		return autonomy.Autonomous
+	case "":
+		return fallback
+	default:
+		return fallback
+	}
+}
+
+// rpcConsentProvider publishes consent requests on SSE for GUI display.
+type rpcConsentProvider struct {
+	log     *slog.Logger
+	publish func(nonce string, action any)
+}
+
+func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
+	// No publish callback → no GUI connected → fail-closed.
+	if p.publish == nil {
+		return false, nil
+	}
+	p.publish(ticket.Nonce, ticket.ActionKind)
+
+	timer := time.NewTimer(time.Until(ticket.ExpiresAt))
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-timer.C:
+		return false, nil
+	case result := <-ticket.Result:
+		return result, nil
+	}
+}
+
+func (p *rpcConsentProvider) IsAvailable() bool { return true }

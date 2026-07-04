@@ -1,0 +1,25 @@
+{
+  "name": "condura-remotion-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts --host 127.0.0.1",
+    "render": "remotion render src/index.ts ConduraCinematicLaunch out/condura-cinematic-launch.mp4 --codec=h264 --pixel-format=yuv420p",
+    "still": "remotion still src/index.ts ConduraCinematicLaunch out/condura-cinematic-launch-cover.png --frame=780",
+    "render:minimal": "remotion render src/index.ts ConduraMinimalLaunch out/condura-minimal-launch.mp4 --codec=h264 --pixel-format=yuv420p",
+    "render:prelaunch": "remotion render src/index.ts ConduraPrelaunch out/condura-prelaunch.mp4 --codec=h264 --pixel-format=yuv420p",
+    "render:demo": "remotion render src/index.ts ConduraDemo out/condura-demo.mp4 --codec=h264 --pixel-format=yuv420p"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.5.0"
+  }
+}

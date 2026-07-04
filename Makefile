@@ -14,9 +14,9 @@ VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || 
 COMMIT           := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 BUILD_DATE       := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS          := -s -w \
-                    -X 'github.com/sahajpatel123/conduraapp/internal/version.Version=$(VERSION)' \
-                    -X 'github.com/sahajpatel123/conduraapp/internal/version.Commit=$(COMMIT)' \
-                    -X 'github.com/sahajpatel123/conduraapp/internal/version.BuildDate=$(BUILD_DATE)'
+                    -X 'github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=$(VERSION)' \
+                    -X 'github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=$(COMMIT)' \
+                    -X 'github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate=$(BUILD_DATE)'
 
 PKG              := ./...
 COVERAGE_FILE    := coverage.out
@@ -47,25 +47,25 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build condurad, condura, and condura-tui into ./bin
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./cmd/condura
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME)    ./cmd/condura-tui
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./condura-app/cmd/condurad
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME)    ./condura-app/cmd/condura
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME)    ./condura-app/cmd/condura-tui
 	@echo "Built: bin/$(BINARY_NAME), bin/$(CLI_NAME), bin/$(TUI_NAME)"
 
 .PHONY: build-daemon
 build-daemon: ## Build only condurad
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/condurad
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(BINARY_NAME) ./condura-app/cmd/condurad
 
 .PHONY: build-cli
 build-cli: ## Build only the CLI
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME) ./cmd/condura
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(CLI_NAME) ./condura-app/cmd/condura
 
 .PHONY: build-tui
 build-tui: ## Build only the TUI
 	@mkdir -p bin
-	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME) ./cmd/condura-tui
+	$(GO) build -ldflags "$(LDFLAGS)" -o bin/$(TUI_NAME) ./condura-app/cmd/condura-tui
 
 .PHONY: build-all
 build-all: ## Cross-compile for all supported platforms
@@ -75,20 +75,20 @@ build-all: ## Cross-compile for all supported platforms
 	    ext=""; [ "$$os" = "windows" ] && ext=".exe"; \
 	    echo "Building $$os/$$arch..."; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(BINARY_NAME)-$$os-$$arch$$ext ./cmd/condurad; \
+	      -o dist/$(BINARY_NAME)-$$os-$$arch$$ext ./condura-app/cmd/condurad; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(CLI_NAME)-$$os-$$arch$$ext ./cmd/condura; \
+	      -o dist/$(CLI_NAME)-$$os-$$arch$$ext ./condura-app/cmd/condura; \
 	    GOOS=$$os GOARCH=$$arch $(GO) build -ldflags "$(LDFLAGS)" \
-	      -o dist/$(TUI_NAME)-$$os-$$arch$$ext ./cmd/condura-tui; \
+	      -o dist/$(TUI_NAME)-$$os-$$arch$$ext ./condura-app/cmd/condura-tui; \
 	  done; \
 	done
 	@echo "All builds complete in dist/"
 
 .PHONY: install
 install: build ## Build and install to GOPATH/bin
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condurad
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condura
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/condura-tui
+	$(GO) install -ldflags "$(LDFLAGS)" ./condura-app/cmd/condurad
+	$(GO) install -ldflags "$(LDFLAGS)" ./condura-app/cmd/condura
+	$(GO) install -ldflags "$(LDFLAGS)" ./condura-app/cmd/condura-tui
 
 .PHONY: clean
 clean: ## Remove build artifacts
@@ -102,12 +102,12 @@ release-snapshot: ## Local GoReleaser snapshot (no publish)
 .PHONY: build-gui
 build-gui: ## Build Wails desktop app for current OS/arch
 	chmod +x scripts/build-gui.sh
-	./scripts/build-gui.sh
+	./condura-ops/scripts/build-gui.sh
 
 .PHONY: verify-release
 verify-release: ## Verify a GitHub release tag (TAG=v0.1.0)
 	chmod +x scripts/verify-release-artifacts.sh
-	./scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
+	./condura-ops/scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
 
 .PHONY: gen-manifest
 gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
@@ -132,7 +132,7 @@ test-short: ## Run only short tests (skip integration)
 
 .PHONY: test-integration
 test-integration: ## Run integration tests
-	$(GO) test -race -count=1 -timeout=300s -tags=integration ./test/integration/...
+	$(GO) test -race -count=1 -timeout=300s -tags=integration ./condura-app/test/...
 
 .PHONY: coverage
 coverage: ## Run tests with coverage report

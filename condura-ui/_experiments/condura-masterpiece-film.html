@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condura - The Universal AI Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+<style>
+/* Reset & Minimalist Base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+    background: #060608; 
+    color: #fff; 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+    overflow: hidden; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    -webkit-font-smoothing: antialiased; 
+    perspective: 2000px; 
+}
+
+/* Play/Initial State Screen overlay */
+#intro-screen {
+    position: absolute;
+    inset: 0;
+    background: #060608;
+    z-index: 20000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 20px;
+    transition: opacity 0.8s ease;
+}
+
+#play-btn { 
+    padding: 16px 40px; 
+    border-radius: 100px; 
+    background: rgba(255,255,255,0.02); 
+    border: 1px solid rgba(255,255,255,0.08); 
+    color: #a1a1aa; 
+    font-size: 12px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); 
+    backdrop-filter: blur(20px); 
+    letter-spacing: 0.12em; 
+    text-transform: uppercase; 
+}
+#play-btn:hover { 
+    background: #fff; 
+    color: #000; 
+    box-shadow: 0 0 40px rgba(255,255,255,0.15); 
+    border-color: #fff;
+    transform: scale(1.03); 
+}
+
+#intro-screen p {
+    color: #444;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stage Viewport (1440x900 scaled) */
+#viewport-container {
+    width: 1440px;
+    height: 900px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+#stage { 
+    position: relative; 
+    width: 1440px; 
+    height: 900px; 
+    transform-style: preserve-3d; 
+    transform-origin: center center;
+    will-change: transform;
+}
+
+/* Background grid & subtle lights */
+.grid-bg { 
+    position: absolute; 
+    inset: -50%; 
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.008) 1px, transparent 1px), 
+        linear-gradient(90deg, rgba(255,255,255,0.008) 1px, transparent 1px); 
+    background-size: 100px 100px; 
+    transform: translateZ(-600px); 
+    mask-image: radial-gradient(circle at center, black 10%, transparent 60%); 
+    -webkit-mask-image: radial-gradient(circle at center, black 10%, transparent 60%); 
+    opacity: 0; 
+    pointer-events: none; 
+}
+
+.ambient-light {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    filter: blur(160px);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 70%);
+}
+#light-core { top: 50%; left: 50%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(0,240,255,0.04) 0%, transparent 70%); }
+
+/* Particle Dust Field */
+#particle-container { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
+.particle { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.4); opacity: 0; pointer-events: none; }
+
+/* Captions System */
+.captions-wrap {
+    position: absolute;
+    width: 100%;
+    top: 20%;
+    left: 0;
+    text-align: center;
+    z-index: 12000;
+    pointer-events: none;
+}
+.caption {
+    font-size: 52px;
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    color: #fff;
+    opacity: 0;
+    display: none;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    filter: blur(10px);
+    width: 80%;
+    margin: 0 auto;
+}
+.caption span {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+    transform: translateY(15px);
+    opacity: 0;
+}
+
+/* --- SCENE 1: Scattered Context (Abstract text shards) --- */
+#scatter-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; }
+
+.model-shard {
+    position: absolute;
+    font-size: 14px;
+    font-weight: 400;
+    color: #71717a;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transform-style: preserve-3d;
+}
+.shard-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #27272a;
+    transition: background 0.5s, box-shadow 0.5s;
+}
+
+/* --- SCENE 2: The Alignment (Keyboard press) --- */
+#hotkey-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; justify-content: center; align-items: center; }
+.hotkey-keys { display: flex; gap: 20px; perspective: 1000px; transform-style: preserve-3d; }
+.keycap {
+    padding: 20px 36px;
+    background: #0b0b0e;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    font-size: 24px;
+    font-weight: 300;
+    color: #a1a1aa;
+    box-shadow: 
+        0 15px 35px rgba(0,0,0,0.6),
+        0 8px 0 #030304,
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: bottom;
+    transform-style: preserve-3d;
+    letter-spacing: -0.01em;
+}
+.keycap span { transform: translateZ(10px); }
+
+/* Minimal white light ripple */
+.ripple-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.05);
+    width: 900px; height: 900px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* --- SCENE 3: The Command Layer (Unified input bar) --- */
+#command-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; justify-content: center; align-items: center; }
+.command-input-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transform-style: preserve-3d;
+}
+.command-prompt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 300;
+    color: #f4f4f5;
+    white-space: nowrap;
+    overflow: hidden;
+    border-right: 2px solid #f4f4f5;
+    letter-spacing: -0.03em;
+    text-shadow: 0 0 25px rgba(255,255,255,0.15);
+}
+
+/* --- SCENE 4: Neural Routing Beams --- */
+#routing-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; }
+.routing-svg { position: absolute; inset: 0; pointer-events: none; }
+.routing-path-bg { fill: none; stroke: rgba(255,255,255,0.02); stroke-width: 1.5; }
+.routing-path-pulse { fill: none; stroke: url(#pulseGrad); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 15 250; }
+
+/* --- SCENE 5: The Output (Clean editor) --- */
+#editor-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; justify-content: center; align-items: center; }
+.editor-card {
+    width: 600px;
+    height: 380px;
+    background: rgba(10,10,14,0.65);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    box-shadow: 0 40px 90px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    transform-style: preserve-3d;
+}
+.editor-header {
+    height: 40px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+.editor-dots { display: flex; gap: 6px; }
+.editor-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+.editor-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #52525b; }
+.editor-body {
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: #a1a1aa;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+}
+.editor-lines { color: #3f3f46; text-align: right; padding-right: 18px; margin-right: 18px; border-right: 1px solid rgba(255,255,255,0.04); user-select: none; }
+.editor-code { white-space: pre; overflow: hidden; position: relative; flex: 1; }
+.editor-code .char-span { display: inline; opacity: 0; transition: none; }
+
+/* --- SCENE 6: The Boundary (Local Sandbox Ring) --- */
+#boundary-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; justify-content: center; align-items: center; }
+.sandbox-circle {
+    position: absolute;
+    width: 820px;
+    height: 820px;
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transform: rotateX(72deg) rotateY(-8deg);
+    box-shadow: 0 0 35px rgba(0,240,255,0.02), inset 0 0 35px rgba(0,240,255,0.02);
+}
+
+/* --- SCENE 7: Finale --- */
+#finale-env { position: absolute; inset: 0; transform-style: preserve-3d; display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 9000; }
+.logo-flare {
+    position: absolute; width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,240,255,0.05) 0%, transparent 70%);
+    filter: blur(50px); opacity: 0; pointer-events: none;
+}
+.brand-title {
+    font-size: 80px;
+    font-weight: 200;
+    color: #fff;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+    will-change: transform, opacity, filter, letter-spacing;
+    text-transform: uppercase;
+}
+.brand-tagline {
+    font-size: 20px;
+    font-weight: 300;
+    color: #71717a;
+    margin-top: 22px;
+    will-change: transform, opacity, filter;
+    letter-spacing: 0.05em;
+}
+
+/* Button group on final screen */
+.finale-buttons {
+    display: flex;
+    gap: 16px;
+    margin-top: 48px;
+    z-index: 20;
+    opacity: 0;
+    transform: translateY(15px);
+}
+.action-btn {
+    padding: 12px 30px;
+    border-radius: 100px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #52525b;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    backdrop-filter: blur(10px);
+}
+.action-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
+#demo-btn:hover { color: #00f0ff; border-color: rgba(0,240,255,0.3); box-shadow: 0 0 25px rgba(0,240,255,0.08); }
+
+/* Interactive Demo Sandbox UI Elements */
+#sandbox-instruction {
+    position: absolute;
+    bottom: 60px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #52525b;
+    opacity: 0;
+    pointer-events: none;
+    text-align: center;
+    width: 100%;
+    letter-spacing: 0.05em;
+    transition: opacity 0.5s;
+    z-index: 100;
+}
+#sandbox-instruction kbd {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #a1a1aa;
+}
+
+/* Syntax Highlights - Subtle colors */
+.hx-kwd { color: #e4e4e7; font-weight: 500; }
+.hx-func { color: #a1a1aa; }
+.hx-str { color: #71717a; }
+.hx-tag { color: #a1a1aa; }
+.hx-attr { color: #71717a; }
+</style>
+</head>
+<body>
+
+<!-- Hidden input for typing simulation in Sandbox Mode -->
+<input type="text" id="hidden-input" style="position: absolute; top: -100px; left: -100px; width: 1px; height: 1px; opacity: 0; border: none; outline: none; background: transparent;" autocomplete="off" spellcheck="false" />
+
+<!-- Initial Intro Screen -->
+<div id="intro-screen">
+    <button id="play-btn">Play Experience</button>
+    <p>Condura Subtle Film</p>
+</div>
+
+<div class="noise"></div>
+
+<div id="viewport-container">
+    <div id="stage">
+        
+        <!-- Grid & Lights -->
+        <div class="grid-bg" id="grid"></div>
+        <div class="ambient-light" id="light-ambient"></div>
+        <div class="ambient-light" id="light-core"></div>
+
+        <!-- Particle Field -->
+        <div id="particle-container"></div>
+
+        <!-- Typography Captions -->
+        <div class="captions-wrap">
+            <div class="caption" id="cap-1">
+                <span>Isolated</span> <span>tools.</span> <span>Scattered</span> <span>context.</span>
+            </div>
+            <div class="caption" id="cap-2">
+                <span>Every</span> <span>model</span> <span>is</span> <span>an</span> <span>island.</span>
+            </div>
+            <div class="caption" id="cap-3">
+                <span>One</span> <span>key.</span> <span>A</span> <span>unified</span> <span>command.</span>
+            </div>
+            <div class="caption" id="cap-4">
+                <span>Local.</span> <span>Private.</span> <span>In</span> <span>your</span> <span>control.</span>
+            </div>
+        </div>
+
+        <!-- SCENE 1: Drifting model nodes (Chaos) -->
+        <div id="scatter-env">
+            <div class="model-shard" id="sh-claude"><span class="shard-dot"></span>Claude 3.5 Sonnet</div>
+            <div class="model-shard" id="sh-gpt"><span class="shard-dot"></span>GPT-4o</div>
+            <div class="model-shard" id="sh-gemini"><span class="shard-dot"></span>Gemini 1.5 Pro</div>
+            <div class="model-shard" id="sh-llama"><span class="shard-dot"></span>Llama 3 (Local)</div>
+        </div>
+
+        <!-- SCENE 2: The Alignment (Hotkey) -->
+        <div id="hotkey-env">
+            <div class="hotkey-keys" id="key-wrapper">
+                <div class="keycap" id="k-cmd"><span>⌘ Cmd</span></div>
+                <div class="keycap" id="k-space"><span>Space</span></div>
+            </div>
+            <div class="ripple-ring" id="key-ripple"></div>
+        </div>
+
+        <!-- SCENE 3: Command typography input -->
+        <div id="command-env">
+            <div class="command-input-container" id="cmd-container">
+                <div class="command-prompt" id="cmd-text"></div>
+            </div>
+        </div>
+
+        <!-- SCENE 4: Neural Routing Beams -->
+        <div id="routing-env">
+            <svg class="routing-svg" id="routing-beams-svg" viewBox="0 0 1440 900">
+                <defs>
+                    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#fff" />
+                        <stop offset="30%" stop-color="#00f0ff" />
+                        <stop offset="100%" stop-color="rgba(0,240,255,0)" />
+                    </linearGradient>
+                </defs>
+                <path class="routing-path-bg" id="beam-sh-claude-bg" d="" />
+                <path class="routing-path-pulse" id="beam-sh-claude" d="" />
+
+                <path class="routing-path-bg" id="beam-sh-gpt-bg" d="" />
+                <path class="routing-path-pulse" id="beam-sh-gpt" d="" />
+
+                <path class="routing-path-bg" id="beam-sh-gemini-bg" d="" />
+                <path class="routing-path-pulse" id="beam-sh-gemini" d="" />
+
+                <path class="routing-path-bg" id="beam-sh-llama-bg" d="" />
+                <path class="routing-path-pulse" id="beam-sh-llama" d="" />
+            </svg>
+        </div>
+
+        <!-- SCENE 5: Single output workspace -->
+        <div id="editor-env">
+            <div class="editor-card" id="edit-win">
+                <div class="editor-header">
+                    <div class="editor-dots"><span></span><span></span><span></span></div>
+                    <div class="editor-title">App.tsx</div>
+                </div>
+                <div class="editor-body">
+                    <div class="editor-lines">1<br>2<br>3<br>4<br>5<br>6<br>7</div>
+                    <div class="editor-code" id="type-code"><span class="hx-kwd">import</span> { AI } <span class="hx-kwd">from</span> <span class="hx-str">'@condura/core'</span>;
+
+<span class="hx-kwd">export default function</span> <span class="hx-func">App</span>() {
+  <span class="hx-kwd">const</span> answer = <span class="hx-func">AI.query</span>(<span class="hx-str">"Synthesize dashboard"</span>);
+  <span class="hx-kwd">return</span> &lt;<span class="hx-tag">Dashboard</span> <span class="hx-attr">data</span>={answer} /&gt;;
+}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCENE 6: Sandbox local boundary -->
+        <div id="boundary-env">
+            <div class="sandbox-circle" id="sand-ring"></div>
+        </div>
+
+        <!-- SCENE 7: Finale -->
+        <div id="finale-env">
+            <div class="logo-flare"></div>
+            <div class="brand-title" id="f-logo">Condura</div>
+            <div class="brand-tagline" id="f-sub">One key. All of AI.</div>
+            <div class="finale-buttons" id="fin-buttons">
+                <button class="action-btn" id="replay-btn">Replay Film</button>
+                <button class="action-btn" id="demo-btn">Interactive Demo</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="sandbox-instruction">Press <kbd>⌘ Cmd</kbd> + <kbd>Space</kbd> to summon Condura</div>
+
+<script>
+// --- INITIALIZATION ---
+function resize() {
+    const scale = Math.min(window.innerWidth / 1440, window.innerHeight / 900) * 0.95;
+    gsap.set("#viewport-container", { scale: scale });
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Code character pre-splitter
+const codeContainer = document.getElementById("type-code");
+splitHTMLIntoSpans(codeContainer);
+
+function splitHTMLIntoSpans(el) {
+    function recurse(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const chars = node.nodeValue.split('');
+            const fragment = document.createDocumentFragment();
+            chars.forEach(char => {
+                const span = document.createElement('span');
+                span.className = 'char-span';
+                span.textContent = char;
+                fragment.appendChild(span);
+            });
+            node.parentNode.replaceChild(fragment, node);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const children = Array.from(node.childNodes);
+            children.forEach(child => recurse(child));
+        }
+    }
+    recurse(el);
+}
+
+// Generate stars
+const particleCont = document.getElementById("particle-container");
+const stars = [];
+for(let i=0; i<60; i++) {
+    let s = document.createElement("div");
+    s.className = "particle";
+    particleCont.appendChild(s);
+    stars.push(s);
+}
+
+// Map center and coordinates
+const cx = 720, cy = 450;
+const shardsCoords = {
+    // Chaotic positions
+    chaos: {
+        claude: { x: -400, y: -200, z: -300, rx: 20, ry: 25 },
+        gpt: { x: 380, y: -150, z: -500, rx: -15, ry: -30 },
+        gemini: { x: -350, y: 220, z: 100, rx: -25, ry: 15 },
+        llama: { x: 420, y: 180, z: -200, rx: 30, ry: -10 }
+    },
+    // Symmetrical, organized grid around center
+    aligned: {
+        claude: { x: 400, y: 220 },
+        gpt: { x: 1040, y: 220 },
+        gemini: { x: 400, y: 680 },
+        llama: { x: 1040, y: 680 }
+    }
+};
+
+// Set static SVG beams
+document.getElementById("beam-sh-claude-bg").setAttribute("d", `M ${cx} ${cy} Q ${cx} 220 ${shardsCoords.aligned.claude.x + 80} ${shardsCoords.aligned.claude.y + 10}`);
+document.getElementById("beam-sh-claude").setAttribute("d", `M ${cx} ${cy} Q ${cx} 220 ${shardsCoords.aligned.claude.x + 80} ${shardsCoords.aligned.claude.y + 10}`);
+
+document.getElementById("beam-sh-gpt-bg").setAttribute("d", `M ${cx} ${cy} Q ${cx} 220 ${shardsCoords.aligned.gpt.x - 20} ${shardsCoords.aligned.gpt.y + 10}`);
+document.getElementById("beam-sh-gpt").setAttribute("d", `M ${cx} ${cy} Q ${cx} 220 ${shardsCoords.aligned.gpt.x - 20} ${shardsCoords.aligned.gpt.y + 10}`);
+
+document.getElementById("beam-sh-gemini-bg").setAttribute("d", `M ${cx} ${cy} Q ${cx} 680 ${shardsCoords.aligned.gemini.x + 80} ${shardsCoords.aligned.gemini.y - 10}`);
+document.getElementById("beam-sh-gemini").setAttribute("d", `M ${cx} ${cy} Q ${cx} 680 ${shardsCoords.aligned.gemini.x + 80} ${shardsCoords.aligned.gemini.y - 10}`);
+
+document.getElementById("beam-sh-llama-bg").setAttribute("d", `M ${cx} ${cy} Q ${cx} 680 ${shardsCoords.aligned.llama.x - 20} ${shardsCoords.aligned.llama.y - 10}`);
+document.getElementById("beam-sh-llama").setAttribute("d", `M ${cx} ${cy} Q ${cx} 680 ${shardsCoords.aligned.llama.x - 20} ${shardsCoords.aligned.llama.y - 10}`);
+
+// Position shards initially in chaotic states
+gsap.set("#sh-claude", { left: shardsCoords.chaos.claude.x + cx, top: shardsCoords.chaos.claude.y + cy, z: shardsCoords.chaos.claude.z, rotationX: shardsCoords.chaos.claude.rx, rotationY: shardsCoords.chaos.claude.ry, xPercent: -50, yPercent: -50 });
+gsap.set("#sh-gpt", { left: shardsCoords.chaos.gpt.x + cx, top: shardsCoords.chaos.gpt.y + cy, z: shardsCoords.chaos.gpt.z, rotationX: shardsCoords.chaos.gpt.rx, rotationY: shardsCoords.chaos.gpt.ry, xPercent: -50, yPercent: -50 });
+gsap.set("#sh-gemini", { left: shardsCoords.chaos.gemini.x + cx, top: shardsCoords.chaos.gemini.y + cy, z: shardsCoords.chaos.gemini.z, rotationX: shardsCoords.chaos.gemini.rx, rotationY: shardsCoords.chaos.gemini.ry, xPercent: -50, yPercent: -50 });
+gsap.set("#sh-llama", { left: shardsCoords.chaos.llama.x + cx, top: shardsCoords.chaos.llama.y + cy, z: shardsCoords.chaos.llama.z, rotationX: shardsCoords.chaos.llama.rx, rotationY: shardsCoords.chaos.llama.ry, xPercent: -50, yPercent: -50 });
+
+// Handle Intro Screen Play button
+const intro = document.getElementById("intro-screen");
+const playBtn = document.getElementById("play-btn");
+playBtn.addEventListener("click", () => {
+    intro.style.opacity = "0";
+    setTimeout(() => {
+        intro.style.display = "none";
+        startMotionVideo();
+    }, 800);
+});
+
+// Replay button callback
+document.getElementById("replay-btn").addEventListener("click", () => {
+    isComplete = false;
+    isSandboxActive = false;
+    document.getElementById("sandbox-instruction").style.opacity = "0";
+    gsap.to("#finale-env", { opacity: 0, duration: 0.8, onComplete: () => {
+        document.getElementById("finale-env").style.display = "none";
+        startMotionVideo();
+    }});
+});
+
+// Interactive Demo trigger callback
+let isSandboxActive = false;
+document.getElementById("demo-btn").addEventListener("click", () => {
+    isComplete = false;
+    isSandboxActive = true;
+    
+    // Smooth transition from Finale to Sandbox
+    gsap.to("#finale-env", { opacity: 0, duration: 0.8, onComplete: () => {
+        document.getElementById("finale-env").style.display = "none";
+        initializeSandboxEnvironment();
+    }});
+});
+
+// Interactive mouse parallax state (Tilts stage slightly on finish lockup)
+let isComplete = false;
+window.addEventListener("mousemove", (e) => {
+    if (!isComplete && !isSandboxActive) return;
+    const xPct = (e.clientX / window.innerWidth) - 0.5;
+    const yPct = (e.clientY / window.innerHeight) - 0.5;
+    gsap.to("#stage", {
+        rotationY: xPct * 8,
+        rotationX: -yPct * 8,
+        duration: 1.0,
+        ease: "power2.out",
+        overwrite: "auto"
+    });
+});
+
+// --- CORE FILM TIMELINE ---
+function startMotionVideo() {
+    gsap.registerPlugin(TextPlugin);
+    isComplete = false;
+    isSandboxActive = false;
+    
+    // Enable relevant scene divs to display block/flex
+    document.getElementById("scatter-env").style.display = "block";
+    document.getElementById("hotkey-env").style.display = "flex";
+    document.getElementById("command-env").style.display = "flex";
+    document.getElementById("routing-env").style.display = "block";
+    document.getElementById("editor-env").style.display = "flex";
+    document.getElementById("boundary-env").style.display = "flex";
+    document.getElementById("finale-env").style.display = "flex";
+
+    // Setup initial positions
+    gsap.set([".ambient-light", ".grid-bg", "#scatter-env", "#hotkey-env", "#command-env", "#routing-env", "#editor-env", "#boundary-env", "#finale-env"], { opacity: 0 });
+    gsap.set(".caption", { display: "none", opacity: 0 });
+    gsap.set(".caption span", { opacity: 0, y: 15, filter: "blur(10px)" });
+    gsap.set(".beam-pulse", { strokeDashoffset: 0 });
+    
+    // Reset shards to chaotic states
+    gsap.set("#sh-claude", { left: shardsCoords.chaos.claude.x + cx, top: shardsCoords.chaos.claude.y + cy, z: shardsCoords.chaos.claude.z, rotationX: shardsCoords.chaos.claude.rx, rotationY: shardsCoords.chaos.claude.ry, opacity: 0 });
+    gsap.set("#sh-gpt", { left: shardsCoords.chaos.gpt.x + cx, top: shardsCoords.chaos.gpt.y + cy, z: shardsCoords.chaos.gpt.z, rotationX: shardsCoords.chaos.gpt.rx, rotationY: shardsCoords.chaos.gpt.ry, opacity: 0 });
+    gsap.set("#sh-gemini", { left: shardsCoords.chaos.gemini.x + cx, top: shardsCoords.chaos.gemini.y + cy, z: shardsCoords.chaos.gemini.z, rotationX: shardsCoords.chaos.gemini.rx, rotationY: shardsCoords.chaos.gemini.ry, opacity: 0 });
+    gsap.set("#sh-llama", { left: shardsCoords.chaos.llama.x + cx, top: shardsCoords.chaos.llama.y + cy, z: shardsCoords.chaos.llama.z, rotationX: shardsCoords.chaos.llama.rx, rotationY: shardsCoords.chaos.llama.ry, opacity: 0 });
+    gsap.set(".shard-dot", { background: "#27272a", boxShadow: "none" });
+
+    // Setup inputs & nodes
+    gsap.set("#k-cmd, #k-space", { y: 0, boxShadow: "0 15px 35px rgba(0,0,0,0.6), 0 8px 0 #030304, inset 0 1px 0 rgba(255,255,255,0.08)" });
+    gsap.set("#cmd-container", { opacity: 0, scale: 0.95, z: -50 });
+    gsap.set("#cmd-text", { text: "" });
+    gsap.set(".editor-card", { opacity: 0, scale: 0.85, z: -200, rotationX: 10 });
+    gsap.set(".char-span", { opacity: 0 });
+    gsap.set(".sandbox-circle", { opacity: 0, scale: 0.8, z: -100 });
+    gsap.set("#fin-buttons", { opacity: 0, y: 15 });
+    
+    // Set stage camera initial position
+    gsap.set("#stage", { scale: 1, x: 0, y: 0, rotationX: 0, rotationY: 0, rotationZ: 0 });
+
+    // Particle field randomization
+    stars.forEach(s => {
+        gsap.set(s, {
+            x: () => Math.random() * 1440,
+            y: () => Math.random() * 900,
+            z: () => (Math.random() - 0.5) * 1600,
+            opacity: () => Math.random() * 0.3 + 0.1,
+            scale: () => Math.random() * 1.2 + 0.4
+        });
+    });
+
+    // Cursors blinking
+    gsap.to("#cmd-text", { borderRightColor: "#fff", duration: 0.55, repeat: -1, ease: "steps(1)" });
+
+    // --- TIMELINE SETUP ---
+    const master = gsap.timeline();
+
+    // PHASE 1: Emergence & Shard Chaos (0s - 8s)
+    master.to("#light-ambient", { opacity: 1, duration: 3, ease: "power2.out" }, 0.5)
+          .to("#grid", { opacity: 0.3, duration: 2, ease: "power2.out" }, 1)
+          
+          // Animate particle drift
+          .to(stars, { z: "+=500", duration: 8, ease: "sine.inOut" }, 0)
+
+          // Caption 1: "Isolated tools. Scattered context."
+          .set("#cap-1", { display: "flex" }, 0.8)
+          .to("#cap-1", { opacity: 1, filter: "blur(0px)", duration: 1 }, 0.8)
+          .to("#cap-1 span", { 
+              opacity: 1, y: 0, filter: "blur(0px)", 
+              stagger: 0.1, duration: 0.8, 
+              ease: "power3.out" 
+          }, 0.8)
+          
+          // Shards drift in slowly (Chaos)
+          .to(".model-shard", { opacity: 0.35, duration: 2, ease: "power2.out" }, 1.2)
+          .to("#sh-claude", { left: "+=20", top: "-=15", z: "+=50", rotationY: "+=5", duration: 5, ease: "sine.inOut" }, 1.5)
+          .to("#sh-gpt", { left: "-=25", top: "+=20", z: "-=30", rotationX: "+=8", duration: 5, ease: "sine.inOut" }, 1.5)
+          .to("#sh-gemini", { left: "+=15", top: "-=25", z: "+=40", rotationY: "-=6", duration: 5, ease: "sine.inOut" }, 1.5)
+          .to("#sh-llama", { left: "-=10", top: "+=10", z: "-=20", rotationX: "-=5", duration: 5, ease: "sine.inOut" }, 1.5)
+
+          // Clear caption 1
+          .to("#cap-1 span", { 
+              opacity: 0, y: -15, filter: "blur(10px)", 
+              stagger: 0.08, duration: 0.5, 
+              ease: "power2.in" 
+          }, 3.0)
+          .set("#cap-1", { display: "none" }, 3.5)
+
+          // Caption 2: "Every model is an island."
+          .set("#cap-2", { display: "flex" }, 3.7)
+          .to("#cap-2", { opacity: 1, filter: "blur(0px)", duration: 1 }, 3.7)
+          .to("#cap-2 span", { 
+              opacity: 1, y: 0, filter: "blur(0px)", 
+              stagger: 0.1, duration: 0.8, 
+              ease: "power3.out" 
+          }, 3.7)
+          .to("#cap-2 span", { 
+              opacity: 0, y: -15, filter: "blur(10px)", 
+              stagger: 0.08, duration: 0.5, 
+              ease: "power2.in" 
+          }, 5.8)
+          .set("#cap-2", { display: "none" }, 6.3);
+
+    // PHASE 2: The Alignment (Hotkey Press) (8s - 13s)
+    master.to("#hotkey-env", { opacity: 1, duration: 0.5 }, 7.5)
+          .to("#stage", { rotationX: -10, z: 80, duration: 1.5, ease: "power2.out" }, 7.5)
+          .fromTo("#key-wrapper",
+              { y: 100, z: -600, opacity: 0, rotationX: 45 },
+              { y: 0, z: 0, opacity: 1, rotationX: 12, duration: 1.4, ease: "back.out(1.2)" }, 7.5)
+          
+          // Shards blur out slightly when keys appear
+          .to(".model-shard", { opacity: 0.15, filter: "blur(4px)", duration: 1.0 }, 7.5)
+
+          // Step 1: Cmd press
+          .to("#k-cmd", { 
+              y: 8, 
+              boxShadow: "0 3px 5px rgba(0,0,0,0.6), 0 0px 0 #030304, inset 0 1px 0 rgba(255,255,255,0.04)",
+              duration: 0.15, ease: "power1.inOut"
+          }, 9.2)
+          
+          // Step 2: Space press
+          .to("#k-space", { 
+              y: 8, 
+              boxShadow: "0 3px 5px rgba(0,0,0,0.6), 0 0px 0 #030304, inset 0 1px 0 rgba(255,255,255,0.04)",
+              duration: 0.15, ease: "power1.inOut"
+          }, 9.4)
+
+          // White wave ripple (shockwave)
+          .to("#key-ripple", { opacity: 1, scale: 1.9, duration: 1.1, ease: "expo.out" }, 9.55)
+          
+          // Shake camera slightly on impact
+          .to("#stage", { 
+              x: () => (Math.random() - 0.5) * 10, 
+              y: () => (Math.random() - 0.5) * 10,
+              duration: 0.05, repeat: 4, yoyo: true, ease: "none"
+          }, 9.55)
+
+          // Keycaps dissolve
+          .to(".keycap", { opacity: 0, scale: 1.2, filter: "blur(10px)", duration: 0.4, ease: "power2.in" }, 9.7)
+          .to("#hotkey-env", { opacity: 0, duration: 0.4 }, 10.1)
+
+          // THE ALIGNMENT (Shards align symmetrically in a circle)
+          .to("#stage", { rotationX: 0, z: -100, duration: 1.8, ease: "power3.inOut" }, 9.6)
+          .to(".model-shard", { opacity: 0.8, filter: "blur(0px)", duration: 1.5, ease: "power3.inOut" }, 9.6)
+          
+          .to("#sh-claude", { left: shardsCoords.aligned.claude.x, top: shardsCoords.aligned.claude.y, z: 0, rotationX: 0, rotationY: 0, duration: 1.8, ease: "power3.inOut" }, 9.6)
+          .to("#sh-gpt", { left: shardsCoords.aligned.gpt.x, top: shardsCoords.aligned.gpt.y, z: 0, rotationX: 0, rotationY: 0, duration: 1.8, ease: "power3.inOut" }, 9.6)
+          .to("#sh-gemini", { left: shardsCoords.aligned.gemini.x, top: shardsCoords.aligned.gemini.y, z: 0, rotationX: 0, rotationY: 0, duration: 1.8, ease: "power3.inOut" }, 9.6)
+          .to("#sh-llama", { left: shardsCoords.aligned.llama.x, top: shardsCoords.aligned.llama.y, z: 0, rotationX: 0, rotationY: 0, duration: 1.8, ease: "power3.inOut" }, 9.6);
+
+    // PHASE 3: The Command Layer (10.0s - 14.5s)
+    master.to("#command-env", { opacity: 1, duration: 0.5 }, 10.0)
+          .to("#cmd-container", { opacity: 1, scale: 1, z: 0, duration: 1.0, ease: "power3.out" }, 10.0)
+          
+          // Caption 3: "One key. A unified command."
+          .set("#cap-3", { display: "flex" }, 10.2)
+          .to("#cap-3", { opacity: 1, filter: "blur(0px)", duration: 1 }, 10.2)
+          .to("#cap-3 span", { 
+              opacity: 1, y: 0, filter: "blur(0px)", 
+              stagger: 0.1, duration: 0.8, 
+              ease: "power3.out" 
+          }, 10.2)
+
+          // Typing search prompt
+          .to("#cmd-text", { 
+              text: "generate dashboard via claude", 
+              duration: 1.8, ease: "none" 
+          }, 11.5)
+          .to("#cmd-text", { borderRightColor: "transparent", duration: 0.1 }, 13.5)
+
+          // Fade out caption 3
+          .to("#cap-3 span", { 
+              opacity: 0, y: -15, filter: "blur(10px)", 
+              stagger: 0.08, duration: 0.5, 
+              ease: "power2.in" 
+          }, 14.0)
+          .set("#cap-3", { display: "none" }, 14.5);
+
+    // PHASE 4: Beams & Routing (14.5s - 20.0s)
+    master.to("#routing-env", { opacity: 1, duration: 0.5 }, 14.2)
+          
+          // Pull camera back for layout overview
+          .to("#stage", { z: -200, duration: 1.5, ease: "power3.inOut" }, 14.2)
+          
+          // Command pill scale adjusts into neural map
+          .to("#cmd-container", { scale: 0.78, opacity: 0.6, duration: 1.2, ease: "power3.inOut" }, 14.2)
+
+          // Draw out routing beams
+          .fromTo([
+              "#beam-sh-claude", "#beam-sh-gpt", "#beam-sh-gemini", "#beam-sh-llama"
+          ], { strokeDasharray: "15 250", strokeDashoffset: 265 },
+             { strokeDashoffset: 0, duration: 1.5, ease: "power2.inOut", stagger: 0.12 }, 14.6)
+
+          // Continuous beam pulse loop
+          .to([
+              "#beam-sh-claude", "#beam-sh-gpt", "#beam-sh-gemini", "#beam-sh-llama"
+          ], { strokeDashoffset: -265, repeat: -1, duration: 1.1, ease: "none" }, 16.1)
+
+          // Model shards dots light up inside nodes
+          .to("#sh-claude .shard-dot", { background: "#ff9f0a", boxShadow: "0 0 10px #ff9f0a", duration: 0.4 }, 15.5)
+          .to("#sh-claude", { color: "#fff", duration: 0.4 }, 15.5)
+          
+          .to("#sh-gpt .shard-dot", { background: "#30d158", boxShadow: "0 0 10px #30d158", duration: 0.4 }, 15.8)
+          .to("#sh-gpt", { color: "#fff", duration: 0.4 }, 15.8)
+
+          .to("#sh-gemini .shard-dot", { background: "#bf5af2", boxShadow: "0 0 10px #bf5af2", duration: 0.4 }, 16.1)
+          .to("#sh-gemini", { color: "#fff", duration: 0.4 }, 16.1)
+
+          .to("#sh-llama .shard-dot", { background: "#0a84ff", boxShadow: "0 0 10px #0a84ff", duration: 0.4 }, 16.4)
+          .to("#sh-llama", { color: "#fff", duration: 0.4 }, 16.4)
+
+          // Outro routing
+          .to("#routing-env", { opacity: 0, duration: 0.8 }, 19.5)
+          .to("#scatter-env", { opacity: 0, duration: 0.8 }, 19.5)
+          .to("#command-env", { opacity: 0, duration: 0.8 }, 19.5);
+
+    // PHASE 5: Clean Code Execution (19.5s - 27.5s)
+    master.to("#editor-env", { opacity: 1, duration: 0.8 }, 19.5)
+          
+          // Zoom in camera to editor well
+          .fromTo("#stage", { z: -600 }, { z: 0, duration: 1.8, ease: "power3.inOut" }, 19.5)
+          .to("#edit-win", { opacity: 1, scale: 1, z: 0, rotationX: 0, duration: 1.2, ease: "back.out(1.2)" }, 20.0)
+
+          // Type editor JSX code
+          .to(".char-span", { opacity: 1, stagger: 0.015, duration: 3.5, ease: "none" }, 21.0)
+          
+          // Outro code window
+          .to("#edit-win", { opacity: 0.4, scale: 0.95, z: -100, duration: 1.2, ease: "power2.inOut" }, 27.5);
+
+    // PHASE 6: The Boundary (Local Sandbox Ring) (27.5s - 34.5s)
+    master.to("#boundary-env", { opacity: 1, duration: 0.8 }, 27.5)
+          .to("#stage", { z: -150, duration: 1.5, ease: "power2.out" }, 27.5)
+          
+          // Draw Sandbox circular boundary line
+          .to("#sand-ring", { opacity: 1, scale: 1, duration: 1.5, ease: "power2.out" }, 27.8)
+
+          // Caption 4: "Local. Private. In your control."
+          .set("#cap-4", { display: "flex" }, 28.2)
+          .to("#cap-4", { opacity: 1, filter: "blur(0px)", duration: 1 }, 28.2)
+          .to("#cap-4 span", { 
+              opacity: 1, y: 0, filter: "blur(0px)", 
+              stagger: 0.12, duration: 0.8, 
+              ease: "power3.out" 
+          }, 28.2)
+
+          // Outro Local circle implodes
+          .to("#cap-4 span", { 
+              opacity: 0, y: -15, filter: "blur(10px)", 
+              stagger: 0.08, duration: 0.5, 
+              ease: "power2.in" 
+          }, 33.0)
+          .set("#cap-4", { display: "none" }, 33.5)
+          
+          .to("#sand-ring", { scale: 0.05, opacity: 0, duration: 1.0, ease: "expo.in" }, 33.0)
+          .to("#edit-win", { scale: 0.05, opacity: 0, filter: "blur(15px)", duration: 1.0, ease: "expo.in" }, 33.0)
+          .to("#boundary-env", { opacity: 0, duration: 0.8 }, 33.8);
+
+    // PHASE 7: Finale (34.0s - 45.0s)
+    master.to("#finale-env", { display: "flex", opacity: 1, duration: 0.1 }, 34.2)
+          .to("#light-core", { opacity: 1, duration: 2 }, 34.2)
+          .to(".logo-flare", { opacity: 1, duration: 3.5 }, 34.2)
+
+          .fromTo("#f-logo", 
+              { filter: "blur(30px)", scale: 1.4, letterSpacing: "0.5em", opacity: 0 },
+              { filter: "blur(0px)", scale: 1, letterSpacing: "0.22em", opacity: 1, duration: 3.2, ease: "power4.out" }, 34.2)
+
+          .fromTo("#f-sub", 
+              { filter: "blur(20px)", y: 25, opacity: 0 },
+              { filter: "blur(0px)", y: 0, opacity: 1, duration: 2.2, ease: "power3.out" }, 35.6)
+
+          .to("#fin-buttons", { opacity: 1, y: 0, duration: 1, ease: "power3.out" }, 37.0)
+          .call(() => { isComplete = true; });
+}
+
+// --- INTERACTIVE DEMO SANDBOX CONTROLLER ---
+const hiddenInput = document.getElementById("hidden-input");
+const cmdText = document.getElementById("cmd-text");
+let isConsoleOpen = false;
+let isExecutingQuery = false;
+
+function initializeSandboxEnvironment() {
+    // Reveal clean grid & nodes
+    gsap.set("#grid", { opacity: 0.4 });
+    gsap.set("#light-ambient", { opacity: 1 });
+    
+    // Bring Shards in aligned state with moderate opacity
+    document.getElementById("scatter-env").style.display = "block";
+    gsap.set(".model-shard", { opacity: 0.45, filter: "blur(0px)" });
+    gsap.set("#sh-claude", { left: shardsCoords.aligned.claude.x, top: shardsCoords.aligned.claude.y, z: 0, rotationX: 0, rotationY: 0 });
+    gsap.set("#sh-gpt", { left: shardsCoords.aligned.gpt.x, top: shardsCoords.aligned.gpt.y, z: 0, rotationX: 0, rotationY: 0 });
+    gsap.set("#sh-gemini", { left: shardsCoords.aligned.gemini.x, top: shardsCoords.aligned.gemini.y, z: 0, rotationX: 0, rotationY: 0 });
+    gsap.set("#sh-llama", { left: shardsCoords.aligned.llama.x, top: shardsCoords.aligned.llama.y, z: 0, rotationX: 0, rotationY: 0 });
+    gsap.set(".shard-dot", { background: "#27272a", boxShadow: "none" });
+
+    // Enable instruction text
+    const instructions = document.getElementById("sandbox-instruction");
+    instructions.style.opacity = "1";
+    
+    // Position camera
+    gsap.to("#stage", { scale: 1, x: 0, y: 0, rotationX: 0, rotationY: 0, rotationZ: 0, z: -150, duration: 1 });
+}
+
+// Global hotkey listener
+window.addEventListener("keydown", (e) => {
+    if (!isSandboxActive || isExecutingQuery) return;
+    
+    // Command + Space (Mac) or Ctrl + Space (Windows)
+    if ((e.metaKey || e.ctrlKey) && e.code === "Space") {
+        e.preventDefault();
+        toggleSandboxConsole();
+    }
+});
+
+// Focus capture
+window.addEventListener("click", () => {
+    if (isSandboxActive && isConsoleOpen && !isExecutingQuery) {
+        hiddenInput.focus();
+    }
+});
+
+function toggleSandboxConsole() {
+    const instructions = document.getElementById("sandbox-instruction");
+    
+    if (!isConsoleOpen) {
+        isConsoleOpen = true;
+        instructions.style.opacity = "0.2";
+        
+        // Summon input line
+        document.getElementById("command-env").style.display = "flex";
+        cmdText.textContent = "";
+        hiddenInput.value = "";
+        
+        gsap.killTweensOf("#cmd-text");
+        gsap.to("#cmd-text", { borderRightColor: "#fff", duration: 0.55, repeat: -1, ease: "steps(1)" });
+        
+        gsap.set("#cmd-container", { opacity: 0, scale: 0.95, z: 50 });
+        gsap.to("#cmd-container", { opacity: 1, scale: 1, z: 0, duration: 0.5, ease: "power3.out", onComplete: () => {
+            hiddenInput.focus();
+        }});
+    } else {
+        isConsoleOpen = false;
+        instructions.style.opacity = "1";
+        hiddenInput.blur();
+        
+        gsap.to("#cmd-container", { opacity: 0, scale: 0.95, z: 50, duration: 0.4, ease: "power3.in", onComplete: () => {
+            document.getElementById("command-env").style.display = "none";
+        }});
+    }
+}
+
+// Track input characters
+hiddenInput.addEventListener("input", (e) => {
+    cmdText.textContent = e.target.value;
+});
+
+hiddenInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        if (hiddenInput.value.trim() !== "") {
+            executeSandboxQuery(hiddenInput.value.trim());
+        }
+    }
+});
+
+function executeSandboxQuery(prompt) {
+    isExecutingQuery = true;
+    isConsoleOpen = false;
+    hiddenInput.blur();
+    
+    // Hide instructions
+    document.getElementById("sandbox-instruction").style.opacity = "0";
+
+    // Dynamic response code template matching
+    let responseCode = `// Prompt: "${prompt}"\n// Status: Resolved locally in 0.35s\n\n`;
+    let queryLower = prompt.toLowerCase();
+    let targets = [];
+
+    if (queryLower.includes("claude")) {
+        responseCode += `import { Claude } from '@condura/models';\n\nexport const response = Claude.generate({\n  task: "sync database",\n  mode: "local"\n});`;
+        targets.push("#beam-sh-claude");
+    } else if (queryLower.includes("gpt")) {
+        responseCode += `import { GPT } from '@condura/models';\n\nexport const res = GPT.complete({\n  temperature: 0.2,\n  prompt: "optimize"\n});`;
+        targets.push("#beam-sh-gpt");
+    } else if (queryLower.includes("gemini")) {
+        responseCode += `import { Gemini } from '@condura/models';\n\nexport const analysis = Gemini.analyze({\n  tokens: 40000,\n  format: "json"\n});`;
+        targets.push("#beam-sh-gemini");
+    } else if (queryLower.includes("llama")) {
+        responseCode += `import { Llama } from '@condura/local';\n\n// Running local server\nexport const localResponse = Llama.query({\n  port: 11434\n});`;
+        targets.push("#beam-sh-llama");
+    } else {
+        // General Orchestration (fires to all nodes)
+        responseCode += `import { Orchestrator } from '@condura/core';\n\nexport default async function route() {\n  return await Orchestrator.split({\n    task: "${prompt.slice(0, 15)}..."\n  });\n}`;
+        targets = ["#beam-sh-claude", "#beam-sh-gpt", "#beam-sh-gemini", "#beam-sh-llama"];
+    }
+
+    const qTimeline = gsap.timeline();
+
+    // 1. Zoom out camera
+    qTimeline.to("#stage", { z: -200, duration: 0.8, ease: "power3.inOut" }, 0)
+             .to("#cmd-container", { scale: 0.78, opacity: 0.4, duration: 0.8, ease: "power3.inOut" }, 0)
+             
+             // 2. Fire beams
+             .fromTo(targets, { strokeDasharray: "15 250", strokeDashoffset: 265 },
+                              { strokeDashoffset: 0, duration: 1.2, ease: "power2.inOut" }, 0.4);
+
+    // Light up target dots
+    targets.forEach(t => {
+        const shardId = t.replace("#beam-", "#");
+        const dotColor = shardId.includes("claude") ? "#ff9f0a" : shardId.includes("gpt") ? "#30d158" : shardId.includes("gemini") ? "#bf5af2" : "#0a84ff";
+        qTimeline.to(shardId + " .shard-dot", { background: dotColor, boxShadow: `0 0 10px ${dotColor}`, duration: 0.3 }, 1.0);
+    });
+
+    // 3. Zoom into Editor
+    qTimeline.to("#routing-env", { opacity: 0, duration: 0.5 }, 1.8)
+             .to("#scatter-env", { opacity: 0, duration: 0.5 }, 1.8)
+             .to("#command-env", { opacity: 0, duration: 0.5 }, 1.8)
+             
+             .set("#editor-env", { opacity: 1 }, 2.0)
+             .to("#stage", { z: 0, duration: 1.2, ease: "power3.inOut" }, 2.0)
+             .to("#edit-win", { opacity: 1, scale: 1, z: 0, rotationX: 0, duration: 0.8, ease: "back.out(1.2)" }, 2.2)
+             
+             // Type custom code response
+             .call(() => {
+                 typeInteractiveCode(responseCode);
+             }, null, 2.8)
+             
+             // Draw local sandbox ring
+             .set("#boundary-env", { opacity: 1 }, 5.5)
+             .to("#stage", { z: -150, duration: 1.2, ease: "power3.inOut" }, 5.5)
+             .to("#sand-ring", { opacity: 1, scale: 1, duration: 1.2, ease: "power2.out" }, 5.8)
+             
+             // Reset back to idle sandbox instructions
+             .to("#sand-ring", { scale: 0.1, opacity: 0, duration: 0.8, ease: "power2.in" }, 8.5)
+             .to("#edit-win", { scale: 0.1, opacity: 0, filter: "blur(10px)", duration: 0.8, ease: "power2.in" }, 8.5)
+             .to("#boundary-env", { opacity: 0, duration: 0.5 }, 9.0)
+             .to("#editor-env", { opacity: 0, duration: 0.5 }, 9.0)
+             
+             .call(() => {
+                 // Reset elements to normal sandbox ready state
+                 gsap.set(".beam-pulse", { strokeDashoffset: 265 });
+                 gsap.set("#routing-env", { opacity: 1 });
+                 gsap.set("#scatter-env", { opacity: 1 });
+                 gsap.set("#command-env", { opacity: 0 });
+                 
+                 initializeSandboxEnvironment();
+                 
+                 isExecutingQuery = false;
+             }, null, 9.3);
+}
+
+function typeInteractiveCode(text) {
+    const codeEl = document.getElementById("type-code");
+    codeEl.innerHTML = text;
+    splitHTMLIntoSpans(codeEl);
+    gsap.set("#type-code .char-span", { opacity: 0 });
+    gsap.to("#type-code .char-span", {
+        opacity: 1,
+        stagger: 0.015,
+        duration: 1.8,
+        ease: "none"
+    });
+}
+</script>
+</body>
+</html>

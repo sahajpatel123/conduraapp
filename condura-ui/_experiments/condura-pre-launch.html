@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condura - Hyper Realistic Light/Dark</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+<style>
+/* CSS RESET & VARIABLES */
+:root {
+    --bg-dark: #050507;
+    --bg-light: #f5f5f7;
+    --text-dark: #111111;
+    --text-light: #ffffff;
+    --cyan-glow: #00f0ff;
+    --blue-accent: #0066cc;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: var(--bg-dark);
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+}
+
+#canvas-wrap {
+    position: relative;
+    width: 1200px;
+    height: 700px;
+    transform-origin: center center;
+    overflow: hidden;
+    background: var(--bg-dark);
+    transition: background 1.5s ease;
+}
+#canvas-wrap.light-mode { background: var(--bg-light); }
+
+/* Play Button */
+#intro-screen {
+    position: absolute; inset: 0; background: var(--bg-dark); z-index: 10000;
+    display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 24px;
+    transition: opacity 0.8s ease; color: #fff;
+}
+#play-btn {
+    padding: 16px 40px; border-radius: 40px; background: rgba(255,255,255,0.05); color: #fff;
+    border: 1px solid rgba(255,255,255,0.15); font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all 0.4s; backdrop-filter: blur(10px); text-transform: uppercase; letter-spacing: 0.05em;
+}
+#play-btn:hover { background: #fff; color: #000; box-shadow: 0 0 40px rgba(255,255,255,0.2); transform: scale(1.05); }
+
+/* --- ACT 1 & 3: DARK THEME ELEMENTS --- */
+.dark-layer { position: absolute; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: center; }
+.search-container {
+    width: 500px; height: 64px; border-radius: 32px; background: rgba(20,20,26,0.45);
+    border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; padding: 0 24px;
+    backdrop-filter: blur(30px); opacity: 0; position: absolute;
+}
+.search-icon { width: 18px; height: 18px; opacity: 0.7; margin-right: 16px; flex-shrink: 0; }
+.search-text { font-size: 18px; color: #fff; font-weight: 300; border-right: 2px solid transparent; padding-right: 4px; white-space: nowrap; overflow: hidden; }
+
+.logo-reveal { position: absolute; text-align: center; opacity: 0; color: #fff; }
+.logo-mark { font-size: 72px; font-weight: 600; letter-spacing: -0.04em; margin-bottom: 12px; text-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+.logo-sub { font-size: 20px; color: #8e8e9f; font-weight: 300; letter-spacing: -0.01em; }
+
+/* ACT 3 Chart */
+.proof-section { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; z-index: 40; pointer-events: none; }
+.chart-container { width: 440px; height: 260px; display: flex; align-items: flex-end; gap: 24px; justify-content: center; margin-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+.bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 80px; }
+.bar { width: 100%; border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.05); height: 0; position: relative; overflow: hidden; }
+.bar-glow { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,240,255,0.8) 0%, rgba(0,240,255,0) 100%); opacity: 0; }
+.bar-label { font-size: 14px; color: #8e8e9f; font-weight: 500; }
+.bar-val { font-size: 20px; color: #fff; font-weight: 600; font-family: 'JetBrains Mono', monospace; opacity: 0; transform: translateY(10px); }
+.cta-text { font-size: 44px; font-weight: 300; color: #fff; letter-spacing: -0.02em; margin-bottom: 16px; }
+.cta-sub { font-size: 18px; color: #8e8e9f; font-weight: 300; letter-spacing: 0.02em; }
+
+#replay-btn {
+    position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    padding: 12px 28px; background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #8e8e9f;
+    border-radius: 30px; cursor: pointer; font-size: 12px; transition: all 0.3s; opacity: 0; z-index: 100;
+    text-transform: uppercase; letter-spacing: 0.1em; pointer-events: auto;
+}
+#replay-btn:hover { background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.3); }
+
+
+/* --- ACT 2: LIGHT THEME OS ENVIRONMENT --- */
+.light-layer { 
+    position: absolute; inset: 0; z-index: 20; opacity: 0; pointer-events: none;
+    display: flex; justify-content: center; align-items: center;
+}
+/* Abstract Light Mesh BG */
+.mesh-bg {
+    position: absolute; inset: -20%; opacity: 0.6; filter: blur(80px); z-index: 0;
+    background: radial-gradient(circle at 20% 30%, #e0e7ff 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, #ffebf0 0%, transparent 40%);
+}
+
+/* Condura Pill (Agent Interface) */
+.condura-pill {
+    position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+    width: 320px; height: 50px; background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    display: flex; align-items: center; padding: 0 16px; z-index: 50; gap: 12px;
+}
+.pill-orb { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #00f0ff 0%, #2563eb 100%); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% {transform: scale(1); box-shadow: 0 0 10px rgba(37,99,235,0.4);} 50% {transform: scale(1.1); box-shadow: 0 0 20px rgba(37,99,235,0.7);} }
+.pill-text { font-size: 13px; font-weight: 500; color: #333; }
+
+/* OS Window Base */
+.os-window {
+    position: absolute; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column; opacity: 0; transform: scale(0.95);
+    transform-style: preserve-3d;
+}
+.mac-titlebar {
+    height: 38px; display: flex; align-items: center; justify-content: center; position: relative;
+}
+.mac-dots { position: absolute; left: 16px; display: flex; gap: 8px; }
+.mac-dots div { width: 12px; height: 12px; border-radius: 50%; }
+.mac-dots .red { background: #ff5f56; }
+.mac-dots .yel { background: #ffbd2e; }
+.mac-dots .grn { background: #27c93f; }
+.mac-title { font-size: 13px; font-weight: 500; }
+
+/* 1. IDE Window (Dark theme inside light OS) */
+.ide-window { width: 560px; height: 380px; left: 80px; top: 120px; background: #1e1e1e; color: #ccc; z-index: 21; }
+.ide-window .mac-titlebar { background: #252526; border-bottom: 1px solid #111; color: #999; }
+.ide-body { display: flex; flex: 1; }
+.ide-sidebar { width: 140px; background: #252526; border-right: 1px solid #111; padding: 12px; }
+.ide-sidebar-item { font-size: 12px; color: #999; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.ide-sidebar-item.active { color: #fff; }
+.ide-sidebar-icon { width: 12px; height: 12px; background: #519aba; border-radius: 2px; }
+.ide-main { flex: 1; display: flex; flex-direction: column; }
+.ide-code { flex: 1; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; color: #d4d4d4; }
+.ide-terminal { height: 120px; background: #181818; border-top: 1px solid #2d2d2d; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #fff; }
+.term-line { margin-bottom: 6px; }
+.term-prompt { color: #4af626; margin-right: 8px; }
+.term-cursor { border-right: 2px solid #fff; }
+.term-log { color: #999; opacity: 0; }
+
+/* 2. Browser/Vercel Window (Light Theme) */
+.browser-window { width: 620px; height: 400px; right: 80px; top: 140px; background: #fff; z-index: 22; }
+.browser-window .mac-titlebar { background: #f0f0f0; border-bottom: 1px solid #d1d1d1; }
+.browser-url { position: absolute; left: 50%; transform: translateX(-50%); width: 240px; height: 26px; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; }
+.vc-dash { flex: 1; background: #fafafa; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
+.vc-header { font-size: 20px; font-weight: 600; color: #000; }
+.vc-card { background: #fff; border: 1px solid #eaeaea; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; }
+.vc-info h3 { font-size: 15px; font-weight: 600; color: #000; margin-bottom: 4px; }
+.vc-info p { font-size: 13px; color: #666; font-family: 'JetBrains Mono', monospace; }
+.vc-status { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 100px; background: #f5f5f5; border: 1px solid #eaeaea; font-size: 13px; font-weight: 500; color: #666; }
+.vc-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+
+/* 3. Slack Window (Light Theme) */
+.slack-window { width: 500px; height: 320px; left: 350px; bottom: 60px; background: #fff; z-index: 23; }
+.slack-window .mac-titlebar { background: #3F0E40; color: #fff; border-bottom: none; }
+.slack-window .mac-dots div { opacity: 0.8; }
+.slack-body { display: flex; flex: 1; }
+.slack-sidebar { width: 140px; background: #3F0E40; color: #d1b2d1; padding: 16px; font-size: 14px; }
+.slack-sidebar-item { margin-bottom: 10px; opacity: 0.8; }
+.slack-sidebar-item.active { color: #fff; font-weight: 600; opacity: 1; }
+.slack-main { flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: flex-end; }
+.slack-msg { display: flex; gap: 12px; opacity: 0; transform: translateY(10px); }
+.slack-avatar { width: 36px; height: 36px; border-radius: 6px; background: linear-gradient(135deg, #00f0ff 0%, #2563eb 100%); display: flex; justify-content: center; align-items: center; color: #fff; font-weight: bold; font-size: 18px; }
+.slack-content h4 { font-size: 14px; font-weight: 700; color: #1d1c1d; margin-bottom: 2px; }
+.slack-content h4 span { font-weight: 400; color: #616061; font-size: 12px; margin-left: 6px; }
+.slack-content p { font-size: 14px; color: #1d1c1d; line-height: 1.4; }
+
+</style>
+</head>
+<body>
+
+<div id="intro-screen">
+    <button id="play-btn">Play Film</button>
+    <p style="font-family: 'JetBrains Mono', monospace; color: #888; font-size: 12px; letter-spacing: 0.05em;">Condura // Realistic Light OS</p>
+</div>
+
+<div id="canvas-wrap">
+
+    <!-- ACT 1 & 3: Dark Layer -->
+    <div class="dark-layer" id="dark-layer">
+        <!-- Search Hook -->
+        <div class="search-container" id="search-bar">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <div class="search-text" id="search-text"></div>
+        </div>
+
+        <!-- Logo Reveal -->
+        <div class="logo-reveal" id="logo-rev">
+            <div class="logo-mark">CONDURA</div>
+            <div class="logo-sub">The autonomous API.</div>
+        </div>
+
+        <!-- Outro Proof -->
+        <div class="proof-section" id="proof">
+            <div class="chart-container">
+                <div class="bar-wrap"><div class="bar-val">42%</div><div class="bar" id="bar-1"><div class="bar-glow" style="background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%); opacity: 1;"></div></div><div class="bar-label">Scripts</div></div>
+                <div class="bar-wrap"><div class="bar-val">78%</div><div class="bar" id="bar-2"><div class="bar-glow" style="background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%); opacity: 1;"></div></div><div class="bar-label">Copilots</div></div>
+                <div class="bar-wrap"><div class="bar-val" style="color: var(--cyan-glow);">99.2%</div><div class="bar" id="bar-3" style="border: 1px solid rgba(0,240,255,0.3); border-bottom: none;"><div class="bar-glow" id="bglow-3"></div></div><div class="bar-label" style="color: #fff;">Condura</div></div>
+            </div>
+            <div class="cta-text" id="cta-1">Flawless Autonomous Execution.</div>
+            <div class="cta-sub" id="cta-2">condura.com/work</div>
+        </div>
+    </div>
+
+
+    <!-- ACT 2: Light OS Layer -->
+    <div class="light-layer" id="light-layer">
+        <div class="mesh-bg"></div>
+        
+        <div class="condura-pill" id="agent-pill">
+            <div class="pill-orb"></div>
+            <div class="pill-text" id="pill-txt">Awaiting intent...</div>
+        </div>
+
+        <!-- IDE -->
+        <div class="os-window ide-window" id="win-ide">
+            <div class="mac-titlebar"><div class="mac-dots"><div class="red"></div><div class="yel"></div><div class="grn"></div></div><div class="mac-title">condura-app — VS Code</div></div>
+            <div class="ide-body">
+                <div class="ide-sidebar">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #666; margin-bottom: 12px; font-weight: bold;">Explorer</div>
+                    <div class="ide-sidebar-item active"><div class="ide-sidebar-icon"></div> page.tsx</div>
+                    <div class="ide-sidebar-item"><div class="ide-sidebar-icon" style="background: #e34f26;"></div> globals.css</div>
+                </div>
+                <div class="ide-main">
+                    <div class="ide-code">
+                        <span style="color:#c586c0">export default function</span> <span style="color:#dcdcaa">App</span>() {<br>
+                        &nbsp;&nbsp;<span style="color:#c586c0">return</span> (<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span style="color:#569cd6">div</span> className=<span style="color:#ce9178">"release-v2"</span>&gt;<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span style="color:#569cd6">h1</span>&gt;Q3 Update Live&lt;/<span style="color:#569cd6">h1</span>&gt;<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span style="color:#569cd6">div</span>&gt;<br>
+                        &nbsp;&nbsp;);<br>
+                        }
+                    </div>
+                    <div class="ide-terminal">
+                        <div class="term-line"><span class="term-prompt">➜</span> condura-app <span id="term-cmd"></span><span class="term-cursor" id="term-cursor"></span></div>
+                        <div class="term-log" id="tlog-1">Pushing to branch 'feature/q3'...</div>
+                        <div class="term-log" id="tlog-2" style="color: #4af626; margin-top: 4px;">✓ Successfully merged.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vercel -->
+        <div class="os-window browser-window" id="win-browser">
+            <div class="mac-titlebar"><div class="mac-dots"><div class="red"></div><div class="yel"></div><div class="grn"></div></div><div class="browser-url">vercel.com/condura/deployments</div></div>
+            <div class="vc-dash">
+                <div class="vc-header">Project: Condura App</div>
+                <div class="vc-card">
+                    <div class="vc-info">
+                        <h3>Production Deployment</h3>
+                        <p id="vc-commit">Commit: a3f82b9 (Merge feature/q3)</p>
+                    </div>
+                    <div class="vc-status" id="vc-status-box">
+                        <div class="vc-dot" id="vc-dot"></div>
+                        <span id="vc-status-text">Waiting</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slack -->
+        <div class="os-window slack-window" id="win-slack">
+            <div class="mac-titlebar"><div class="mac-dots"><div class="red"></div><div class="yel"></div><div class="grn"></div></div><div class="mac-title" style="color:#fff">Slack</div></div>
+            <div class="slack-body">
+                <div class="slack-sidebar">
+                    <div class="slack-sidebar-item"># general</div>
+                    <div class="slack-sidebar-item active"># engineering</div>
+                    <div class="slack-sidebar-item"># design</div>
+                </div>
+                <div class="slack-main">
+                    <div class="slack-msg" id="slack-msg">
+                        <div class="slack-avatar">C</div>
+                        <div class="slack-content">
+                            <h4>Condura <span>Just now</span></h4>
+                            <p>✅ <b>Q3 Release is live!</b><br>Code merged, Vercel deployed to production.<br><a href="#" style="color:#0066cc; text-decoration:none;">View Deployment</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <button id="replay-btn">Replay Film</button>
+</div>
+
+<script>
+const intro = document.getElementById("intro-screen");
+const playBtn = document.getElementById("play-btn");
+
+playBtn.addEventListener("click", () => {
+    intro.style.opacity = "0";
+    setTimeout(() => {
+        intro.style.display = "none";
+        startMotionVideo();
+    }, 800);
+});
+
+document.getElementById("replay-btn").addEventListener("click", () => {
+    gsap.to(["#proof", "#replay-btn", ".dark-layer"], { opacity: 0, duration: 0.5, onComplete: startMotionVideo });
+});
+
+function resize() {
+    const scale = Math.min(window.innerWidth / 1200, window.innerHeight / 700);
+    gsap.set("#canvas-wrap", { scale: scale });
+}
+window.addEventListener('resize', resize);
+resize();
+
+function startMotionVideo() {
+    gsap.registerPlugin(TextPlugin);
+    
+    // Resets
+    const wrap = document.getElementById("canvas-wrap");
+    wrap.classList.remove("light-mode");
+    
+    gsap.set(["#search-bar", "#logo-rev", "#proof", "#replay-btn", ".bar-val", ".light-layer"], { opacity: 0 });
+    gsap.set(".dark-layer", { opacity: 1 });
+    gsap.set("#search-text", { text: "" });
+    gsap.set("#search-bar", { scale: 0.9, y: 20 });
+    gsap.set(".bar", { height: 0 });
+    gsap.set("#bglow-3", { opacity: 0 });
+    
+    // Reset Light Layer elements
+    gsap.set(["#win-ide", "#win-browser", "#win-slack"], { opacity: 0, scale: 0.95, y: 40 });
+    gsap.set("#agent-pill", { y: -50, opacity: 0 });
+    gsap.set("#pill-txt", { text: "Awaiting intent..." });
+    gsap.set("#term-cmd", { text: "" });
+    gsap.set(".term-log", { opacity: 0 });
+    gsap.set("#vc-dot", { backgroundColor: "#ccc", boxShadow: "none" });
+    gsap.set("#vc-status-text", { text: "Waiting" });
+    gsap.set("#vc-status-box", { backgroundColor: "#f5f5f5", borderColor: "#eaeaea" });
+    gsap.set("#slack-msg", { opacity: 0, y: 15 });
+    
+    gsap.to("#term-cursor", { opacity: 0, duration: 0.5, repeat: -1, yoyo: true });
+
+    const tl = gsap.timeline();
+
+    // --- ACT 1: HOOK (DARK THEME) ---
+    tl.to("#search-bar", { opacity: 1, scale: 1, y: 0, duration: 1.2, ease: "power3.out" }, 0.5)
+      .to("#search-text", { text: "Deploy Q3 launch and update the team", duration: 2.5, ease: "none" }, 1.5)
+      .to("#search-text", { borderRightColor: "transparent", duration: 0.3, repeat: 2, yoyo: true }, 1.5)
+      .to("#search-text", { borderRightColor: "transparent", duration: 0.1 }, 4.0)
+      
+      .to("#search-bar", { scale: 1.1, opacity: 0, filter: "blur(10px)", duration: 0.8, ease: "power2.inOut" }, 4.5)
+      .fromTo("#logo-rev", { scale: 0.9, opacity: 0, y: 10 }, { scale: 1, opacity: 1, y: 0, duration: 1.5, ease: "power3.out" }, 4.8)
+      .to("#logo-rev", { scale: 1.1, opacity: 0, filter: "blur(10px)", duration: 1.0, ease: "power2.inOut" }, 7.5);
+
+    // --- ACT 2: AGENTIC DEMO (LIGHT THEME OS) ---
+    // Transition background to light
+    tl.call(() => wrap.classList.add("light-mode"), null, 8.0)
+      .to(".light-layer", { opacity: 1, duration: 1.0 }, 8.0)
+      
+      // Pill drops in
+      .to("#agent-pill", { y: 0, opacity: 1, duration: 1.0, ease: "back.out(1.2)" }, 8.5)
+      .to("#pill-txt", { text: "Executing Q3 sequence...", duration: 0.5 }, 9.2)
+
+      // IDE Window
+      .to("#win-ide", { opacity: 1, scale: 1, y: 0, duration: 1.0, ease: "power3.out" }, 9.5)
+      .to(".light-layer", { scale: 1.02, x: 20, y: 10, duration: 2.0, ease: "power2.out" }, 9.5) // cinematic pan to IDE
+      
+      .to("#term-cmd", { text: "git merge feature/q3 && git push", duration: 1.5, ease: "none" }, 10.5)
+      .to("#term-cursor", { opacity: 0, duration: 0.1 }, 12.0)
+      .to("#tlog-1", { opacity: 1, duration: 0.2 }, 12.2)
+      .to("#tlog-2", { opacity: 1, duration: 0.2 }, 13.0)
+
+      // Browser Window (Vercel)
+      .to("#win-browser", { opacity: 1, scale: 1, y: 0, duration: 1.0, ease: "power3.out" }, 13.5)
+      .to(".light-layer", { scale: 1.02, x: -40, y: -10, duration: 2.0, ease: "power2.out" }, 13.5) // cinematic pan to Browser
+      
+      .to("#pill-txt", { text: "Monitoring deployment...", duration: 0.5 }, 13.8)
+      .to("#vc-dot", { backgroundColor: "#ffbd2e", boxShadow: "0 0 10px rgba(255,189,46,0.4)", duration: 0.3 }, 14.2)
+      .to("#vc-status-text", { text: "Building", color: "#b27b00" }, 14.2)
+      .to("#vc-status-box", { backgroundColor: "#fff9e6", borderColor: "#ffe082" }, 14.2)
+      
+      .to("#vc-dot", { backgroundColor: "#27c93f", boxShadow: "0 0 10px rgba(39,201,63,0.4)", duration: 0.3 }, 16.5)
+      .to("#vc-status-text", { text: "Ready", color: "#1e8a2d" }, 16.5)
+      .to("#vc-status-box", { backgroundColor: "#e6ffe9", borderColor: "#a3eba9" }, 16.5)
+
+      // Slack Window
+      .to("#win-slack", { opacity: 1, scale: 1, y: 0, duration: 1.0, ease: "power3.out" }, 17.0)
+      .to(".light-layer", { scale: 1, x: 0, y: -30, duration: 2.0, ease: "power2.out" }, 17.0) // pan down
+      
+      .to("#pill-txt", { text: "Updating team...", duration: 0.5 }, 17.2)
+      .to("#slack-msg", { opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.5)" }, 17.8)
+      .to("#pill-txt", { text: "Sequence complete.", duration: 0.5 }, 19.0)
+
+      // Dissolve OS
+      .to(".light-layer", { scale: 0.95, opacity: 0, filter: "blur(10px)", duration: 1.2, ease: "power2.inOut" }, 21.0)
+      .call(() => wrap.classList.remove("light-mode"), null, 21.6);
+
+
+    // --- ACT 3: PROOF (DARK THEME) ---
+    tl.to("#proof", { opacity: 1, duration: 1.0 }, 22.0)
+      
+      .to("#bar-1", { height: "100px", duration: 1.0, ease: "power3.out" }, 22.5)
+      .to("#bar-2", { height: "180px", duration: 1.0, ease: "power3.out" }, 22.7)
+      .to("#bar-3", { height: "240px", duration: 1.2, ease: "back.out(1.2)" }, 22.9)
+      .to("#bglow-3", { opacity: 1, duration: 0.5 }, 23.5)
+      
+      .to(".bar-val", { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: "power2.out" }, 23.2)
+      .fromTo(["#cta-1", "#cta-2"], { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 1.0, stagger: 0.2, ease: "power2.out" }, 24.0)
+      
+      .to("#replay-btn", { opacity: 1, duration: 0.8 }, 25.5);
+}
+
+</script>
+</body>
+</html>

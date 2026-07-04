@@ -1,0 +1,533 @@
+.logic-root {
+  overflow: hidden;
+  background: #f6f7f4;
+  color: #111310;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.logic-backdrop {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(70, 210, 180, .18), transparent 32%),
+    radial-gradient(circle at 88% 16%, rgba(55, 154, 248, .16), transparent 34%),
+    linear-gradient(180deg, #fbfbf8, #edf1ec);
+}
+
+.logic-backdrop__wash {
+  position: absolute;
+  width: 760px;
+  height: 760px;
+  border-radius: 50%;
+  filter: blur(48px);
+}
+
+.logic-backdrop__wash--one {
+  left: -120px;
+  top: 30px;
+  background: rgba(44, 211, 174, .16);
+}
+
+.logic-backdrop__wash--two {
+  right: -160px;
+  bottom: 160px;
+  background: rgba(36, 142, 246, .13);
+}
+
+.logic-backdrop__grid {
+  position: absolute;
+  inset: -12%;
+  opacity: .12;
+  background-image:
+    linear-gradient(rgba(17, 19, 16, .18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 19, 16, .18) 1px, transparent 1px);
+  background-size: 86px 86px;
+  transform: rotate(-7deg);
+}
+
+.logic-backdrop__grain {
+  position: absolute;
+  inset: 0;
+  opacity: .1;
+  background-image:
+    radial-gradient(rgba(17, 19, 16, .18) .7px, transparent .7px),
+    radial-gradient(rgba(255, 255, 255, .6) .6px, transparent .6px);
+  background-size: 5px 5px, 8px 8px;
+  mix-blend-mode: multiply;
+}
+
+.logic-scene {
+  overflow: hidden;
+}
+
+.logic-tool {
+  position: absolute;
+  width: 470px;
+  height: 210px;
+  padding: 28px 30px;
+  border: 1px solid rgba(17, 19, 16, .08);
+  border-radius: 30px;
+  background: rgba(255, 255, 252, .72);
+  box-shadow: 0 30px 70px rgba(29, 44, 56, .11);
+}
+
+.logic-tool span,
+.logic-map__copy span,
+.logic-decision span,
+.logic-receipt span,
+.logic-launch__cta span,
+.logic-launch__cta strong,
+.logic-progress {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.logic-tool span {
+  color: rgba(17, 19, 16, .42);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.logic-tool strong {
+  display: block;
+  margin-top: 18px;
+  color: rgba(17, 19, 16, .8);
+  font-size: 26px;
+  font-weight: 670;
+}
+
+.logic-tool p {
+  height: 11px;
+  margin: 18px 0 0;
+  border-radius: 999px;
+  background: rgba(63, 91, 108, .14);
+}
+
+.logic-tool p:nth-child(4) {
+  width: 74%;
+}
+
+.logic-tool p:nth-child(5) {
+  width: 48%;
+}
+
+.logic-scatter__center {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 1120px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.logic-scatter h1,
+.logic-summon h1,
+.logic-map__copy h2,
+.logic-launch h1 {
+  margin: 0;
+  color: #10120f;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.logic-scatter h1 {
+  font-size: 96px;
+  line-height: .98;
+}
+
+.logic-scatter h1 span {
+  color: #20cfa6;
+  text-shadow: 0 0 44px rgba(32, 207, 166, .42);
+}
+
+.logic-pulse {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(32, 207, 166, .34);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 80px rgba(32, 207, 166, .18);
+}
+
+.logic-pulse::before,
+.logic-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 64px;
+  border: 1px solid rgba(32, 207, 166, .22);
+  border-radius: 50%;
+}
+
+.logic-pulse::after {
+  inset: 126px;
+}
+
+.logic-mark {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, .7), transparent 26%),
+    linear-gradient(135deg, #6df0c8, #2f7667);
+  box-shadow: 0 24px 64px rgba(40, 116, 95, .22);
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.logic-mark--large {
+  width: 112px;
+  height: 112px;
+  border-radius: 34px;
+  font-size: 46px;
+}
+
+.logic-mark i {
+  position: absolute;
+  left: 31%;
+  right: 31%;
+  bottom: 24%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .92);
+}
+
+.logic-summon,
+.logic-launch {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.logic-summon__brand {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 34px;
+  align-items: center;
+  margin-top: -160px;
+}
+
+.logic-summon h1,
+.logic-launch h1 {
+  font-size: 116px;
+  line-height: 1;
+}
+
+.logic-command {
+  position: absolute;
+  left: 50%;
+  top: 720px;
+  width: 980px;
+  min-height: 118px;
+  padding: 24px 30px;
+  transform: translateX(-50%);
+  transform-origin: center;
+  border: 1px solid rgba(17, 19, 16, .12);
+  border-radius: 30px;
+  background: rgba(255, 255, 252, .76);
+  box-shadow: 0 28px 80px rgba(34, 58, 74, .13);
+  backdrop-filter: blur(16px);
+}
+
+.logic-command span {
+  display: block;
+  color: rgba(17, 19, 16, .42);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.logic-command strong {
+  display: block;
+  margin-top: 15px;
+  color: #111310;
+  font-size: 34px;
+  font-weight: 600;
+}
+
+.logic-command i {
+  display: inline-block;
+  width: 4px;
+  height: 34px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #111310;
+  vertical-align: -6px;
+}
+
+.logic-summon p,
+.logic-launch p {
+  position: absolute;
+  left: 50%;
+  top: 880px;
+  width: 840px;
+  margin: 0;
+  transform: translateX(-50%);
+  color: rgba(17, 19, 16, .54);
+  font-size: 38px;
+  line-height: 1.22;
+  text-align: center;
+}
+
+.logic-map {
+  position: absolute;
+  inset: 0;
+}
+
+.logic-map__copy {
+  position: absolute;
+  left: 120px;
+  top: 116px;
+  width: 850px;
+}
+
+.logic-map__copy span {
+  color: rgba(17, 19, 16, .48);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.logic-map__copy h2 {
+  margin-top: 28px;
+  font-size: 70px;
+  line-height: 1.02;
+}
+
+.logic-map__path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.logic-map__path path {
+  fill: none;
+  stroke: rgba(17, 19, 16, .38);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+}
+
+.logic-node {
+  position: absolute;
+  z-index: 4;
+  width: 178px;
+  padding: 18px 20px;
+  border: 1px solid rgba(17, 19, 16, .12);
+  border-radius: 26px;
+  background: rgba(255, 255, 252, .76);
+  box-shadow: 0 22px 64px rgba(34, 58, 74, .1);
+}
+
+.logic-node.is-active {
+  background: linear-gradient(135deg, rgba(255, 255, 252, .88), rgba(214, 255, 242, .88));
+  box-shadow: 0 26px 80px rgba(32, 207, 166, .18);
+}
+
+.logic-node span {
+  display: block;
+  color: rgba(17, 19, 16, .42);
+  font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.logic-node strong {
+  display: block;
+  margin-top: 12px;
+  color: #111310;
+  font-size: 22px;
+  font-weight: 690;
+}
+
+.logic-decision {
+  position: absolute;
+  right: 132px;
+  top: 158px;
+  width: 360px;
+  padding: 26px 28px;
+  border-radius: 28px;
+  background: rgba(22, 34, 40, .78);
+  color: #fff;
+  box-shadow: 0 28px 80px rgba(25, 44, 54, .22);
+  backdrop-filter: blur(16px);
+}
+
+.logic-decision span {
+  color: rgba(255, 255, 255, .48);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.logic-decision strong {
+  display: block;
+  margin-top: 16px;
+  font-size: 32px;
+  font-weight: 640;
+}
+
+.logic-approval {
+  position: absolute;
+  left: 1268px;
+  top: 824px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 22px;
+  align-items: center;
+  padding: 22px 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 252, .8);
+  box-shadow: 0 26px 72px rgba(32, 207, 166, .18);
+  backdrop-filter: blur(16px);
+}
+
+.logic-approval b {
+  color: rgba(17, 19, 16, .7);
+  font: 800 15px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+}
+
+.logic-approval i {
+  width: 58px;
+  height: 34px;
+  border-radius: 999px;
+  background: #2fd2a9;
+  box-shadow: inset 23px 0 0 rgba(255, 255, 255, .92);
+}
+
+.logic-receipt {
+  position: absolute;
+  left: 50%;
+  bottom: 164px;
+  width: 690px;
+  padding: 28px 32px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(17, 19, 16, .1);
+  border-radius: 30px;
+  background: rgba(255, 255, 252, .78);
+  box-shadow: 0 28px 80px rgba(34, 58, 74, .14);
+  backdrop-filter: blur(16px);
+}
+
+.logic-receipt span {
+  color: rgba(17, 19, 16, .48);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.logic-receipt strong {
+  display: block;
+  margin-top: 16px;
+  color: #111310;
+  font-size: 27px;
+  line-height: 1.22;
+}
+
+.logic-launch__mark {
+  position: absolute;
+  left: 50%;
+  top: 390px;
+  transform: translateX(-50%);
+}
+
+.logic-launch h1 {
+  position: absolute;
+  left: 50%;
+  top: 540px;
+  transform: translateX(-50%);
+}
+
+.logic-launch p {
+  top: 682px;
+}
+
+.logic-launch__line {
+  position: absolute;
+  left: 50%;
+  top: 795px;
+  width: 560px;
+  height: 1px;
+  transform: translateX(-50%);
+  background: rgba(17, 19, 16, .12);
+  overflow: hidden;
+}
+
+.logic-launch__line i {
+  display: block;
+  height: 100%;
+  background: rgba(17, 19, 16, .5);
+  transform-origin: left;
+}
+
+.logic-launch__cta {
+  position: absolute;
+  left: 50%;
+  top: 850px;
+  display: grid;
+  gap: 16px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.logic-launch__cta span,
+.logic-launch__cta strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.logic-launch__cta span {
+  color: rgba(17, 19, 16, .44);
+}
+
+.logic-launch__cta strong {
+  color: #237964;
+}
+
+.logic-transitions {
+  z-index: 50;
+  pointer-events: none;
+}
+
+.logic-wipe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .5);
+}
+
+.logic-wipe i {
+  position: absolute;
+  left: 34%;
+  top: -12%;
+  width: 30%;
+  height: 124%;
+  background: linear-gradient(90deg, transparent, rgba(44, 211, 174, .54), rgba(36, 142, 246, .36), transparent);
+  filter: blur(22px);
+}
+
+.logic-progress {
+  position: absolute;
+  left: 54px;
+  right: 54px;
+  bottom: 46px;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 20px;
+  color: rgba(17, 19, 16, .42);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.logic-progress i {
+  height: 1px;
+  background: rgba(17, 19, 16, .3);
+  transform-origin: left;
+}

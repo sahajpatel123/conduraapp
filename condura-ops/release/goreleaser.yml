@@ -1,0 +1,235 @@
+# GoReleaser config for Condura releases (OSS — no prebuilt Pro builder).
+# GUI artifacts are built in release.yml and uploaded separately.
+# Reference: https://goreleaser.com
+
+version: 2
+
+project_name: condura
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  # ── macOS builds with CGO (required for native computer-use, voice, permissions) ──
+  - id: condurad-darwin
+    main: ./condura-app/cmd/condurad
+    binary: condurad
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura-darwin
+    main: ./condura-app/cmd/condura
+    binary: condura
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura-tui-darwin
+    main: ./condura-app/cmd/condura-tui
+    binary: condura-tui
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  # ── Linux/Windows builds without CGO (native backends are macOS-only) ──
+  - id: condurad
+    main: ./condura-app/cmd/condurad
+    binary: condurad
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura
+    main: ./condura-app/cmd/condura
+    binary: condura
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+  - id: condura-tui
+    main: ./condura-app/cmd/condura-tui
+    binary: condura-tui
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version={{.Version}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.BuildDate={{.Date}}
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: condurad-archive
+    ids:
+      - condurad
+      - condurad-darwin
+    formats:
+      - tar.gz
+      - zip
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      condurad-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - EULA.md
+
+  - id: condura-archive
+    ids:
+      - condura
+      - condura-darwin
+    formats:
+      - tar.gz
+      - zip
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      condura-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - EULA.md
+
+  - id: condura-tui-archive
+    ids:
+      - condura-tui
+      - condura-tui-darwin
+    formats:
+      - tar.gz
+      - zip
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      condura-tui-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - EULA.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+nfpms:
+  - id: condurad-deb
+    package_name: condurad
+    vendor: Condura
+    homepage: https://condura.app
+    maintainer: Condura <dev@condura.app>
+    description: Condura AI daemon — local-first desktop agent
+    license: Condura Freeware EULA
+    formats:
+      - deb
+    bindir: /usr/bin
+    ids:
+      - condurad
+
+  - id: condura-cli-deb
+    package_name: condura
+    vendor: Condura
+    homepage: https://condura.app
+    maintainer: Condura <dev@condura.app>
+    description: Condura CLI — control the Condura daemon
+    license: Condura Freeware EULA
+    formats:
+      - deb
+    bindir: /usr/bin
+    ids:
+      - condura
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  draft: false
+  prerelease: auto
+  name_template: "Condura {{.Version}}"
+  header: |
+    ## Condura {{.Version}}
+
+    Signed binaries and SHA-256 checksums are attached below.
+    The update manifest (`update-manifest.json`) is signed with Ed25519 for auto-update.
+
+  footer: |
+    ---
+    Generated by GoReleaser.
+
+# Platform code signing is run in release.yml when secrets are configured.
+# GUI DMG/NSIS installers are uploaded in release.yml after GoReleaser.
+# See docs/release-runbook.md.

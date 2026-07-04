@@ -3,6 +3,8 @@
 /dist/
 /build/
 /out/
+
+# Built binaries (legacy synaptic names + new condura names)
 /synapticd
 /synaptic
 /synaptic-tui
@@ -19,20 +21,26 @@
 coverage.out
 coverage.html
 coverage.txt
+/condurad
+/condura
+/condura-tui
+/condurad.exe
+/condura.exe
+/condura-tui.exe
 
 # Go
 /vendor/
 *.pgo
 *.pprof
 
-# Node (for future Wails/TUI)
+# Node — any folder
 node_modules/
 .next/
 .turbo/
 .pnpm-store/
 *.tsbuildinfo
 
-# Python (for future bridges)
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -55,9 +63,6 @@ secrets.yaml
 local.yaml
 config.local.yaml
 
-# Synaptic runtime (in user home, but ignore if created locally for testing)
-.synaptic/
-
 # OS
 .DS_Store
 Thumbs.db
@@ -77,50 +82,44 @@ desktop.ini
 .settings/
 *.iml
 
-# Test fixtures (large generated content)
-test/fixtures/screen_recordings/
-test/fixtures/generated/
+# Wails GUI build artifacts (shell lives in condura-app/cmd/condura-gui/)
+/condura-app/cmd/condura-gui/build/
 
-# Wails GUI build artifacts
-/app/web/build/
-/app/web/frontend/node_modules/
-/app/web/frontend/dist/
-/app/web/frontend/package.json.md5
+# Svelte / frontend build outputs
+/condura-gui/frontend/node_modules/
+/condura-gui/frontend/assets/dist/
+/condura-gui/frontend/package.json.md5
 
 # Wails generated Go bindings (regenerated on `wails build`)
-/app/web/frontend/wailsjs/
+/condura-gui/frontend/wailsjs/
 
-# Built binaries (Condura rebrand) — only match the binary names with no path
-# prefix so the source directory `app/web/frontend/src/lib/condura/` is NOT ignored.
-/condurad
-/condura
-/condura-tui
-/condurad.exe
-/condura.exe
-/condura-tui.exe
-/bin/condurad
-/bin/condura
-/bin/condura-tui
-/bin/condurad.exe
-/bin/condura.exe
-/bin/condura-tui.exe
-/dist/condurad
-/dist/condura
-/dist/condura-tui
-/build/condurad
-/build/condura
-/build/condura-tui
+# Next.js build outputs
+/condura-ui/.next/
+/condura-ui/node_modules/
+
+# Remotion / studio build outputs
+/condura-studio/condura-demo/node_modules/
+/condura-studio/condura-demo/build/
+/condura-studio/my-video/node_modules/
+/condura-studio/my-video/build/
 
 # Agent artifacts
 .commandcode/
 .commandbar/
-
-# Marketing film / demo HTML files
-condura-*.html
-condura_*.html
 
 # Superpowers SDD scratch (progress ledger, briefs, review packages)
 .superpowers/
 
 # Claude Code agent scratch
 .claude/
+
+# Local git worktree scratch
+.worktrees/
+
+# Synaptic runtime (in user home, but ignore if created locally)
+/.synaptic/
+
+# Marketing film HTMLs at the repo ROOT are gitignored
+# (the curated ones now live under condura-ui/_experiments/ and are tracked)
+/condura-*.html
+/condura_*.html

@@ -140,18 +140,19 @@ linters:
 
   exclusions:
     paths:
-      - internal/hotkey
-      - internal/tray
-      - internal/tui
-      - internal/sync
-      - internal/onboarding
-      - cmd/condura-tui
-      - app/web/frontend/node_modules
-      - app/web/frontend/src
-      - web
-      - hub
-      - marketing
-      - app/web/frontend
+      - condura-app/internal/hotkey
+      - condura-app/internal/tray
+      - condura-app/internal/tui
+      - condura-app/internal/sync
+      - condura-app/internal/onboarding
+      - condura-app/cmd/condura-tui
+      - condura-gui/frontend/src
+      - condura-gui/frontend
+      - condura-ui
+      - condura-hub
+      - condura-sdk
+      - condura-studio
+      - 'node_modules/'
     rules:
       - path: _test\.go
         linters:

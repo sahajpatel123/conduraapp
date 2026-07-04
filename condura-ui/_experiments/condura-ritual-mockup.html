@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Condura — The First-Run Ritual (mockup)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  /* ─── tokens ─── */
+  :root{
+    --font-display:'Instrument Serif',Georgia,serif; --font-sans:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --r-xs:6px;--r-sm:10px;--r-md:16px;--r-lg:24px;--r-xl:36px;--r-pill:999px;
+    --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:32px;--sp-8:40px;--sp-9:48px;--sp-10:64px;
+    --ease:cubic-bezier(0.22,1,0.36,1);
+    --dur-fast:140ms;--dur:280ms;--dur-slow:520ms;--dur-cine:900ms;
+  }
+  :root[data-mode='light']{
+    --paper:#F4EFE4;--paper-2:#ECE5D4;--paper-3:#E2DAC6;
+    --ink:#14110B;--ink-soft:#2A2519;--ink-mute:#5C5443;--ink-faint:#8A8169;--ink-ghost:#B8AF98;
+    --synapse:#0B3D2E;--synapse-glow:#1A8A6A;--synapse-light:#9CE8C8;
+    --pollen:#C97B2E;--pollen-light:#F0C082;
+    --danger:#A3312A;--ok:#2E7D4F;--warn:#B07A2E;
+    --hair:rgba(20,17,11,0.10);--hair-strong:rgba(20,17,11,0.18);
+    --surface:var(--paper);--surface-card:#ECE5D4;--surface-ink:#16140F;
+    --content:var(--ink);--content-soft:var(--ink-soft);--content-mute:var(--ink-mute);
+    --shadow-card:0 1px 0 rgba(20,17,11,.06),0 24px 60px -28px rgba(20,17,11,.22),0 2px 8px -4px rgba(20,17,11,.08);
+    --shadow-float:0 2px 0 rgba(20,17,11,.05),0 50px 120px -40px rgba(20,17,11,.42),0 8px 24px -10px rgba(20,17,11,.14);
+    --pollen-halo:0 0 0 4px rgba(201,123,46,.18);
+    --grain-opacity:.5;
+    --bloom-1:rgba(180,216,232,0.18);--bloom-2:rgba(232,216,180,0.22);--bloom-3:rgba(11,61,46,0.05);
+    --ambient:#0E0C08;
+  }
+  :root[data-mode='dark']{
+    --paper:#16140F;--paper-2:#1F1C16;--paper-3:#2A2519;
+    --ink:#F0EDE5;--ink-soft:#D8D2C4;--ink-mute:#8A847A;--ink-faint:#5C564C;--ink-ghost:#3A352D;
+    --synapse:#1A8A6A;--synapse-glow:#2FBF95;--synapse-light:#0B3D2E;
+    --pollen:#E0A862;--pollen-light:#9A5A1A;
+    --danger:#C75449;--ok:#4FAE74;--warn:#D49A4E;
+    --hair:rgba(240,237,229,0.10);--hair-strong:rgba(240,237,229,0.20);
+    --surface:var(--paper);--surface-card:#1F1C16;--surface-ink:#0B0A07;
+    --content:var(--ink);--content-soft:var(--ink-soft);--content-mute:var(--ink-mute);
+    --shadow-card:0 1px 0 rgba(0,0,0,.25),0 24px 60px -28px rgba(0,0,0,.55);
+    --shadow-float:0 2px 0 rgba(0,0,0,.30),0 50px 120px -40px rgba(0,0,0,.70),0 8px 24px -10px rgba(0,0,0,.40);
+    --pollen-halo:0 0 0 4px rgba(224,168,98,.22);
+    --grain-opacity:.30;
+    --bloom-1:rgba(26,138,106,0.10);--bloom-2:rgba(201,123,46,0.08);--bloom-3:rgba(11,61,46,0.18);
+    --ambient:#050402;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--font-sans);color:var(--content);background:var(--ambient);font-size:15px;line-height:1.6;letter-spacing:-0.008em;overflow:hidden;-webkit-font-smoothing:antialiased;cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M3 2 L3 15 L7 11.5 L9.5 17 L11.5 16 L9 10.5 L15 10 Z' fill='%2314110B' stroke='%23C97B2E' stroke-width='1' stroke-linejoin='round'/></svg>") 3 2,auto}
+  ::selection{background:var(--synapse);color:var(--paper)}
+  :focus-visible{outline:2px solid var(--synapse);outline-offset:3px;border-radius:4px}
+
+  /* ambient desktop behind the pre-window */
+  .ambient{position:fixed;inset:0;z-index:0;background:
+    radial-gradient(ellipse at 30% 20%,rgba(26,138,106,0.10),transparent 55%),
+    radial-gradient(ellipse at 75% 80%,rgba(201,123,46,0.08),transparent 50%),
+    var(--ambient)}
+  .ambient::after{content:'';position:absolute;inset:0;backdrop-filter:blur(8px);background:rgba(0,0,0,0.2)}
+
+  /* cursor halo */
+  .halo{position:fixed;top:0;left:0;width:14px;height:14px;border-radius:50%;border:1px solid var(--synapse-glow);background:rgba(201,123,46,0.10);pointer-events:none;z-index:9999;opacity:0;transform:translate(-100px,-100px);transition:width .25s var(--ease),height .25s var(--ease),opacity .25s var(--ease),background .25s var(--ease),border-color .25s var(--ease)}
+  .halo.on{opacity:.55}
+  .halo.hover{width:34px;height:34px;background:rgba(201,123,46,0.14);border-color:var(--pollen);opacity:.7}
+
+  /* ─── pre-window ─── */
+  .prewindow{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(1040px,94vw);height:min(660px,90vh);background:var(--paper);border-radius:var(--r-xl);box-shadow:var(--shadow-float);overflow:hidden;z-index:2;opacity:0;transition:opacity var(--dur-slow) var(--ease)}
+  .prewindow.show{opacity:1}
+  .pw-grain{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:var(--grain-opacity);background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.04  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");background-size:240px 240px;mix-blend-mode:multiply}
+  :root[data-mode='dark'] .pw-grain{mix-blend-mode:screen}
+  .pw-bloom{position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 20% 0%,var(--bloom-1),transparent 50%),radial-gradient(ellipse at 90% 10%,var(--bloom-2),transparent 45%),radial-gradient(ellipse at 50% 100%,var(--bloom-3),transparent 55%)}
+
+  /* island (top center) */
+  .pw-island{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;height:30px;padding:0 14px;background:var(--surface-card);border:1px solid var(--hair);border-radius:var(--r-pill);box-shadow:var(--shadow-card);overflow:hidden;transition:width var(--dur-slow) var(--ease)}
+  .pw-island .idot{width:8px;height:8px;border-radius:50%;flex:none}
+  .pw-island .ilabel{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--content-mute);white-space:nowrap}
+
+  /* constellation (left) */
+  .constellation{position:absolute;left:24px;top:50%;transform:translateY(-50%);width:170px;height:340px;z-index:3;opacity:0;transition:opacity var(--dur-slow) var(--ease)}
+  .constellation.show{opacity:1}
+  .constellation svg{width:100%;height:100%;overflow:visible}
+
+  /* spine (bottom) */
+  .spine{position:absolute;left:48px;right:48px;bottom:26px;height:10px;z-index:4}
+  .spine svg{width:100%;height:10px;overflow:visible}
+
+  /* skip margin note */
+  .skip-note{position:absolute;left:48px;bottom:62px;z-index:5;font-family:var(--font-display);font-style:italic;font-size:15px;color:var(--ink-faint);cursor:pointer;display:flex;align-items:center;gap:6px;opacity:0;transition:opacity var(--dur) var(--ease)}
+  .skip-note.show{opacity:1}
+  .skip-note:hover{color:var(--pollen)}
+  .skip-note .arr{color:var(--pollen);font-family:var(--font-sans)}
+
+  /* step content (center) */
+  .content{position:absolute;left:240px;right:48px;top:78px;bottom:96px;z-index:4;display:flex;flex-direction:column;justify-content:center;max-width:620px}
+  .scene{display:none;flex-direction:column;gap:var(--sp-4)}
+  .scene.active{display:flex;animation:blur-in var(--dur-slow) var(--ease) both}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-faint)}
+  .headline{font-family:var(--font-display);font-weight:400;font-size:clamp(32px,4vw,46px);line-height:1.02;letter-spacing:-0.035em;color:var(--content)}
+  .headline .alive{font-style:italic;color:var(--synapse)}
+  .sub{font-size:16px;line-height:1.55;color:var(--content-soft);max-width:48ch}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-sans);font-size:14px;font-weight:500;border-radius:var(--r-pill);padding:11px 20px;border:1px solid transparent;cursor:pointer;transition:transform var(--dur) var(--ease),background var(--dur) var(--ease),box-shadow var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease);will-change:transform;align-self:flex-start}
+  .btn-primary{background:var(--pollen);color:#FFF6EC;box-shadow:var(--shadow-card)}
+  :root[data-mode='dark'] .btn-primary{color:#1A1206}
+  .btn-primary:hover{box-shadow:0 1px 0 rgba(244,239,228,.12) inset,0 18px 40px -16px rgba(20,17,11,.6),var(--pollen-halo);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--content);border-color:var(--hair-strong)}
+  .btn-ghost:hover{border-color:var(--synapse);color:var(--synapse)}
+  .btn-secondary{background:var(--surface-card);color:var(--content);border-color:var(--hair)}
+  .btn-secondary:hover{border-color:var(--hair-strong);transform:translateY(-1px)}
+  .btn[disabled]{opacity:.4;pointer-events:none}
+  .btn .arr{transition:transform var(--dur) var(--ease)}
+  .btn:hover .arr{transform:translate(2px,-2px)}
+
+  /* wordrise */
+  .wordrise{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:0.10em}
+  .wordrise>span{display:inline-block;transform:translateY(110%);animation:rise var(--dur-cine) var(--ease) forwards}
+
+  /* ─── arrival awakening ─── */
+  .arrival-void{position:absolute;inset:0;z-index:6;background:var(--surface-ink);opacity:0;transition:opacity 700ms var(--ease)}
+  .prewindow.awaken .arrival-void{opacity:1;animation:voidHold 600ms var(--ease) forwards}
+  .arrival-mote{position:absolute;left:38%;top:50%;width:6px;height:6px;border-radius:50%;background:var(--pollen);box-shadow:0 0 12px rgba(201,123,46,0.8);z-index:7;opacity:0}
+  .prewindow.awaken .arrival-mote{animation:moteDrift 3.4s var(--ease) forwards}
+  .arrival-wordmark{position:absolute;left:48px;top:50%;transform:translateY(-50%);font-family:var(--font-display);font-size:clamp(56px,8vw,96px);letter-spacing:-0.04em;color:var(--content);z-index:5;clip-path:inset(0 100% 0 0);opacity:0}
+  .prewindow.awaken .arrival-wordmark{animation:wordReveal 900ms var(--ease) 1400ms forwards}
+  .arrival-underline{position:absolute;left:48px;top:calc(50% + 52px);width:340px;height:2px;z-index:5}
+  .arrival-underline svg{overflow:visible}
+  .prewindow.awaken .arrival-underline{animation:fadeUp 400ms var(--ease) 1500ms both}
+  .arrival-pulse{position:absolute;left:calc(48px + 340px);top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--synapse);z-index:6;opacity:0;box-shadow:0 0 0 0 rgba(201,123,46,0.6)}
+  .prewindow.awaken .arrival-pulse{animation:firstBeat 900ms var(--ease) 2600ms forwards, breathe 5s var(--ease) 3500ms infinite}
+  .arrival-welcome{position:absolute;left:48px;bottom:120px;right:48px;z-index:5;opacity:0}
+  .prewindow.awaken .arrival-welcome{animation:fadeUp 600ms var(--ease) 3400ms forwards}
+
+  /* ─── agreement / wax seal ─── */
+  .eula{max-height:240px;overflow-y:auto;border:1px solid var(--hair);border-radius:var(--r-md);background:var(--surface-card);padding:var(--sp-4);font-size:13px;line-height:1.65;color:var(--content-soft);white-space:pre-wrap;position:relative}
+  .eula-read-thread{position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--synapse);transform:scaleY(0);transform-origin:top;transition:transform 200ms var(--ease)}
+  .seal-wrap{display:flex;align-items:center;gap:var(--sp-4);margin-top:var(--sp-4)}
+  .seal{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2FBF95,#0B3D2E 70%);color:#EAF6EF;display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 20px -8px rgba(11,61,46,.5),inset 0 0 0 2px rgba(234,246,239,.2);transition:transform 120ms var(--ease),box-shadow var(--dur) var(--ease);flex:none}
+  .seal:hover{box-shadow:0 8px 20px -8px rgba(11,61,46,.5),inset 0 0 0 2px rgba(234,246,239,.2),var(--pollen-halo)}
+  .seal.stamped{transform:scale(0.94) translateY(2px)}
+  .seal .seal-c{font-family:var(--font-display);font-size:28px;line-height:1}
+  .seal-text{display:flex;flex-direction:column;gap:2px}
+  .seal-text .st-1{font-size:15px;color:var(--content)}
+  .seal-text .st-2{font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-faint)}
+
+  /* ─── perception (permissions) ─── */
+  .perms{display:flex;flex-direction:column;gap:var(--sp-3)}
+  .perm{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px solid var(--hair);border-radius:var(--r-md);background:var(--surface-card);transition:border-color var(--dur) var(--ease)}
+  .perm.granted{border-color:rgba(11,61,46,0.3)}
+  .perm-icon{width:20px;height:20px;color:var(--content-mute);flex:none}
+  .perm-body{display:flex;flex-direction:column;gap:2px}
+  .perm-name{font-size:15px;color:var(--content)}
+  .perm-desc{font-size:12px;color:var(--content-mute)}
+  .perm-status{margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-pill);border:1px solid var(--hair-strong);color:var(--ink-faint)}
+  .perm-status[data-status='granted']{color:var(--ok);border-color:rgba(46,125,79,.4);background:rgba(46,125,79,.06)}
+  .perm-status[data-status='denied']{color:var(--danger);border-color:rgba(163,49,42,.4);background:rgba(163,49,42,.06)}
+  .perm-open{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--synapse);cursor:pointer}
+  .perm-open:hover{text-decoration:underline}
+  .perm-disclosure{margin-top:var(--sp-3);font-family:var(--font-display);font-style:italic;font-size:14px;color:var(--ink-faint);cursor:pointer}
+  .perm-disclosure:hover{color:var(--content)}
+
+  /* ─── power ─── */
+  .choices{display:flex;flex-direction:column;gap:var(--sp-3)}
+  .choice{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);border:1px solid var(--hair);border-radius:var(--r-md);background:var(--surface-card);cursor:pointer;text-align:left;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .choice:hover{transform:translateY(-1px);border-color:var(--hair-strong)}
+  .choice.selected{border-color:var(--pollen);box-shadow:var(--pollen-halo)}
+  .choice.found::before{content:'';position:absolute}
+  .c-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--hair-strong);flex:none;display:grid;place-items:center;transition:border-color var(--dur) var(--ease)}
+  .choice.selected .c-radio{border-color:var(--pollen)}
+  .choice.selected .c-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--pollen)}
+  .c-body{display:flex;flex-direction:column;gap:2px}
+  .c-title{font-size:15px;color:var(--content)}
+  .c-meta{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .c-tag{margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--synapse);border:1px solid rgba(11,61,46,.3);padding:3px 8px;border-radius:var(--r-pill);background:rgba(11,61,46,.06)}
+  .key-input{margin-top:var(--sp-3);display:none;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px solid var(--hair);border-radius:var(--r-md);background:var(--surface)}
+  .key-input.show{display:flex}
+  .key-input input{flex:1;background:transparent;border:none;font-family:var(--font-mono);font-size:14px;color:var(--content);outline:none}
+  .key-input input::placeholder{color:var(--ink-faint)}
+  .key-chip{font-family:var(--font-mono);font-size:11px;padding:3px 8px;border:1px solid var(--hair-strong);border-radius:var(--r-sm);color:var(--content-soft)}
+
+  /* ─── summoning (hotkey) ─── */
+  .keycaps{display:flex;align-items:center;gap:var(--sp-2);justify-content:center;padding:var(--sp-5);border:1px dashed var(--hair-strong);border-radius:var(--r-md);min-height:72px;transition:border-color var(--dur) var(--ease)}
+  .keycaps.listening{border-color:var(--pollen);border-style:solid}
+  .keycap{font-family:var(--font-mono);font-size:15px;font-weight:500;padding:8px 14px;border:1px solid var(--hair-strong);border-bottom-width:3px;border-radius:var(--r-sm);background:var(--surface-card);color:var(--content);box-shadow:var(--shadow-card)}
+  .keycaps-hint{font-family:var(--font-mono);font-size:12px;color:var(--ink-faint)}
+  .presets{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
+  .preset{font-family:var(--font-mono);font-size:11px;padding:6px 12px;border:1px solid var(--hair-strong);border-radius:var(--r-sm);background:var(--surface-card);color:var(--content-soft);cursor:pointer;transition:border-color var(--dur) var(--ease)}
+  .preset.active{border-color:var(--pollen);color:var(--content);box-shadow:var(--pollen-halo)}
+  .try-it{margin-top:var(--sp-4);align-self:flex-start;font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--synapse);cursor:pointer;display:none;align-items:center;gap:6px}
+  .try-it.show{display:inline-flex}
+
+  /* ─── threads (channels) ─── */
+  .channels{display:flex;gap:var(--sp-3);flex-wrap:wrap}
+  .channel{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-4);border:1px solid var(--hair);border-radius:var(--r-md);background:var(--surface-card);cursor:pointer;min-width:84px;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .channel:hover{transform:translateY(-2px);border-color:var(--hair-strong)}
+  .channel.connected{border-color:rgba(11,61,46,0.3)}
+  .ch-icon{width:28px;height:28px;color:var(--content-mute)}
+  .channel.connected .ch-icon{color:var(--synapse)}
+  .ch-name{font-size:12px;color:var(--content)}
+  .ch-state{font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .channel.connected .ch-state{color:var(--synapse)}
+  .channel.skip .ch-state{color:var(--ink-faint)}
+
+  /* ─── first breath ─── */
+  .breath-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-5);text-align:center}
+  .breath-pulse{width:48px;height:48px;border-radius:50%;background:var(--synapse);box-shadow:0 0 40px rgba(26,138,106,0.4);animation:breathe 4s var(--ease) infinite}
+  .breath-line{font-family:var(--font-display);font-style:italic;font-size:22px;color:var(--synapse)}
+
+  /* ─── shell scene (premium polish preview) ─── */
+  .shell-scene{position:absolute;inset:0;display:none;flex-direction:column;z-index:2;background:var(--paper)}
+  .shell-scene.active{display:flex;animation:blur-in var(--dur-slow) var(--ease) both}
+  .shell-grain{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:var(--grain-opacity);background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.04  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");background-size:240px 240px;mix-blend-mode:multiply}
+  :root[data-mode='dark'] .shell-grain{mix-blend-mode:screen}
+  .shell-bloom{position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 18% -5%,var(--bloom-1),transparent 50%),radial-gradient(ellipse at 92% 8%,var(--bloom-2),transparent 45%),radial-gradient(ellipse at 50% 105%,var(--bloom-3),transparent 55%)}
+  .shell-titlebar{position:relative;z-index:2;height:44px;display:flex;align-items:center;gap:var(--sp-5);padding:0 var(--sp-5);border-bottom:1px solid var(--hair)}
+  .shell-thread{position:absolute;left:160px;right:200px;top:0;height:100%;pointer-events:none;opacity:.5;z-index:1}
+  .shell-thread svg{width:100%;height:100%;overflow:visible}
+  .shell-wordmark{font-family:var(--font-display);font-size:22px;letter-spacing:-0.03em;display:flex;align-items:baseline;gap:3px;z-index:2}
+  .shell-wordmark .dot{width:6px;height:6px;border-radius:50%;background:var(--pollen);transform:translateY(-1px);box-shadow:0 0 8px rgba(201,123,46,.6)}
+  .shell-controls{margin-left:auto;display:flex;align-items:center;gap:var(--sp-4);z-index:2}
+  .shell-island{display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;background:var(--surface-card);border:1px solid var(--hair);border-radius:var(--r-pill);box-shadow:var(--shadow-card)}
+  .shell-island .idot{width:8px;height:8px;border-radius:50%;background:var(--synapse-glow);animation:breathe 5s var(--ease) infinite}
+  .shell-island .ilabel{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--content-mute)}
+  .shell-kbd{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);display:flex;gap:6px}
+  .shell-kbd kbd{font-family:var(--font-mono);font-size:10px;padding:2px 6px;border:1px solid var(--hair-strong);border-radius:6px;background:var(--surface-card);color:var(--content-soft)}
+  .shell-theme{width:28px;height:28px;border-radius:var(--r-pill);border:1px solid var(--hair);background:var(--surface-card);color:var(--content-soft);display:grid;place-items:center;cursor:pointer}
+  .shell-theme:hover{transform:rotate(-12deg);border-color:var(--hair-strong)}
+  .shell-body{position:relative;z-index:2;display:grid;grid-template-columns:232px 1fr;flex:1;overflow:hidden}
+  .shell-nav{display:flex;flex-direction:column;gap:2px;padding:var(--sp-5) var(--sp-2);border-right:1px solid var(--hair);position:relative}
+  .shell-nav-spine{position:absolute;left:24px;top:18px;bottom:18px;width:1px;background:var(--hair-strong);opacity:.5}
+  .shell-nav-spine-fill{position:absolute;left:24px;top:18px;width:1px;background:var(--synapse);height:0;transition:height var(--dur-slow) var(--ease)}
+  .nav-brand{font-family:var(--font-mono);font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-faint);padding:0 var(--sp-3) var(--sp-4)}
+  .nav-item{display:flex;align-items:center;gap:var(--sp-3);padding:9px var(--sp-3);border-radius:var(--r-sm);color:var(--content-mute);font-size:14px;cursor:pointer;position:relative;transform-origin:left center;transition:color var(--dur) var(--ease),background var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .nav-item:hover{color:var(--content);background:var(--surface-card);transform:scale(1.04)}
+  .nav-item.active{color:var(--content)}
+  .nav-item.active::before{content:'';position:absolute;left:-1px;top:6px;bottom:6px;width:2px;background:var(--synapse);border-radius:1px;transform:scaleY(0);transform-origin:top;animation:drawv var(--dur-slow) var(--ease) forwards}
+  .nav-item.active::after{content:'';position:absolute;right:var(--sp-3);top:50%;margin-top:-3px;width:6px;height:6px;border-radius:50%;background:var(--pollen);box-shadow:0 0 8px rgba(201,123,46,.5)}
+  .nav-item svg{width:18px;height:18px;opacity:.7}
+  .nav-item.active svg{opacity:1;color:var(--synapse)}
+  .shell-main{display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .shell-content{flex:1;overflow-y:auto;padding:var(--sp-9) var(--sp-10);position:relative}
+  .shell-empty{max-width:720px;display:flex;flex-direction:column;justify-content:center;height:100%;position:relative}
+  .shell-empty .eyebrow{margin-bottom:var(--sp-5)}
+  .shell-empty .hero{font-family:var(--font-display);font-size:clamp(40px,6vw,68px);line-height:.95;letter-spacing:-0.04em;margin-bottom:var(--sp-5)}
+  .shell-empty .hero .alive{font-style:italic;color:var(--synapse)}
+  .shell-empty .lead{font-size:17px;line-height:1.55;color:var(--content-soft);max-width:52ch;margin-bottom:var(--sp-8)}
+  .shell-thread-hero{position:absolute;right:10%;top:20%;width:240px;height:1px;opacity:.4}
+  .shell-thread-hero svg{overflow:visible}
+  .shell-composer{padding:var(--sp-3) var(--sp-10) var(--sp-6);max-width:820px}
+  .shell-composer-card{background:var(--surface-card);border:1px solid var(--hair);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-card);position:relative;transition:border-color var(--dur) var(--ease)}
+  .shell-composer-card:focus-within{border-color:var(--synapse);box-shadow:var(--shadow-card),0 0 0 3px rgba(11,61,46,.10)}
+  .shell-composer-card::before{content:'';position:absolute;left:var(--sp-4);right:var(--sp-4);bottom:0;height:1px;background:linear-gradient(90deg,transparent,var(--synapse) 20%,var(--synapse) 80%,transparent);transform:scaleX(0);transform-origin:left;transition:transform var(--dur-slow) var(--ease)}
+  .shell-composer-card:focus-within::before{transform:scaleX(1)}
+  .shell-composer textarea{width:100%;min-height:48px;resize:none;border:none;background:transparent;color:var(--content);font-family:var(--font-sans);font-size:16px;line-height:1.5;outline:none}
+  .shell-composer textarea::placeholder{color:var(--ink-faint);font-style:italic;font-family:var(--font-display);font-size:18px}
+  .shell-composer-foot{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-2)}
+  .shell-tool-chip{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);padding:4px 8px;border:1px solid var(--hair);border-radius:var(--r-pill)}
+
+  /* dock */
+  .dock{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:4px;padding:7px;background:var(--surface-card);border:1px solid var(--hair);border-radius:var(--r-pill);box-shadow:var(--shadow-card);max-width:94vw;overflow-x:auto}
+  .dock-item{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);padding:7px 11px;border-radius:var(--r-pill);cursor:pointer;white-space:nowrap;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
+  .dock-item:hover{color:var(--content)}
+  .dock-item.active{color:var(--paper);background:var(--synapse)}
+  .dock-sep{width:1px;height:16px;background:var(--hair);flex:none}
+  .badge{position:fixed;bottom:18px;right:18px;z-index:100;font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-faint);padding:6px 10px;border:1px solid var(--hair);border-radius:var(--r-pill);background:var(--surface-card)}
+
+  /* keyframes */
+  @keyframes breathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.18);opacity:1}}
+  @keyframes rise{to{transform:translateY(0)}}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  @keyframes travel{0%{left:0}100%{left:100%}}
+  @keyframes drawv{to{transform:scaleY(1)}}
+  @keyframes voidHold{0%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  @keyframes moteDrift{0%{left:38%;opacity:0}10%{opacity:1}40%{left:50%;opacity:1}100%{left:calc(48px + 340px);top:50%;opacity:1;width:10px;height:10px}}
+  @keyframes wordReveal{0%{clip-path:inset(0 100% 0 0);opacity:0}100%{clip-path:inset(0 0 0 0);opacity:1}}
+  @keyframes fadeUp{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes firstBeat{0%{opacity:0;box-shadow:0 0 0 0 rgba(201,123,46,0.6)}30%{opacity:1;box-shadow:0 0 24px 8px rgba(201,123,46,0.4)}100%{opacity:1;box-shadow:0 0 0 0 rgba(201,123,46,0)}}
+  @keyframes blur-in{from{opacity:0;transform:translateY(12px);filter:blur(8px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+  @keyframes threadBreath{0%,100%{opacity:.4}50%{opacity:.7}}
+  @keyframes pollen-float{0%{transform:translate(0,0) rotate(0);opacity:0}12%{opacity:.9}88%{opacity:.9}100%{transform:translate(var(--dx,40px),var(--dy,-180px)) rotate(360deg);opacity:0}}
+  @keyframes stamp{0%{transform:scale(0) rotate(-18deg);opacity:0}55%{transform:scale(1.18) rotate(6deg);opacity:1}72%{transform:scale(.96) rotate(-2deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+  @keyframes wave{0%,100%{height:6px;opacity:.5}50%{height:28px;opacity:1}}
+  @keyframes sealBloom{0%{box-shadow:0 0 0 0 rgba(201,123,46,.5)}100%{box-shadow:0 0 0 24px rgba(201,123,46,0)}}
+
+  @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}.halo{display:none}.wordrise>span{transform:none}}
+</style>
+</head>
+<body data-mode-root>
+  <div class="ambient"></div>
+  <div class="halo" id="halo"></div>
+
+  <div class="prewindow" id="prewindow">
+    <div class="pw-bloom"></div>
+    <div class="pw-grain"></div>
+
+    <!-- island -->
+    <div class="pw-island" id="island"><span class="idot" id="idot"></span><span class="ilabel" id="ilabel">Arrival</span></div>
+
+    <!-- constellation -->
+    <div class="constellation" id="constellation">
+      <svg viewBox="0 0 170 340">
+        <!-- threads (drawn by JS) -->
+        <path id="t-perceive" d="M 85 170 C 60 170, 40 90, 30 70" fill="none" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 700ms var(--ease)"/>
+        <path id="t-power" d="M 85 170 C 60 190, 35 250, 25 275" fill="none" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 700ms var(--ease)"/>
+        <path id="t-summon" d="M 85 170 C 110 170, 130 90, 140 65" fill="none" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 700ms var(--ease)"/>
+        <path id="t-voice" d="M 85 170 C 110 180, 135 210, 150 215" fill="none" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 700ms var(--ease)"/>
+        <path id="t-threads" d="M 85 170 C 110 200, 140 270, 150 290" fill="none" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 700ms var(--ease)"/>
+        <!-- nodes -->
+        <circle cx="30" cy="70" r="6" fill="var(--paper)" stroke="var(--synapse)" stroke-width="1.5" id="n-perceive"/>
+        <circle cx="25" cy="275" r="6" fill="var(--paper)" stroke="var(--hair-strong)" stroke-width="1.5" id="n-power"/>
+        <circle cx="140" cy="65" r="6" fill="var(--paper)" stroke="var(--hair-strong)" stroke-width="1.5" id="n-summon"/>
+        <circle cx="150" cy="215" r="6" fill="var(--paper)" stroke="var(--hair-strong)" stroke-width="1.5" id="n-voice"/>
+        <circle cx="150" cy="290" r="6" fill="var(--paper)" stroke="var(--hair-strong)" stroke-width="1.5" id="n-threads"/>
+        <!-- agent core (breathing) -->
+        <circle cx="85" cy="170" r="14" fill="var(--synapse)" opacity=".2"/>
+        <circle cx="85" cy="170" r="9" fill="var(--synapse)" style="animation:breathe 5s var(--ease) infinite"/>
+        <text x="85" y="200" text-anchor="middle" font-family="var(--font-mono)" font-size="9" letter-spacing="0.1em" fill="var(--ink-faint)">CONDURA</text>
+        <text x="30" y="58" text-anchor="middle" font-family="var(--font-mono)" font-size="8" letter-spacing="0.1em" fill="var(--ink-faint)">PERCEIVE</text>
+        <text x="25" y="290" text-anchor="middle" font-family="var(--font-mono)" font-size="8" letter-spacing="0.1em" fill="var(--ink-faint)">POWER</text>
+        <text x="140" y="53" text-anchor="middle" font-family="var(--font-mono)" font-size="8" letter-spacing="0.1em" fill="var(--ink-faint)">SUMMON</text>
+        <text x="150" y="203" text-anchor="middle" font-family="var(--font-mono)" font-size="8" letter-spacing="0.1em" fill="var(--ink-faint)">VOICE</text>
+        <text x="150" y="305" text-anchor="middle" font-family="var(--font-mono)" font-size="8" letter-spacing="0.1em" fill="var(--ink-faint)">THREADS</text>
+      </svg>
+    </div>
+
+    <!-- spine -->
+    <div class="spine">
+      <svg viewBox="0 0 1000 10" preserveAspectRatio="none">
+        <line x1="0" y1="5" x2="1000" y2="5" stroke="var(--hair-strong)" stroke-width="1.5" stroke-linecap="round"/>
+        <line id="spine-fill" x1="0" y1="5" x2="1000" y2="5" stroke="var(--synapse)" stroke-width="1.5" stroke-linecap="round" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 600ms var(--ease)"/>
+        <circle id="spine-node" cx="0" cy="5" r="3.5" fill="var(--pollen)" filter="drop-shadow(0 0 6px rgba(201,123,46,.7))" style="transition:cx 600ms var(--ease)"/>
+      </svg>
+    </div>
+
+    <!-- skip margin note -->
+    <div class="skip-note" id="skip"><span>leave this for later</span><span class="arr">→</span></div>
+
+    <!-- content -->
+    <div class="content">
+
+      <!-- ARRIVAL -->
+      <div class="scene active" data-scene="arrival">
+        <div class="eyebrow">— First run</div>
+        <h1 class="headline"><span class="wordrise"><span>Condura,</span></span><br/><span class="wordrise"><span class="alive">awake on your machine.</span></span></h1>
+        <p class="sub">A quiet, attentive presence. It perceives only what it must, and acts only after it shows you what it's about to do. We'll spend a minute on this.</p>
+        <button class="btn btn-primary" data-magnetic="0.35" onclick="go('agreement')">Begin <span class="arr">→</span></button>
+      </div>
+
+      <!-- AGREEMENT (wax seal) -->
+      <div class="scene" data-scene="agreement">
+        <div class="eyebrow">— The terms</div>
+        <h1 class="headline">First, the terms.</h1>
+        <p class="sub">Condura is free — for personal and commercial use, no tracking, no lock-in. Read what that means; stamp the seal when you're ready.</p>
+        <div class="eula" id="eula" onscroll="updateEulaThread()">Condura Freeware EULA v1
+
+1. Grant of license. Condura is free for personal and commercial use. You may install and run it on any machine you own or control.
+
+2. No redistribution. You may not redistribute the binary. Share the link to synaptic.app — not the file.
+
+3. No tracking. Condura does not collect telemetry. It does not phone home. The only network calls are to the AI providers you configure.
+
+4. Local-first. Your data — memory, skills, audit log, embeddings — lives on your machine, encrypted at rest. The only thing that leaves is what you send to your AI provider.
+
+5. Revocable. We can revoke this license for abuse. Don't be abusive.
+
+6. No warranty. Condura is provided "as is." It performs physical actions on your computer; you accept the risk by using it.
+
+7. Your say-so. Every action that can't be undone requires your explicit consent. There is no "trust me." There is only your decision.
+
+Scroll to the bottom to arm the seal.</div>
+        <div class="seal-wrap">
+          <div class="seal" id="seal" onclick="stampSeal()"><span class="seal-c">C</span></div>
+          <div class="seal-text"><span class="st-1" id="sealText">Stamp to accept the EULA</span><span class="st-2">A considered act — not a click</span></div>
+        </div>
+      </div>
+
+      <!-- PERCEPTION (permissions) -->
+      <div class="scene" data-scene="perception">
+        <div class="eyebrow">— Permission to perceive</div>
+        <h1 class="headline">It reads the screen to act.</h1>
+        <p class="sub">Never more than it needs, and never without showing you first. Grant what you're comfortable with — change this anytime in Settings.</p>
+        <div class="perms">
+          <div class="perm" id="perm-acc"><svg class="perm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="4" r="2"/><path d="M19 13a7 7 0 1 1-14 0M12 9v4l3 2"/></svg><div class="perm-body"><span class="perm-name">Accessibility</span><span class="perm-desc">Read element names and invoke actions in apps</span></div><span class="perm-status" data-status="pending" id="st-acc">Pending</span><button class="perm-open" onclick="grant('acc')">Open System Settings →</button></div>
+          <div class="perm" id="perm-sr"><svg class="perm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 20h18M9 11l3 2 3-2"/></svg><div class="perm-body"><span class="perm-name">Screen Recording</span><span class="perm-desc">See the screen when it needs to act</span></div><span class="perm-status" data-status="pending" id="st-sr">Pending</span><button class="perm-open" onclick="grant('sr')">Open System Settings →</button></div>
+        </div>
+        <div class="perm-disclosure" onclick="this.nextElementSibling.classList.toggle('show')">+ Optional, grant later (Microphone, Notifications)</div>
+        <div class="key-input" style="display:none;margin-top:0"></div>
+      </div>
+
+      <!-- POWER -->
+      <div class="scene" data-scene="power">
+        <div class="eyebrow">— A source of power</div>
+        <h1 class="headline">How will it think?</h1>
+        <p class="sub">Condura speaks to AI models through your own accounts and keys, or a model on this machine. Nothing routes through us.</p>
+        <div class="choices">
+          <div class="choice selected found" onclick="choosePower('local',this)"><span class="c-radio"></span><div class="c-body"><span class="c-title">Local — Ollama</span><span class="c-meta">2 models detected · no data leaves your machine</span></div><span class="c-tag">Recommended</span></div>
+          <div class="choice" onclick="choosePower('apikey',this)"><span class="c-radio"></span><div class="c-body"><span class="c-title">Paste an API key</span><span class="c-meta">Anthropic · OpenAI · Google · xAI · more</span></div></div>
+          <div class="choice" onclick="choosePower('sub',this)"><span class="c-radio"></span><div class="c-body"><span class="c-title">Connect a subscription</span><span class="c-meta">Claude Pro · ChatGPT Plus · Gemini · SuperGrok</span></div></div>
+        </div>
+        <div class="key-input" id="powerKey"><span class="key-chip">sk-…</span><input placeholder="Paste your key — it stays on this machine" /><span class="key-chip" style="color:var(--ok);border-color:rgba(46,125,79,.4)">✓ saved</span></div>
+      </div>
+
+      <!-- SUMMONING (hotkey) -->
+      <div class="scene" data-scene="summoning">
+        <div class="eyebrow">— The summoning</div>
+        <h1 class="headline">How will you call it?</h1>
+        <p class="sub">It lives in your menu bar, asleep until you summon it. Record the keys you'll press. No silent default.</p>
+        <div class="keycaps" id="keycaps" onclick="startRecord()" tabindex="0"><span class="keycaps-hint" id="kc-hint">Click and press a key combo</span></div>
+        <div class="presets"><button class="preset" onclick="setCombo('Option+Option',this)">Option+Option</button><button class="preset" onclick="setCombo('Cmd+Shift+Space',this)">⌘⇧Space</button><button class="preset" onclick="setCombo('Ctrl+Space',this)">⌃Space</button></div>
+        <div class="try-it" id="tryit" onclick="flare()"><span class="idot" style="width:8px;height:8px;border-radius:50%;background:var(--synapse-glow);display:inline-block;animation:breathe 5s var(--ease) infinite"></span> Try it — press your combo</div>
+        <button class="btn btn-primary" data-magnetic="0.35" onclick="go('threads')">Continue <span class="arr">→</span></button>
+      </div>
+
+      <!-- THREADS (channels) -->
+      <div class="scene" data-scene="threads">
+        <div class="eyebrow">— Threads outward</div>
+        <h1 class="headline">Reach, on your terms.</h1>
+        <p class="sub">Optional. Condura can reach you on Telegram, WhatsApp, Slack, Discord, iMessage. Each is a thread you tie now or later. Nothing connects without you.</p>
+        <div class="channels" id="channels">
+          <div class="channel" onclick="connectChannel(this,'telegram')"><svg class="ch-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9.8 15.5l-.3 3.5c.5 0 .7-.2 1-.5l2-2 4.2 3c.8.5 1.3.2 1.5-.7l2.7-12.6c.2-1-.4-1.5-1.2-1.2L3 11.3c-1 .4-1 .9-.2 1.2l4.3 1.3 10-6c.5-.3 .9-.1 .5.2l-8 7.5z"/></svg><span class="ch-name">Telegram</span><span class="ch-state" id="ch-telegram">Connect</span></div>
+          <div class="channel" onclick="connectChannel(this,'whatsapp')"><svg class="ch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21l1.5-4A8 8 0 1 1 12 20a8 8 0 0 1-4-1L3 21z"/><path d="M9 9c0 2 1 4 3 4l1-1"/></svg><span class="ch-name">WhatsApp</span><span class="ch-state">v0.2.0</span></div>
+          <div class="channel" onclick="connectChannel(this,'slack')"><svg class="ch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11a2 2 0 1 1 0-4h2v4zM5 17a2 2 0 1 0 4 0v-2H5a2 2 0 0 0-2 2zM13 5a2 2 0 1 0-4 0v2h4zM19 5a2 2 0 1 0-4 0v2h2a2 2 0 0 0 2-2zM19 13a2 2 0 1 0-4 0v-2h2a2 2 0 0 0 2 2zM13 19a2 2 0 1 0 0-4h-2v4z"/></svg><span class="ch-name">Slack</span><span class="ch-state">v0.2.0</span></div>
+          <div class="channel" onclick="connectChannel(this,'discord')"><svg class="ch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 8a13 13 0 0 1 10 0M7 16a13 13 0 0 0 10 0M9 12h.01M15 12h.01"/><circle cx="12" cy="12" r="10"/></svg><span class="ch-name">Discord</span><span class="ch-state">v0.2.0</span></div>
+          <div class="channel" onclick="connectChannel(this,'imsg')"><svg class="ch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11a9 9 0 1 1 9 9M8 21l-3-3 3-3"/></svg><span class="ch-name">iMessage</span><span class="ch-state">v0.2.0</span></div>
+        </div>
+        <button class="btn btn-primary" data-magnetic="0.35" onclick="go('breath')">Continue <span class="arr">→</span></button>
+      </div>
+
+      <!-- FIRST BREATH -->
+      <div class="scene" data-scene="breath">
+        <div class="eyebrow">— First breath</div>
+        <div class="breath-stage">
+          <div class="breath-pulse"></div>
+          <h1 class="headline alive">Condura is here.</h1>
+          <p class="sub" style="text-align:center">That's the arrangement. It perceives what it must, acts only with your say-so, and is wired to the tools you use. Press your hotkey when you're ready — it's listening for you now.</p>
+          <button class="btn btn-primary" data-magnetic="0.35" onclick="go('shell')">Enter Condura <span class="arr">→</span></button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- awakening overlay -->
+    <div class="arrival-void" id="void"></div>
+    <div class="arrival-mote" id="aMote"></div>
+    <div class="arrival-wordmark" id="aWord">Condura</div>
+    <div class="arrival-underline" id="aUnderline"><svg width="340" height="2"><path id="aLine" d="M 0 1 L 340 1" stroke="var(--synapse)" stroke-width="1.5" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 900ms var(--ease)"/></svg></div>
+    <div class="arrival-pulse" id="aPulse"></div>
+    <div class="arrival-welcome" id="aWelcome"></div>
+  </div>
+
+  <!-- shell scene (premium polish preview) -->
+  <div class="shell-scene" id="shellScene">
+    <div class="shell-bloom"></div>
+    <div class="shell-grain"></div>
+    <header class="shell-titlebar">
+      <div class="shell-wordmark">Condura<span class="dot"></span></div>
+      <div class="shell-thread"><svg preserveAspectRatio="none"><path d="M 0 22 L 9999 22" fill="none" stroke="var(--synapse-glow)" stroke-width="3" opacity="0.18" filter="blur(3px)"/><path d="M 0 22 L 9999 22" fill="none" stroke="var(--synapse)" stroke-width="1.25" stroke-linecap="round" stroke-dasharray="6 8"/></svg></div>
+      <div class="shell-controls"><div class="shell-island"><span class="idot"></span><span class="ilabel">Idle · listening</span></div><div class="shell-kbd"><kbd>⌘</kbd><kbd>K</kbd></div><button class="shell-theme" onclick="toggleTheme()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></button></div>
+    </header>
+    <div class="shell-body">
+      <nav class="shell-nav">
+        <div class="shell-nav-spine"></div><div class="shell-nav-spine-fill" id="navSpineFill"></div>
+        <div class="nav-brand">Condura · v0.1</div>
+        <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Hub</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2.1-2.1z"/></svg>Skills</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.4-2.6L3 21M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.6L21 3"/><path d="M21 3v5h-5M3 21v-5h5"/></svg>Sync</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>Audit</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>Replay</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 9a10 10 0 0 1 20 0M5 13a6 6 0 0 1 14 0M8 17a2 2 0 0 1 8 0"/></svg>Channels</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Delegation</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>About</div>
+      </nav>
+      <div class="shell-main">
+        <div class="shell-content">
+          <div class="shell-empty">
+            <div class="shell-thread-hero"><svg preserveAspectRatio="none" viewBox="0 0 240 1"><path d="M 0 0.5 L 240 0.5" stroke="var(--synapse)" stroke-width="1.25" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="0" style="animation:threadBreath 9s var(--ease) infinite"/></svg></div>
+            <div class="eyebrow">— The agent, at rest</div>
+            <h1 class="hero">Your computer,<br/><span class="alive">alive.</span></h1>
+            <p class="lead">A quiet, attentive presence. It perceives only what it must, and acts only after it shows you what it's about to do. Ask below, or press your hotkey.</p>
+          </div>
+        </div>
+        <div class="shell-composer">
+          <div class="shell-composer-card">
+            <textarea placeholder="Say something, or ⌘K for anything"></textarea>
+            <div class="shell-composer-foot"><span class="shell-tool-chip">⌥⌥ Wake</span><span class="shell-tool-chip">Local · llama3.2</span><button class="btn btn-primary" data-magnetic="0.35" style="margin-left:auto">Send <span class="arr">↗</span></button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- dock -->
+  <div class="dock" id="dock">
+    <div class="dock-item active" data-target="arrival">Arrival</div>
+    <div class="dock-item" data-target="agreement">Agreement</div>
+    <div class="dock-item" data-target="perception">Perception</div>
+    <div class="dock-item" data-target="power">Power</div>
+    <div class="dock-item" data-target="summoning">Summon</div>
+    <div class="dock-item" data-target="threads">Threads</div>
+    <div class="dock-item" data-target="breath">Breath</div>
+    <div class="dock-sep"></div>
+    <div class="dock-item" data-target="shell">Main app</div>
+  </div>
+  <div class="badge">mockup · first-run ritual + premium shell</div>
+
+<script>
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const STEPS = ['arrival','agreement','perception','power','summoning','threads','breath'];
+  const STEP_LABEL = {arrival:'Arrival',agreement:'Agreement',perception:'Perception',power:'Power',summoning:'Summoning',threads:'Threads',breath:'First breath'};
+  // which constellation node lights per step
+  const NODE = {perception:'perceive',power:'power',summoning:'summon',voice:'voice',threads:'threads'};
+  let current = 'arrival';
+  let stamped = false;
+  let recording = false;
+  let combo = '';
+
+  // ── cursor halo ──
+  const halo = document.getElementById('halo');
+  let hx=innerWidth/2,hy=innerHeight/2,tx=hx,ty=hy;
+  if(!reduce){
+    addEventListener('pointermove',e=>{tx=e.clientX;ty=e.clientY;halo.classList.add('on')});
+    addEventListener('pointerover',e=>{const t=e.target;const hov=!!(t.closest&&t.closest('button,.choice,.channel,.perm-open,.preset,.dock-item,.seal,.nav-item,textarea,a,.skip-note,.try-it'));halo.classList.toggle('hover',hov)});
+    (function tick(){hx+=(tx-hx)*0.16;hy+=(ty-hy)*0.16;halo.style.transform=`translate(${hx-7}px,${hy-7}px)`;requestAnimationFrame(tick)})();
+  }
+
+  // ── magnetic ──
+  document.querySelectorAll('[data-magnetic]').forEach(el=>{
+    if(reduce)return;const strength=parseFloat(el.dataset.magnetic)||0.3;const radius=130;let tx=0,ty=0,cx=0,cy=0;
+    el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect();const mx=e.clientX-(r.left+r.width/2),my=e.clientY-(r.top+r.height/2);const d=Math.hypot(mx,my);if(d>radius){tx=0;ty=0}else{const p=(1-d/radius)*strength;tx=mx*p;ty=my*p}});
+    el.addEventListener('pointerleave',()=>{tx=0;ty=0});
+    (function t(){cx+=(tx-cx)*0.2;cy+=(ty-cy)*0.2;el.style.transform=`translate(${cx.toFixed(2)}px,${cy.toFixed(2)}px)`;requestAnimationFrame(t)})();
+  });
+
+  // ── awakening ──
+  function awaken(){
+    const pw=document.getElementById('prewindow');
+    pw.classList.remove('awaken');void pw.offsetWidth;pw.classList.add('awaken');
+    // underline draw
+    setTimeout(()=>{const l=document.getElementById('aLine');if(l){l.style.strokeDashoffset='0'}},1500);
+    // hide void after, show content/welcome handled by CSS
+    setTimeout(()=>{document.getElementById('void').style.pointerEvents='none'},2300);
+    // reveal island + spine
+    setTimeout(()=>{document.getElementById('island').style.opacity='1';document.getElementById('island').querySelector('#ilabel').textContent='Arrival'},3400);
+  }
+
+  // ── scene nav ──
+  function setSpine(stepIdx){
+    const fill=document.getElementById('spine-fill');
+    const node=document.getElementById('spine-node');
+    const pct = stepIdx/(STEPS.length-1);
+    fill.style.strokeDashoffset = String(1-pct);
+    node.style.cx = String(pct*1000);
+  }
+  function lightNode(name, dashed){
+    const path=document.getElementById('t-'+name);
+    const circ=document.getElementById('n-'+name);
+    if(!path)return;
+    if(dashed){path.style.strokeDasharray='0.12 0.08';path.style.strokeDashoffset='0';path.style.stroke='var(--ink-faint)';circ.setAttribute('stroke','var(--ink-faint)');circ.setAttribute('fill','var(--paper)')}
+    else{path.style.strokeDasharray='1';path.style.strokeDashoffset='0';path.style.stroke='var(--synapse)';circ.setAttribute('stroke','var(--synapse)');circ.setAttribute('fill','var(--synapse-light)')}
+  }
+  function setStep(name){
+    current=name;
+    // toggle scenes
+    document.querySelectorAll('.scene').forEach(s=>s.classList.toggle('active',s.dataset.scene===name));
+    // toggle prewindow vs shell
+    const isShell = name==='shell';
+    document.getElementById('prewindow').style.display = isShell?'none':'block';
+    document.getElementById('shellScene').classList.toggle('active',isShell);
+    document.getElementById('constellation').classList.toggle('show',!isShell && name!=='arrival');
+    document.getElementById('skip').classList.toggle('show',!isShell && ['perception','power','summoning','threads'].includes(name));
+    // island
+    const il=document.getElementById('ilabel');const idot=document.getElementById('idot');
+    il.textContent = isShell?'Idle · listening':(STEP_LABEL[name]||name);
+    document.getElementById('island').style.width = ({arrival:120,agreement:140,perception:160,power:130,summoning:150,threads:130,breath:140}[name]||130)+'px';
+    // pulse color per step
+    const phaseColor = {arrival:'var(--synapse-glow)',agreement:'var(--synapse-glow)',perception:'var(--pollen)',power:'var(--synapse-glow)',summoning:'var(--pollen)',threads:'var(--synapse-glow)',breath:'var(--synapse-glow)'};
+    idot.style.background = phaseColor[name]||'var(--synapse-glow)';
+    idot.style.animation = name==='perception'?'breathe 1.8s var(--ease) infinite':name==='summoning'?'breathe 1.2s var(--ease) infinite':'breathe 5s var(--ease) infinite';
+    // spine
+    if(!isShell){const idx=STEPS.indexOf(name);if(idx>=0)setSpine(idx)}
+    // constellation nodes
+    if(name==='perception')lightNode('perceive',false);
+    if(name==='power')lightNode('power',false);
+    if(name==='summoning'){lightNode('summon',false);if(combo)document.getElementById('tryit').classList.add('show')}
+    if(name==='threads')lightNode('threads',false);
+    // re-trigger awakening
+    if(name==='arrival'&&!reduce)awaken();
+  }
+  window.go = setStep;
+
+  // dock
+  document.querySelectorAll('.dock-item').forEach(d=>d.addEventListener('click',()=>{document.querySelectorAll('.dock-item').forEach(x=>x.classList.toggle('active',x===d));setStep(d.dataset.target)}));
+
+  // ── eula scroll ──
+  window.updateEulaThread = function(){
+    const e=document.getElementById('eula');const t=e.querySelector('.eula-read-thread')||(()=>{const n=document.createElement('div');n.className='eula-read-thread';e.appendChild(n);return n})();
+    const p = e.scrollTop/(e.scrollHeight-e.clientHeight);
+    t.style.transform=`scaleY(${p})`;
+    if(p>0.96){document.getElementById('seal').style.opacity='1';document.getElementById('sealText').textContent='Stamp to accept the EULA'}
+  };
+  // init eula thread
+  const eulaEl=document.getElementById('eula');{const t=document.createElement('div');t.className='eula-read-thread';eulaEl.appendChild(t)}
+
+  window.stampSeal = function(){
+    const seal=document.getElementById('seal');seal.classList.add('stamped');seal.style.animation='sealBloom 600ms var(--ease)';setTimeout(()=>seal.style.animation='',600);
+    document.getElementById('sealText').textContent='Accepted · thank you';
+    stamped=true;setTimeout(()=>go('perception'),700);
+  };
+
+  // ── permissions ──
+  window.grant = function(k){
+    const row=document.getElementById(k==='acc'?'perm-acc':'perm-sr');const st=document.getElementById(k==='acc'?'st-acc':'st-sr');
+    st.dataset.status='granted';st.textContent='Granted';row.classList.add('granted');
+    lightNode('perceive',false);
+  };
+
+  // ── power ──
+  window.choosePower = function(v,el){
+    document.querySelectorAll('.choice').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');
+    document.getElementById('powerKey').classList.toggle('show',v==='apikey');
+    lightNode('power',false);
+  };
+
+  // ── hotkey ──
+  window.startRecord = function(){
+    recording=true;document.getElementById('keycaps').classList.add('listening');document.getElementById('kc-hint').textContent='press a key combo…';
+  };
+  function renderCombo(c){const kc=document.getElementById('keycaps');kc.classList.remove('listening');kc.innerHTML=c.split('+').map(k=>`<span class="keycap">${k}</span>`).join('');document.getElementById('tryit').classList.add('show')}
+  window.setCombo = function(c,el){combo=c;renderCombo(c);document.querySelectorAll('.preset').forEach(p=>p.classList.toggle('active',p===el));lightNode('summon',false)};
+  addEventListener('keydown',e=>{
+    if(!recording)return;e.preventDefault();
+    if(e.key==='Escape'){recording=false;document.getElementById('keycaps').classList.remove('listening');document.getElementById('kc-hint').textContent='Click and press a key combo';return}
+    const parts=[];if(e.metaKey)parts.push('Cmd');if(e.ctrlKey)parts.push('Ctrl');if(e.altKey)parts.push('Option');if(e.shiftKey)parts.push('Shift');
+    let k=e.key;if(k===' ')k='Space';if(k.length===1)k=k.toUpperCase();
+    if(!['Meta','Control','Alt','Shift'].includes(e.key))parts.push(k);
+    if(parts.length){combo=parts.join('+');recording=false;renderCombo(combo);lightNode('summon',false)}
+  });
+  window.flare = function(){const p=document.getElementById('idot');p.style.boxShadow='0 0 24px 8px rgba(201,123,46,0.5)';setTimeout(()=>p.style.boxShadow='',600)};
+
+  // ── channels ──
+  window.connectChannel = function(el,name){
+    if(name!=='telegram'){el.classList.add('skip');el.querySelector('.ch-state').textContent='coming v0.2.0';return}
+    el.classList.add('connected');el.querySelector('.ch-state').textContent='Connected';lightNode('threads',false);
+  };
+
+  // ── skip ──
+  document.getElementById('skip').addEventListener('click',()=>{
+    const nodeMap={perception:'perceive',power:'power',summoning:'summon',threads:'threads'};
+    const n=nodeMap[current];if(n)lightNode(n,true);
+    // advance
+    const idx=STEPS.indexOf(current);if(idx<STEPS.length-1)go(STEPS[idx+1]);
+  });
+
+  // ── theme ──
+  window.toggleTheme = function(){const r=document.documentElement;r.dataset.mode=r.dataset.mode==='light'?'dark':'light'};
+
+  // ── init ──
+  document.getElementById('prewindow').classList.add('show');
+  if(!reduce)awaken();else setStep('arrival');
+  setStep('arrival');
+})();
+</script>
+</body>
+</html>
