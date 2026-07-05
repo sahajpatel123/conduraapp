@@ -266,6 +266,11 @@ jobs:
             export PATH="$(go env GOPATH)/bin:${PATH}"
           fi
           cd condura-app/cmd/condura-gui
+          # wails CLI v2.12.0 looks for the frontend dir at ./frontend/
+          # relative to wails.json. The actual frontend lives at
+          # ../../../condura-gui/frontend/ in this repo. Create a relative
+          # symlink so wails' auto-detection finds the right dir.
+          ln -snf ../../../condura-gui/frontend ./frontend
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails build failed; skipping smoke build"
