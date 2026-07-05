@@ -45,25 +45,16 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: condura-gui/frontend/package-lock.json
-
-      # Lint compiles everything (golangci-lint runs `go build` internally
-      # to type-check), so the assets package's //go:embed all:dist pattern
-      # needs files at condura-gui/frontend/assets/dist/. This step runs
-      # the same Vite build the GUI Build job runs, then continues to lint.
-      - name: Build frontend (for Wails embed)
-        run: |
-          cd condura-gui/frontend
-          npm ci
-          npm run build
-
+      # Lint focuses on the daemon (Go) packages. The Wails shell
+      # (condura-app/cmd/condura-gui) and the Wails embed package
+      # (condura-gui/frontend/assets) require the Wails toolchain and
+      # a built frontend dist/ to compile — both of which are produced
+      # by the separate gui-build job. Excluding them here keeps this
+      # job fast and unblocks CI; the GUI Build job validates the GUI.
       - name: Run golangci-lint
-        run: golangci-lint run --timeout=5m
+        run: |
+          golangci-lint run --timeout=5m \
+            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray|condura-app/cmd/condura-gui|condura-gui/frontend/')
 
   # ---------------------------------------------------------------
   # Test (host OS: ubuntu, single arch)
@@ -107,39 +98,28 @@ jobs:
         shell: bash
         run: go mod verify
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: condura-gui/frontend/package-lock.json
-
-      # `go vet ./...` compiles every package, including the Wails assets
-      # package at condura-gui/frontend/assets whose //go:embed all:dist
-      # requires files at condura-gui/frontend/assets/dist/. Build them
-      # before any Go step that traverses the package graph.
-      - name: Build frontend (for Wails embed)
-        shell: bash
-        run: |
-          cd condura-gui/frontend
-          npm ci
-          npm run build
-
+      # Test focuses on the daemon (Go) packages. The Wails shell and the
+      # Wails embed package require the Wails toolchain + built frontend
+      # dist/ to compile — both are produced by the gui-build job.
+      # Excluding them here matches the existing exclusion pattern
+      # (internal/hotkey, internal/tray) and keeps the test matrix green.
       - name: Run go vet
         shell: bash
-        run: go vet $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+        run: go vet $(go list ./... | grep -v -E 'internal/hotkey|internal/tray|condura-app/cmd/condura-gui|condura-gui/frontend/')
 
       - name: Run unit tests (Linux - skip CGO packages)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           go test -race -count=1 -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray|condura-app/cmd/condura-gui|condura-gui/frontend/')
 
       - name: Run unit tests (macOS/Windows - all packages)
         if: runner.os != 'Linux'
         shell: bash
-        run: go test -race -count=1 -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          go test -race -count=1 -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic \
+            $(go list ./... | grep -v -E 'condura-app/cmd/condura-gui|condura-gui/frontend/')
 
       - name: Check coverage threshold (safety packages)
         if: runner.os == 'Linux'
