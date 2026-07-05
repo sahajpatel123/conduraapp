@@ -267,7 +267,6 @@ jobs:
           fi
           cd condura-gui
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
-            -frontend ./frontend \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails build failed; skipping smoke build"
               exit 1
