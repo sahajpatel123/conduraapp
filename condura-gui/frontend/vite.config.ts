@@ -27,6 +27,18 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    sourcemap: true
+    sourcemap: true,
+    // outDir must be 'assets/dist' (not the default 'dist') because the
+    // Wails embed package at condura-gui/frontend/assets/assets.go uses
+    // //go:embed all:dist — Go embed resolves the pattern relative to the
+    // package's own directory, so it expects dist/ INSIDE assets/. The
+    // previous default ('dist' at the frontend root) silently broke
+    // every test job and the GUI Build job with
+    //   pattern all:dist: no matching files found
+    // whenever CI ran from a fresh checkout (no pre-existing dist/).
+    // 'npm run dev' is unaffected — Vite's dev server serves from memory
+    // and ignores outDir.
+    outDir: 'assets/dist',
+    emptyOutDir: true,
   }
 })
