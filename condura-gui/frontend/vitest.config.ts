@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import path from 'node:path';
 
 // Vitest config for the Condura Svelte frontend.
 //
@@ -18,6 +19,11 @@ export default defineConfig({
   plugins: [svelte({ hot: false })],
   resolve: {
     conditions: ['browser'],
+    alias: {
+      $tokens: path.resolve(__dirname, 'src/lib/tokens'),
+      $components: path.resolve(__dirname, 'src/lib/components'),
+      $lib: path.resolve(__dirname, 'src/lib'),
+    },
   },
   test: {
     environment: 'jsdom',

@@ -3,7 +3,7 @@
    * PermissionCards — OS permission toggles.
    * Each permission is a card with status and action.
    */
-  import { InkText, WordReveal, BlurReveal, PaperCard, PulseDot, InkReveal } from '$lib/components/living'
+  import { InkText, WordReveal, BlurReveal, PaperCard, PulseDot, InkReveal, MagneticButton } from '$lib/components/living'
 
   interface Permission {
     id: string
