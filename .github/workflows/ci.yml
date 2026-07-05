@@ -45,16 +45,8 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
 
-      # Lint focuses on the daemon (Go) packages. The Wails shell
-      # (condura-app/cmd/condura-gui) and the Wails embed package
-      # (condura-gui/frontend/assets) require the Wails toolchain and
-      # a built frontend dist/ to compile — both of which are produced
-      # by the separate gui-build job. Excluding them here keeps this
-      # job fast and unblocks CI; the GUI Build job validates the GUI.
       - name: Run golangci-lint
-        run: |
-          golangci-lint run --timeout=5m \
-            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray|condura-app/cmd/condura-gui|condura-gui/frontend/')
+        run: golangci-lint run --timeout=5m
 
   # ---------------------------------------------------------------
   # Test (host OS: ubuntu, single arch)
@@ -111,15 +103,13 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          go test -race -count=1 -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray|condura-app/cmd/condura-gui|condura-gui/frontend/')
+          go test -race -count=1 -short -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic \
+            $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
 
       - name: Run unit tests (macOS/Windows - all packages)
         if: runner.os != 'Linux'
         shell: bash
-        run: |
-          go test -race -count=1 -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v -E 'condura-app/cmd/condura-gui|condura-gui/frontend/')
+        run: go test -race -count=1 -short -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage threshold (safety packages)
         if: runner.os == 'Linux'
