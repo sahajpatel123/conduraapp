@@ -1,0 +1,137 @@
+name: Release Verify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.25.11"
+
+jobs:
+  # ---------------------------------------------------------------
+  # GoReleaser snapshot — proves packaging config on every main push.
+  # ---------------------------------------------------------------
+  goreleaser-snapshot:
+    name: GoReleaser snapshot
+    # Darwin CGO builds require a macOS host; Linux runners cannot cross-
+    # compile them (clang -arch fails). macOS can snapshot all targets.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Snapshot release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --snapshot --clean
+
+      - name: Verify snapshot artifacts
+        run: |
+          test -f dist/checksums.txt
+          ls -la dist/
+          echo "condurad archives:"
+          ls dist/condurad-* 2>/dev/null | head -5
+          echo "condura-cli archives:"
+          ls dist/condura-cli-* 2>/dev/null | head -5
+
+      - name: Generate unsigned manifest from snapshot checksums
+        run: |
+          VERSION="v0.0.0-snapshot"
+          go run ./cmd/gen-update-manifest generate --unsigned \
+            --version "$VERSION" \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${VERSION}" \
+            --out dist/update-manifest.json
+          test -f dist/update-manifest.json
+
+  # ---------------------------------------------------------------
+  # Manifest sign + verify roundtrip (ephemeral key — no secrets).
+  # ---------------------------------------------------------------
+  manifest-signing:
+    name: Manifest sign roundtrip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Generate ephemeral Ed25519 seed
+        run: echo "UPDATE_SIGNING_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Build sample checksums
+        run: |
+          mkdir -p dist
+          printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' \
+            "$(printf 'a%.0s' {1..64})" > dist/checksums.txt
+
+      - name: Generate signed manifest
+        run: |
+          go run ./cmd/gen-update-manifest generate \
+            --version v0.0.0-test \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-test" \
+            --out dist/update-manifest.json
+
+      - name: Re-sign via sign subcommand
+        run: |
+          go run ./cmd/gen-update-manifest sign \
+            dist/update-manifest.json dist/update-manifest.signed.json
+          test -s dist/update-manifest.signed.json
+
+      - name: Updater package tests
+        run: go test -count=1 -timeout=60s ./internal/updater/...
+
+      - name: Update IPC E2E tests
+        run: go test -count=1 -timeout=120s ./internal/daemon -run 'TestE2E_Update'
+
+  # ---------------------------------------------------------------
+  # When UPDATE_SIGNING_KEY is configured, prove it matches PublicKey.
+  # ---------------------------------------------------------------
+  embedded-key-check:
+    name: Embedded key matches CI secret
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Sign and verify with production key
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "::error::UPDATE_SIGNING_KEY not set — required for signed release manifests." >&2
+            echo "Set it in repo Settings → Secrets and variables → Actions before the next release." >&2
+            exit 1
+          fi
+          mkdir -p dist
+          printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
+          go run ./cmd/gen-update-manifest generate \
+            --version v0.0.0-keycheck \
+            --checksums dist/checksums.txt \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-keycheck" \
+            --out dist/manifest.json
+          go run ./cmd/gen-update-manifest verify dist/manifest.json

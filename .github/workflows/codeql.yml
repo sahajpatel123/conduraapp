@@ -1,0 +1,51 @@
+name: CodeQL
+
+# Go security analysis via GitHub CodeQL. Runs on main pushes, PRs,
+# and a weekly schedule. Pairs with Dependabot (dependency hygiene)
+# and the govulncheck job in ci.yml (Go vulnerability database).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0'  # weekly (Sunday 00:00 UTC)
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+env:
+  GO_VERSION: "1.25.11"
+
+jobs:
+  analyze:
+    name: Analyze (Go)
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install Linux CGO dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libayatana-appindicator3-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
