@@ -266,16 +266,19 @@ jobs:
             export PATH="$(go env GOPATH)/bin:${PATH}"
           fi
           cd condura-app/cmd/condura-gui
-          # wails CLI v2.12.0 looks for the frontend dir at ./frontend/
-          # relative to wails.json. The actual frontend lives at
-          # ../../../condura-gui/frontend/ in this repo. Create a relative
-          # symlink so wails' auto-detection finds the right dir.
-          ln -snf ../../../condura-gui/frontend ./frontend
-          GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
-            -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
-              echo "::warning::wails build failed; skipping smoke build"
-              exit 1
-            }
+          # Skip the wails CLI orchestration in CI. It assumes a single
+          # frontend/ dir sibling to wails.json (./frontend/), but this
+          # repo's frontend lives at ../../../condura-gui/frontend/.
+          # The -frontend flag that pointed at the right path was removed
+          # in wails v2.12.0. Pre-build the frontend and generate bindings
+          # manually, then compile the Go shell directly. This matches the
+          # smoke intent (verify the GUI builds) without fighting the CLI.
+          (cd ../../../condura-gui/frontend && npm ci && npm run build)
+          GOTOOLCHAIN=local wails generate module
+          go build -trimpath -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" -o /tmp/condura-gui-smoke . || {
+            echo "::warning::GUI build failed; smoke incomplete"
+            exit 1
+          }
 
       - name: Verify GUI build artifact
         shell: bash
