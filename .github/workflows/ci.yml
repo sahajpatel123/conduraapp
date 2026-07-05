@@ -250,12 +250,17 @@ jobs:
           VERSION: ci-${{ github.run_id }}
           COMMIT: ${{ github.sha }}
         run: |
-          chmod +x condura-ops/scripts/build-gui.sh
-          # Smoke build only — don't run the full installer
-          # packaging on every push. release.yml handles that.
+          # Smoke build only — don't run the full installer packaging on
+          # every push. release.yml handles that.
+          #
+          # The order matters: `wails build -frontend <path>` does
+          # (1) generate wailsjs bindings, (2) run vite build, (3) compile
+          # the Go binary — all in one invocation. Running `npm run build`
+          # separately FIRST would fail because vite cannot resolve
+          # wailsjs/runtime/runtime before wails has generated it.
           cd condura-gui
-          (cd frontend && npm ci && npm run build)
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
+            -frontend ./frontend \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails CLI not installed; falling back to plain Go build"
               go build -trimpath -o /tmp/condura-gui-smoke .

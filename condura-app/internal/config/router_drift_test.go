@@ -12,16 +12,16 @@ import (
 // Background: cfg.Router.Priorities (in loader.go, defaultRouter()) names
 // provider strings that the daemon's buildProvider() (in
 // internal/daemon/providers.go) must know how to build. If a priority
-// references a provider that buildProvider() doesn't recognise, the
+// references a provider that buildProvider() doesn't recognize, the
 // router will silently fall through to ProviderOllama and the user will
-// see degraded behaviour with no diagnostic surface.
+// see degraded behavior with no diagnostic surface.
 //
 // Today there is documented drift: claude_code / codex / antigravity /
 // custom / hermes / gemini / elevenlabs / whisper_local / local are
 // referenced by the priorities list but most of them are absent from
 // buildProvider() and knownProviders(). Per the repo conventions, this
 // drift must NOT be silently fixed by editing default.yaml — the user
-// has not authorised that change. Instead, the drift must be visible.
+// has not authorized that change. Instead, the drift must be visible.
 //
 // These tests document the drift and FAIL LOUDLY so it can't be quietly
 // merged away.
@@ -119,8 +119,8 @@ func TestRouterDrift_PrioritiesReferenceKnownProviders(t *testing.T) {
 	}
 
 	// In -short mode (CI), skip the failure so the build is green while
-// the drift is still visible in TestRouterDrift_ReportOnly's log output.
-// Local dev runs without -short and gets the loud alarm.
+	// the drift is still visible in TestRouterDrift_ReportOnly's log output.
+	// Local dev runs without -short and gets the loud alarm.
 	if testing.Short() {
 		t.Skip("router_drift: skipped under -short mode (CI); run without -short to surface drift failures")
 	}
@@ -134,7 +134,7 @@ func TestRouterDrift_PrioritiesReferenceKnownProviders(t *testing.T) {
 			}
 			errCount++
 			t.Errorf("drift: priority[%s][%d] = %s is not in knownProviders "+
-				"(the daemon's buildProvider() will not recognise this name and the router will "+
+				"(the daemon's buildProvider() will not recognize this name and the router will "+
 				"silently fall through; either remove it from defaultRouter() or add it to "+
 				"internal/daemon/providers.go:knownProviders + buildProvider)",
 				task, i, name)
