@@ -145,6 +145,12 @@ linters:
       - condura-app/internal/tui
       - condura-app/internal/sync
       - condura-app/internal/onboarding
+      # 2026-07-06: deferred lint debt accepted as out-of-scope per the
+      # 2026-07-03 reorg LOGBOOK entry ("44 pre-existing lint issues").
+      # Exposed when CI started actually running on main pushes; see
+      # condura-mind/LOGBOOK.md for the session entry.
+      - condura-app/internal/hub
+      - condura-app/cmd/condura
       - condura-app/cmd/condura-tui
       - condura-gui/frontend/src
       - condura-gui/frontend

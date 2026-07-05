@@ -250,7 +250,7 @@ jobs:
           VERSION: ci-${{ github.run_id }}
           COMMIT: ${{ github.sha }}
         run: |
-          chmod +x scripts/build-gui.sh
+          chmod +x condura-ops/scripts/build-gui.sh
           # Smoke build only — don't run the full installer
           # packaging on every push. release.yml handles that.
           cd condura-gui
