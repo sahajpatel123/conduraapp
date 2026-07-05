@@ -266,13 +266,24 @@ func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, er
 // caller to fail closed on such a record).
 //
 // TODO(rebinding): every call site that uses the result of this
-// function should pin the IP for the HTTP request. As of
-// 2026-07-01 the wiring is partial — updater and telemetry use
-// the sanitized URL string with the default http.Client (no IP
-// pinning). A follow-up should introduce a shared
-// "PinnedHTTPClient" that takes (host, ip) and dials ip with the
-// Host header set to host, and route all internal HTTP through
-// it. Until that lands, the DNS-rebinding defense is best-effort.
+// function should pin the IP for the HTTP request. Status: OPEN
+// (last verified 2026-07-06). Wiring is partial — the following
+// internal HTTP callers currently use the sanitized URL string
+// with the default http.Client (no IP pinning, TOCTOU window
+// remains open between Sanitize and the actual request):
+//
+//   - internal/updater/updater.go       (fetchAndVerifyManifest,
+//     sanitizeUpdaterURL — see cross-references at lines 221
+//     and 460)
+//   - internal/telemetry/reporter.go    (send — see cross-
+//     reference at line 191)
+//
+// A follow-up should introduce a shared "PinnedHTTPClient" that
+// takes (host, ip) and dials ip with the Host header set to host,
+// and route all internal HTTP through it. ResolveURL (above)
+// already exposes the pinned IP; the missing piece is the
+// transport wrapper that actually does the dial. Until that
+// lands, the DNS-rebinding defense is best-effort.
 func (s *URLSanitizer) resolveHost(ctx context.Context, host string) (net.IP, error) {
 	if !s.ResolveDNS {
 		// Caller didn't opt in. This is a programming error if

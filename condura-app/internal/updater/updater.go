@@ -459,7 +459,10 @@ func readAll(r io.Reader) ([]byte, error) {
 // attacker, which is itself a privacy/availability problem
 // (DNS-rebinding-style local-network attack). The strict
 // sanitizer catches the obvious cases (loopback, RFC1918, link-
-// local, cloud-metadata) before any network call is made.
+// local, cloud-metadata) before any network call is made. The
+// residual TOCTOU window (between Sanitize and the actual fetch)
+// is tracked as the canonical rebinding TODO in
+// internal/sanitize/specific.go (resolveHost).
 func sanitizeUpdaterURL(raw string) (string, error) {
 	if raw == "" {
 		return raw, nil
