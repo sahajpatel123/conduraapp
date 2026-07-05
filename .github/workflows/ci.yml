@@ -265,7 +265,7 @@ jobs:
             go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
             export PATH="$(go env GOPATH)/bin:${PATH}"
           fi
-          cd condura-gui
+          cd condura-app/cmd/condura-gui
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails build failed; skipping smoke build"
