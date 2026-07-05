@@ -203,7 +203,7 @@ jobs:
             echo "checksums.txt not on release after wait" >&2
             exit 1
           fi
-          go run ./cmd/gen-update-manifest generate --unsigned \
+          go run ./condura-app/cmd/gen-update-manifest generate --unsigned \
             --version "$TAG" \
             --checksums dist/checksums.txt \
             --base-url "https://github.com/${{ github.repository }}/releases/download/${TAG}" \
@@ -220,7 +220,7 @@ jobs:
             echo "Until it is set, this release ships without an update manifest (fail-closed)." >&2
             exit 1
           fi
-          go run ./cmd/gen-update-manifest sign \
+          go run ./condura-app/cmd/gen-update-manifest sign \
             dist/update-manifest.json dist/update-manifest.signed.json
 
       - name: Upload manifest to release

@@ -50,7 +50,7 @@ jobs:
       - name: Generate unsigned manifest from snapshot checksums
         run: |
           VERSION="v0.0.0-snapshot"
-          go run ./cmd/gen-update-manifest generate --unsigned \
+          go run ./condura-app/cmd/gen-update-manifest generate --unsigned \
             --version "$VERSION" \
             --checksums dist/checksums.txt \
             --base-url "https://github.com/${{ github.repository }}/releases/download/${VERSION}" \
@@ -84,7 +84,7 @@ jobs:
 
       - name: Generate signed manifest
         run: |
-          go run ./cmd/gen-update-manifest generate \
+          go run ./condura-app/cmd/gen-update-manifest generate \
             --version v0.0.0-test \
             --checksums dist/checksums.txt \
             --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-test" \
@@ -92,7 +92,7 @@ jobs:
 
       - name: Re-sign via sign subcommand
         run: |
-          go run ./cmd/gen-update-manifest sign \
+          go run ./condura-app/cmd/gen-update-manifest sign \
             dist/update-manifest.json dist/update-manifest.signed.json
           test -s dist/update-manifest.signed.json
 
@@ -129,9 +129,9 @@ jobs:
           fi
           mkdir -p dist
           printf '%s condurad-0.0.0-linux-amd64.tar.gz\n' "$(printf 'b%.0s' {1..64})" > dist/checksums.txt
-          go run ./cmd/gen-update-manifest generate \
+          go run ./condura-app/cmd/gen-update-manifest generate \
             --version v0.0.0-keycheck \
             --checksums dist/checksums.txt \
             --base-url "https://github.com/${{ github.repository }}/releases/download/v0.0.0-keycheck" \
             --out dist/manifest.json
-          go run ./cmd/gen-update-manifest verify dist/manifest.json
+          go run ./condura-app/cmd/gen-update-manifest verify dist/manifest.json

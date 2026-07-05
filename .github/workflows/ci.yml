@@ -175,14 +175,14 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
-        run: go build -trimpath -ldflags="-s -w" -o condura-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/condura
+        run: go build -trimpath -ldflags="-s -w" -o condura-${{ matrix.goos }}-${{ matrix.goarch }} ./condura-app/cmd/condura
 
       - name: Build condura-tui
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
-        run: go build -trimpath -ldflags="-s -w" -o condura-tui-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/condura-tui
+        run: go build -trimpath -ldflags="-s -w" -o condura-tui-${{ matrix.goos }}-${{ matrix.goarch }} ./condura-app/cmd/condura-tui
 
       - name: Verify binary exists
         run: |
@@ -299,7 +299,7 @@ jobs:
         run: go build -o condurad ./condura-app/cmd/condurad
 
       - name: Build CLI
-        run: go build -o condura ./cmd/condura
+        run: go build -o condura ./condura-app/cmd/condura
 
       - name: Daemon smoke test (boot + RPC)
         run: go test -count=1 -timeout=180s -run TestDaemonSmoke ./condura-app/cmd/condurad/
