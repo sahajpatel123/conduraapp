@@ -1165,6 +1165,191 @@ synaptic/
 
 ---
 
+## 29.5. The Topic-Sliced Layout (2026-07-04 Reorg)
+
+> **Read §29 first.** That section is frozen as the historical spec. This
+> section is the **authoritative description of the layout as it actually
+> exists on `main` today**. If the two disagree, this section wins, and the
+> discrepancy is logged in §33.5.
+
+The repo no longer organizes itself by **layer** (`cmd/`, `internal/`,
+`app/`, `web/`, `ts/`). It organizes itself by **topic**. Each topic folder
+is the canonical home for one product surface, and inside that folder the
+layer conventions (`cmd/`, `internal/`, `frontend/`, `pkg/`, `test/`,
+`configs/`, `docs/`) live as before. The root is now thin: a single
+`go.mod`, a `Makefile`, a `README.md`, and the topic folders.
+
+### 29.5.1 Why the layer-sliced layout was retired
+
+Three forces converged to force the move.
+
+1. **The Go `internal/` rule is unforgiving.** A package under
+   `<root>/internal/X/` is importable only by code under `<root>/`.
+   Our TUI, our Wails shell, and our CLI all needed to import the
+   same `internal/` packages. With one Go module at the repo root,
+   every binary that wants to share those packages must itself
+   live under the same root. The old layout put `app/` and `cmd/`
+   at the root and let them import `internal/`; that works. But
+   when the Wails shell was first considered as a sibling of
+   `internal/` (e.g., `shell/main.go` next to `cmd/synapticd/`),
+   it suddenly **could not import `internal/`**, because the
+   shell is not under `<root>/`. We had two choices: split the
+   repo into multiple Go modules, or move the shell under the
+   same root. Topic slicing is the same choice, made one level
+   up: each topic folder either *is* a Go module (the root
+   `go.mod` covers `condura-app/`) or is a non-Go asset bundle
+   (`condura-gui/`, `condura-ui/`, `condura-brand/`,
+   `condura-studio/`).
+2. **Single Go module at the repo root.** The project has exactly
+   one `go.mod`, at the repository root. That keeps the dep graph
+   simple: there is one `go.sum`, one `go mod tidy`, one
+   `golangci.yml`. The price is that every Go binary the project
+   ships (`condurad`, `condura`, `condura-tui`, `condura-gui`,
+   `gen-update-manifest`) must live inside a topic folder that
+   the root module recognizes — currently `condura-app/cmd/`.
+   See §29.5.4 for why the Wails shell ended up there.
+3. **317 files changed their import paths in one commit.** The
+   move from `conduraapp/internal/` to
+   `conduraapp/condura-app/internal/` is a mechanical rewrite of
+   the Go import prefix across the codebase. We did it in commit
+   `9b893c1` because the cost of doing it later grows with every
+   new file added at the wrong prefix. One big-bang rename, once,
+   is cheaper than a thousand small ones.
+
+The reorg is **not** a refactor for its own sake. It is a
+prerequisite for v0.2.0 work that needs the Wails shell, the
+TUI, and the daemon to share code freely. The layer-sliced
+layout would have forced us into one of two traps: either split
+the repo into multiple Go modules (more CI, more dep churn,
+more confusion for new contributors), or copy code between
+topics (the worst possible outcome, because it breaks the
+single-source-of-truth rule in §4).
+
+### 29.5.2 The nine topic folders
+
+The repo root now lists nine topic folders. Each one has a
+`README.md` that explains its contents in plain prose. The
+one-line summary is below; the README is the authoritative
+reference.
+
+| Folder | One-line purpose |
+|---|---|
+| `condura-mind/` | The canonical spec, logbook, style guide, and docs — `CLAUDE.md`, `LOGBOOK.md`, `STYLE.md`, `MISSION.md`, `docs/`. No code. |
+| `condura-app/` | The Go backend — daemon (`condurad`), CLI (`condura`), TUI (`condura-tui`), Wails shell (`condura-gui`), update-manifest tool, and all `internal/*` packages. The single Go module lives at the repo root and covers everything in here. |
+| `condura-gui/` | The Svelte/TypeScript frontend — components, stores, routes, locales, tests. The frontend is built into a Wails desktop bundle by `condura-ops/scripts/build-gui.sh`. |
+| `condura-ui/` | The Next.js marketing site (`web/`), the dashboard, the legal pages. The user-facing site that lives at `synaptic.app`. |
+| `condura-studio/` | Remotion-based motion design projects — promo videos, demo reels, marketing animations. Builds are orchestrated by `condura-ops/`. |
+| `condura-brand/` | The visual identity — design tokens (`tokens/`), brand assets (`assets/`), logo, palette, typography. Tokens flow into `condura-gui/frontend/src/lib/tokens/`. |
+| `condura-ops/` | CI, release, packaging, scripts — `.github/workflows/`, `goreleaser.yml`, `package-gui-installers.sh`, `build-gui.sh`, `CODEOWNERS`, `dependabot.yml`, everything that makes the project shippable. |
+| `condura-hub/` | **Stub.** Reserved for the public Skills Hub (`hub.synaptic.app`). Not built yet; see §33.5 C9.29 for the v0.2.0 plan. |
+| `condura-sdk/` | **Stub.** Reserved for the public Go/TypeScript SDK that third parties will import. Not built yet. |
+
+The naming convention is fixed: every topic folder starts with
+`condura-`, then the topic. This means a fresh checkout reads
+as a list of surfaces, not a list of generic folders. New
+contributors can answer "where does X live?" by grepping for
+`condura-X` instead of inferring from a layered tree.
+
+### 29.5.3 The stub rule (condura-hub and condura-sdk)
+
+Two of the nine topic folders are **stubs**: `condura-hub/`
+and `condura-sdk/`. They exist on disk, they have a `README.md`
+that documents the reservation, and they are otherwise empty.
+We did not delete them. We did not create them as a private
+flag to ourselves. We created them so the **list of nine
+folders is stable**: v0.2.0 work that needs `condura-hub/` or
+`condura-sdk/` does not have to add a new top-level folder and
+re-shuffle every README that lists them.
+
+The stub rule is: a stub folder contains only a `README.md`
+and a `.gitkeep` (or equivalent placeholder). It is never
+imported. It never holds real code. The moment real code lands
+in it, it stops being a stub and becomes a real topic folder,
+at which point the README gets rewritten and §33.5 gets a
+"Closed" entry. Until then, it is a placeholder with a
+documented reservation.
+
+### 29.5.4 Why the Wails shell lives at condura-app/cmd/condura-gui/
+
+The Wails shell is a Go binary. It imports `condura-app/internal/*`
+to talk to the daemon over the same IPC surface the CLI and TUI
+use. Because of the Go `internal/` rule (§29.5.1.1), the shell
+must live **inside** `condura-app/` to import `condura-app/internal/`.
+
+Putting the shell at `condura-gui/cmd/condura-gui/` would have
+looked natural — it is the GUI, after all — but it would have
+broken the import rule immediately. The shell imports
+`condura-app/internal/ipc`, `condura-app/internal/daemon`,
+`condura-app/internal/storage`, and a dozen more. Those imports
+require the shell's Go file to be under the directory tree of
+`condura-app/`. The only directory under that tree that hosts
+a `main` package is `condura-app/cmd/`. Therefore: the shell
+lives at `condura-app/cmd/condura-gui/`, and `condura-gui/`
+itself holds only the **frontend** (the Svelte/TS bundle the
+shell embeds via `//go:embed`).
+
+This is the inverse of what most Wails tutorials suggest. Most
+tutorials show a `wails init` output that puts the Go binary and
+the frontend in the same folder as siblings. That works when the
+binary does not import anything from the parent module's
+`internal/`. Our binary does, so we split the two halves of the
+Wails pair across two folders and bridged them with an embed
+package (`condura-gui/frontend/assets/assets.go`) that lives
+in the frontend folder but is consumed by the Go binary via
+`go:embed`. The build script
+(`condura-ops/scripts/build-gui.sh`) builds the frontend first,
+then runs `wails build` with `-frontend ../../../condura-gui/frontend`
+so Wails sees the dist bundle.
+
+### 29.5.5 Cross-references
+
+- **§29 (frozen)** — the historical layer-sliced layout. Kept for
+  diff-friendliness against pre-2026-07-04 commits and for any
+  reader who wants to understand the lineage.
+- **§33.5** — the spec-debt table. The §29 drift is tracked
+  there as a closed-on-2026-07-06 entry, with the reorg commit
+  (`9b893c1`) cited as the source of truth.
+- **§30** — the AI workflow. Unchanged. The "read `CLAUDE.md`
+  end-to-end" rule still applies; the file just got longer.
+- **`README.md` (root)** — the workspace overview that maps
+  each topic folder to a one-line purpose and points at the
+  per-topic README for detail.
+
+### 29.5.6 Why topic-slicing beats layer-slicing for a v0.2.0 product surface
+
+Topic-slicing wins for this project because the project is
+**surface-defined**, not **layer-defined**. The user does not
+think "I want to edit a file under `internal/`"; the user
+thinks "I want to change the daemon" or "I want to change the
+frontend" or "I want to change the marketing site". Layer-slicing
+forces every change to make that translation: find the right
+`internal/` package, find the right `app/` file, find the right
+`web/` route. Topic-slicing skips the translation: the user
+opens `condura-app/` for daemon work, `condura-gui/` for
+frontend work, `condura-ui/` for marketing work. The cognitive
+load drops by one step per change, and the cost of onboarding
+a new contributor drops with it.
+
+Layer-slicing is the right choice when the project is a single
+binary and the team is small enough that everyone knows every
+file by heart. We outgrew that point at v0.2.0, when the Wails
+shell, the TUI, the CLI, and the daemon all had to share code
+without copying it. Topic-slicing is what makes that sharing
+possible without giving up the single-Go-module discipline that
+keeps the dep graph tractable.
+
+The trade-off is real: a topic folder is not a Go module, so
+two topics that need to share Go code must put that code under
+`condura-app/internal/` and import it from there. That is
+exactly what we want — it forces shared code into a single
+home instead of letting it sprawl across `pkg/`, `lib/`,
+`shared/`, `common/`, and `utils/`. The next time you are
+tempted to add a new top-level folder, ask first whether it
+could be a sub-folder of `condura-app/` or `condura-gui/`. The
+answer is almost always yes.
+
+---
+
 ## 30. The AI Workflow
 
 **This section is critical for any AI model picking up this project.**
@@ -1396,3 +1581,12 @@ fill it in.
 | Tier 2 Svelte/TS testing | SB-09: zero Svelte tests existed. vitest declared in package.json but no config + no test files. | Added `app/web/frontend/vitest.config.ts` (jsdom env + svelte plugin + setupFiles), `vitest.setup.ts` (jest-dom matchers), `Pulse.test.ts` (smoke test for the breathing animation), `KillSwitchOverlay.test.ts` (5 tests pinning the prop contract: default reason, hard_hotkey reason, eyebrow text, resume button, onresume callback). New devDeps: `@testing-library/svelte`, `@testing-library/jest-dom`, `jsdom`. Documented in §8 per Hard Rule #4. |
 | Audit findings rejected | The audit claimed `internal/update/` was missing and needed an Ed25519 test, and `internal/sensitive/` had untested user-overrides. | Investigation showed: `internal/updater/manifest_test.go` already exists with Ed25519 verification tests (the audit's "no update package" claim was wrong — it's `internal/updater/`, not `internal/update/`). `internal/sensitive.Detector` has no `AddOverride`/`Override` method — the user-overrides feature was either never built or was deferred; nothing to test. Both findings skipped per "trust the code" rule. |
 | `make verify` | Full test+lint gate. | GREEN: 0 lint issues, all Go tests pass with `-race`, vet clean, gofmt clean. |
+
+### 33.5.6 Closed in Phase 15 — Documentation Session 2026-07-06
+
+| ID | Finding | What was done |
+|---|---|---|
+| §29 | Repository Structure section outdated by the 2026-07-04 topic-sliced reorg (commit `9b893c1`); the section still described the old `cmd/`+`internal/`+`app/`+`web/`+`hub/`+`pkg/` layout that no longer exists on `main`. | Per the append-only rule, §29 is frozen as the historical spec and a new **§29.5. The Topic-Sliced Layout (2026-07-04 Reorg)** was appended immediately after it. §29.5 enumerates the nine topic folders (`condura-mind`, `condura-app`, `condura-gui`, `condura-ui`, `condura-studio`, `condura-brand`, `condura-ops`, `condura-hub` stub, `condura-sdk` stub), documents the stub rule, explains why the Wails shell lives at `condura-app/cmd/condura-gui/` (Go `internal/` rule + single Go module at repo root), and closes with the rationale for topic-slicing over layer-slicing for a surface-defined v0.2.0 product. Drift recorded here as closed 2026-07-06. |
+| Memory hygiene | `~/.claude/projects/-Users-sahajpatel-synaptic/memory/` held a stale `synaptic-canon-files.md` that still called `MISSION.md` the real CLAUDE.md (true), but did not list the new `synaptic-wave2-shipped.md` or `synaptic-understanding-anchor.md`; `synaptic-understanding-anchor.md` itself predated the 2026-07-04 reorg and still described the layer-sliced layout as current. | Refreshed `synaptic-canon-files.md` (added `synaptic-wave2-shipped.md`, fixed references), updated `synaptic-understanding-anchor.md` to point at the topic-sliced layout and reference `condura-mind/CLAUDE.md §29.5` for current state. No code changes; pure memory hygiene so the next session reads accurate context on cold start. |
+| validateRouter test gap | The hybrid router (`internal/router/`, deferred to v0.2.0 per §33.5.2 C5.19) had no contract test for the `validateRouter` guard. A future v0.2.0 implementer would not know whether their `validateRouter` returned `nil` or `ErrNoBackend` on empty input. | Logged as deferred-with-spec in §33.5.2 and tagged "validateRouter contract — see test stub `internal/router/validate_router_test.go` (skeleton, `t.Skip("v0.2.0: implement validateRouter")`)" so the v0.2.0 implementer has a one-file starting point. No production code shipped. |
+| `TODO(rebinding)` resolution | `internal/daemon/methods.go` had three `TODO(rebinding)` comments from an abandoned experiment to rebind keybindings at runtime instead of via `config.update`. The rebinding code was removed in commit `9b893c1` (the reorg) but the TODOs were left behind as dead markers. | Removed all three `TODO(rebinding)` comments. Verified with `grep -rE "TODO\(rebinding\)" .` → 0 matches. The runtime-rebind experiment is rejected; users change hotkeys via `config.update` only. | |
