@@ -258,12 +258,19 @@ jobs:
           # the Go binary — all in one invocation. Running `npm run build`
           # separately FIRST would fail because vite cannot resolve
           # wailsjs/runtime/runtime before wails has generated it.
+          #
+          # Install wails CLI if absent (matches build-gui.sh).
+          if ! command -v wails >/dev/null 2>&1; then
+            echo "installing wails CLI..."
+            go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+            export PATH="$(go env GOPATH)/bin:${PATH}"
+          fi
           cd condura-gui
           GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
             -frontend ./frontend \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
-              echo "::warning::wails CLI not installed; falling back to plain Go build"
-              go build -trimpath -o /tmp/condura-gui-smoke .
+              echo "::warning::wails build failed; skipping smoke build"
+              exit 1
             }
 
       - name: Verify GUI build artifact
