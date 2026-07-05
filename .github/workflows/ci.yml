@@ -45,6 +45,23 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: condura-gui/frontend/package-lock.json
+
+      # Lint compiles everything (golangci-lint runs `go build` internally
+      # to type-check), so the assets package's //go:embed all:dist pattern
+      # needs files at condura-gui/frontend/assets/dist/. This step runs
+      # the same Vite build the GUI Build job runs, then continues to lint.
+      - name: Build frontend (for Wails embed)
+        run: |
+          cd condura-gui/frontend
+          npm ci
+          npm run build
+
       - name: Run golangci-lint
         run: golangci-lint run --timeout=5m
 
@@ -89,6 +106,24 @@ jobs:
       - name: Verify modules
         shell: bash
         run: go mod verify
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: condura-gui/frontend/package-lock.json
+
+      # `go vet ./...` compiles every package, including the Wails assets
+      # package at condura-gui/frontend/assets whose //go:embed all:dist
+      # requires files at condura-gui/frontend/assets/dist/. Build them
+      # before any Go step that traverses the package graph.
+      - name: Build frontend (for Wails embed)
+        shell: bash
+        run: |
+          cd condura-gui/frontend
+          npm ci
+          npm run build
 
       - name: Run go vet
         shell: bash
