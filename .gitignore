@@ -87,6 +87,7 @@ desktop.ini
 
 # Svelte / frontend build outputs
 /condura-gui/frontend/node_modules/
+/condura-gui/frontend/dist/
 /condura-gui/frontend/assets/dist/
 /condura-gui/frontend/package.json.md5
 
