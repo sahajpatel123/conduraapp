@@ -1,0 +1,18 @@
+<!--
+  Placeholder file so that `//go:embed all:dist` in
+  condura-gui/frontend/assets/assets.go compiles from a fresh checkout
+  (CI, a fresh git clone, etc.).
+
+  In production this directory is REPLACED by `npm run build` (vite outputs
+  the real Svelte bundle here via vite.config.ts: outDir: 'assets/dist').
+  Vite's `emptyOutDir: true` deletes this file before each production build,
+  so it never ships in a release artifact.
+
+  Without this placeholder, every fresh-checkout Go build (lint, vet, test,
+  govulncheck) fails with:
+      pattern all:dist: no matching files found
+  because Go's embed rejects empty directories.
+-->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>placeholder</title></head>
+<body></body></html>

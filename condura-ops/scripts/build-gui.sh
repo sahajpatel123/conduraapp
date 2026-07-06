@@ -39,27 +39,41 @@ echo "Building frontend..."
 (cd "$FRONTEND_DIR" && npm ci && npm run build)
 
 # Wails v2.12.0 removed the -frontend flag AND removed the implicit
-# discovery of the frontend outside the Wails project root. The custom
-# asset handler is driven by `condura-gui/frontend/assets/assets.go`,
-# whose `//go:embed all:dist` pattern picks up files from a sibling
-# `dist/` next to the assets package. The actual `dist/` lives one
-# directory up (`../dist` from `assets/`). Create a temporary
-# relative symlink so the embed resolves, then clean up regardless
-# of build outcome. Use `rm -rf` first because a previous failed
-# build may have left a real `assets/dist/` directory, which `ln`
-# refuses to replace.
+# discovery of the frontend outside the Wails project root. The
+# custom asset handler is driven by
+# `condura-gui/frontend/assets/assets.go`, whose `//go:embed all:dist`
+# pattern picks up files from a sibling `dist/` next to the assets
+# package. The actual `dist/` lives one directory up
+# (`../dist` from `assets/`).
+#
+# We cannot use a symlink here: Go's `//go:embed` considers a
+# symlink to be "irregular" if it points outside the package's
+# directory tree, and rejects the embed with:
+#   pattern all:dist: cannot embed irregular file dist
+# So we copy the dist tree INTO the assets package directory at
+# build time, where `//go:embed` happily finds regular files.
+# The copy is gitignored via .gitignore (add the entry if not
+# present) so the working tree stays clean.
 ASSETS_DIR="${ROOT}/condura-gui/frontend/assets"
 rm -rf "${ASSETS_DIR}/dist"
-ln -sfn "../dist" "${ASSETS_DIR}/dist"
+mkdir -p "${ASSETS_DIR}/dist"
+cp -R "${ROOT}/condura-gui/frontend/dist/." "${ASSETS_DIR}/dist/"
 cleanup() { rm -rf "${ASSETS_DIR}/dist"; }
 trap cleanup EXIT
 
 echo "Building Wails app for ${GOOS}/${GOARCH}..."
+# `-skipfrontend` because the build-gui.sh script already ran
+# `(cd "$FRONTEND_DIR" && npm ci && npm run build)` above using
+# $FRONTEND_DIR (an absolute path). Wails v2's internal
+# `frontend:install` / `frontend:build` (driven by wails.json's
+# relative paths) resolve against a different CWD and break with
+# the topic-sliced layout. The wails.json skipfrontend field is
+# NOT supported by v2.12.0; only the CLI flag works.
 if [ "$GOOS" = "linux" ]; then
   # Ubuntu 24.04+ ships webkit2gtk-4.1 only (see wails.io docs).
-  wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}" -tags webkit2_41
+  wails build -clean -trimpath -skipfrontend -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}" -tags webkit2_41
 else
-  wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
+  wails build -clean -trimpath -skipfrontend -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
 fi
 
 # Wails outputfilename is "web" — normalize to condura for releases.
