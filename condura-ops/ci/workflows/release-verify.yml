@@ -36,7 +36,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
-          args: release --snapshot --clean
+          args: release --snapshot --clean --config condura-ops/release/goreleaser.yml
 
       - name: Verify snapshot artifacts
         run: |
@@ -97,10 +97,10 @@ jobs:
           test -s dist/update-manifest.signed.json
 
       - name: Updater package tests
-        run: go test -count=1 -timeout=60s ./internal/updater/...
+        run: go test -count=1 -timeout=60s ./condura-app/internal/updater/...
 
       - name: Update IPC E2E tests
-        run: go test -count=1 -timeout=120s ./internal/daemon -run 'TestE2E_Update'
+        run: go test -count=1 -timeout=120s ./condura-app/internal/daemon -run 'TestE2E_Update'
 
   # ---------------------------------------------------------------
   # When UPDATE_SIGNING_KEY is configured, prove it matches PublicKey.
