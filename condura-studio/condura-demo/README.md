@@ -59,3 +59,6 @@ npm run render:demo
 5. Control: autonomy matrix, audit thread, hard stop.
 6. Receipt: finished work comes back with proof.
 7. Close: Condura CTA.
+
+> The Hype Reel and Masterpiece films now live in the sibling
+> `condura-spotlight/` project.

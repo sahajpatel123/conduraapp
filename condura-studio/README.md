@@ -13,6 +13,7 @@ output that lands in `condura-brand/assets/` for consumption by
 | Path | Status | Output |
 |---|---|---|
 | `condura-demo/` | shipping | 60s product demo film |
+| `condura-spotlight/` | shipping | AI-authored hype reel + cinematic masterpiece |
 | `my-video/` | exploration | earlier brand experiments |
 
 ## Develop
