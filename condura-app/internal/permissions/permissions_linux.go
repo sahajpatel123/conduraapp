@@ -3,8 +3,10 @@
 package permissions
 
 import (
+	"context"
 	"os"
 	"os/exec"
+	"time"
 )
 
 func init() {
@@ -35,7 +37,6 @@ func probeAccessibilityLinux() Permission {
 	if processRunning("at-spi2-registryd") || processRunning("at-spi-bus-launcher") {
 		return Permission{Kind: KindAccessibility, Status: StatusGranted, Note: "AT-SPI2 accessibility bus detected"}
 	}
-	// Also check D-Bus for the accessibility bus.
 	if dbusServiceAccessible("org.a11y.Bus") {
 		return Permission{Kind: KindAccessibility, Status: StatusGranted, Note: "AT-SPI2 D-Bus service accessible"}
 	}
@@ -47,8 +48,7 @@ func probeAccessibilityLinux() Permission {
 }
 
 // probeScreenRecordingLinux checks for xdg-desktop-portal (needed
-// for Wayland screen capture) and X11 accessibility. On X11 any
-// client can capture the screen; on Wayland the portal is required.
+// for Wayland screen capture) and X11 accessibility.
 func probeScreenRecordingLinux() Permission {
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		if processRunning("xdg-desktop-portal") || processRunning("xdg-desktop-portal-gnome") ||
@@ -61,7 +61,6 @@ func probeScreenRecordingLinux() Permission {
 			Note:   "Wayland requires xdg-desktop-portal; install xdg-desktop-portal + backend (gnome/kde/wlr)",
 		}
 	}
-	// X11: no permission required for screen capture.
 	if os.Getenv("DISPLAY") != "" {
 		return Permission{Kind: KindScreenRecording, Status: StatusGranted, Note: "X11 session detected (no permission required)"}
 	}
@@ -73,12 +72,11 @@ func probeScreenRecordingLinux() Permission {
 }
 
 // probeMicrophoneLinux checks PulseAudio or PipeWire for audio
-// input devices. We also check if the user is in the 'audio' group.
+// input devices and whether the user has sound device access.
 func probeMicrophoneLinux() Permission {
 	if processRunning("pulseaudio") || processRunning("pipewire") || processRunning("pipewire-pulse") {
 		return Permission{Kind: KindMicrophone, Status: StatusGranted, Note: "PulseAudio / PipeWire audio server detected"}
 	}
-	// Check hardware directly.
 	if _, err := os.Stat("/dev/snd"); err == nil {
 		return Permission{Kind: KindMicrophone, Status: StatusGranted, Note: "/dev/snd audio devices detected"}
 	}
@@ -117,31 +115,35 @@ func probeNotificationsLinux() Permission {
 	}
 }
 
+// commandTimeout is the max wall-clock time a subprocess probe may run.
+const commandTimeout = 2 * time.Second
+
+// runProbe executes cmd with a short timeout. Returns true if the
+// command exited successfully within the deadline.
+func runProbe(name string, args ...string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // fixed probe names, not user input
+	return cmd.Run() == nil
+}
+
 // processRunning checks whether a process with the given name
 // is running on the system.
 func processRunning(name string) bool {
-	// Check /proc for the process.
-	cmd := exec.Command("pgrep", "-x", name)
-	return cmd.Run() == nil
+	return runProbe("pgrep", "-x", name)
 }
 
 // dbusServiceAccessible checks whether a D-Bus service is
 // reachable via dbus-send or gdbus.
 func dbusServiceAccessible(service string) bool {
 	if _, err := exec.LookPath("dbus-send"); err == nil {
-		cmd := exec.Command(
-			"dbus-send", "--session", "--print-reply",
-			"--dest="+service, "/", "org.freedesktop.DBus.Peer.Ping",
-		)
-		return cmd.Run() == nil
+		return runProbe("dbus-send", "--session", "--print-reply",
+			"--dest="+service, "/", "org.freedesktop.DBus.Peer.Ping")
 	}
 	if _, err := exec.LookPath("gdbus"); err == nil {
-		cmd := exec.Command(
-			"gdbus", "call", "--session",
+		return runProbe("gdbus", "call", "--session",
 			"--dest", service, "--object-path", "/",
-			"--method", "org.freedesktop.DBus.Peer.Ping",
-		)
-		return cmd.Run() == nil
+			"--method", "org.freedesktop.DBus.Peer.Ping")
 	}
 	return false
 }
