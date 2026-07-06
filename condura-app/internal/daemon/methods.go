@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/api_key"
@@ -17,6 +18,11 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
+// daemonStarted is set once when the daemon begins running. Used by
+// daemon.uptime RPC to report wall-clock uptime. Writing to it after
+// Run() starts is a data race; it is effectively immutable post-init.
+var daemonStarted = time.Now()
+
 // registerMethods wires every JSON-RPC method the daemon exposes into
 // the given server. The method list is the single source of truth for
 // what the GUI and CLI can call.
@@ -28,6 +34,19 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	})
 	srv.Register("version", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return ver, nil
+	})
+	srv.Register("daemon.uptime", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return map[string]any{"uptime_seconds": time.Since(daemonStarted).Seconds()}, nil
+	})
+	srv.Register("daemon.pid", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return map[string]any{"pid": os.Getpid()}, nil
+	})
+	srv.Register("daemon.info", func(_ context.Context, _ json.RawMessage) (any, error) {
+		return map[string]any{
+			"uptime_seconds": time.Since(daemonStarted).Seconds(),
+			"pid":            os.Getpid(),
+			"version":        ver,
+		}, nil
 	})
 	srv.Register("config.get", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return cfg, nil
