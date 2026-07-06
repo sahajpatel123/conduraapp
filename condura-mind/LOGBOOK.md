@@ -6811,3 +6811,71 @@ $ git status --short
 **Status:** ⚠️ **Build green, vet green, four of five in-package tests pass.** The fifth test (the new `TestRouterDrift_PrioritiesReferenceKnownProviders`) fails by design — it is the *intended* alarm bell for the cfg.Router wiring gap. Three focused commits will follow (docs / test / TODO rebinding), then push to `origin/main` and monitor CI.
 
 ---
+
+## [2026-07-06 04:25 UTC] AI Model: z-ai/glm-5.2 — Phase 14 workspace cleanup + router drift closure
+
+**Task:** Address the findings from the prior-session workspace survey (drift register + shape inventory). Per STYLE.md §22.6 ("Surface Forks"), raised five potential decisions via AskUserQuestion before touching any constrained file; user ratified scope (Rename to knownProviders / MISSION.md canonical / Drop 7 stashes / Hold rebrand / Safe-subset proceed). This session was read-only audit on entry, then implementation + verification + push.
+
+### Files created
+- `.github/workflows/README.md` — pointer redirect to `condura-ops/ci/workflows/` (5 workflows). The Actions tab now leads readers at the real paths. ~34 lines.
+- `condura-gui/frontend/src/lib/tokens/aliases.test.ts` — Vitest contract test for the 10-rule `--ink-cool-*` → `--ink-*` alias block in `semantic.css`. Sentinel-style: pins the alias family length and the mapping names so a v2 design-system refactor cannot silently break the v1 components that still consume `--ink-cool-*`. ~42 lines.
+- `condura-mind/CLAUDE.md.legacy` — full preservation of the original `CLAUDE.md` content (1581-line diff versus CLAUDE.md stub). Includes the §29.5 topic-sliced layout append from this morning, §33.5 spec-debt table, and 2026-07-06 §33.5.6 close-out notes.
+
+### Files modified
+- `Makefile` — added a `GORELEASER_CONFIG` variable (default `--config condura-ops/release/goreleaser.yml`, overridable via `RELEASE_CONFIG=<path>`). Wired into `release-snapshot` and a new `release` target that passthroughs to `goreleaser release --clean`. ~16 lines.
+- `condura-app/configs/default.yaml` — `router.priorities` rewritten to align with `internal/daemon/providers.go:knownProviders()`. Removed delegator CLI names (claude_code, codex, antigravity), removed `custom` (buildProvider returns nil), removed non-LLM names (hermes, elevenlabs, whisper_local), renamed `gemini` → `google` and `local` → `localai`. +15 lines (mostly comments).
+- `condura-app/internal/config/loader.go` — same rename applied to the `RouterConfig.Priorities` literal in the `Default()` constructor. Inserted a 9-line rationale comment explaining the change so the next contributor understands why delegator names are absent. ~36 lines delta.
+- `condura-mind/CLAUDE.md` — replaced 1581 lines of Synaptic-era spec content with a 30-line redirect stub pointing at `condura-mind/MISSION.md` (canonical) and `condura-mind/CLAUDE.md.legacy` (historical).
+- `~/.claude/projects/-Users-sahajpatel-synaptic/memory/synaptic-canon-files.md` — added 2026-07-06 reorg note + updated `How to apply` to describe the redirect-stub pattern.
+- `~/.claude/projects/-Users-sahajpatel-synaptic/memory/MEMORY.md` — updated the canon-files entry to spell out the three reading routes (MISSION.md canonical, CLAUDE.md redirect, CLAUDE.md.legacy historical).
+
+### Files (no commit needed)
+- `git stash drop` on `stash@{1}`..`stash@{7}`. `stash@{0}` ("pre-merge-WIP-2026-07-01: user WIP + v2 design system, preserve through merge to main") preserved. The 7 dropped stashes were labeled per `git stash list` as: `9620cc1 refactor(web): remove tool roster strip...`, `agent-wip`, `phase13-wip`, `temp-audit`, `ceaf677 fix(phase11): skills.db path mismatch...`, `fix/backup-restore-sibling-wal-shm: Partial Phase 11-12 changes from failed agents`, and `fix/delegation-limit-rollback-timeout: ... iteration 2`. Each was `git stash show -p` verified before drop; no user WIP in any.
+
+### Decisions made
+- **Router drift (rename to knownProviders).** The earlier LOGBOOK entry left this open with a 25-item table. Per user ratification (AskUserQuestion option A), renamed to existing provider constants in both `default.yaml` and `loader.go`. Removed names that aren't LLM providers (delegator CLIs, TTS, STT) because they belong in `internal/delegation` and on the voice subsystems, not the LLM router.
+- **Spec consolidation (MISSION.md canonical).** Per user ratification (option B), kept `MISSION.md` as the canonical spec, preserved original `CLAUDE.md` content as `CLAUDE.md.legacy`, and replaced `CLAUDE.md` with a 30-line redirect stub. Append-only compliance: zero content loss; legacy file is intact.
+- **Stash cleanup (drop 7, preserve stash@{0}).** Per user ratification. stash@0 was explicitly labeled "preserve through merge to main" so I did not touch it. The other 7 dropped to clear the queue of failed-agent WIP and pre-merge temp snapshots that the LOGBOOK entry from 2026-07-04 described as cruft.
+- **Hold Synaptic → Condura mass find-and-replace.** Per user ratification (option B). This is a backlog item; this session stayed additive-only. Brand migration is best done as a coordinated doc + code pass in a future session, not silently inside a verification pass.
+- **CI discovery via README pointer, not symlinks/copies.** Per Style §22.10 ("Don't be clever"), the obvious solution is a one-screen README redirecting readers at the real workflow paths. Symlinks are platform-specific; copies drift.
+- **CSS alias test design (sentinel, not behavior).** Per STYLE.md §0 ("a green test is not proof the feature works"), the test asserts the alias family exists and the mapping is documented — not the resolved value. jsdom can resolve custom properties, so a future patch can upgrade this to a behavior test in 5 lines; today it documents the contract.
+
+### Bugs / issues encountered
+- **The original 7 agent attempts failed at the API layer** (`anthropic/claude-opus-4.8 not available on the Core plan`). Fallback was direct execution in the main loop using the Bash + Edit + Read tools. STYLE.md §22.11 ("one observation, one edit, one verification") honors this; STYLE.md §13 ("I optimize for the user's time, not mine") ratifies not retrying the failed path.
+- **The default.yaml Edit kept failing** until I dropped a phantom trailing comment from my `old_string`. The actual file's `fallback_chain:` line doesn't carry `# cascade | pareto | hybrid | user` — the Edit pattern requires byte-exact match.
+- **Stash drop batched indices collided** when I dropped in non-reverse order; lower-index drops shift higher-index refs. Fixed by `git stash list --format='%gd' | sort -r | xargs -I{} git stash drop {}`.
+
+### Verification (Tier 1 + Tier 2 + Tier 3 partial)
+- **Tier 1 — router drift test:** `go test -count=1 -run TestRouterDrift ./condura-app/internal/config/... -v` → both tests PASS.
+  - `router_drift: 0 drift items across 13 tasks — priorities and knownProviders agree`
+- **Tier 1 — config package:** `go test -count=1 ./condura-app/internal/config/...` → PASS (all tests in the package green, including the previously-failing drift test).
+- **Tier 2 — full race sweep:** `go test -race -count=1 -timeout=300s -short ./...` → all packages PASS. 0 data races, 0 failures.
+- **Tier 2 — build:** `go build ./...` → exit 0, no output.
+- **Tier 2 — vet:** `go vet ./...` → exit 0, no output.
+- **Tier 3 — runtime smoke test:** DEFERRED. Skipped per Phase 15 on-device-verification requires physical machine; not in scope for this session (Tier 3 verification is run separately on real hardware before v1.0.0 per `STYLE.md §18` and `condura-mind/docs/phase15-verification.md`).
+- **CI verification:** Pending push. The 5 commits on `main` will trigger `condura-ops/ci/workflows/ci.yml`. Will watch via `gh run watch` after push.
+
+### Conventional-commits pushed (chronological, this session)
+1. `8f43d2d` ops(release): pin goreleaser config path + add CI discovery README
+2. `992a8bd` ci(config): align cfg.Router.Priorities with knownProviders()
+3. `e70d552` docs(spec): consolidate two-spec drift — MISSION.md canonical, CLAUDE.md → redirect stub
+4. `eaa81e3` test(design): pin --ink-cool-* alias contract via Vitest
+5. (this LOGBOOK commit)
+
+Each commit ≥ scoped to one logical change per STYLE.md §10 ("One commit = one logical change"). All carry `Co-Authored-By: Claude <noreply@anthropic.com>` per the harness convention.
+
+### Open questions for next session
+- **CI must be green before declaring done.** Per STYLE.md §22.9 ("Push, Then Watch"), watch `gh run watch` for the ci.yml workflow on `origin/main`. If a runner fails, append a §33.5.8 entry and fix in a follow-up commit.
+- **CI workflow discovery README** is a redirect only. If contributors add a `.yml` here by mistake, the canonical workflow at `condura-ops/ci/workflows/` won't run. Consider a CI lint check that fails the build if any non-README file appears in `.github/workflows/`.
+- **The router drift test now PASSES** (this commit), but it relies on a duplicate `knownProvidersMirror` in `internal/config/router_drift_test.go` because `internal/daemon` already imports `internal/config` (an import cycle blocks importing the canonical list from daemon). Once the import cycle is broken — likely when `internal/` migrates to `pkg/` for the v0.2.0 SDK — delete the mirror and import the canonical list directly.
+- **5 of 5 commits are present-but-still-local.** The push step at the end of this session moves them to `origin/main` and triggers CI. If push fails for any reason (network, auth), the LOGBOOK entry captures the local state and the next session completes the push.
+
+### Next steps (priority order)
+1. Watch `gh run watch` for ci.yml on origin/main (after push). Stay at the keyboard per STYLE.md §22.9.
+2. If ci.yml is green, append a §33.5.7 closed entry referencing this session's 5 commits.
+3. If ci.yml is red, audit the failure (per STYLE.md §9: reproduce, inspect verbatim, trace data flow, diff expectations, fix at the source, add regression test).
+4. Re-verify on real macOS hardware per `condura-mind/docs/phase15-verification.md` before v1.0.0. Tier 3 smoke testing is the gate STYLE.md §18 enforces.
+
+**Status:** ✅ **5 commits ready; awaiting push.** Tier 1 + Tier 2 verification green (build / vet / race tests / router drift test). Tier 3 deferred to on-device verification (next session, per existing Phase 15 plan). Memory files updated. Append-only compliance verified (CLAUDE.md content preserved at .legacy). Stash cleanup completed without touching user WIP.
+
+---
