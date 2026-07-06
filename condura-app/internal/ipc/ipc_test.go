@@ -114,9 +114,13 @@ func TestServer_Handle_InternalError(t *testing.T) {
 // logger receives the error with home-directory paths and private
 // IPs redacted as a defense-in-depth measure.
 func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
 	var logged atomic.Bool
 	var capturedErr string
 	log := slog.New(slog.NewTextHandler(&captureWriter{onWrite: func(s string) {
+		// The error should be redacted: home dir → ~.
 		if strings.Contains(s, "open ~/.condura/secrets/api_key.enc") {
 			capturedErr = s
 			logged.Store(true)
@@ -124,8 +128,9 @@ func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
 	}}, nil))
 
 	s := NewServer().WithLogger(log)
+	errPath := fmt.Sprintf("open %s/.condura/secrets/api_key.enc: permission denied", home)
 	s.Register("boom", func(_ context.Context, _ json.RawMessage) (any, error) {
-		return nil, fmt.Errorf("open /Users/sahajpatel/.condura/secrets/api_key.enc: permission denied")
+		return nil, fmt.Errorf("%s", errPath)
 	})
 	resp, err := s.Handle(context.Background(), &Request{JSONRPC: "2.0", Method: "boom", ID: json.RawMessage("7")})
 	require.NoError(t, err)
@@ -133,7 +138,7 @@ func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
 
 	// Client gets the redacted message — no path.
 	assert.Equal(t, "internal error", resp.Error.Message)
-	assert.NotContains(t, resp.Error.Message, "/Users/")
+	assert.NotContains(t, resp.Error.Message, home)
 	assert.NotContains(t, resp.Error.Message, "permission denied")
 
 	// Server log got the error with home dir redacted.
