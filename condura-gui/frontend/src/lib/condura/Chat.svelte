@@ -1083,38 +1083,38 @@
     grid-template-columns: 280px minmax(0, 1fr);
   }
   .rail {
-    border-right: 1px solid var(--hair);
+    border-right: 1px solid color-mix(in srgb, var(--lp-ink-ghost) 35%, transparent);
     display: flex;
     flex-direction: column;
-    background: var(--surface);
+    background: color-mix(in srgb, var(--lp-paper-warm) 40%, var(--lp-paper));
     overflow: hidden;
   }
   .cl-new {
     background: transparent;
     border: 0;
-    border-bottom: 1px solid var(--hair);
-    color: var(--content-soft);
-    font-family: var(--font-mono);
-    font-size: 11px;
+    border-bottom: 1px solid color-mix(in srgb, var(--lp-ink-ghost) 30%, transparent);
+    color: var(--lp-ink-faint);
+    font-family: var(--lp-font-mono);
+    font-size: var(--lp-text-micro);
     letter-spacing: 0.04em;
     text-align: left;
-    padding: var(--space-4);
+    padding: var(--lp-space-4);
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--lp-space-2);
   }
   .cl-new:hover {
-    background: var(--surface-card);
-    color: var(--content);
+    background: var(--lp-paper-warm);
+    color: var(--lp-ink);
   }
   .cl-new:focus-visible {
     outline: none;
-    box-shadow: inset 0 0 0 4px var(--pollen-halo);
+    box-shadow: inset 0 0 0 2px var(--lp-synapse), 0 0 0 4px color-mix(in srgb, var(--lp-pollen) 25%, transparent);
   }
   .cl-list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-2);
+    padding: var(--lp-space-2);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1122,11 +1122,11 @@
   .cl-loading {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-4) var(--space-3);
-    color: var(--content-faint);
-    font-family: var(--font-mono);
-    font-size: 11px;
+    gap: var(--lp-space-2);
+    padding: var(--lp-space-4) var(--lp-space-3);
+    color: var(--lp-ink-faint);
+    font-family: var(--lp-font-mono);
+    font-size: var(--lp-text-micro);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -1134,10 +1134,10 @@
     flex: 1;
   }
   .cl-empty {
-    padding: var(--space-4) var(--space-3);
-    color: var(--content-faint);
-    font-family: var(--font-mono);
-    font-size: 11px;
+    padding: var(--lp-space-4) var(--lp-space-3);
+    color: var(--lp-ink-faint);
+    font-family: var(--lp-font-mono);
+    font-size: var(--lp-text-micro);
     letter-spacing: 0.04em;
   }
   .cl-row {
@@ -1145,20 +1145,21 @@
     border: 0;
     text-align: left;
     width: 100%;
-    padding: var(--space-3);
-    border-radius: var(--r-sm);
-    color: var(--content-soft);
+    padding: var(--lp-space-3);
+    border-radius: var(--lp-radius-sm);
+    color: var(--lp-ink-mute);
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
   .cl-row:hover {
-    background: var(--surface-card);
-    color: var(--content);
+    background: var(--lp-paper-warm);
+    color: var(--lp-ink);
   }
   .cl-row.active {
-    color: var(--content);
+    color: var(--lp-ink);
+    background: color-mix(in srgb, var(--lp-paper-warm) 80%, var(--lp-paper));
   }
   .cl-row.active::before {
     content: '';
@@ -1167,37 +1168,37 @@
     top: 6px;
     bottom: 6px;
     width: 2px;
-    background: var(--synapse);
+    background: var(--lp-synapse);
     border-radius: 1px;
-    transform: scaleY(1);
-    transform-origin: top;
-    animation: drawv var(--dur-slow) var(--ease);
   }
   .cl-row:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 4px var(--pollen-halo);
+    box-shadow:
+      0 0 0 2px var(--lp-synapse),
+      0 0 0 5px color-mix(in srgb, var(--lp-pollen) 25%, transparent);
   }
   .cl-title {
-    font-family: var(--font-display);
-    font-size: 14px;
+    font-family: var(--lp-font-sans);
+    font-size: var(--lp-text-body-sm);
+    font-weight: 500;
     line-height: 1.25;
-    color: var(--content);
+    color: var(--lp-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .cl-time {
-    font-family: var(--font-mono);
+    font-family: var(--lp-font-mono);
     font-size: 10px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--content-faint);
+    color: var(--lp-ink-faint);
   }
   .cl-foot {
-    border-top: 1px solid var(--hair);
-    padding: var(--space-3);
-    color: var(--content-faint);
-    font-family: var(--font-mono);
+    border-top: 1px solid color-mix(in srgb, var(--lp-ink-ghost) 30%, transparent);
+    padding: var(--lp-space-3);
+    color: var(--lp-ink-faint);
+    font-family: var(--lp-font-mono);
     font-size: 10px;
     letter-spacing: 0.04em;
   }

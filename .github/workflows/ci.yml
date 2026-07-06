@@ -259,32 +259,25 @@ jobs:
           # Smoke build only — don't run the full installer packaging on
           # every push. release.yml handles that.
           #
-          # The order matters: `wails build -frontend <path>` does
-          # (1) generate wailsjs bindings, (2) run vite build, (3) compile
-          # the Go binary — all in one invocation. Running `npm run build`
-          # separately FIRST would fail because vite cannot resolve
-          # wailsjs/runtime/runtime before wails has generated it.
-          #
-          # Install wails CLI if absent (matches build-gui.sh).
+          # Frontend lives at condura-gui/frontend/ and vite writes to
+          # assets/dist (embedded via //go:embed). Pre-build the frontend,
+          # then compile with wails -s (skip internal frontend step).
           if ! command -v wails >/dev/null 2>&1; then
             echo "installing wails CLI..."
             go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
             export PATH="$(go env GOPATH)/bin:${PATH}"
           fi
-          cd condura-app/cmd/condura-gui
-          # Skip the wails CLI orchestration in CI. It assumes a single
-          # frontend/ dir sibling to wails.json (./frontend/), but this
-          # repo's frontend lives at ../../../condura-gui/frontend/.
-          # The -frontend flag that pointed at the right path was removed
-          # in wails v2.12.0. Pre-build the frontend and generate bindings
-          # manually, then compile the Go shell directly. This matches the
-          # smoke intent (verify the GUI builds) without fighting the CLI.
-          (cd ../../../condura-gui/frontend && npm ci && npm run build)
-          GOTOOLCHAIN=local wails generate module
-          go build -trimpath -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" -o /tmp/condura-gui-smoke . || {
-            echo "::warning::GUI build failed; smoke incomplete"
+          (cd condura-gui/frontend && npm ci && npm run build)
+          if ! rg -q 'lp-nav-row' condura-gui/frontend/assets/dist/assets/*.js; then
+            echo "::error::frontend bundle missing lp-nav-row — stale build"
             exit 1
-          }
+          fi
+          cd condura-app/cmd/condura-gui
+          GOTOOLCHAIN=local wails build -clean -trimpath -s -platform darwin/arm64 \
+            -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
+              echo "::warning::wails CLI build failed; falling back to plain Go build"
+              go build -trimpath -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" -o /tmp/condura-gui-smoke .
+            }
 
       - name: Verify GUI build artifact
         shell: bash

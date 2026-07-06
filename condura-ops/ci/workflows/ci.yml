@@ -245,12 +245,14 @@ jobs:
           VERSION: ci-${{ github.run_id }}
           COMMIT: ${{ github.sha }}
         run: |
-          chmod +x scripts/build-gui.sh
-          # Smoke build only — don't run the full installer
-          # packaging on every push. release.yml handles that.
-          cd condura-gui
-          (cd frontend && npm ci && npm run build)
-          GOTOOLCHAIN=local wails build -clean -trimpath -platform darwin/arm64 \
+          chmod +x condura-ops/scripts/build-gui.sh
+          cd condura-app/cmd/condura-gui
+          (cd ../../../condura-gui/frontend && npm ci && npm run build)
+          if ! rg -q 'lp-nav-row' ../../../condura-gui/frontend/assets/dist/assets/*.js; then
+            echo "::error::frontend bundle missing lp-nav-row — stale build" >&2
+            exit 1
+          fi
+          GOTOOLCHAIN=local wails build -clean -trimpath -s -platform darwin/arm64 \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails CLI not installed; falling back to plain Go build"
               go build -trimpath -o /tmp/condura-gui-smoke .

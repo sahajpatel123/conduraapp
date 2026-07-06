@@ -1,12 +1,9 @@
 <script lang="ts">
   /**
    * LivingPaperShell — The root orchestrator for the Living Paper GUI.
-   * 
+   *
    * Layout: [TopBar] [NavOrbit | ContentCanvas] [StatusThread]
    * Overlays: Onboarding, CommandPalette, ConsentModal, KillSwitch
-   * 
-   * This file manages no business logic — it delegates to stores
-   * and route components. The daemon contract is unchanged.
    */
   import { onMount } from 'svelte'
   import { initStores } from '../stores/init'
@@ -18,17 +15,12 @@
   import { conversation } from '../stores/conversation.svelte'
   import { daemon } from '../stores/daemon.svelte'
 
-  // Living Paper primitives
-  import { PaperSurface, QuillCursor, PaperDivider } from '$lib/components/living'
+  import { PaperSurface, QuillCursor } from '$lib/components/living'
 
-  // Shell components
   import TopBar from './TopBar.svelte'
-  import NavOrbit, { type RouteId } from './NavOrbit.svelte'
+  import NavOrbit from './NavOrbit.svelte'
   import StatusThread from './StatusThread.svelte'
 
-  // Route components — these still use condura/ components internally
-  // but are wrapped in the Living Paper shell. Will be migrated to
-  // Living Paper primitives route by route.
   import Chat from '$lib/condura/Chat.svelte'
   import Audit from '$lib/condura/Audit.svelte'
   import Replay from '$lib/condura/Replay.svelte'
@@ -39,28 +31,32 @@
   import Delegation from '$lib/condura/Delegation.svelte'
   import Settings from '$lib/condura/Settings.svelte'
   import About from '$lib/condura/About.svelte'
+  import Account from '$lib/condura/Account.svelte'
   import { FloatingOnboarding } from '$lib/components/onboarding'
 
-  // Overlays
   import CommandPalette from '$lib/condura/CommandPalette.svelte'
   import QuickPromptOverlay from '$lib/condura/QuickPromptOverlay.svelte'
   import ConsentModal from '$lib/condura/ConsentModal.svelte'
   import KillSwitchOverlay from '$lib/condura/KillSwitchOverlay.svelte'
 
-  import { ROUTE_HASH, hashToRoute } from '$lib/condura/NavRail.svelte'
+  import { ROUTE_HASH, hashToRoute, type RouteId } from '$lib/condura/NavRail.svelte'
 
-  // ── State ────────────────────────────────────────────────
+  type ShellRoute = RouteId | 'replay'
+
+  function shellHashToRoute(hash: string): ShellRoute {
+    if (hash.startsWith('#/replay')) return 'replay'
+    return hashToRoute(hash)
+  }
+
   let showOnboarding = $state(false)
   let paletteOpen = $state(false)
   let quickOpen = $state(false)
-  let navCollapsed = $state(true)
   let currentHash = $state(
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
-  let route = $derived(hashToRoute(currentHash))
+  let route = $derived(shellHashToRoute(currentHash))
   let theme = $state<'light' | 'dark'>('light')
 
-  // Agent phase derived from conversation + halt + consent stores
   let agentPhase = $derived(
     conversation.isStreaming
       ? 'thinking'
@@ -73,20 +69,20 @@
             : 'error'
   )
 
-  const routeLabels: Record<RouteId, string> = {
+  const routeLabels: Record<ShellRoute, string> = {
     chat: 'Chat',
+    hub: 'Hub',
+    skills: 'Skills',
+    sync: 'Sync',
     audit: 'Audit',
     replay: 'Replay',
-    hub: 'Hub',
-    sync: 'Sync',
-    skills: 'Skills',
     channels: 'Channels',
     delegation: 'Delegation',
+    account: 'Account',
     settings: 'Settings',
     about: 'About',
   }
 
-  // ── Lifecycle ────────────────────────────────────────────
   onMount(() => {
     theme = (document.documentElement.dataset.mode as 'light' | 'dark') ?? 'light'
 
@@ -110,16 +106,121 @@
     const onHash = () => { currentHash = window.location.hash || '#/' }
     window.addEventListener('hashchange', onHash)
 
+    let gArmed = false
+    let gArmedAt = 0
+
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      const mod = e.metaKey || e.ctrlKey
+      const k = e.key.toLowerCase()
+
+      if (mod && e.shiftKey && k === 'escape') {
+        e.preventDefault()
+        try { void halt.halt('hard_hotkey') } catch { /* ignore */ }
+        return
+      }
+
+      if (e.key === 'Escape' && !e.shiftKey && !mod) {
+        if (paletteOpen) {
+          paletteOpen = false
+          e.preventDefault()
+          return
+        }
+        if (quickOpen) {
+          quickOpen = false
+          e.preventDefault()
+          return
+        }
+      }
+
+      if (mod) {
+        switch (k) {
+          case 'k':
+            e.preventDefault()
+            paletteOpen = true
+            return
+          case 'p':
+            if (e.shiftKey) {
+              e.preventDefault()
+              quickOpen = true
+              return
+            }
+            break
+          case ',':
+            e.preventDefault()
+            navigate('settings')
+            return
+          case '0':
+            e.preventDefault()
+            navigate('account')
+            return
+        }
+
+        if (k >= '1' && k <= '9') {
+          const idx = Number(k) - 1
+          const order: (RouteId | null)[] = [
+            'chat',
+            'hub',
+            'skills',
+            'sync',
+            'audit',
+            'channels',
+            'delegation',
+            null,
+            'settings',
+          ]
+          const target = order[idx]
+          if (target) {
+            e.preventDefault()
+            navigate(target)
+            return
+          }
+        }
+      }
+
+      if (e.shiftKey && !mod && k === 't') {
+        e.preventDefault()
+        setTheme(theme === 'light' ? 'dark' : 'light')
+        return
+      }
+
+      if (e.shiftKey && !mod && k === 'o') {
+        e.preventDefault()
+        showOnboarding = true
+        return
+      }
+
+      if (!mod && e.key === '?' && !e.shiftKey) {
+        const target = e.target as HTMLElement | null
+        const tag = target?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
         e.preventDefault()
         paletteOpen = true
         return
       }
-      if (!e.shiftKey) return
-      const k = e.key.toLowerCase()
-      if (k === 'o') { e.preventDefault(); showOnboarding = true }
-      else if (k === 'p') { e.preventDefault(); quickOpen = true }
+
+      if (gArmed && Date.now() - gArmedAt <= 1200) {
+        const map: Record<string, ShellRoute> = {
+          s: 'settings',
+          h: 'hub',
+          a: 'about',
+          c: 'channels',
+          k: 'skills',
+          r: 'replay',
+          l: 'sync',
+          d: 'delegation',
+        }
+        if (map[k]) {
+          e.preventDefault()
+          navigateShell(map[k])
+          gArmed = false
+          return
+        }
+        gArmed = false
+      }
+      if (!mod && !e.shiftKey && k === 'g') {
+        gArmed = true
+        gArmedAt = Date.now()
+      }
     }
     window.addEventListener('keydown', onKey)
 
@@ -142,35 +243,23 @@
     window.location.hash = ROUTE_HASH[r]
   }
 
-  function toggleNav(): void {
-    navCollapsed = !navCollapsed
+  function navigateShell(r: ShellRoute): void {
+    if (r === 'replay') {
+      window.location.hash = '#/replay'
+      return
+    }
+    navigate(r)
   }
-
-  // Toggle between collapsed/expanded nav via `Ctrl+\`
-  // This is handled in the shell layout
 </script>
 
-<!-- Paper grain background for the entire app -->
 <div class="lp lp-living-shell" data-mode={theme}>
   <PaperSurface variant="page" grain={true} padding="0" style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
-    <!-- Decorative cursor trail -->
     <QuillCursor />
 
     {#if showOnboarding}
-      <!-- Floating onboarding card wizard -->
-      <FloatingOnboarding
-        oncomplete={() => { showOnboarding = false }}
-      />
+      <FloatingOnboarding oncomplete={() => { showOnboarding = false }} />
     {:else}
-      <!-- ── Main App Shell ────────────────────────────── -->
-      <div style="
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        position: relative;
-        z-index: 1;
-      ">
-        <!-- Top bar -->
+      <div class="lp-shell-body">
         <TopBar
           title={routeLabels[route]}
           agentPhase={agentPhase}
@@ -179,44 +268,22 @@
           onPalette={() => (paletteOpen = true)}
         />
 
-        <!-- Main content: NavOrbit + Route -->
-        <div style="
-          display: flex;
-          flex: 1;
-          overflow: hidden;
-          position: relative;
-        ">
-          <!-- NavOrbit — toggle with Ctrl+\ or mouse hover edge -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            style="position: relative; display: flex;"
-            onmouseenter={() => (navCollapsed = false)}
-            onmouseleave={(e) => {
-              // Only collapse if mouse leaves entirely (not to child)
-              const rect = e.currentTarget.getBoundingClientRect()
-              if (e.clientX >= rect.right || e.clientX <= rect.left) {
-                navCollapsed = true
-              }
-            }}
-          >
-            <NavOrbit
-              route={route}
-              onnavigate={navigate}
-              collapsed={navCollapsed}
-            />
-          </div>
+        <div class="lp-shell-main">
+          <NavOrbit
+            route={route === 'replay' ? 'chat' : route}
+            activeRoute={route === 'replay' ? null : route}
+            onnavigate={navigate}
+          />
 
-          <!-- Content area — paper grain background -->
           <PaperSurface
             variant="page"
             grain={true}
             padding="0"
-            style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;"
+            style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; min-width: 0;"
           >
-            <!-- Route content with key for re-render on navigation -->
             {#key route}
               {#if route === 'chat'}
-                <Chat route={route} />
+                <Chat route="chat" />
               {:else if route === 'audit'}
                 <Audit />
               {:else if route === 'replay'}
@@ -231,6 +298,8 @@
                 <Channels />
               {:else if route === 'delegation'}
                 <Delegation />
+              {:else if route === 'account'}
+                <Account />
               {:else if route === 'settings'}
                 <Settings />
               {:else if route === 'about'}
@@ -240,49 +309,58 @@
           </PaperSurface>
         </div>
 
-        <!-- Status thread -->
         <StatusThread
           agentPhase={agentPhase}
           agentLabel={daemon.connected ? 'Connected' : 'Disconnected'}
           halted={halt.state.halted}
           onKill={() => {
-            if (halt.state.halted) {
-              halt.resume()
-            } else {
-              halt.halt()
-            }
+            if (halt.state.halted) halt.resume()
+            else halt.halt()
           }}
         />
       </div>
     {/if}
 
-    <!-- ── Overlays ────────────────────────────────────── -->
     {#if paletteOpen}
       <CommandPalette
         open={paletteOpen}
         onclose={() => (paletteOpen = false)}
-        onnavigate={(r: RouteId) => { navigate(r); paletteOpen = false }}
+        onnavigate={(r: RouteId) => {
+          if (String(r) === 'replay') navigateShell('replay')
+          else navigate(r)
+          paletteOpen = false
+        }}
       />
     {/if}
 
     {#if quickOpen}
-      <QuickPromptOverlay
-        open={quickOpen}
-        onclose={() => (quickOpen = false)}
-      />
+      <QuickPromptOverlay open={quickOpen} onclose={() => (quickOpen = false)} />
     {/if}
 
     {#if consent.ticket}
-      <ConsentModal
-        ticket={consent.ticket}
-        onresponse={() => { /* consent store handles it */ }}
-      />
+      <ConsentModal ticket={consent.ticket} onresponse={() => { /* store handles */ }} />
     {/if}
 
     {#if halt.state.halted}
-      <KillSwitchOverlay
-        onresume={() => halt.resume()}
-      />
+      <KillSwitchOverlay onresume={() => halt.resume()} />
     {/if}
   </PaperSurface>
 </div>
+
+<style>
+  .lp-shell-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .lp-shell-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+  }
+</style>
