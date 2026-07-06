@@ -262,7 +262,14 @@
 </script>
 
 <div class="lp lp-living-shell">
-  <PaperSurface variant="page" grain={true} padding="0" style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+  <PaperSurface
+    variant="page"
+    grain={true}
+    padding="0"
+    fill={true}
+    overflow="hidden"
+    style="height: 100vh; height: 100dvh; display: flex; flex-direction: column;"
+  >
     <QuillCursor />
 
     {#if showOnboarding}
@@ -284,12 +291,7 @@
             onnavigate={navigate}
           />
 
-          <PaperSurface
-            variant="page"
-            grain={true}
-            padding="0"
-            style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; min-width: 0;"
-          >
+          <div class="lp-shell-scroll lp lp-grain">
             {#key route}
               {#if route === 'chat'}
                 <Chat route="chat" />
@@ -315,7 +317,7 @@
                 <About />
               {/if}
             {/key}
-          </PaperSurface>
+          </div>
         </div>
 
         <StatusThread
@@ -360,7 +362,8 @@
   .lp-shell-body {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     position: relative;
     z-index: 1;
   }
@@ -368,8 +371,20 @@
   .lp-shell-main {
     display: flex;
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
+  }
+
+  .lp-shell-scroll {
+    flex: 1;
+    min-width: 0;
     min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    position: relative;
+    background: var(--lp-paper);
+    -webkit-overflow-scrolling: touch;
   }
 </style>

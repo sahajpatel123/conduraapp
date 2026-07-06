@@ -13,6 +13,9 @@
     class?: string
     children?: import('svelte').Snippet
     style?: string
+    /** When true, inner content fills a flex parent (enables nested scroll ports). */
+    fill?: boolean
+    overflow?: 'hidden' | 'auto' | 'visible'
   }
 
   let {
@@ -24,6 +27,8 @@
     class: className = '',
     children,
     style = '',
+    fill = false,
+    overflow = 'hidden',
   }: Props = $props()
 
   const toneMap: Record<Tone, string> = {
@@ -51,13 +56,28 @@
     padding: {padding};
     border-radius: {radius};
     position: relative;
-    overflow: hidden;
+    overflow: {overflow};
     {style}
   "
 >
   {#if children}
-    <div style="position: relative; z-index: 1;">
+    <div class="lp-surface-inner" class:lp-surface-inner--fill={fill}>
       {@render children()}
     </div>
   {/if}
 </div>
+
+<style>
+  .lp-surface-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .lp-surface-inner--fill {
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+</style>
