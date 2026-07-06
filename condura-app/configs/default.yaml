@@ -65,20 +65,27 @@ security:
 
 router:
   strategy: hybrid       # cascade | pareto | hybrid | user
+  # Priorities list aligned to internal/daemon/providers.go:knownProviders()
+  # as of 2026-07-06. Removed delegator CLI names (claude_code, codex,
+  # antigravity), removed the broken custom stub (buildProvider returns nil),
+  # renamed gemini→google and local→localai, removed non-LLM names (hermes,
+  # elevenlabs, whisper_local). Routing to a CLI sub-agent happens via the
+  # dedicated delegation bus, not this LLM router. See
+  # internal/config/router_drift_test.go for the contract test.
   priorities:
-    chat:         [claude_code, openai, anthropic, google, xai, mistral, deepseek, openrouter, groq, together, fireworks, ollama, custom]
-    code:         [claude_code, codex, antigravity, ollama, openrouter, anthropic, openai, custom]
-    research:     [claude_code, hermes, gemini, openrouter, openai, anthropic, custom]
-    reasoning:    [claude_code, openai, antigravity, ollama, openrouter, anthropic, custom]
-    long_context: [google, ollama, openrouter, anthropic, custom]
-    vision:       [claude_code, openai, antigravity, google, ollama, openrouter, anthropic, custom]
-    image_gen:    [openai, antigravity, openrouter, custom]
-    tts:          [openai, elevenlabs, custom]
-    stt:          [whisper_local, openai, custom]
-    embedding:    [local, openai, ollama, custom]
-    tool_use:     [claude_code, codex, antigravity, openrouter, anthropic, openai, custom]
-    command:      [claude_code, codex, openrouter, anthropic, openai, custom]
-    browser:      [claude_code, codex, antigravity, openrouter, anthropic, openai, custom]
+    chat:         [openai, anthropic, google, xai, mistral, deepseek, openrouter, groq, together, fireworks, ollama]
+    code:         [openai, anthropic, google, ollama, openrouter]
+    research:     [openai, anthropic, google, openrouter]
+    reasoning:    [openai, anthropic, google, ollama, openrouter]
+    long_context: [openai, anthropic, google, ollama, openrouter]
+    vision:       [openai, anthropic, google, ollama, openrouter]
+    image_gen:    [openai, google, openrouter]
+    tts:          [openai]
+    stt:          [openai]
+    embedding:    [openai, ollama, localai, lmstudio, vllm]
+    tool_use:     [openai, anthropic, google, openrouter]
+    command:      [openai, anthropic, google, openrouter]
+    browser:      [openai, anthropic, google, openrouter]
   fallback_chain: [ollama, openrouter, groq]
   memory_bias_weight: 0.3
   min_samples_for_bias: 5

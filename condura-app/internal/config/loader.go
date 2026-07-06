@@ -133,20 +133,30 @@ func Default() *Config {
 		},
 		Router: RouterConfig{
 			Strategy: "hybrid",
+			// Priorities list aligned to internal/daemon/providers.go:knownProviders()
+			// as of 2026-07-06 (Phase 14 workspace cleanup). Removed delegator CLI
+			// names (ProviderClaudeCode, ProviderCodex, ProviderAntigravity) and
+			// the broken ProviderCustom stub: buildProvider() returns nil for them,
+			// so the router would have silently fallen through to ProviderOllama
+			// at runtime. Routing to a CLI sub-agent now happens via the dedicated
+			// delegation bus, not the LLM router. Removed non-LLM provider names
+			// ("hermes", "elevenlabs", "whisper_local") since they're not LLM
+			// provider candidates. Renamed "gemini" → ProviderGoogle and
+			// "local" → ProviderLocalAI to match the strings buildProvider() resolves.
 			Priorities: map[string][]string{
-				"chat":         {ProviderClaudeCode, ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderXAI, ProviderMistral, ProviderDeepSeek, ProviderOpenRouter, ProviderGroq, ProviderTogether, ProviderFireworks, ProviderOllama, ProviderCustom},
-				"code":         {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
-				"research":     {ProviderClaudeCode, "hermes", "gemini", ProviderOpenRouter, ProviderOpenAI, ProviderAnthropic, ProviderCustom},
-				"reasoning":    {ProviderClaudeCode, ProviderOpenAI, ProviderAntigravity, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
-				"long_context": {ProviderGoogle, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
-				"vision":       {ProviderClaudeCode, ProviderOpenAI, ProviderAntigravity, ProviderGoogle, ProviderOllama, ProviderOpenRouter, ProviderAnthropic, ProviderCustom},
-				"image_gen":    {ProviderOpenAI, ProviderAntigravity, ProviderOpenRouter, ProviderCustom},
-				"tts":          {ProviderOpenAI, "elevenlabs", ProviderCustom},
-				"stt":          {"whisper_local", ProviderOpenAI, ProviderCustom},
-				"embedding":    {"local", ProviderOpenAI, ProviderOllama, ProviderCustom},
-				"tool_use":     {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
-				"command":      {ProviderClaudeCode, ProviderCodex, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
-				"browser":      {ProviderClaudeCode, ProviderCodex, ProviderAntigravity, ProviderOpenRouter, ProviderAnthropic, ProviderOpenAI, ProviderCustom},
+				"chat":         {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderXAI, ProviderMistral, ProviderDeepSeek, ProviderOpenRouter, ProviderGroq, ProviderTogether, ProviderFireworks, ProviderOllama},
+				"code":         {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOllama, ProviderOpenRouter},
+				"research":     {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOpenRouter},
+				"reasoning":    {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOllama, ProviderOpenRouter},
+				"long_context": {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOllama, ProviderOpenRouter},
+				"vision":       {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOllama, ProviderOpenRouter},
+				"image_gen":    {ProviderOpenAI, ProviderGoogle, ProviderOpenRouter},
+				"tts":          {ProviderOpenAI},
+				"stt":          {ProviderOpenAI},
+				"embedding":    {ProviderOpenAI, ProviderOllama, ProviderLocalAI, ProviderLMStudio, ProviderVLLM},
+				"tool_use":     {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOpenRouter},
+				"command":      {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOpenRouter},
+				"browser":      {ProviderOpenAI, ProviderAnthropic, ProviderGoogle, ProviderOpenRouter},
 			},
 			FallbackChain:     []string{ProviderOllama, ProviderOpenRouter, ProviderGroq},
 			MemoryBiasWeight:  0.3,
