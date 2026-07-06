@@ -125,7 +125,7 @@
     try {
       await trust.refreshPermissions();
       docsGranted = trust.permissions.some(
-        (p) => p.kind === 'documents' && p.status === 'granted'
+        (p) => p.kind === 'screen_recording' && p.status === 'granted'
       );
     } catch {
       docsGranted = false;

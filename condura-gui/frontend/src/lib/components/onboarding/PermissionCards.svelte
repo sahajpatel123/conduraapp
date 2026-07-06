@@ -2,33 +2,110 @@
   /**
    * PermissionCards — OS permission toggles.
    * Each permission is a card with status and action.
+   *
+   * When running inside the Wails desktop shell, the component
+   * polls the daemon's permissions.status RPC every 2s so the
+   * badges stay accurate. On the web (design preview), it falls
+   * back to static defaults.
    */
+  import { onMount, onDestroy } from 'svelte'
   import { InkText, WordReveal, BlurReveal, PaperCard, PulseDot, InkReveal, MagneticButton } from '$lib/components/living'
+  import type { PermissionStatus } from '../../ipc/types'
 
-  interface Permission {
+  interface PermItem {
     id: string
     label: string
     description: string
     icon: string
     granted: boolean
+    kind: string
   }
 
   interface Props {
     onnext: () => void
     onskip: () => void
-    permissions?: Permission[]
+    permissions?: PermItem[]
   }
+
+  const DEFAULTS: PermItem[] = [
+    { id: 'accessibility',    label: 'Accessibility',    description: 'Allow Condura to observe window focus for context-aware assistance',     icon: '👁', granted: false, kind: 'accessibility' },
+    { id: 'screen_recording', label: 'Screen Recording', description: 'Allow Condura to capture screenshots for computer-use features',          icon: '🖥', granted: false, kind: 'screen_recording' },
+    { id: 'microphone',       label: 'Microphone',       description: 'Allow voice interaction and wake-word detection',                         icon: '🎤', granted: false, kind: 'microphone' },
+    { id: 'notifications',    label: 'Notifications',    description: 'Show alerts when agents need your attention',                             icon: '🔔', granted: false, kind: 'notifications' },
+    { id: 'automation',       label: 'Automation',        description: 'Allow Condura to send AppleEvents to other apps (e.g. \"click Safari\")', icon: '🤖', granted: false, kind: 'automation' },
+  ]
 
   let {
     onnext,
     onskip,
-    permissions = [
-      { id: 'accessibility', label: 'Accessibility', description: 'Allow Condura to observe window focus for context-aware assistance', icon: '👁', granted: false },
-      { id: 'screen', label: 'Screen Recording', description: 'Allow Condura to capture screenshots for computer-use features', icon: '🖥', granted: false },
-      { id: 'microphone', label: 'Microphone', description: 'Allow voice interaction and wake-word detection', icon: '🎤', granted: false },
-      { id: 'notifications', label: 'Notifications', description: 'Show alerts when agents need your attention', icon: '🔔', granted: false },
-    ],
+    permissions = DEFAULTS,
   }: Props = $props()
+
+  let items = $state([...permissions])
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  function badgeLabel(granted: boolean): string {
+    return granted ? 'Granted' : 'Grant'
+  }
+
+  async function grantPerm(idx: number): Promise<void> {
+    const perm = items[idx]
+    if (!perm || perm.granted) return
+
+    // Open the OS System Settings pane for this permission.
+    try {
+      const { ipc } = await import('../../ipc/client')
+      const guide = await ipc.permissionsGuide(perm.kind)
+      if (guide.deep_link) {
+        const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
+        if (w.runtime?.BrowserOpenURL) {
+          w.runtime.BrowserOpenURL(guide.deep_link)
+        } else {
+          window.open(guide.deep_link, '_blank')
+        }
+      }
+    } catch {
+      // Best-effort: the deep link may fail in a non-Wails preview.
+    }
+
+    // Start polling so the badge updates when the user toggles
+    // the permission in System Settings.
+    if (!pollTimer) startPolling()
+  }
+
+  async function refresh(): Promise<void> {
+    try {
+      const { ipc } = await import('../../ipc/client')
+      const statuses: PermissionStatus[] = await ipc.permissionsStatus()
+      const next = [...items]
+      for (const s of statuses) {
+        const idx = items.findIndex((p) => p.kind === s.kind)
+        if (idx >= 0) {
+          next[idx] = { ...next[idx], granted: s.status === 'granted' }
+        }
+      }
+      items = next
+    } catch {
+      // Daemon unavailable; keep last-known statuses.
+    }
+  }
+
+  function startPolling(): void {
+    if (pollTimer) return
+    void refresh()
+    pollTimer = setInterval(refresh, 2000)
+  }
+
+  onMount(() => {
+    // Attempt a one-shot probe to pick up any already-granted
+    // permissions. If the daemon isn't available (web preview),
+    // this silently fails and the static defaults remain.
+    void refresh().catch(() => {})
+  })
+
+  onDestroy(() => {
+    if (pollTimer) clearInterval(pollTimer)
+  })
 </script>
 
 <div style="max-width: 520px; margin: 0 auto; text-align: center;">
@@ -46,7 +123,7 @@
 
   <BlurReveal delay={700} distance={16}>
     <div style="display: flex; flex-direction: column; gap: var(--lp-space-3); max-width: 440px; margin: 0 auto;">
-      {#each permissions as perm, i}
+      {#each items as perm, i}
         <BlurReveal delay={800 + i * 100} distance={12}>
           <PaperCard border={perm.granted ? 'synapse' : 'none'} padding="var(--lp-space-3) var(--lp-space-4)">
             <div style="display: flex; align-items: center; gap: var(--lp-space-3);">
@@ -63,6 +140,7 @@
               <button
                 type="button"
                 class="lp-focus"
+                onclick={() => grantPerm(i)}
                 style="
                   padding: 6px 14px;
                   border-radius: var(--lp-radius-sm);
@@ -76,7 +154,7 @@
                   transition: all var(--lp-dur-fast) var(--lp-ease-thread);
                 "
               >
-                {perm.granted ? 'Granted' : 'Grant'}
+                {badgeLabel(perm.granted)}
               </button>
             </div>
           </PaperCard>

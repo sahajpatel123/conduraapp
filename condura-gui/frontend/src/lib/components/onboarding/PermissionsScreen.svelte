@@ -8,22 +8,31 @@
   import Badge from '../ui/Badge.svelte'
   import { t } from '../../i18n'
 
-  // Only the two permissions computer-use actually needs up front.
-  // Microphone / automation / notifications live in Settings and
-  // are requested lazily when the user enables those features.
-  const REQUIRED = ['accessibility', 'screen_recording']
+	// Computer-use needs accessibility and screen recording up front.
+	// Microphone, automation, and notifications are shown for user
+	// awareness but can be granted later from Settings.
+	const REQUIRED = ['accessibility', 'screen_recording', 'microphone', 'automation', 'notifications']
 
-  const LABELS: Record<string, string> = {
-    accessibility: 'Accessibility',
-    screen_recording: 'Screen Recording'
-  }
-  const WHY_ACCESSIBILITY = $derived(t('onboarding.permissions.why_accessibility'))
-  const WHY_SCREEN = $derived(t('onboarding.permissions.why_screen_recording'))
-  function whyFor(kind: string): string {
-    if (kind === 'accessibility') return WHY_ACCESSIBILITY
-    if (kind === 'screen_recording') return WHY_SCREEN
-    return ''
-  }
+	const LABELS: Record<string, string> = {
+		accessibility: 'Accessibility',
+		screen_recording: 'Screen Recording',
+		microphone: 'Microphone',
+		automation: 'Automation',
+		notifications: 'Notifications',
+	}
+	const WHY_ACCESSIBILITY = $derived(t('onboarding.permissions.why_accessibility'))
+	const WHY_SCREEN = $derived(t('onboarding.permissions.why_screen_recording'))
+	const WHY_MIC = $derived(t('onboarding.permissions.why_microphone'))
+	const WHY_AUTO = $derived(t('onboarding.permissions.why_automation'))
+	const WHY_NOTIF = $derived(t('onboarding.permissions.why_notifications'))
+	function whyFor(kind: string): string {
+		if (kind === 'accessibility') return WHY_ACCESSIBILITY
+		if (kind === 'screen_recording') return WHY_SCREEN
+		if (kind === 'microphone') return WHY_MIC
+		if (kind === 'automation') return WHY_AUTO
+		if (kind === 'notifications') return WHY_NOTIF
+		return ''
+	}
 
   let statuses = $state<PermissionStatus[]>([])
   let guide = $state<PermissionGuide | null>(null)
@@ -80,12 +89,11 @@
     return 'neutral'
   }
 
-  function badgeLabel(status: string): string {
-    if (status === 'granted') return t('onboarding.permissions.status_granted')
-    if (status === 'denied') return t('onboarding.permissions.status_denied')
-    if (status === 'pending') return t('onboarding.permissions.status_pending')
-    return t('onboarding.permissions.status_unknown')
-  }
+	function badgeLabel(status: string): string {
+		if (status === 'granted') return t('onboarding.permissions.status_granted')
+		if (status === 'denied') return t('onboarding.permissions.status_denied')
+		return t('onboarding.permissions.status_unknown')
+	}
 
   // The gate lets the user proceed when at least one permission
   // is granted (the spec says "at least one of the two"). The
@@ -120,18 +128,36 @@
         <Card elevation="glass" padding="md" class="perm-card">
           <div class="perm-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              {#if row.kind === 'accessibility'}
-                <path d="M12 4v16" />
-                <path d="M4 12h16" />
-                <circle cx="12" cy="12" r="9" />
-                <path d="M8 12h.01" />
-                <path d="M16 12h.01" />
-              {:else}
-                <rect x="3" y="4" width="18" height="13" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
-              {/if}
+					{#if row.kind === 'accessibility'}
+						<path d="M12 4v16" />
+						<path d="M4 12h16" />
+						<circle cx="12" cy="12" r="9" />
+						<path d="M8 12h.01" />
+						<path d="M16 12h.01" />
+					{:else if row.kind === 'screen_recording'}
+						<rect x="3" y="4" width="18" height="13" rx="2" />
+						<path d="M3 9h18" />
+						<path d="M8 21h8" />
+						<path d="M12 17v4" />
+					{:else if row.kind === 'microphone'}
+						<rect x="9" y="2" width="6" height="10" rx="2" />
+						<path d="M5 11a7 7 0 0 0 14 0" />
+						<path d="M8 19v2" />
+						<path d="M16 19v2" />
+						<path d="M12 16v6" />
+					{:else if row.kind === 'automation'}
+						<path d="M14 6l4 4-4 4" />
+						<path d="M10 18l-4-4 4-4" />
+						<path d="M8 12h8" />
+						<rect x="3" y="3" width="18" height="18" rx="3" />
+					{:else if row.kind === 'notifications'}
+						<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+						<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+					{:else}
+						<circle cx="12" cy="12" r="10" />
+						<path d="M12 6v6" />
+						<path d="M12 16h.01" />
+					{/if}
             </svg>
           </div>
           <div class="perm-head">
