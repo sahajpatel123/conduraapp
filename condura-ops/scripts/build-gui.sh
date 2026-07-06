@@ -3,7 +3,7 @@
 # Output: dist/prebuilt/condura-gui-<goos>-<goarch>[.exe]
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GOOS="${GOOS:-$(go env GOOS)}"
 GOARCH="${GOARCH:-$(go env GOARCH)}"
 VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo v0.0.0-dev)}"
@@ -38,12 +38,28 @@ fi
 echo "Building frontend..."
 (cd "$FRONTEND_DIR" && npm ci && npm run build)
 
+# Wails v2.12.0 removed the -frontend flag AND removed the implicit
+# discovery of the frontend outside the Wails project root. The custom
+# asset handler is driven by `condura-gui/frontend/assets/assets.go`,
+# whose `//go:embed all:dist` pattern picks up files from a sibling
+# `dist/` next to the assets package. The actual `dist/` lives one
+# directory up (`../dist` from `assets/`). Create a temporary
+# relative symlink so the embed resolves, then clean up regardless
+# of build outcome. Use `rm -rf` first because a previous failed
+# build may have left a real `assets/dist/` directory, which `ln`
+# refuses to replace.
+ASSETS_DIR="${ROOT}/condura-gui/frontend/assets"
+rm -rf "${ASSETS_DIR}/dist"
+ln -sfn "../dist" "${ASSETS_DIR}/dist"
+cleanup() { rm -rf "${ASSETS_DIR}/dist"; }
+trap cleanup EXIT
+
 echo "Building Wails app for ${GOOS}/${GOARCH}..."
 if [ "$GOOS" = "linux" ]; then
   # Ubuntu 24.04+ ships webkit2gtk-4.1 only (see wails.io docs).
-  wails build -clean -trimpath -frontend "$FRONTEND_DIR" -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}" -tags webkit2_41
+  wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}" -tags webkit2_41
 else
-  wails build -clean -trimpath -frontend "$FRONTEND_DIR" -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
+  wails build -clean -trimpath -platform "${GOOS}/${GOARCH}" -ldflags "${LDFLAGS}"
 fi
 
 # Wails outputfilename is "web" — normalize to condura for releases.

@@ -110,12 +110,12 @@ endif
 
 .PHONY: build-gui
 build-gui: ## Build Wails desktop app for current OS/arch
-	chmod +x scripts/build-gui.sh
+	chmod +x ./condura-ops/scripts/build-gui.sh
 	./condura-ops/scripts/build-gui.sh
 
 .PHONY: verify-release
 verify-release: ## Verify a GitHub release tag (TAG=v0.1.0)
-	chmod +x scripts/verify-release-artifacts.sh
+	chmod +x ./condura-ops/scripts/verify-release-artifacts.sh
 	./condura-ops/scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
 
 # passthrough for goreleaser for normal release runs

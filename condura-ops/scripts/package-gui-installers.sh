@@ -2,7 +2,7 @@
 # package-gui-installers.sh — DMG (macOS) and NSIS setup (Windows) for the GUI.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GOOS="${GOOS:-$(go env GOOS)}"
 GOARCH="${GOARCH:-$(go env GOARCH)}"
 OUT_DIR="${ROOT}/dist/prebuilt"

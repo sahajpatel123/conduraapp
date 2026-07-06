@@ -1,23 +1,17 @@
 {
-  "$schema": "https://wails.io/schemas/config.v2.json",
+  "$schema": "https://wails.io/schemas/wails.json",
   "name": "condura",
   "outputfilename": "condura",
-  "frontend:install": "npm install",
-  "frontend:build": "npm run build",
-  "frontend:dev:watcher": "npm run dev",
+  "frontend:install": "cd ../../../condura-gui/frontend && npm ci",
+  "frontend:build": "cd ../../../condura-gui/frontend && npm run build",
+  "frontend:dev:watcher": "cd ../../../condura-gui/frontend && npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Condura",
-    "email": "dev@condura.app"
+    "name": "Synaptic/Condura contributors"
   },
   "info": {
-    "protocols": [
-      {
-        "scheme": "condura",
-        "description": "Condura OAuth and deep-link callback handler",
-        "role": "Viewer"
-      }
-    ]
-  },
-  "build:tags": "webkit2_41"
+    "productName": "Condura",
+    "productVersion": "0.1.1-dev",
+    "comments": "Wails v2.12.0. Frontend lives OUTSIDE the Wails project root per the topic-sliced layout (condura-mind/CLAUDE.md.legacy §29.5.4). The ../../../cd path is intentional: ../ from cmd/condura-gui/ → condura-app/; ../ from condura-app/ → synaptic/; ../ from synaptic/ → ./ ; then cd into condura-gui/frontend. Verify with `realpath ../..` from the Wails project root if this path becomes stale after a future reorg."
+  }
 }
