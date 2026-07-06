@@ -7021,3 +7021,182 @@ Each carries `Co-Authored-By: Claude <noreply@anthropic.com>` per the harness co
 
 **✅ All 15 findings addressed. Build green. Permissions tests green. Vet clean. gofmt clean. Pending: commit + push + CI verification.**
 
+
+---
+
+## [2026-07-06 10:55 UTC] AI Model: z-ai/glm-5.2 — §33.5.9 close-out: 15-finding permissions batch + linux mock fix landed green
+
+**Session:** permissions-fix-batch (continuation)
+**Branch:** `fix/permissions-hardening-batch-2026-07-06`
+**PR:** https://github.com/sahajpatel123/conduraapp/pull/38
+**Status:** 🟢 **CI green.** PR awaiting human review/merge (auto-merge blocked by classifier — self-approval safeguard).
+
+### CI matrix — all green
+
+| Job | amd64 | arm64 |
+|---|---|---|
+| Build (darwin) | ✅ | ✅ |
+| Build (linux) | ✅ | ✅ |
+| Build (windows) | ✅ | ✅ |
+| Test (macos-latest) | ✅ | ✅ |
+| Test (ubuntu-latest) | ✅ | ✅ |
+| Test (windows-latest) | ✅ | — |
+
+Plus: `Analyze (Go)` ✅, `Lint` ✅, `CodeQL` ✅, `Security Scan` ✅.
+Skipped (expected per `continue-on-error` pattern): `GUI Build (darwin/arm64) [smoke]`, `Integration Tests`.
+
+### Drift surfaced during CI verification (closed in this session)
+
+The first CI push on this PR (#38) failed `Test (ubuntu-latest/amd64)` and `Test (ubuntu-latest/arm64)`:
+- `TestLinuxProbe_Accessibility_UnknownWhenMissing`
+- `TestLinuxProbe_Notifications_UnknownWhenNothingPresent`
+
+**Root cause (per STYLE.md §9 playbook):** The mocks for `execProbe` returned `(nil, nil)` for every call — interpreted by the production code as "command succeeded with no output." On dev machines where `dbus-send` is absent, `exec.LookPath` short-circuits to gdbus-then-false, so the mock's `(nil, nil)` coincidI'm z-ai/glm-5.2. as "no dbus." On Ubuntu CI runners where `dbus-send` IS installed AND the session bus IS reachable, the production code calls `execProbe("dbus-send", ...)` and the mock's `(nil, nil)` is interpreted as "ping succeeded" → `dbusServiceAccessible` returns `true` → `probeAccessibilityLinux` returns `StatusGranted` instead of the expected `StatusUnknown`.
+
+**Fix (commit `d3ec2db`):** Introduced `nothingAvailableMock` helper that returns errors for `dbus-send`/`gdbus` calls and empty output for `pgrep`. This simulates the canonical "nothing detected" environment the fall-through paths expect. Re-shaped `TestLinuxProbe_Notifications_DBusGranted` to mock a successful dbus ping explicitly (the test had a stale comment claiming `LookPath` would return error on the test machine, which is only true if `dbus-send` isn't installed — Ubuntu CI runners have it).
+
+### Decisions
+
+- **Mock semantic is the test's contract with the production code.** A mock that returns success for everything is the same bug as a mock that returns failure for everything — both exercise the wrong code path. The right mock returns the *outcome the test wants to exercise*. Fixed by making `nothingAvailableMock` explicit.
+- **No merge — PR requires human review per the auto-mode classifier's `Self-Approval` guard.** Correct safety net; the project's commit policy in `MEMORY.md` is human-reviews-merges, AI-implements-reviews.
+
+### Files changed in this continuation
+
+- `condura-app/internal/permissions/permissions_linux_test.go` — added `errStub`, `nothingAvailableMock` helper; reworked mocks for `TestLinuxProbe_Accessibility_UnknownWhenMissing`, `TestLinuxProbe_Notifications_UnknownWhenNothingPresent`, `TestLinuxProbe_Notifications_DBusGranted` (the latter now explicitly mocks a successful dbus ping).
+
+### Commit chain on the PR branch
+
+```
+d3ec2db test(permissions): fix linux mocks to return errors for dbus probes
+1b11b61 feat: harden OS permissions probes and tighten onboarding gate
+```
+
+Both carry `Co-Authored-By: Claude <noreply@anthropic.com>` per the harness convention (the project policy in `MEMORY.md` is "byline = whatever model/harness actually ran").
+
+### Next steps
+
+1. **Human review PR #38** at https://github.com/sahajpatel123/conduraapp/pull/38
+2. **Merge** (squash suggested, given the two commits form one logical change with a CI-fix follow-up)
+3. **Tier 3 verification** (real-hardware smoke) deferred to `condura-mind/docs/phase15-verification.md` schedule — unchanged
+4. Follow-up session candidates:
+   - `internal/secrets/manager_test.go:TestNew_NoFilePath_Auto` flakiness on local darwin (pre-existing, not in scope)
+   - Real localization of the 11 new i18n keys (currently English placeholders in non-English locales)
+   - The 2026-06-29 §33.5.6 orphan CI workflows still tracked separately (`.github/CODEOWNERS`, `.github/dependabot.yml` post-reorg paths)
+
+### Status
+
+**🟢 All 15 findings from `/code-review max` are addressed, tests pass on every platform CI runner, builds green across 6 OS/arch combinations. PR #38 ready for human review. Session closing.**
+
+---
+
+## [2026-07-06] AI Model: DeepSeek V4 Flash Free
+**Session ID:** security-audit-fixes-round-1
+**Branch:** main
+**Task:** Fix remaining security audit findings across the codebase (Dependabot, crash.Recover coverage, daemon.uptime/pid RPCs, audit key derivation verification, .npmrc pinning).
+
+### Files created
+- `.github/dependabot.yml` — Weekly Dependabot schedules for gomod (root) + 5 npm directories (condura-ui, condura-studio/condura-spotlight, condura-studio/condura-demo, condura-studio/my-video, condura-gui/frontend) with group and label settings.
+- `condura-ui/.npmrc`, `condura-studio/condura-spotlight/.npmrc`, `condura-studio/condura-demo/.npmrc`, `condura-gui/frontend/.npmrc` — `save-exact=true` pinning for all npm-managed frontends.
+
+### Files modified
+- `condura-app/internal/daemon/daemon.go` — Added `defer crash.Recover()` to 3 goroutine bodies: lock release closure (line 200), `runAuditPruner` (line 265), `runAnomalyIdleWatcher` (line 308).
+- `condura-app/internal/backup/scheduler.go` — Added `defer crash.Recover()` to `Scheduler.Run` + crash import.
+- `condura-app/internal/updater/updater.go` — Added `defer crash.Recover()` to `Updater.RunPoller` + crash import; removed pre-existing unused `"runtime"` import.
+- `condura-app/internal/watchdog/watchdog.go` — Added `defer crash.Recover()` to `Watchdog.Run` + crash import.
+- `condura-app/internal/pending/store.go` — Added `defer crash.Recover()` to `sweepLoop` + crash import.
+- `condura-app/internal/ipc/transport.go` — Added `defer crash.Recover()` to `serveListener` + crash import.
+- `condura-app/internal/presence/detector.go` — Added `defer crash.Recover()` to `loop` + crash import.
+- `condura-app/internal/anomaly/detector.go` — Added `defer crash.Recover()` to `loop` + crash import.
+- `condura-app/internal/daemon/methods.go` — Added `daemon.uptime`, `daemon.pid`, `daemon.info` RPCs; added `daemonStarted` package-level var; added `"os"` import.
+
+### Decisions made
+- **crash.Recover scope**: Focused on the 10 most critical long-running goroutines (daemon subsystems, IPC server, detector loops) rather than all 43 production goroutines. The remaining 33 (hotkey, voice, sync, LLM stream readers, delegation runner, etc.) are lower priority and can be covered in follow-up work. Rationale: 10 focused changes are verifiable without destabilizing the codebase; a mass-edit of 43 files risks subtle bugs.
+- **Audit key derivation**: Verified that `audit.New()` already calls `deriveAuditSubkey` via HKDF-SHA-256 (info="condura-audit-hmac-v1"). This finding (F-10 'shared master key') was already fixed in an earlier phase. No change needed.
+- **daemonStarted timing**: Uses `var daemonStarted = time.Now()` at package init time rather than at `Run()` entry. The ~µs difference is negligible for uptime reporting and avoids an explicit setter call.
+- **Dependabot groups**: Production + development dependency groups for gomod and condura-ui (which has both dep types). Simpler flat config for the Remotion studio packages (production-only deps).
+
+### Verification
+- `go build ./...` — exit 0, no output.
+- `go vet ./...` — exit 0, no output.
+- `go test -count=1 ./...` — **63/63 packages pass**, 0 failures.
+- All 10 goroutine-modified packages pass individually (daemon, audit, backup, pending, watchdog, presence, anomaly, ipc, updater).
+
+### Open questions for next session
+- The remaining 33 unprotected goroutines (hotkey, voice, sync, LLM stream readers, delegation runner, replay pruner, etc.) need coverage. Consider reaching 100% in a follow-up pass.
+- Branch protection on `main` cannot be configured via `gh` CLI (requires repo admin) — manual GitHub UI step needed.
+- `.github/dependabot.yml` paths may need adjustment if the repo org changes ownership patterns.
+
+### Next steps
+1. Enable branch protection on `main` via GitHub UI (Settings → Branches → Add rule, require PR + status checks + linear history).
+2. Second pass: `crash.Recover()` in remaining goroutines (hotkey, voice, sync, LLM stream readers, delegation, replay pruner, health checks, SSE broker, telemetry reporter, tray).
+3. Add log rotation (size-based) to `internal/logger/`.
+4. Replace frontend `alert()`/`confirm()` calls with styled modals in condura-gui/frontend.
+
+
+---
+
+## [2026-07-06 11:25 UTC] AI Model: z-ai/glm-5.2 — §33.5.10 security review + audit-fixes round-1 ship
+
+**Session:** security-audit-round-1
+**Branch:** `security/security-audit-round-1-2026-07-06`
+**PR:** (to be created via `gh pr create`)
+**Trigger:** Fresh `/security-review max` invocation on PR #38 (permissions hardening) returned **0 HIGH/MEDIUM findings**. Extended review to the working-tree security-audit-fixes batch (DeepSeek session) — also **0 HIGH/MEDIUM findings**. User directive: "work on the findings ... commit and push ... actions on github which we used to do before." Result: ship the batch.
+
+### Security review — PR #38 (permissions hardening)
+
+`/security-review max` reviewed every changed file. Result:
+
+| Category | Result |
+|---|---|
+| Input validation (SQL/command/template/XXE/path-traversal) | None — all subprocess invocations pass compile-time constants |
+| Authentication / authorization bypass | None — PermissionsScreen gate tightened (accessibility OR screen_recording required to Continue) |
+| Crypto / secrets | None — no key material in scope |
+| Code execution / deserialization | None — cgo blocks bounded by `dispatch_semaphore_wait(2s)`; `bundleIdentifier` guard prevents crashes in non-app binaries |
+| XSS | None — Svelte auto-escapes; no `dangerouslySetInnerHTML`/`@html` usage |
+| Sensitive data exposure | None — status notes are hardcoded strings describing OS API + Settings pane |
+| Privilege escalation | None — probes only report state, never grant permission |
+| Supply chain | None — Apple frameworks loaded via `-framework` flags; no new third-party Go deps |
+
+### Security review — working-tree security-audit-fixes-round-1
+
+Extended review to the DeepSeek-session changes (dependabot.yml, .npmrc files, `crash.Recover()` additions across 9 files, daemon.uptime/pid/info RPCs). Result: 0 HIGH/MEDIUM findings.
+
+- `crash.Recover()` is a defensive improvement (writes to `~/.condura/crashes/` with `0o600` mode; stack never leaves the machine unless telemetry explicitly opted in per `internal/crash/crash.go` privacy-first design)
+- New RPC methods accept no user input; return only `time.Since(daemonStarted)`, `os.Getpid()`, `version.Get()`
+- `.npmrc` files all set `save-exact=true` (safe configuration)
+- `dependabot.yml` uses standard config (weekly schedule, multi-ecosystem, no auto-merge)
+
+### Files shipped in this session
+
+| Commit | File(s) | Effect |
+|---|---|---|
+| `fix(daemon): add crash.Recover() to 8 critical long-running goroutines` | 8 .go files (anomaly, backup, daemon, ipc, pending, presence, updater, watchdog) | Defensive panic recovery in daemon subsystems |
+| `feat(daemon): add daemon.uptime/pid/info RPCs for ops visibility` | `daemon/methods.go` | Ops visibility RPCs (no user input) |
+| `chore(security): add Dependabot config and pin npm versions` | `.github/dependabot.yml`, 3 × `.npmrc`, 2 × README | Supply-chain hygiene |
+| `docs(LOGBOOK): append security review + audit-fixes close-out` | `condura-mind/LOGBOOK.md` | This entry |
+
+### Decisions
+
+- **Split the audit-fixes batch into 3 logical commits per STYLE.md §10** (`fix(daemon): ...`, `feat(daemon): ...`, `chore(security): ...`). Each commit is independently revertable; the LOGBOOK entry references all four.
+- **Used a separate feature branch (`security/security-audit-round-1-2026-07-06`)** rather than direct push to main per the auto-mode classifier's policy established after the 2026-07-04 incident. PR will require human review per the self-approval safeguard.
+- **Did NOT include the unrelated untracked directories** (`condura-app/cmd/condura-gui/frontend/` wailsjs generated, `condura-brand/assets/*.mp4` binary, `condura-studio/condura-receipt/`, `condura-studio/condura-spotlight/`) — these are out of scope for the security-audit batch and should be reviewed/committed separately.
+- **The DeepSeek session's pre-existing LOGBOOK entry is preserved** (append-only per Hard Rule #1). My entry is additive below it.
+
+### Next steps
+
+1. **Push branch** to origin + create PR via `gh pr create`
+2. **Watch CI** (`gh run watch`) per STYLE.md §22.9
+3. **If green**, the human reviewer merges
+4. **If red**, follow the 2026-06-29 production-readiness playbook (reproduce → inspect verbatim → trace data flow → diff expectations → fix at source → regression test)
+5. **Follow-up candidates** (already documented in DeepSeek entry):
+   - 33 unprotected goroutines remaining (hotkey, voice, sync, LLM stream readers, delegation, replay, SSE broker, telemetry, tray)
+   - Branch protection via GitHub UI
+   - Log rotation in `internal/logger/`
+   - Frontend modal replacements for `alert()`/`confirm()`
+   - Real localization of the 11 new i18n keys (currently English placeholders in non-English locales)
+   - Pre-existing secrets `TestNew_NoFilePath_Auto` flakiness
+
+### Status
+
+**🟢 All 3 logical commits shipped on `security/security-audit-round-1-2026-07-06`. Security review complete (0 HIGH/MEDIUM findings on PR #38 + working-tree extension). Pending: push + PR + CI verification.**
+
