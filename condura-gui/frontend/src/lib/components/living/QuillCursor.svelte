@@ -1,139 +1,80 @@
 <script lang="ts">
   /**
-   * QuillCursor — Decorative trailing halo inspired by the website.
-   * 
-   * A synapse-green ring with pollen-amber core that follows the
-   * pointer with a gentle spring lag, enlarging over interactive
-   * elements. Only visible on devices with fine pointers.
+   * QuillCursor — wires the custom pixel cursor in condura.css.
+   *
+   * The ink quill + pollen hover ring live in condura.css as SVG data-URIs.
+   * This component toggles body[data-hover] so interactive surfaces swap to
+   * the pollen target cursor. No trailing DOM dot — Wails/WebKit often fails
+   * to deliver continuous pointermove, which made a follow-along halo stick
+   * until the next click.
    */
+  import { onMount } from 'svelte'
   import './living-paper.css'
 
-  interface Props {
-    /** How strongly the ring follows (0-1, lower = more lag) */
-    lerpFactor?: number
-    /** Size of the ring in px at rest */
-    ringSize?: number
-    /** Size when hovering interactive elements */
-    hoverSize?: number
-    class?: string
-  }
+  const INTERACTIVE =
+    'button:not(.no-tactile), .tactile, [role="button"]:not(.no-tactile), [role="link"]:not(.no-tactile), summary:not(.no-tactile), .choice, .nav-item, .dock-item, .thread-link, .lp-nav-row, .lp-nav-halt, input, textarea, select, a, [data-hoverable], [data-cursor="hover"]'
 
-  let {
-    lerpFactor = 0.18,
-    ringSize = 16,
-    hoverSize = 34,
-    class: className = '',
-  }: Props = $props()
+  onMount(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
 
-  let ringEl = $state<HTMLDivElement | null>(null)
-  let coreEl = $state<HTMLDivElement | null>(null)
-  let x = $state(-100)
-  let y = $state(-100)
-  let targetX = $state(-100)
-  let targetY = $state(-100)
-  let isHovering = $state(false)
-  let isVisible = $state(false)
-  let rafId = $state(0)
+    let lastX = -1
+    let lastY = -1
 
-  function isFinePointer(): boolean {
-    return window.matchMedia('(pointer: fine)').matches
-  }
-
-  function prefersReducedMotion(): boolean {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    targetX = e.clientX
-    targetY = e.clientY
-    if (!isVisible) {
-      x = targetX
-      y = targetY
-      isVisible = true
+    const setHover = (active: boolean) => {
+      document.body.dataset.hover = active ? '1' : '0'
     }
-  }
 
-  function onPointerLeave() {
-    isVisible = false
-  }
+    const updateHoverAt = (x: number, y: number) => {
+      if (x === lastX && y === lastY) return
+      lastX = x
+      lastY = y
+      const el = document.elementFromPoint(x, y) as HTMLElement | null
+      if (!el) {
+        setHover(false)
+        return
+      }
+      const disabled = !!el.closest?.('[disabled], [aria-disabled="true"]')
+      if (disabled) {
+        setHover(false)
+        return
+      }
+      // Text fields keep the native I-beam — pollen ring is for click targets.
+      const isTextField = !!el.closest('input, textarea, [contenteditable="true"]')
+      if (isTextField) {
+        setHover(false)
+        return
+      }
+      setHover(!!el.closest(INTERACTIVE))
+    }
 
-  function updateHover() {
-    // Check if hovering over an interactive element using :hover
-    // This runs in the rAF loop — check via elementFromPoint
-    if (!ringEl) return
-    const el = document.elementFromPoint(targetX, targetY)
-    if (!el) { isHovering = false; return }
-    const tag = (el as HTMLElement).tagName?.toLowerCase()
-    const role = (el as HTMLElement).getAttribute?.('role') || ''
-    const isInteractive =
-      tag === 'a' || tag === 'button' || tag === 'input' || tag === 'textarea' || tag === 'select' ||
-      role === 'button' || role === 'menuitem' || role === 'radio' || role === 'switch' ||
-      role === 'option' || role === 'tab' ||
-      (el as HTMLElement).dataset?.cursor === 'hover' ||
-      el.closest?.('[data-cursor="hover"]') !== null
-    isHovering = isInteractive
-  }
+    const onMove = (e: MouseEvent | PointerEvent) => {
+      updateHoverAt(e.clientX, e.clientY)
+    }
 
-  function tick() {
-    if (!ringEl || !coreEl) { rafId = requestAnimationFrame(tick); return }
-    x += (targetX - x) * lerpFactor
-    y += (targetY - y) * lerpFactor
-    updateHover()
-    const size = isHovering ? hoverSize : ringSize
-    const half = size / 2
-    ringEl.style.transform = `translate(${x - half}px, ${y - half}px)`
-    ringEl.style.width = `${size}px`
-    ringEl.style.height = `${size}px`
-    ringEl.style.opacity = isHovering ? '1' : isVisible ? '0.6' : '0'
-    coreEl.style.transform = `translate(${x - 3}px, ${y - 3}px)`
-    coreEl.style.opacity = isVisible ? '1' : '0'
-    rafId = requestAnimationFrame(tick)
-  }
+    const onLeave = () => {
+      lastX = -1
+      lastY = -1
+      setHover(false)
+    }
 
-  $effect(() => {
-    if (!isFinePointer() || prefersReducedMotion()) return
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerleave', onPointerLeave)
-    rafId = requestAnimationFrame(tick)
+    const onWindowLeave = (e: MouseEvent) => {
+      if (e.relatedTarget === null) onLeave()
+    }
+
+    // mousemove is required for Wails/macOS WebView — pointermove alone often
+    // only fires on press/release, which is exactly the "stuck dot" bug.
+    const opts: AddEventListenerOptions = { passive: true, capture: true }
+    document.addEventListener('mousemove', onMove, opts)
+    document.addEventListener('pointermove', onMove, opts)
+    document.addEventListener('mouseout', onWindowLeave, opts)
+
+    setHover(false)
+
     return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerleave', onPointerLeave)
-      cancelAnimationFrame(rafId)
+      document.removeEventListener('mousemove', onMove, opts)
+      document.removeEventListener('pointermove', onMove, opts)
+      document.removeEventListener('mouseout', onWindowLeave, opts)
+      delete document.body.dataset.hover
     }
   })
 </script>
-
-<svelte:window onpointermove={onPointerMove} onpointerleave={onPointerLeave} />
-
-<!-- Ring — synapse green -->
-<div
-  bind:this={ringEl}
-  class="lp {className}"
-  style="
-    position: fixed;
-    top: 0; left: 0;
-    border-radius: 50%;
-    border: 1.5px solid var(--lp-synapse);
-    pointer-events: none;
-    z-index: 99999;
-    transition: opacity 0.15s ease, width 0.2s var(--lp-ease-thread), height 0.2s var(--lp-ease-thread);
-    will-change: transform, width, height;
-  "
-></div>
-
-<!-- Core — pollen amber -->
-<div
-  bind:this={coreEl}
-  style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--lp-pollen);
-    box-shadow: 0 0 8px var(--lp-pollen-glow);
-    pointer-events: none;
-    z-index: 99999;
-    transition: opacity 0.15s ease;
-    will-change: transform;
-  "
-></div>
