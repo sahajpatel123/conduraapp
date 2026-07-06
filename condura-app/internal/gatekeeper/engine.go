@@ -374,6 +374,9 @@ func (e *Engine) ApproveTicket(nonce string) bool {
 			break
 		}
 	}
+	if ticket != nil {
+		e.pending = removeTicket(e.pending, ticket)
+	}
 	e.pendingMu.Unlock()
 	if ticket == nil {
 		return false
@@ -403,6 +406,9 @@ func (e *Engine) DenyTicket(nonce string) bool {
 			ticket = t
 			break
 		}
+	}
+	if ticket != nil {
+		e.pending = removeTicket(e.pending, ticket)
 	}
 	e.pendingMu.Unlock()
 	if ticket == nil {

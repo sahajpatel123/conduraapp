@@ -51,12 +51,23 @@ func (o *Observer) Record(ctx context.Context, obs Observation) {
 	// Prune events older than 7 days.
 	cutoff := time.Now().Add(-7 * 24 * time.Hour)
 	filtered := o.events[:0]
+	keep := make(map[string]bool, len(o.events))
 	for _, e := range o.events { //nolint:gocritic
 		if e.Timestamp.After(cutoff) {
 			filtered = append(filtered, e)
+			keep[e.SessionID] = true
 		}
 	}
 	o.events = filtered
+
+	// Prune suggested tracking for sessions that have been
+	// evicted from the event store so the map doesn't grow
+	// unbounded over months/years.
+	for id := range o.trackSuggested {
+		if !keep[id] {
+			delete(o.trackSuggested, id)
+		}
+	}
 }
 
 // Recent returns observations from the last N days.

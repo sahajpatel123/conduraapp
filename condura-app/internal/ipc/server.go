@@ -219,8 +219,9 @@ const internalError = "internal error"
 // response is the redaction boundary; the log line is internal.
 func redactInternal(log *slog.Logger, reqID json.RawMessage, err error) *Error {
 	if log != nil && err != nil {
+		msg := redactHome(redactPrivateIP(err.Error()))
 		log.Error("ipc internal error",
-			"err", err.Error(),
+			"err", msg,
 			"req_id", string(reqID),
 		)
 	}

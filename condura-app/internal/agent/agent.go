@@ -299,11 +299,11 @@ func eventMatchesRequest(ev sse.Event, requestID string) bool {
 	}
 	data, err := json.Marshal(ev.Data)
 	if err != nil {
-		return true
+		return false
 	}
 	var fields map[string]any
 	if err := json.Unmarshal(data, &fields); err != nil {
-		return true
+		return false
 	}
 	if id, ok := fields["request_id"].(string); ok {
 		return id == requestID
@@ -312,6 +312,9 @@ func eventMatchesRequest(ev sse.Event, requestID string) bool {
 }
 
 func stringField(data any, key string) (string, bool) {
+	if data == nil {
+		return "", false
+	}
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return "", false

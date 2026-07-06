@@ -1,6 +1,6 @@
 module github.com/sahajpatel123/conduraapp
 
-go 1.25.11
+go 1.25.0
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0

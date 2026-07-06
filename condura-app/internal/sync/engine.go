@@ -281,12 +281,17 @@ func (e *Engine) ConfirmPairing(peer *Peer, userPIN string) error {
 		e.mu.Unlock()
 		return fmt.Errorf("sync: PIN mismatch")
 	}
-	// Consume the token (one-shot) and add to the paired set.
-	delete(e.pendingPairings, peer.DeviceID)
+	// Verify PIN match, then add to paired set before consuming
+	// the token so a failed Add can be retried without losing the
+	// pairing request entirely.
 	e.mu.Unlock()
 	if _, err := e.paired.Add(peer.DeviceID, peer.Name, peer.PublicKey, pp.token, e.identity.DeviceID); err != nil {
 		return err
 	}
+	// Consume the token only after Add succeeds.
+	e.mu.Lock()
+	delete(e.pendingPairings, peer.DeviceID)
+	e.mu.Unlock()
 	e.logger.Info("device paired", "device_id", peer.DeviceID)
 	return nil
 }

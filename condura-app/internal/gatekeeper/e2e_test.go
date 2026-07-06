@@ -338,14 +338,20 @@ func TestEngine_TicketExpiry_ApproveAndDenyRejectExpired(t *testing.T) {
 		ExpiresAt:  time.Now().Add(-1 * time.Minute),
 		Result:     make(chan bool, 1),
 	}
-	fresh := &ConsentTicket{
+	freshApprove := &ConsentTicket{
 		ActionKind: "shell.exec",
-		Nonce:      "fresh-nonce",
+		Nonce:      "fresh-approve-nonce",
+		ExpiresAt:  time.Now().Add(1 * time.Minute),
+		Result:     make(chan bool, 1),
+	}
+	freshDeny := &ConsentTicket{
+		ActionKind: "shell.exec",
+		Nonce:      "fresh-deny-nonce",
 		ExpiresAt:  time.Now().Add(1 * time.Minute),
 		Result:     make(chan bool, 1),
 	}
 	e.pendingMu.Lock()
-	e.pending = append(e.pending, expired, fresh)
+	e.pending = append(e.pending, expired, freshApprove, freshDeny)
 	e.pendingMu.Unlock()
 
 	if e.ApproveTicket("expired-nonce") {
@@ -354,14 +360,14 @@ func TestEngine_TicketExpiry_ApproveAndDenyRejectExpired(t *testing.T) {
 	if e.ApproveTicket("nonexistent-nonce") {
 		t.Error("ApproveTicket should reject unknown nonces")
 	}
-	if !e.ApproveTicket("fresh-nonce") {
+	if !e.ApproveTicket("fresh-approve-nonce") {
 		t.Error("ApproveTicket should accept fresh nonces")
 	}
 
 	if e.DenyTicket("expired-nonce") {
 		t.Error("DenyTicket should reject expired nonces")
 	}
-	if !e.DenyTicket("fresh-nonce") {
+	if !e.DenyTicket("fresh-deny-nonce") {
 		t.Error("DenyTicket should accept fresh nonces")
 	}
 }

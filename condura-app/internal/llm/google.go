@@ -358,10 +358,11 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 			usage        Usage
 		)
 		// Gemini streams either a JSON array of objects, or one
-		// newline-delimited JSON object per chunk. We use a state machine
-		// driven by json.Decoder to read individual JSON values.
+		// newline-delimited JSON object per chunk. We use a state
+		// machine driven by json.Decoder to read individual JSON
+		// values.
 		dec := json.NewDecoder(reader)
-		// Read the opening '[' if present, then loop over values until ']'.
+		// Read the opening '[' if present, then loop.
 		tok, err := dec.Token()
 		if err == nil {
 			if delim, ok := tok.(json.Delim); ok && delim == '[' {
@@ -373,18 +374,32 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 						return
 					}
 					emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
+					// Check for cancellation between chunks.
+					select {
+					case <-cancel:
+						return
+					default:
+					}
 				}
 			} else if tok != nil {
 				// Reconstruct the value as a single gemResponse.
-				// Easier: read the rest of the body and parse.
-				rest, _ := io.ReadAll(reader)
-				combined := append(append([]byte{}, fmt.Sprintf("%v", tok)...), rest...)
-				var r gemResponse
-				if err := json.Unmarshal(combined, &r); err != nil {
-					out <- StreamEvent{Err: fmt.Errorf("llm/google: parse: %w", err), Done: true}
-					return
+				barrier := make(chan struct{})
+				go func() {
+					defer close(barrier)
+					rest, _ := io.ReadAll(reader)
+					combined := append(append([]byte{}, fmt.Sprintf("%v", tok)...), rest...)
+					var r gemResponse
+					if err := json.Unmarshal(combined, &r); err != nil {
+						out <- StreamEvent{Err: fmt.Errorf("llm/google: parse: %w", err), Done: true}
+						return
+					}
+					emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
+				}()
+				select {
+				case <-barrier:
+				case <-cancel:
+					_ = resp.Body.Close()
 				}
-				emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
 			}
 		}
 		out <- StreamEvent{

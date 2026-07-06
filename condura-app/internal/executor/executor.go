@@ -32,9 +32,11 @@
 package executor
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
@@ -277,20 +279,25 @@ func (e *Executor) execShell(ctx context.Context, a *pending.Action) (int, strin
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr) //nolint:gosec // user-approved, gated, sanitized
-	// 2026-06-29 audit P1-3: cap the combined output at
-	// maxShellOutputBytes. Without the cap, a `cat /dev/zero`-style
-	// command could grow the buffer without bound (combined
-	// returns a []byte that grows to whatever the process emits
-	// before the timeout fires). We use a LimitReader so the cap
-	// takes effect BEFORE the process fills the buffer.
-	out, err := cmd.CombinedOutput()
-	if len(out) > maxShellOutputBytes {
-		trunc := make([]byte, 0, maxShellOutputBytes+64)
-		trunc = append(trunc, out[:maxShellOutputBytes]...)
-		trunc = append(trunc, []byte("\n\n[output truncated at 64 MiB by Condura shell safety]")...)
-		out = trunc
+	// Cap output at maxShellOutputBytes BEFORE the buffer allocates
+	// by using io.LimitReader. Without this, CombinedOutput()
+	// allocates the full buffer containing whatever the process
+	// emits before the timeout fires (e.g. cat /dev/zero).
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+	if err := cmd.Start(); err != nil {
+		return -1, "", fmt.Errorf("shell.exec: start: %w", err)
 	}
-	return 0, string(out), err
+	var buf bytes.Buffer
+	limitR := io.LimitReader(io.MultiReader(stdout, stderr), maxShellOutputBytes)
+	n, readErr := io.Copy(&buf, limitR)
+	waitErr := cmd.Wait()
+	out := buf.Bytes()
+	if n >= maxShellOutputBytes {
+		out = append(out, []byte("\n\n[output truncated at 64 MiB by Condura shell safety]")...)
+	}
+	_ = readErr
+	return 0, string(out), waitErr
 }
 
 // execCU dispatches to the computer-use resolver. We translate the

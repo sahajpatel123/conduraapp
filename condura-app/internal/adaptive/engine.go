@@ -189,11 +189,31 @@ func (e *Engine) decay(_ context.Context) { //nolint:unparam
 	}
 
 	// Decay list fields.
+	prevLen := len(model.Preferences)
 	model.Preferences = pruneList(model.Preferences, cutoff)
+	if len(model.Preferences) < prevLen {
+		changed = true
+	}
+	prevLen = len(model.Expertise)
 	model.Expertise = pruneList(model.Expertise, cutoff)
+	if len(model.Expertise) < prevLen {
+		changed = true
+	}
+	prevLen = len(model.PetPeeves)
 	model.PetPeeves = pruneList(model.PetPeeves, cutoff)
+	if len(model.PetPeeves) < prevLen {
+		changed = true
+	}
+	prevPat := len(model.TimePatterns)
 	model.TimePatterns = prunePatterns(model.TimePatterns, cutoff)
+	if len(model.TimePatterns) < prevPat {
+		changed = true
+	}
+	prevWf := len(model.Workflows)
 	model.Workflows = pruneWorkflows(model.Workflows, cutoff)
+	if len(model.Workflows) < prevWf {
+		changed = true
+	}
 
 	if changed {
 		_ = e.Store.Save(model)

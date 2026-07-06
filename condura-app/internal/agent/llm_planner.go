@@ -163,9 +163,16 @@ func (p *LLMPlanner) parsePlanningResponse(raw string) ([]*Step, string, error) 
 func extractJSONFromMarkdown(raw string) string {
 	s := strings.TrimSpace(raw)
 	if strings.HasPrefix(s, "```") {
-		end := strings.Index(s[3:], "```")
-		if end >= 0 {
-			s = s[3 : end+3]
+		// Strip opening fence, including optional language tag
+		// ("json", "javascript", etc.).
+		rest := s[3:]
+		if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+			rest = rest[nl+1:]
+		}
+		if end := strings.Index(rest, "```"); end >= 0 {
+			s = rest[:end]
+		} else {
+			s = rest
 		}
 	}
 	start := strings.Index(s, "{")
@@ -173,5 +180,5 @@ func extractJSONFromMarkdown(raw string) string {
 	if start >= 0 && end > start {
 		s = s[start : end+1]
 	}
-	return s
+	return strings.TrimSpace(s)
 }

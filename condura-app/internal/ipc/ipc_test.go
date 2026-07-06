@@ -111,12 +111,13 @@ func TestServer_Handle_InternalError(t *testing.T) {
 // TestServer_Handle_InternalError_LogsFullErr pins P0-3: when a
 // handler returns a Go error that contains a path/IP, the JSON-RPC
 // client sees only the redacted stable message, but the server's
-// logger receives the full error for forensic correlation.
+// logger receives the error with home-directory paths and private
+// IPs redacted as a defense-in-depth measure.
 func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
 	var logged atomic.Bool
 	var capturedErr string
 	log := slog.New(slog.NewTextHandler(&captureWriter{onWrite: func(s string) {
-		if strings.Contains(s, "open /Users/sahajpatel/.condura/secrets/api_key.enc") {
+		if strings.Contains(s, "open ~/.condura/secrets/api_key.enc") {
 			capturedErr = s
 			logged.Store(true)
 		}
@@ -135,9 +136,9 @@ func TestServer_Handle_InternalError_LogsFullErr(t *testing.T) {
 	assert.NotContains(t, resp.Error.Message, "/Users/")
 	assert.NotContains(t, resp.Error.Message, "permission denied")
 
-	// Server log got the full error.
+	// Server log got the error with home dir redacted.
 	if !logged.Load() {
-		t.Fatalf("server logger did not receive the full error (got: %q)", capturedErr)
+		t.Fatalf("server logger did not receive the redacted error (got: %q)", capturedErr)
 	}
 }
 
