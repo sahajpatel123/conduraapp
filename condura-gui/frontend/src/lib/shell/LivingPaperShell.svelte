@@ -105,12 +105,7 @@
       ipc.onboardingIsComplete().catch(() => true),
     ]).then(([fr, oc]) => {
       const daemonComplete = !!(fr.complete && oc)
-      let seen = false
-      try { seen = !!localStorage.getItem('condura-ritual-seen') } catch { /* ignore */ }
-      showOnboarding = !daemonComplete || !seen
-      if (!seen) {
-        try { localStorage.setItem('condura-ritual-seen', '1') } catch { /* ignore */ }
-      }
+      showOnboarding = !daemonComplete
     }).catch(() => {})
 
     const onHash = () => { currentHash = window.location.hash || '#/' }

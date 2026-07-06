@@ -8,12 +8,14 @@
   interface Props {
     onnext: (hotkey: string) => void
     onskip: () => void
+    busy?: boolean
+    initialCombo?: string
   }
 
-  let { onnext, onskip }: Props = $props()
+  let { onnext, onskip, busy = false, initialCombo = '' }: Props = $props()
 
   let recording = $state(false)
-  let combo = $state('')
+  let combo = $state(initialCombo)
   let activeKeys = $state<Set<string>>(new Set())
 
   function startRecording() {
@@ -139,6 +141,7 @@
           type="button"
           class="lp-focus"
           onclick={onskip}
+          disabled={busy}
           style="
             padding: 10px 20px;
             border-radius: var(--lp-radius-sm);
@@ -153,7 +156,7 @@
         <MagneticButton
           variant="primary"
           size="md"
-          disabled={!combo}
+          disabled={!combo || busy}
           onclick={() => onnext(combo || 'Ctrl+Space')}
         >
           Continue

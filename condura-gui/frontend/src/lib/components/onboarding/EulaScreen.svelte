@@ -7,6 +7,12 @@
   import Divider from '../ui/Divider.svelte'
   import { t } from '../../i18n'
 
+  interface Props {
+    onaccepted?: () => void
+  }
+
+  let { onaccepted }: Props = $props()
+
   const EULA_TITLE = $derived(t('onboarding.eula.title'))
 
   let doc = $state<EULADocument | null>(null)
@@ -45,6 +51,9 @@
   async function accept(): Promise<void> {
     if (!doc) return
     await onboarding.acceptEula(doc.version)
+    if (!onboarding.error) {
+      onaccepted?.()
+    }
   }
 
   const canAccept = $derived(scrolledToBottom && accepted && !onboarding.busy)

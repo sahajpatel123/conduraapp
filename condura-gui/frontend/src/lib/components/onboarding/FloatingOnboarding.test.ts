@@ -2,89 +2,174 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/svelte'
 import FloatingOnboarding from './FloatingOnboarding.svelte'
 
-// Mock IntersectionObserver — the BlurReveal component uses it. In jsdom,
-// the observer has no real intersection, so isVisible would stay false and
-// the content would render as opacity 0. Forcing isIntersecting=true keeps
-// the test focused on the state machine.
+const { mockOnboarding } = vi.hoisted(() => {
+  const mockOnboarding = {
+    daemon: { current_step: 'eula', steps: {} },
+    busy: false,
+    error: null as string | null,
+    hotkeyValue: '',
+    eulaVersion: 'v1',
+    get isComplete() {
+      return false
+    },
+    sync: vi.fn().mockResolvedValue(undefined),
+    acceptEula: vi.fn().mockImplementation(async function (this: typeof mockOnboarding) {
+      this.daemon = { ...this.daemon, current_step: 'permissions' }
+    }),
+    completePermissions: vi.fn().mockImplementation(async function (this: typeof mockOnboarding) {
+      this.daemon = { ...this.daemon, current_step: 'hotkey' }
+    }),
+    skipStep: vi.fn().mockResolvedValue(undefined),
+    probePower: vi.fn().mockResolvedValue(undefined),
+    setHotkey: vi.fn(),
+    saveHotkey: vi.fn().mockResolvedValue(undefined),
+    finish: vi.fn().mockResolvedValue({ ok: true }),
+  }
+  return { mockOnboarding }
+})
+
+vi.mock('../../stores/onboarding.svelte', () => ({
+  onboarding: mockOnboarding,
+}))
+
+vi.mock('../../ipc/client', () => ({
+  ipc: {
+    onboardingEula: vi.fn().mockResolvedValue({
+      version: 'v1',
+      text: 'Short EULA for tests.',
+    }),
+    firstRunComplete: vi.fn().mockResolvedValue(undefined),
+    permissionsStatus: vi.fn().mockResolvedValue([]),
+    permissionsGuide: vi.fn().mockResolvedValue({ deep_link: '' }),
+  },
+}))
+
+// Mock IntersectionObserver — BlurReveal uses it. In jsdom there is no
+// real intersection, so isVisible would stay false without this shim.
 class MockIntersectionObserver {
   callback: IntersectionObserverCallback
-  constructor(cb: IntersectionObserverCallback) { this.callback = cb }
+  constructor(cb: IntersectionObserverCallback) {
+    this.callback = cb
+  }
   observe(_el: Element) {
-    this.callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
+    this.callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver
+    )
   }
   unobserve() {}
   disconnect() {}
-  takeRecords() { return [] }
+  takeRecords() {
+    return []
+  }
 }
 ;(globalThis as unknown as { IntersectionObserver: typeof MockIntersectionObserver }).IntersectionObserver =
   MockIntersectionObserver
 
-// Mock matchMedia (some paper components read it).
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = vi.fn().mockImplementation((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addListener: vi.fn(), removeListener: vi.fn(),
-    addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    matches: false,
+    media: q,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   }))
 }
 
 describe('FloatingOnboarding navigation', () => {
-  it('renders welcome step on mount and advances when the first card is clicked', async () => {
+  beforeEach(() => {
+    mockOnboarding.daemon = { current_step: 'eula', steps: {} }
+    mockOnboarding.busy = false
+    mockOnboarding.error = null
+    mockOnboarding.hotkeyValue = ''
+    vi.clearAllMocks()
+    if (!SVGElement.prototype.getTotalLength) {
+      SVGElement.prototype.getTotalLength = () => 100
+    }
+  })
+
+  it('renders EULA step on mount and advances after accept', async () => {
     const oncomplete = vi.fn()
-    const { container, getAllByRole } = render(FloatingOnboarding, { props: { oncomplete } })
+    const { container } = render(FloatingOnboarding, { props: { oncomplete } })
 
     await waitFor(() => {
       expect(container.textContent).toMatch(/1 of 5/)
     })
 
-    const buttons = getAllByRole('button')
-    expect(buttons.length).toBeGreaterThanOrEqual(3)
+    await waitFor(() => {
+      expect(container.querySelector('input[type="checkbox"]')).toBeTruthy()
+    })
 
-    await fireEvent.click(buttons[0]!)
+    const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+    await fireEvent.click(checkbox)
+
+    const acceptBtn = await waitFor(() => {
+      const btn = container.querySelector('.btn-primary') as HTMLButtonElement | null
+      expect(btn).toBeTruthy()
+      return btn!
+    })
+    await fireEvent.click(acceptBtn)
 
     await waitFor(() => {
       expect(container.textContent).toMatch(/2 of 5/)
-    }, { timeout: 2000 })
+    })
+    expect(mockOnboarding.acceptEula).toHaveBeenCalled()
   })
 
-  it('advances through every step and fires oncomplete on the done screen', async () => {
+  it('advances through every step and fires oncomplete on finish', async () => {
     const oncomplete = vi.fn()
     const { container } = render(FloatingOnboarding, { props: { oncomplete } })
 
-    // Step 1 → 2 (Welcome → Permissions): click first card.
+    // Step 1 → 2 (EULA → Permissions)
     await waitFor(() => expect(container.textContent).toMatch(/1 of 5/))
-    const step1Buttons = container.querySelectorAll('button.lp-paper-card')
-    expect(step1Buttons.length).toBeGreaterThanOrEqual(3)
-    ;(step1Buttons[0] as HTMLButtonElement).click()
+    await waitFor(() => {
+      expect(container.querySelector('input[type="checkbox"]')).toBeTruthy()
+    })
+    const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+    await fireEvent.click(checkbox)
+    const acceptBtn = await waitFor(() => {
+      const btn = container.querySelector('.btn-primary') as HTMLButtonElement | null
+      expect(btn).toBeTruthy()
+      return btn!
+    })
+    await fireEvent.click(acceptBtn)
 
-    // Step 2 → 3 (Permissions → Power): click the primary "Continue" CTA.
+    // Step 2 → 3 (Permissions → Power): Skip (no grants in test env)
     await waitFor(() => expect(container.textContent).toMatch(/2 of 5/))
-    const allButtonsAfter2 = Array.from(container.querySelectorAll('button'))
-    // The PermissionCards renders a "Continue" MagneticButton + a Skip
-    // button. Either advances to step 3.
-    const continueBtn = allButtonsAfter2.find((b) => b.textContent?.trim() === 'Continue')
-    expect(continueBtn, 'PermissionCards should render a Continue button').toBeTruthy()
-    continueBtn!.click()
+    const permSkip = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Skip for now'
+    )
+    expect(permSkip).toBeTruthy()
+    permSkip!.click()
 
-    // Step 3 → 4 (Power → Hotkey): click the first option card (Local).
+    // Step 3 → 4 (Power → Hotkey): click first option card
     await waitFor(() => expect(container.textContent).toMatch(/3 of 5/))
     const step3Cards = container.querySelectorAll('button.lp-paper-card')
-    expect(step3Cards.length).toBeGreaterThanOrEqual(3)
+    expect(step3Cards.length).toBeGreaterThanOrEqual(1)
     ;(step3Cards[0] as HTMLButtonElement).click()
 
-    // Step 4 → 5 (Hotkey → Done): HotkeyCard's Continue is disabled until a
-    // combo is recorded. The Skip button advances the wizard.
+    // Step 4 → 5 (Hotkey → Done): Skip
     await waitFor(() => expect(container.textContent).toMatch(/4 of 5/))
-    const allButtonsAfter4 = Array.from(container.querySelectorAll('button'))
-    const hotkeySkip = allButtonsAfter4.find((b) => b.textContent?.trim() === 'Skip')
-    expect(hotkeySkip, 'HotkeyCard should render a Skip button').toBeTruthy()
+    const hotkeySkip = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Skip'
+    )
+    expect(hotkeySkip).toBeTruthy()
     hotkeySkip!.click()
 
-    // Step 5 (Done): FirstBreath should appear; its oncomplete fires when
-    // the user dismisses it. For this test we only assert we reached the
-    // final step (the call to oncomplete is exercised by FirstBreath's
-    // own UI and is not the subject of this regression).
+    // Step 5 (Done): Begin finishes onboarding
     await waitFor(() => expect(container.textContent).toMatch(/5 of 5/))
+    const beginBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Begin'
+    )
+    expect(beginBtn).toBeTruthy()
+    beginBtn!.click()
+
+    await waitFor(() => {
+      expect(mockOnboarding.finish).toHaveBeenCalled()
+      expect(oncomplete).toHaveBeenCalled()
+    })
   })
 })

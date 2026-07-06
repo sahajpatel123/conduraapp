@@ -8,9 +8,10 @@
 
   interface Props {
     oncomplete: () => void
+    busy?: boolean
   }
 
-  let { oncomplete }: Props = $props()
+  let { oncomplete, busy = false }: Props = $props()
 </script>
 
 <div style="
@@ -63,6 +64,7 @@
     <button
       type="button"
       onclick={oncomplete}
+      disabled={busy}
       class="lp-focus"
       style="
         margin-top: var(--lp-space-4);

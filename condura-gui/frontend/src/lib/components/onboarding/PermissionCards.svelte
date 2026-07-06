@@ -25,6 +25,7 @@
     onnext: () => void
     onskip: () => void
     permissions?: PermItem[]
+    busy?: boolean
   }
 
   const DEFAULTS: PermItem[] = [
@@ -39,10 +40,21 @@
     onnext,
     onskip,
     permissions = DEFAULTS,
+    busy = false,
   }: Props = $props()
 
   let items = $state([...permissions])
   let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  const accessibilityGranted = $derived(
+    items.some((p) => p.kind === 'accessibility' && p.granted)
+  )
+  const screenRecordingGranted = $derived(
+    items.some((p) => p.kind === 'screen_recording' && p.granted)
+  )
+  const canContinue = $derived(
+    (accessibilityGranted || screenRecordingGranted) && !busy
+  )
 
   function badgeLabel(granted: boolean): string {
     return granted ? 'Granted' : 'Grant'
@@ -169,6 +181,7 @@
         type="button"
         class="lp-focus"
         onclick={onskip}
+        disabled={busy}
         style="
           padding: 10px 20px;
           border-radius: var(--lp-radius-sm);
@@ -181,7 +194,7 @@
           transition: all var(--lp-dur-fast) var(--lp-ease-thread);
         "
       >Skip for now</button>
-      <MagneticButton variant="primary" size="md" onclick={onnext}>
+      <MagneticButton variant="primary" size="md" onclick={onnext} disabled={!canContinue || busy}>
         Continue
       </MagneticButton>
     </div>
