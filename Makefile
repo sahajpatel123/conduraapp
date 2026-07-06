@@ -97,7 +97,16 @@ clean: ## Remove build artifacts
 
 .PHONY: release-snapshot
 release-snapshot: ## Local GoReleaser snapshot (no publish)
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --config condura-ops/release/goreleaser.yml
+
+# Reference goreleaser config lives at condura-ops/release/goreleaser.yml per
+# the topic-sliced layout (condura-ops/ hosts CI, scripts, release tooling).
+# Override via RELEASE_CONFIG=<path> for forks that want a separate config.
+ifneq ($(RELEASE_CONFIG),)
+GORELEASER_CONFIG := --config $(RELEASE_CONFIG)
+else
+GORELEASER_CONFIG := --config condura-ops/release/goreleaser.yml
+endif
 
 .PHONY: build-gui
 build-gui: ## Build Wails desktop app for current OS/arch
@@ -108,6 +117,11 @@ build-gui: ## Build Wails desktop app for current OS/arch
 verify-release: ## Verify a GitHub release tag (TAG=v0.1.0)
 	chmod +x scripts/verify-release-artifacts.sh
 	./condura-ops/scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
+
+# passthrough for goreleaser for normal release runs
+.PHONY: release
+release: ## Cut a release via GoReleaser (TAG=vX.Y.Z, GITHUB_TOKEN=...)
+	goreleaser release --clean $(GORELEASER_CONFIG)
 
 .PHONY: gen-manifest
 gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
