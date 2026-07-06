@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+// errStub is a sentinel error used by test mocks to simulate command failure.
+// It is shared across tests so any failing-call mock can return it.
+var errStub = &stubErr{msg: "stub command failure"}
+
+type stubErr struct{ msg string }
+
+func (e *stubErr) Error() string { return e.msg }
+
 // withMockExec swaps execProbe for the duration of the test.
 // Returns a restore function to defer.
 func withMockExec(t *testing.T, stub func(name string, args ...string) ([]byte, error)) func() {
@@ -13,6 +21,22 @@ func withMockExec(t *testing.T, stub func(name string, args ...string) ([]byte, 
 	orig := execProbe
 	execProbe = stub
 	return func() { execProbe = orig }
+}
+
+// nothingAvailableMock is a helper that simulates a system with no
+// AT-SPI, no audio server, no notification daemon, and no D-Bus
+// session bus. Every pgrep returns empty output; dbus-send and gdbus
+// fail. This is the canonical "no permissions detected" environment
+// the fall-through paths in the probe functions expect.
+func nothingAvailableMock(name string, args ...string) ([]byte, error) {
+	switch name {
+	case "dbus-send", "gdbus":
+		return nil, errStub
+	case "pgrep":
+		return nil, nil // empty output, no error — pgrep found nothing
+	default:
+		return nil, nil
+	}
 }
 
 func TestLinuxProbe_ProcessRunning_Granted(t *testing.T) {
@@ -45,7 +69,7 @@ func TestLinuxProbe_Accessibility_GrantedViaRegistryd(t *testing.T) {
 		if name == "pgrep" {
 			return []byte("1234\n"), nil
 		}
-		return nil, nil
+		return nil, errStub
 	})
 	defer restore()
 
@@ -59,9 +83,7 @@ func TestLinuxProbe_Accessibility_GrantedViaRegistryd(t *testing.T) {
 }
 
 func TestLinuxProbe_Accessibility_UnknownWhenMissing(t *testing.T) {
-	restore := withMockExec(t, func(name string, args ...string) ([]byte, error) {
-		return nil, nil
-	})
+	restore := withMockExec(t, nothingAvailableMock)
 	defer restore()
 
 	p := probeAccessibilityLinux()
@@ -87,7 +109,7 @@ func TestLinuxProbe_ScreenRecording_WaylandUnknownEvenWithPortal(t *testing.T) {
 		if name == "pgrep" {
 			return []byte("1234\n"), nil // portal daemon running
 		}
-		return nil, nil
+		return nil, errStub
 	})
 	defer restore()
 
@@ -103,9 +125,7 @@ func TestLinuxProbe_ScreenRecording_WaylandUnknownEvenWithPortal(t *testing.T) {
 func TestLinuxProbe_ScreenRecording_WaylandUnknownWithoutPortal(t *testing.T) {
 	t.Setenv("WAYLAND_DISPLAY", "wayland-0")
 	t.Setenv("DISPLAY", "")
-	restore := withMockExec(t, func(name string, args ...string) ([]byte, error) {
-		return nil, nil // no portal daemon
-	})
+	restore := withMockExec(t, nothingAvailableMock)
 	defer restore()
 
 	p := probeScreenRecordingLinux()
@@ -120,7 +140,7 @@ func TestLinuxProbe_Microphone_AudioServerGranted(t *testing.T) {
 		if name == "pgrep" && len(args) > 1 && (args[1] == "pulseaudio" || args[1] == "pipewire") {
 			return []byte("999\n"), nil
 		}
-		return nil, nil
+		return nil, errStub
 	})
 	defer restore()
 
@@ -132,9 +152,7 @@ func TestLinuxProbe_Microphone_AudioServerGranted(t *testing.T) {
 }
 
 func TestLinuxProbe_Microphone_DevSndGranted(t *testing.T) {
-	restore := withMockExec(t, func(name string, args ...string) ([]byte, error) {
-		return nil, nil // no audio server
-	})
+	restore := withMockExec(t, nothingAvailableMock)
 	defer restore()
 
 	p := probeMicrophoneLinux()
@@ -153,7 +171,7 @@ func TestLinuxProbe_Automation_ReusesAccessibilityResult(t *testing.T) {
 		if name == "pgrep" {
 			return []byte("1234\n"), nil
 		}
-		return nil, nil
+		return nil, errStub
 	})
 	defer restore()
 
@@ -168,31 +186,26 @@ func TestLinuxProbe_Automation_ReusesAccessibilityResult(t *testing.T) {
 
 func TestLinuxProbe_Notifications_DBusGranted(t *testing.T) {
 	restore := withMockExec(t, func(name string, args ...string) ([]byte, error) {
-		// dbusServiceAccessible's LookPath will return error in tests
-		// (no dbus-send binary on the test machine), so this branch
-		// falls through to daemon detection.
-		if name == "pgrep" && len(args) > 1 && args[1] == "dunst" {
-			return []byte("1234\n"), nil
+		// Simulate "dbus-send found AND ping succeeds" — the production
+		// code path returns StatusGranted when dbusServiceAccessible
+		// returns true. This is what every Ubuntu CI runner with a
+		// session bus will see.
+		if name == "dbus-send" || name == "gdbus" {
+			return []byte("method return time=... sender=:1.0 → destination=:1.42 serial=42 reply_serial=2\n"), nil
 		}
 		return nil, nil
 	})
 	defer restore()
 
 	p := probeNotificationsLinux()
-	// Result is implementation-dependent (D-Bus vs daemon detection),
-	// but it must be a valid status.
-	switch p.Status {
-	case StatusGranted, StatusUnknown:
-		// ok
-	default:
-		t.Fatalf("notifications: invalid status %q", p.Status)
+	if p.Status != StatusGranted {
+		t.Fatalf("notifications with dbus ping success: want %s, got %s (note=%s)",
+			StatusGranted, p.Status, p.Note)
 	}
 }
 
 func TestLinuxProbe_Notifications_UnknownWhenNothingPresent(t *testing.T) {
-	restore := withMockExec(t, func(name string, args ...string) ([]byte, error) {
-		return nil, nil
-	})
+	restore := withMockExec(t, nothingAvailableMock)
 	defer restore()
 
 	p := probeNotificationsLinux()
