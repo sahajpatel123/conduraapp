@@ -9,6 +9,10 @@
 /synaptic
 /synaptic-tui
 /synapticctl
+
+# Brand MP4s (re-rendered each marketing campaign; tracked source is the
+# condura-studio/ project that produces them, not the rendered output)
+/condura-brand/assets/*.mp4
 *.exe
 *.dmg
 *.pkg

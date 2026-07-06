@@ -164,6 +164,13 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 		"storage_path", opts.Config.Storage.Path,
 	)
 
+	// Record the daemon start time as the moment we are about to
+	// bring up subsystems. daemon.uptime / daemon.info report
+	// "time since this moment" — not "time since the binary was
+	// loaded", which would include main() + config-validate +
+	// lockfile-acquire time that the user doesn't see.
+	MarkDaemonStart(time.Now())
+
 	subs, err := initSubsystems(log, opts.Config, opts.Loader)
 	if err != nil {
 		releaseLock()

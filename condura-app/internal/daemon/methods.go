@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/api_key"
@@ -18,10 +19,38 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
-// daemonStarted is set once when the daemon begins running. Used by
-// daemon.uptime RPC to report wall-clock uptime. Writing to it after
-// Run() starts is a data race; it is effectively immutable post-init.
-var daemonStarted = time.Now()
+// daemonStart is the wall-clock time the daemon became ready to
+// serve RPCs. It is read by the daemon.uptime / daemon.info methods.
+//
+// The atomic.Pointer lets Run() promote the value from the package-
+// init sentinel (set in init() below) to the real "Run() is up and
+// registerMethods has been called" time once subsystems are ready.
+// Concurrent IPC readers see a non-nil time on every call.
+var daemonStart atomic.Pointer[time.Time]
+
+func init() {
+	t := time.Now()
+	daemonStart.Store(&t)
+}
+
+// MarkDaemonStart records that the daemon is now ready to serve
+// RPCs. Run() calls this once after subsystem init but before
+// registerMethods, so subsequent daemon.uptime / daemon.info
+// responses report "time since ready" rather than "time since
+// binary load". The atomic store is safe for concurrent reads.
+func MarkDaemonStart(t time.Time) { daemonStart.Store(&t) }
+
+// daemonUptimeSeconds returns wall-clock seconds since the daemon
+// was last marked ready. Falls back to "since binary load" if
+// MarkDaemonStart was never called (e.g., in unit tests that call
+// registerMethods without going through Run()).
+func daemonUptimeSeconds() float64 {
+	t := daemonStart.Load()
+	if t == nil {
+		return 0
+	}
+	return time.Since(*t).Seconds()
+}
 
 // registerMethods wires every JSON-RPC method the daemon exposes into
 // the given server. The method list is the single source of truth for
@@ -36,14 +65,14 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		return ver, nil
 	})
 	srv.Register("daemon.uptime", func(_ context.Context, _ json.RawMessage) (any, error) {
-		return map[string]any{"uptime_seconds": time.Since(daemonStarted).Seconds()}, nil
+		return map[string]any{"uptime_seconds": daemonUptimeSeconds()}, nil
 	})
 	srv.Register("daemon.pid", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"pid": os.Getpid()}, nil
 	})
 	srv.Register("daemon.info", func(_ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{
-			"uptime_seconds": time.Since(daemonStarted).Seconds(),
+			"uptime_seconds": daemonUptimeSeconds(),
 			"pid":            os.Getpid(),
 			"version":        ver,
 		}, nil

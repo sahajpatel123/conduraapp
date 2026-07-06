@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -77,8 +78,20 @@ func (r *Report) ToTelemetry() *TelemetryPayload {
 
 // Recover is a defer-recover helper for daemon goroutines.
 // Call as: defer crash.Recover()
+//
+// On panic, the helper (1) writes the full stack to
+// ~/.condura/crashes/<timestamp>.log via Capture so the operator
+// has a forensic trace, and (2) emits a slog.Error with the panic
+// value and the resulting stack_hash so the event is visible in
+// the daemon log — not just on disk. Logging here is the difference
+// between "the watchdog panic-recovered and the operator never knew"
+// and "the watchdog panic-recovered and the next on-call sees it".
 func Recover() {
 	if r := recover(); r != nil {
-		_ = Capture(r)
+		report := Capture(r)
+		slog.Error("crash.Recover: panic recovered",
+			"panic", fmt.Sprintf("%v", r),
+			"stack_hash", report.StackHash,
+		)
 	}
 }
