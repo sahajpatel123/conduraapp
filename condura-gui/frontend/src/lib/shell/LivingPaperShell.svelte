@@ -33,6 +33,13 @@
   import About from '$lib/condura/About.svelte'
   import Account from '$lib/condura/Account.svelte'
   import { FloatingOnboarding } from '$lib/components/onboarding'
+  import {
+    getResolvedTheme,
+    onThemeChange,
+    setResolvedTheme,
+    toggleLightDark,
+    type ResolvedTheme,
+  } from '../theme/condura-theme'
 
   import CommandPalette from '$lib/condura/CommandPalette.svelte'
   import QuickPromptOverlay from '$lib/condura/QuickPromptOverlay.svelte'
@@ -55,7 +62,7 @@
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
   let route = $derived(shellHashToRoute(currentHash))
-  let theme = $state<'light' | 'dark'>('light')
+  let theme = $state<ResolvedTheme>(getResolvedTheme())
 
   let agentPhase = $derived(
     conversation.isStreaming
@@ -84,7 +91,10 @@
   }
 
   onMount(() => {
-    theme = (document.documentElement.dataset.mode as 'light' | 'dark') ?? 'light'
+    theme = getResolvedTheme()
+    const offTheme = onThemeChange((resolved) => {
+      theme = resolved
+    })
 
     try { initStores() } catch (e) { console.warn('initStores failed', e) }
     try { halt.startPolling() } catch (e) { console.warn('halt.startPolling failed', e) }
@@ -179,7 +189,7 @@
 
       if (e.shiftKey && !mod && k === 't') {
         e.preventDefault()
-        setTheme(theme === 'light' ? 'dark' : 'light')
+        theme = toggleLightDark()
         return
       }
 
@@ -225,6 +235,7 @@
     window.addEventListener('keydown', onKey)
 
     return () => {
+      offTheme()
       window.removeEventListener('hashchange', onHash)
       window.removeEventListener('keydown', onKey)
       try { consent.stop() } catch { /* ignore */ }
@@ -233,10 +244,8 @@
     }
   })
 
-  function setTheme(t: 'light' | 'dark'): void {
-    theme = t
-    document.documentElement.dataset.mode = t
-    try { localStorage.setItem('condura-theme', t) } catch { /* ignore */ }
+  function setTheme(t: ResolvedTheme): void {
+    theme = setResolvedTheme(t)
   }
 
   function navigate(r: RouteId): void {
@@ -252,7 +261,7 @@
   }
 </script>
 
-<div class="lp lp-living-shell" data-mode={theme}>
+<div class="lp lp-living-shell">
   <PaperSurface variant="page" grain={true} padding="0" style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
     <QuillCursor />
 

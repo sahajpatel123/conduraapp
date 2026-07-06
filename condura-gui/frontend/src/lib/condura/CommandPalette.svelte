@@ -11,6 +11,7 @@
   import { type RouteId, ROUTE_HASH } from './NavRail.svelte';
   import { halt } from '../stores/halt.svelte';
   import { overlay } from '../stores/overlay.svelte';
+  import { getResolvedTheme, onThemeChange, toggleLightDark } from '../theme/condura-theme';
 
   let {
     open,
@@ -42,15 +43,16 @@
     { route: 'about', label: 'About Condura', icon: 'about' },
   ];
 
-  // Theme is read off :root[data-mode]; toggling flips it. The icon shown is
-  // the *destination* (moon → going to night, sun → going to day).
-  let mode = $state<'light' | 'dark'>(
-    (document.documentElement.getAttribute('data-mode') as 'light' | 'dark') ?? 'light',
-  );
+  // Theme is read from the shared condura-theme module (html data-mode only).
+  let mode = $state<'light' | 'dark'>(getResolvedTheme());
+  $effect(() => {
+    const off = onThemeChange((resolved) => {
+      mode = resolved;
+    });
+    return off;
+  });
   function toggleTheme(): void {
-    const next = mode === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-mode', next);
-    mode = next;
+    mode = toggleLightDark();
   }
   function summonQuickPrompt(): void {
     overlay.show();

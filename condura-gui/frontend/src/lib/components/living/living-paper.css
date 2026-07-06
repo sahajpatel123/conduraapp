@@ -14,7 +14,8 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ── Paper Canvas ─────────────────────────────────────────── */
-:root, [data-mode='light'], .lp {
+:root[data-mode='light'],
+:root:not([data-mode]) {
   --lp-paper:        #F4EFE4;
   --lp-paper-warm:   #ECE5D4;
   --lp-paper-deep:   #E2DAC6;
@@ -40,7 +41,7 @@
 }
 
 /* ── Warm Dark Mode ───────────────────────────────────────── */
-[data-mode='dark'] .lp, [data-mode='dark'][class~='lp'] {
+:root[data-mode='dark'] {
   --lp-paper:        #16140F;
   --lp-paper-warm:   #1E1B16;
   --lp-paper-deep:   #26231E;
@@ -131,7 +132,7 @@
   --lp-shadow-raise: 0 1px 2px rgba(20, 17, 11, 0.08), 0 1px 4px -2px rgba(20, 17, 11, 0.04);
 }
 
-[data-mode='dark'] .lp, [data-mode='dark'][class~='lp'] {
+:root[data-mode='dark'] {
   --lp-shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.15), 0 8px 24px -12px rgba(0, 0, 0, 0.35);
   --lp-shadow-card:  0 1px 0 rgba(0, 0, 0, 0.2), 0 24px 60px -28px rgba(0, 0, 0, 0.5), 0 2px 8px -4px rgba(0, 0, 0, 0.15);
   --lp-shadow-float: 0 2px 0 rgba(0, 0, 0, 0.18), 0 40px 90px -32px rgba(0, 0, 0, 0.6), 0 4px 12px -6px rgba(0, 0, 0, 0.2);
@@ -165,7 +166,7 @@
   opacity: var(--lp-grain-opacity, 0.035);
 }
 
-[data-mode='dark'] .lp-grain::before {
+:root[data-mode='dark'] .lp-grain::before {
   mix-blend-mode: screen;
   opacity: var(--lp-grain-opacity, 0.06);
 }
