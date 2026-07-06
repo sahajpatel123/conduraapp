@@ -6879,3 +6879,54 @@ Each commit ≥ scoped to one logical change per STYLE.md §10 ("One commit = on
 **Status:** ✅ **5 commits ready; awaiting push.** Tier 1 + Tier 2 verification green (build / vet / race tests / router drift test). Tier 3 deferred to on-device verification (next session, per existing Phase 15 plan). Memory files updated. Append-only compliance verified (CLAUDE.md content preserved at .legacy). Stash cleanup completed without touching user WIP.
 
 ---
+
+## [2026-07-06 04:25 UTC] AI Model: z-ai/glm-5.2 — Continuation: CI drift cascade closure
+
+**Task:** Continuation of the Phase 14 workspace cleanup session. Three earlier CI pushes had completed successfully in some workflows and failed in `Release Verify` (which is the `goreleaser-action@v6` snapshot run on every push to `main`). Each push surfaced the next post-reorg drift bug; each fix unlocked the next.
+
+### Drift cascade (in order of discovery)
+
+| # | Drift bug | File | Pushed as | Outcome |
+|---|---|---|---|---|
+| 1 | `goreleaser-action@v6` invoked without `--config`, so goreleaser looked at `./goreleaser.yml` at repo root (which does not exist) | `.github/workflows/release-verify.yml` + `condura-ops/ci/workflows/release-verify.yml` | `99b6c37` | next failure surfaced |
+| 2 | `go test ./internal/updater/...` — pre-reorg path; `lstat: no such file or directory` | `.github/workflows/release-verify.yml` line 100 + `condura-ops/ci/workflows/release-verify.yml` | `99b6c37` (same fix) | pass for updater tests; next failure surfaced |
+| 3 | Same path-drift on `./internal/daemon` (E2E test) | `.github/workflows/release-verify.yml` line 103 | `99b6c37` (same fix) | pass for E2E; next failure surfaced |
+| 4 | `condura-ops/release/goreleaser.yml` archive `files:` lists `LICENSE` + `EULA.md` at root, but both moved to `condura-mind/` post-reorg | `condura-ops/release/goreleaser.yml` 3 archive blocks | `f4f9b6c` | Release Verify flipped to ✅ |
+| (separately) | `.github/workflows/ci.yml` and `.github/workflows/release-verify.yml` ALSO exist at `condura-ops/ci/workflows/` — orphan copies not read by GitHub Actions | not fixed in this session (open work for v0.2.0) | — | documented; mirrored updates land in both copies for now |
+
+### Final commit chain on `main`
+
+```
+f4f9b6c ci(release): fix LICENSE/EULA.md archive-file paths post-reorg
+99b6c37 ci(verify): fix post-reorg path drift in release-verify.yml
+462b19c ops(ci): correct CI discovery README — surface real vs orphan workflow drift
+0b3ce67 docs(LOGBOOK): append 2026-07-06 Phase 14 workspace cleanup session
+eaa81e3 test(design): pin --ink-cool-* alias contract via Vitest
+e70d552 docs(spec): consolidate two-spec drift — MISSION.md canonical, CLAUDE.md → redirect stub
+992a8bd ci(config): align cfg.Router.Priorities with knownProviders()
+8f43d2d ops(release): pin goreleaser config path + add CI discovery README
+```
+
+**9 commits this session. All merged to `main`. CI green on the final SHA (`f4f9b6c`).**
+
+### Tier 1 + Tier 2 + now Tier-3 (CI workflow runs) verification, all green
+
+- Tier 1: `go test -race -count=1 -short ./...` (run earlier in this session) → 0 failures, 0 races.
+- Tier 2: `go build ./...`, `go vet ./...`, `golangci-lint run --timeout=5m ./...` (per `make verify`).
+- Tier 3 (extended): **all three GitHub Actions workflows on `f4f9b6c` finish with conclusion=`success`**.
+  - CI: 14 jobs, 13 success + 1 expected failure (GUI Build darwin/arm64 [smoke] — annotated `continue-on-error: true` by commit `3535692`; a known flake unrelated to this session).
+  - Release Verify: 3 jobs, all success.
+  - CodeQL: weekly analysis, success.
+
+The "expected failure" caveat is part of the working tree's contract — the upstream commit `3535692 fix(ci): mark GUI Build smoke check as continue-on-error to unblock CI` explicitly documented the smoke check as a release-validation deliverable (not a CI gate).
+
+### Open work discovered in this session (not blocking, but visible)
+
+- **`condura-ops/ci/CODEOWNERS` and `condura-ops/ci/dependabot.yml`** are duplicated at `condura-ops/` for the topic-sliced layout, but GitHub reads from `.github/`. The orphan copies are heavy-drifted (still reference pre-reorg `/internal/...` paths) AND ineffective (not read by GitHub). Net result: code-owner enforcement has been silently broken since 2026-07-04. Fixing this is a separate session — it doesn't block CI but it does break security governance. Recommended action: write `.github/CODEOWNERS` + `.github/dependabot.yml` with post-reorg paths, mirror in `condura-ops/ci/`, decide canonical home in a v0.2.0 sweep.
+- **Synaptic → Condura brand migration** in LOGBOOK.md, CLAUDE.md.legacy, and inline code comments (149 Synaptic mentions in LOGBOOK alone). User ratified "Hold — append-only, deferred" per the AskUserQuestion in this session. Out of scope here; tracked as a v0.2.0 brand-pass commitment.
+
+### Status
+
+**✅ All targeted work in scope complete. CI green on the final commit. Session closing.**
+
+---
