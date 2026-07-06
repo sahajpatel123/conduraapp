@@ -248,7 +248,7 @@ jobs:
           chmod +x condura-ops/scripts/build-gui.sh
           cd condura-app/cmd/condura-gui
           (cd ../../../condura-gui/frontend && npm ci && npm run build)
-          if ! rg -q 'lp-nav-row' ../../../condura-gui/frontend/assets/dist/assets/*.js; then
+          if ! grep -q 'lp-nav-row' ../../../condura-gui/frontend/assets/dist/assets/*.js; then
             echo "::error::frontend bundle missing lp-nav-row — stale build" >&2
             exit 1
           fi

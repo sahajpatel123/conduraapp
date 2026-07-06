@@ -264,7 +264,7 @@ jobs:
             export PATH="$(go env GOPATH)/bin:${PATH}"
           fi
           (cd condura-gui/frontend && npm ci && npm run build)
-          if ! rg -q 'lp-nav-row' condura-gui/frontend/assets/dist/assets/*.js; then
+          if ! grep -q 'lp-nav-row' condura-gui/frontend/assets/dist/assets/*.js; then
             echo "::error::frontend bundle missing lp-nav-row — stale build"
             exit 1
           fi

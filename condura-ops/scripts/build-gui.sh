@@ -48,7 +48,7 @@ if [ ! -f "${ASSETS_DIR}/dist/index.html" ]; then
   echo "frontend build did not produce ${ASSETS_DIR}/dist/index.html" >&2
   exit 1
 fi
-if ! rg -q 'lp-nav-row' "${ASSETS_DIR}/dist/assets/"*.js 2>/dev/null; then
+if ! grep -q 'lp-nav-row' "${ASSETS_DIR}/dist/assets/"*.js 2>/dev/null; then
   echo "embedded bundle missing lp-nav-row — frontend build is stale" >&2
   exit 1
 fi
