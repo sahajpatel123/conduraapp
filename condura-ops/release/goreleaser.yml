@@ -135,8 +135,11 @@ archives:
       condurad-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
-      - LICENSE
-      - EULA.md
+      # Post-reorg (2026-07-04, commit 9b893c1) LICENSE moved to
+      # condura-mind/, alongside EULA.md and the rest of the
+      # canonical doc surface.
+      - condura-mind/LICENSE
+      - condura-mind/EULA.md
 
   - id: condura-archive
     ids:
@@ -153,8 +156,8 @@ archives:
       condura-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
-      - LICENSE
-      - EULA.md
+      - condura-mind/LICENSE
+      - condura-mind/EULA.md
 
   - id: condura-tui-archive
     ids:
@@ -171,8 +174,8 @@ archives:
       condura-tui-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
-      - LICENSE
-      - EULA.md
+      - condura-mind/LICENSE
+      - condura-mind/EULA.md
 
 checksum:
   name_template: 'checksums.txt'
