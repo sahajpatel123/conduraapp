@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 )
 
 // Detector tracks behavioral anomalies across an agent run.
@@ -182,6 +184,7 @@ func (d *Detector) Close() {
 }
 
 func (d *Detector) loop() {
+	defer crash.Recover()
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 

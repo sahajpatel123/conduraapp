@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/halt"
 )
 
@@ -159,6 +160,7 @@ func (w *Watchdog) IdleDuration() time.Duration {
 //  2. Call Halt() with the same reason.
 //  3. Log the trip at WARN level.
 func (w *Watchdog) Run(ctx context.Context) {
+	defer crash.Recover()
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 	for {

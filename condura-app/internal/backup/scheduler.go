@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 )
 
 // Default scheduler settings.
@@ -89,6 +91,7 @@ func NewScheduler(cfg SchedulerConfig, bm *Manager, log *slog.Logger) *Scheduler
 // goroutine. Run performs an initial backup at FirstRunAt (or
 // immediately if zero), then loops on cfg.Interval.
 func (s *Scheduler) Run(ctx context.Context) {
+	defer crash.Recover()
 	if s.log != nil {
 		s.log.Info("backup scheduler started",
 			"interval", s.cfg.Interval,

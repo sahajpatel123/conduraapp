@@ -26,6 +26,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 )
 
 // Detector polls the OS for presence signals.
@@ -70,6 +72,7 @@ func (d *Detector) Stop() {
 }
 
 func (d *Detector) loop() {
+	defer crash.Recover()
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {

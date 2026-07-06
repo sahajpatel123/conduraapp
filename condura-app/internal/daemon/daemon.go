@@ -196,6 +196,7 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 	// Release the lock when ctx is canceled.
 	go func() {
+		defer crash.Recover()
 		<-ctx.Done()
 		log.Info("releasing single-instance lock")
 		_ = lock.Release()
@@ -261,6 +262,7 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 // runs immediately on startup so a long-running daemon doesn't wait
 // a day to clear a backlog.
 func runAuditPruner(ctx context.Context, log *audit.Log, retention time.Duration, logger *slog.Logger) {
+	defer crash.Recover()
 	prune := func() {
 		deleted, err := log.Prune(ctx, retention)
 		if err != nil {
@@ -304,6 +306,7 @@ func auditRetention(cfg *config.Config) time.Duration {
 // calls Reset() once it has been idle longer than `idle`. Stops when
 // ctx is canceled.
 func runAnomalyIdleWatcher(ctx context.Context, det *anomaly.Detector, idle time.Duration, log *slog.Logger) {
+	defer crash.Recover()
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for {

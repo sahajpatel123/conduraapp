@@ -16,6 +16,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 )
 
@@ -116,6 +117,7 @@ func (t *ServerTransport) Listen(ctx context.Context, addr string) error {
 
 // serveListener runs the HTTP+WebSocket handler on one listener.
 func (t *ServerTransport) serveListener(ln net.Listener) {
+	defer crash.Recover()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", t.handleHTTP)
 	srv := &http.Server{

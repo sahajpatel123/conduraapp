@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
+
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
@@ -134,6 +136,7 @@ func (u *Updater) Enabled() bool { return u.enabled }
 // until ctx is canceled. Errors are swallowed; Check already
 // returns skip results for network failures.
 func (u *Updater) RunPoller(ctx context.Context) {
+	defer crash.Recover()
 	if !u.enabled || u.manifest == "" {
 		return
 	}

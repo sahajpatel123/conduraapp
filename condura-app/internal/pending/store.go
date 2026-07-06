@@ -30,6 +30,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/storage"
 )
 
@@ -144,6 +145,7 @@ func (s *Store) Stop() {
 const sweepInterval = 30 * time.Second
 
 func (s *Store) sweepLoop(ctx context.Context) {
+	defer crash.Recover()
 	defer close(s.stopped)
 	t := time.NewTicker(sweepInterval)
 	defer t.Stop()
