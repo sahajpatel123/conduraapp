@@ -7200,3 +7200,59 @@ Extended review to the DeepSeek-session changes (dependabot.yml, .npmrc files, `
 
 **🟢 All 3 logical commits shipped on `security/security-audit-round-1-2026-07-06`. Security review complete (0 HIGH/MEDIUM findings on PR #38 + working-tree extension). Pending: push + PR + CI verification.**
 
+
+---
+
+## [2026-07-06 17:30 IST] AI Model: Claude Code (Anthropic)
+**Session ID:** security-audit-round-1-close-out
+**Branch:** main (working tree) — to be pushed to `security/security-audit-round-1-2026-07-06`
+**Task:** Address the 12 findings from the max-effort `/code-review` sweep (see MISSION §33.7 for the close-out table).
+
+### Files modified
+
+- `condura-app/internal/crash/crash.go` — `Recover()` now `slog.Error`s the panic value + stack hash
+- `condura-app/internal/daemon/methods.go` — `daemonStarted` → `atomic.Pointer[time.Time]`; new `MarkDaemonStart(t)` + `daemonUptimeSeconds()` helpers; the 3 new RPCs use the helper
+- `condura-app/internal/daemon/daemon.go` — `Run()` calls `MarkDaemonStart(time.Now())` immediately after logger setup
+- `condura-app/internal/daemon/methods_test.go` — **NEW**; 4 golden tests for the 3 new RPCs
+- `.gitignore` — `/condura-brand/assets/*.mp4` added
+- `.github/dependabot.yml` — `production` group no longer has the contradictory `patterns: ["*"]`
+
+### Files deleted
+
+- `condura-gui/frontend/package.json.md5` — stale single-purpose hash
+- `condura-gui/frontend/pnpm-workspace.yaml` — misnamed for a single project
+
+### Decisions
+
+- **`daemonStart` as `atomic.Pointer[time.Time]`** rather than a mutex-protected struct field: publish-once (init → Run) means lock-free CAS is right. Readers never contend; writers publish once. The init sentinel gives unit tests a non-nil fallback when they exercise `registerMethods` without going through `Run`.
+- **`slog.Error` from `crash.Recover()`** chosen over a separate `slog.Logger` parameter — every goroutine that already imports `crash` would otherwise need to also carry a logger, which is a bigger churn than the value. If log telemetry needs level routing later, the seam is `slog.Default()`.
+- **Skipped the `safego.Go(name, fn)` extraction** this round. Adding a new package and migrating the 9 call sites is a separate refactor PR.
+- **Skipped `daemon.info` consolidation** — the three-endpoint shape is intentional for ops debug; revisit on any v0.2 RPC overhaul.
+- **Skipped deleting `condura-studio/condura-receipt/`** — orphan stub, but deleting a directory without owner confirmation is the wrong unilateral call; tracked for studio-scope cleanup.
+
+### Verification
+
+- `go build ./condura-app/...` → exit 0
+- `go vet ./condura-app/...` → exit 0
+- `go test -count=1 -run='TestDaemon' ./condura-app/internal/daemon/ ./condura-app/internal/crash/` → 4/4 new tests pass
+
+### Files appended (canonical-doc additions)
+
+- `condura-mind/MISSION.md` — §33.7 (this audit close-out)
+- `condura-mind/LOGBOOK.md` — this entry
+
+### Open questions
+
+- Should the §8 "UI framework" row be corrected in-place to "Svelte 5 + Vite inside Wails + Ink TUI" (citing §33.7) — or stay strictly append-only and wait for the next spec-author pass?
+- Should a `safego` package be introduced and the 9 currently-deferred `defer crash.Recover()` sites migrated in one focused PR?
+
+### Next steps
+
+1. `git add + commit` per logical group (4 commits: code-fix, test, chore, docs)
+2. `git push origin security/security-audit-round-1-2026-07-06`
+3. Watch CI per STYLE.md §22.9
+4. If green, handoff for human PR review
+
+### Status
+
+**🟢 All 12 findings addressed or explicitly tracked. Build + vet + new tests green. Pending: commit + push + CI verification.**

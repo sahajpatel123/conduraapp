@@ -1224,3 +1224,46 @@ gatekeeper gating and confirms the policy.yaml hot-reload.
   repo Settings; `release.yml` correctly fails closed until they
   are set.
 
+---
+
+## 33.7 Status Addendum — 2026-07-06 (security-audit round 1 close-out)
+
+> **Append-only annotation per §30.5.** Original § wording remains
+> canonical; this addendum records the current implementation reality
+> so a cold-start reader sees where shipped code diverges from spec.
+
+### Spec/code drift to record
+
+**§8 "UI framework" row locks "React 18 + Vite inside Wails"** —
+the actual shipped code (per Wave 2 LOGBOOK entries, `condura-gui/frontend/package.json`,
+and the `import { svelte } from '@sveltejs/vite-plugin-svelte'` in
+`vite.config.ts`) is **Svelte 5 + Vite inside Wails**. The pivot happened
+during the 2026-07-01 Wave 2 ship; §8 was not appended at that time
+and no prior §33 entry recorded the change. This addendum is the
+citation. The §8 row is **superseded in spirit**; an in-place edit to
+correct the row to "Svelte 5 + Vite inside Wails + Ink TUI" is the
+right next pass, signed off by the spec author.
+
+### Security-audit round 1 — 12 findings, all addressed or tracked
+
+| # | File | Finding | Disposition |
+|---|---|---|---|
+| 1 | `internal/crash/crash.go:80` | `crash.Recover()` silently wrote to disk but never `slog`-ed | **Fixed**: added `slog.Error` with panic value + stack-hash so operator sees the event in the daemon log |
+| 2 | `internal/daemon/methods.go:24` | `var daemonStarted = time.Now()` ran at package init, not `Run()` | **Fixed**: replaced with `atomic.Pointer[time.Time]` + `MarkDaemonStart(t)` called from `Run()` |
+| 3 | §8 spec row (above) | Locked row out of sync with shipped Svelte 5 stack | **Documented** (this entry); row correction is a spec-author follow-up |
+| 4 | `internal/daemon/methods.go:38` | New `daemon.uptime`/`pid`/`info` RPCs had zero tests | **Fixed**: added `internal/daemon/methods_test.go` with 4 golden tests |
+| 5 | `condura-gui/frontend/` | Both `package-lock.json` and `pnpm-lock.yaml` present | **Tracked**: repo-wide single-toolchain decision (npm vs pnpm across 5 Node projects); out of scope for this round |
+| 6 | `condura-brand/assets/*.mp4` | Untracked rendered MP4s would dirty every checkout | **Fixed**: added `*.mp4` under `condura-brand/assets/` to `.gitignore` |
+| 7 | `condura-gui/frontend/pnpm-workspace.yaml` | Misnamed — single project, not a workspace | **Fixed**: deleted |
+| 8 | 8 × `defer crash.Recover()` sites | Duplicated pattern; `safego.Go(name, fn)` helper is the right altitude | **Tracked as refactor** — extraction would touch every consumer; separate PR |
+| 9 | `daemon.info` | Makes `daemon.uptime` + `daemon.pid` partially redundant | **Tracked** — three-endpoint shape is intentional for ops debug; revisit on any v0.2 RPC overhaul |
+| 10 | `condura-gui/frontend/package.json.md5` | Stale single-purpose hash file | **Fixed**: deleted |
+| 11 | `condura-studio/condura-receipt/` | Orphan stub (`index.html` + `styles.css` only) | **Tracked**: studio-scope cleanup; defer |
+| 12 | `.github/dependabot.yml:14` | `production` group combined `patterns: ["*"]` with `dependency-type: "production"` (contradictory) | **Fixed**: removed the wildcard `patterns` clause |
+
+### Honest residuals (intentional, non-blocking for v0.1.0)
+
+- Finding 3 row correction in §8: pending spec-author pass.
+- Findings 5, 8, 9, 11: tracked as separate workstreams (single-toolchain migration, `safego` extraction, RPC consolidation, studio cleanup).
+- None blocks a tagged `v0.1.0` binary.
+
