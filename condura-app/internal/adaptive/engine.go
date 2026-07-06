@@ -159,6 +159,8 @@ func (e *Engine) SetStrength(s Strength) {
 }
 
 // decay removes stale inferences older than forget_after_days.
+//
+//nolint:gocyclo // the per-field decay + per-list prune + length checks are all simple branches
 func (e *Engine) decay(_ context.Context) { //nolint:unparam
 	if e.cfg.ForgetAfterDays <= 0 {
 		return

@@ -324,6 +324,7 @@ func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 // Stream returns a channel of incremental events from the Gemini
 // streamGenerateContent endpoint. The cancel function aborts the
 // in-flight request.
+//nolint:gocognit // the JSON decoder-driven state machine is inherently branchy
 func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEvent, func(), error) {
 	if req.Model == "" {
 		return nil, nil, ErrNoModel
