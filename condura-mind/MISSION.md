@@ -317,7 +317,7 @@ When the user is typing, **the agent is asleep**. When the user clicks, the agen
 |---|---|---|
 | Core daemon | **Go 1.22+** | Single binary, fast startup, CGO for macOS |
 | Desktop shell | **Wails v2** (Go + web) | Reuses Go daemon, ~10MB vs Electron's 100MB+ |
-| UI framework | **React 18 + Vite** inside Wails, **plus** Ink TUI | Web for overlay (rich, animated), TUI for SSH/power users |
+| UI framework | **Svelte 5 + Vite** inside Wails, **plus** Ink TUI | Web for overlay (rich, animated), TUI for SSH/power users. *(Row corrected 2026-07-06 per §33.7; original spec said "React 18 + Vite", Wave 2 pivot was not appended at the time — this row is the in-place correction.)* |
 | IPC | **Unix socket + HTTP + Wails runtime bridge** | Wails binds Go methods directly to JS |
 | TUI | **TypeScript + Ink (React)** | Hermes-proven, rich streaming UX |
 | Web app | **Next.js 14 + Tailwind + Vercel** | Fast, free tier, perfect for marketing |
@@ -1250,7 +1250,7 @@ right next pass, signed off by the spec author.
 |---|---|---|---|
 | 1 | `internal/crash/crash.go:80` | `crash.Recover()` silently wrote to disk but never `slog`-ed | **Fixed**: added `slog.Error` with panic value + stack-hash so operator sees the event in the daemon log |
 | 2 | `internal/daemon/methods.go:24` | `var daemonStarted = time.Now()` ran at package init, not `Run()` | **Fixed**: replaced with `atomic.Pointer[time.Time]` + `MarkDaemonStart(t)` called from `Run()` |
-| 3 | §8 spec row (above) | Locked row out of sync with shipped Svelte 5 stack | **Documented** (this entry); row correction is a spec-author follow-up |
+| 3 | §8 spec row (above) | Locked row out of sync with shipped Svelte 5 stack | **Fixed**: §8 row 320 corrected in-place to "Svelte 5 + Vite" (this audit close-out session); see the annotated §8 row itself |
 | 4 | `internal/daemon/methods.go:38` | New `daemon.uptime`/`pid`/`info` RPCs had zero tests | **Fixed**: added `internal/daemon/methods_test.go` with 4 golden tests |
 | 5 | `condura-gui/frontend/` | Both `package-lock.json` and `pnpm-lock.yaml` present | **Tracked**: repo-wide single-toolchain decision (npm vs pnpm across 5 Node projects); out of scope for this round |
 | 6 | `condura-brand/assets/*.mp4` | Untracked rendered MP4s would dirty every checkout | **Fixed**: added `*.mp4` under `condura-brand/assets/` to `.gitignore` |
@@ -1263,7 +1263,7 @@ right next pass, signed off by the spec author.
 
 ### Honest residuals (intentional, non-blocking for v0.1.0)
 
-- Finding 3 row correction in §8: pending spec-author pass.
 - Findings 5, 8, 9, 11: tracked as separate workstreams (single-toolchain migration, `safego` extraction, RPC consolidation, studio cleanup).
+- Finding 3: row correction landed in this session; §33.7 row 3 reflects **Fixed**.
 - None blocks a tagged `v0.1.0` binary.
 
