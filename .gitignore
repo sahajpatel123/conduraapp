@@ -10,6 +10,10 @@
 /synaptic-tui
 /synapticctl
 
+# wailsjs bindings — regenerated on every `wails build`/`wails dev`; never
+# edit or commit. Lives under the cmd dir for the GUI binary.
+/condura-app/cmd/condura-gui/frontend/
+
 # Brand MP4s (re-rendered each marketing campaign; tracked source is the
 # condura-studio/ project that produces them, not the rendered output)
 /condura-brand/assets/*.mp4
