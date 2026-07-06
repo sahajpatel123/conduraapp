@@ -3,12 +3,95 @@
 package permissions
 
 /*
-#cgo LDFLAGS: -framework ApplicationServices -framework CoreGraphics
+#cgo CFLAGS: -x objective-c -fobjc-arc
+#cgo LDFLAGS: -framework ApplicationServices -framework CoreGraphics -framework AVFoundation -framework Foundation -framework UserNotifications
+
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreGraphics/CoreGraphics.h>
+#import <AVFoundation/AVFoundation.h>
+#import <Foundation/Foundation.h>
+#import <UserNotifications/UserNotifications.h>
+
+// probeTimeoutNs is the wall-clock budget (in nanoseconds) for any
+// cgo call that may need to wait on a system completion handler.
+// 2s is generous on real hardware and short enough that the UI
+// stays responsive if the call hangs (e.g. UNUserNotificationCenter
+// never calling back because the bundle has no notification
+// entitlement).
+static const int64_t probeTimeoutNs = 2 * 1000 * 1000 * 1000LL;
+
+// conduraMicAuthStatus returns AVAuthorizationStatus as int:
+//   0 = AVAuthorizationStatusNotDetermined
+//   1 = AVAuthorizationStatusRestricted
+//   2 = AVAuthorizationStatusDenied
+//   3 = AVAuthorizationStatusAuthorized
+//
+// This is the canonical Apple-blessed way to probe microphone
+// permission. Replaces the prior system_profiler substring hack
+// that returned StatusGranted on any Mac with audio hardware
+// regardless of TCC state.
+static int conduraMicAuthStatus(void) {
+  return (int)[AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+}
+
+// conduraNotifAuthStatus returns UNAuthorizationStatus as int
+// synchronously, blocking up to probeTimeoutNs for the system
+// completion handler to fire. Return values:
+//  -3 = API unusable (binary not in an app bundle / no bundle identifier)
+//  -2 = timeout (handler never called back)
+//  -1 = API unavailable (pre-10.14)
+//   0 = UNAuthorizationStatusNotDetermined
+//   1 = UNAuthorizationStatusDenied
+//   2 = UNAuthorizationStatusAuthorized
+//   3 = UNAuthorizationStatusProvisional
+//   4 = UNAuthorizationStatusEphemeral
+//
+// UNUserNotificationCenter.currentNotificationCenter is only safe
+// to call from a binary running inside a .app bundle with the
+// user-notifications entitlement. A bare daemon binary (or a Go
+// test binary launched via `go test`) lacks the bundleIdentifier
+// and the runtime trips an internal precondition when the system
+// tries to attribute the request to a non-existent app. We gate
+// the call on bundleIdentifier being non-nil to fail safe.
+static int conduraNotifAuthStatus(void) {
+  if (@available(macOS 10.14, *)) {
+    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+    if (bundleID == nil || [bundleID length] == 0) {
+      return -3;
+    }
+    __block int status = -1;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [[UNUserNotificationCenter currentNotificationCenter]
+        getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull settings) {
+      status = (int)settings.authorizationStatus;
+      dispatch_semaphore_signal(sem);
+    }];
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, probeTimeoutNs)) != 0) {
+      return -2;
+    }
+    return status;
+  }
+  return -1;
+}
 */
 import "C"
-import "os/exec"
+
+import (
+	"context"
+	"os/exec"
+	"time"
+)
+
+// execProbe is the function used to spawn the osascript subprocess
+// probe for AppleEvent permission. Tests override this with a
+// stub that returns canned output; the default spawns the real
+// osascript with a 3-second timeout.
+var execProbe = func(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // fixed probe name, not user input
+	return cmd.Output()
+}
 
 func init() {
 	probeOneImpl = darwinProbeOne
@@ -30,70 +113,41 @@ func darwinProbeOne(k Kind) Permission {
 		}
 		return Permission{Kind: k, Status: StatusDenied, Note: "grant in System Settings → Privacy & Security → Screen & System Audio Recording"}
 	case KindMicrophone:
-		// Try a lightweight audio capture probe via afplay or
-		// AVAudioRecorder. On macOS 10.14+ the TCC framework
-		// will deny real capture attempts, but a subprocess
-		// probe can distinguish "no audio input available"
-		// from "permission explicitly denied".
-		//
-		// We use `AudioUnit` / `AVAudioEngine` by probing
-		// with `system_profiler SPAudioDataType` to check
-		// if an input device is present AND accessible.
 		return probeMicrophone()
 	case KindAutomation:
-		// AEDeterminePermissionToAutomateTarget requires a
-		// specific target. We probe with a harmless osascript
-		// that asks System Events for its version — this only
-		// succeeds if automation permission is granted.
 		return probeAutomation()
 	case KindNotifications:
-		// On macOS, notification permission is per-app and
-		// managed by NotificationCenter. We check if the
-		// system has delivered any notifications to condura
-		// or if the entitlement is present.
 		return probeNotifications()
 	default:
 		return defaultProbeOne(k)
 	}
 }
 
-// probeMicrophone checks whether the microphone is accessible by
-// probing the default audio input device. On macOS 14+ the TCC
-// framework denies audio input when the user has not granted the
-// Microphone permission.
+// probeMicrophone asks AVFoundation for the canonical
+// authorization status for the AVMediaTypeAudio media type.
+// This is the same API every Mac app uses; the result reflects
+// actual TCC state (notDetermined | restricted | denied | authorized),
+// not hardware presence.
 func probeMicrophone() Permission {
-	// Use system_profiler to enumerate audio input devices. If
-	// no input device is found, the mic is not available at the
-	// hardware level ("unknown"). If devices exist but we can't
-	// read their properties, TCC may be blocking ("denied").
-	cmd := exec.Command("system_profiler", "SPAudioDataType", "-detailLevel", "mini")
-	out, err := cmd.Output()
-	if err != nil {
-		return Permission{
-			Kind:   KindMicrophone,
-			Status: StatusUnknown,
-			Note:   "unable to enumerate audio devices; grant via System Settings → Privacy & Security → Microphone",
-		}
-	}
-	if len(out) > 0 && containsAny(out, []string{"Input", "Microphone", "Built-in"}) {
-		return Permission{Kind: KindMicrophone, Status: StatusGranted, Note: "audio input device detected"}
-	}
-	return Permission{
-		Kind:   KindMicrophone,
-		Status: StatusUnknown,
-		Note:   "no input device detected or permission not determined; grant via System Settings → Privacy & Security → Microphone",
+	switch C.conduraMicAuthStatus() {
+	case 3: // AVAuthorizationStatusAuthorized
+		return Permission{Kind: KindMicrophone, Status: StatusGranted, Note: "AVCaptureDevice authorizationStatus = authorized"}
+	case 2: // AVAuthorizationStatusDenied
+		return Permission{Kind: KindMicrophone, Status: StatusDenied, Note: "AVCaptureDevice authorizationStatus = denied; grant via System Settings → Privacy & Security → Microphone"}
+	case 1: // AVAuthorizationStatusRestricted
+		return Permission{Kind: KindMicrophone, Status: StatusDenied, Note: "AVCaptureDevice authorizationStatus = restricted (parental controls / MDM); microphone blocked"}
+	default: // 0 = NotDetermined
+		return Permission{Kind: KindMicrophone, Status: StatusUnknown, Note: "AVCaptureDevice authorizationStatus = notDetermined; trigger requestAccess to surface the TCC prompt"}
 	}
 }
 
 // probeAutomation checks whether the process can send AppleEvents
-// to other applications. It uses a lightweight osascript that
-// only succeeds when automation permission is granted.
+// to other applications via a harmless osascript. Wrapped in a
+// 3-second timeout so a missing/stalled osascript does not hang
+// the permission probe indefinitely.
 func probeAutomation() Permission {
-	cmd := exec.Command(
-		"osascript", "-e",
-		`tell application "System Events" to get version`,
-	)
-	if err := cmd.Run(); err == nil {
+	if _, err := execProbe("osascript", "-e",
+		`tell application "System Events" to get version`); err == nil {
 		return Permission{Kind: KindAutomation, Status: StatusGranted, Note: "AppleEvent to System Events succeeded"}
 	}
 	return Permission{
@@ -103,54 +157,27 @@ func probeAutomation() Permission {
 	}
 }
 
-// probeNotifications checks whether the app is registered for
-// user notifications on macOS. On first launch without explicit
-// grant, the OS may defer the prompt.
+// probeNotifications asks UNUserNotificationCenter for the
+// authorization status, synchronously via a semaphore in cgo.
+// This is the canonical API for notification permission on
+// macOS 10.14+; it does NOT trigger a TCC prompt.
 func probeNotifications() Permission {
-	// Check if condura has ever requested notification permission.
-	// The LaunchServices database stores this; `launchctl` can
-	// surface it. Fall back to bundle-id-based check.
-	cmd := exec.Command(
-		"osascript", "-e",
-		`tell application "System Events" to get the name of every process whose background only is false`,
-	)
-	if err := cmd.Run(); err == nil {
-		return Permission{Kind: KindNotifications, Status: StatusGranted, Note: "notifications appear accessible"}
+	switch C.conduraNotifAuthStatus() {
+	case 2: // UNAuthorizationStatusAuthorized
+		return Permission{Kind: KindNotifications, Status: StatusGranted, Note: "UNUserNotificationCenter authorizationStatus = authorized"}
+	case 3: // UNAuthorizationStatusProvisional
+		return Permission{Kind: KindNotifications, Status: StatusGranted, Note: "UNUserNotificationCenter authorizationStatus = provisional (quiet notifications allowed)"}
+	case 4: // UNAuthorizationStatusEphemeral
+		return Permission{Kind: KindNotifications, Status: StatusGranted, Note: "UNUserNotificationCenter authorizationStatus = ephemeral (App Clip-style)"}
+	case 1: // UNAuthorizationStatusDenied
+		return Permission{Kind: KindNotifications, Status: StatusDenied, Note: "UNUserNotificationCenter authorizationStatus = denied; grant via System Settings → Notifications"}
+	case -3: // class unavailable (binary not entitled)
+		return Permission{Kind: KindNotifications, Status: StatusUnknown, Note: "UNUserNotificationCenter class not loaded; binary needs user-notifications entitlement (packaged Mac app)"}
+	case -2: // cgo timeout
+		return Permission{Kind: KindNotifications, Status: StatusUnknown, Note: "UNUserNotificationCenter completion handler did not fire within 2s"}
+	case -1: // API unavailable (pre-10.14)
+		return Permission{Kind: KindNotifications, Status: StatusUnknown, Note: "UNUserNotificationCenter requires macOS 10.14+"}
+	default: // 0 = NotDetermined
+		return Permission{Kind: KindNotifications, Status: StatusUnknown, Note: "UNUserNotificationCenter authorizationStatus = notDetermined; trigger requestAuthorization to surface the prompt"}
 	}
-	return Permission{
-		Kind:   KindNotifications,
-		Status: StatusUnknown,
-		Note:   "grant via System Settings → Notifications; use request_guide for steps",
-	}
-}
-
-func containsAny(data []byte, needles []string) bool {
-	for _, n := range needles {
-		for i := 0; i <= len(data)-len(n); i++ {
-			if equalFold(data[i:i+len(n)], n) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func equalFold(a []byte, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		ca := a[i]
-		cb := b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 32
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 32
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
 }

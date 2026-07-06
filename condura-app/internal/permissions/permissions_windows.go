@@ -32,91 +32,129 @@ func windowsProbeOne(k Kind) Permission {
 // probeTimeout is the max wall-clock time a subprocess probe may run.
 const probeTimeout = 3 * time.Second
 
-// runProbe executes cmd with a short timeout. Returns true if the
-// command exited successfully within the deadline.
-func runProbe(name string, args ...string) bool {
+// execProbe is the function used to spawn subprocess probes and
+// read their stdout. Tests override this with a stub that returns
+// canned output; the default spawns the real subprocess.
+var execProbe = func(name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // fixed probe names, not user input
-	return cmd.Run() == nil
+	return cmd.Output()
 }
 
-// probeAccessibilityWindows checks whether UI Automation (UIA) is
-// available. On Windows the relevant capability is the
-// `uiAccess` manifest flag and the UIAutomationCore API.
+// probeAccessibilityWindows checks whether UI Automation can be
+// reached. On Windows the relevant capability is the `uiAccess`
+// manifest flag (set at build time) + the UIAutomationCore ACL.
+// UIA cannot be reliably probed from outside the process that
+// wants to use it — the previous Get-Process-based probe was a
+// false positive on every Windows desktop. We return StatusUnknown
+// and rely on the first UIA call to surface E_ACCESSDENIED for
+// protected UI.
+//
+// We do verify that the UIAutomationClient type loads, which is
+// the minimum requirement to use UIA at all.
 func probeAccessibilityWindows() Permission {
-	if runProbe("powershell", "-NoProfile", "-Command",
-		`(Get-Process | Where-Object { $_.MainWindowTitle -ne '' }).Count`) {
-		return Permission{Kind: KindAccessibility, Status: StatusGranted, Note: "UI Automation appears accessible"}
+	out, err := execProbe("powershell", "-NoProfile", "-Command",
+		`try { [System.Windows.Automation.AutomationElement].Assembly.GetName().Name; 'OK' } catch { 'NO' }`)
+	if err != nil || len(out) == 0 {
+		return Permission{
+			Kind:   KindAccessibility,
+			Status: StatusUnknown,
+			Note:   "PowerShell probe failed; verify UIAutomationCore availability",
+		}
 	}
+	// We deliberately do NOT return StatusGranted here — the
+	// capability to LOAD the assembly is not the same as having
+	// uiAccess. Surface StatusUnknown with the right Settings pane.
 	return Permission{
 		Kind:   KindAccessibility,
 		Status: StatusUnknown,
-		Note:   "grant via Settings → Privacy & Security → Accessibility",
+		Note:   "UIAutomationClient loads but per-app uiAccess must be granted at build (manifest flag) and verified after first AX tree walk; configure via Settings → Privacy & Security → Accessibility",
 	}
 }
 
 // probeScreenRecordingWindows checks whether the Graphics Capture
-// API is available via WMI.
+// API is available. The WMI probe was removed — hardware presence
+// does not imply screen-recording permission. We return StatusUnknown
+// with a pointer to the right Settings pane and rely on the first
+// capture attempt to surface the actual consent prompt
+// (Windows.Graphics.Capture APIs fail closed when consent is absent).
 func probeScreenRecordingWindows() Permission {
-	cmd := exec.Command(
-		"powershell", "-NoProfile", "-Command",
-		`Get-WmiObject -Class Win32_VideoController | Select-Object -ExpandProperty Name`,
-	)
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
-	defer cancel()
-	cmd = exec.CommandContext(ctx, //nolint:gosec // fixed probe args, not user input
-		"powershell", "-NoProfile", "-Command",
-		`Get-WmiObject -Class Win32_VideoController | Select-Object -ExpandProperty Name`)
-	out, err := cmd.Output()
-	if err != nil || len(out) == 0 {
-		return Permission{
-			Kind:   KindScreenRecording,
-			Status: StatusUnknown,
-			Note:   "unable to verify screen capture capability; grant via Settings → Privacy & Security → Graphics capture settings",
-		}
+	return Permission{
+		Kind:   KindScreenRecording,
+		Status: StatusUnknown,
+		Note:   "screen capture permission cannot be probed reliably; verify after first capture attempt via Settings → Privacy & Security → Graphics capture settings",
 	}
-	return Permission{Kind: KindScreenRecording, Status: StatusGranted, Note: "graphics controller detected; screen capture accessible"}
 }
 
-// probeMicrophoneWindows checks the Windows microphone privacy
-// setting via PowerShell.
+// probeMicrophoneWindows distinguishes hardware presence from
+// permission state. Win32 apps receive the per-app microphone
+// consent prompt the first time they call WASAPI / waveIn to open
+// a capture stream — there is no registry key or Settings toggle
+// we can read in advance. We check WMI for an audio capture
+// device so the UI can show "no microphone plugged in" vs.
+// "permission needed" as distinct states.
 func probeMicrophoneWindows() Permission {
-	if runProbe("powershell", "-NoProfile", "-Command",
-		`Get-Package | Where-Object { $_.Name -like '*audio*' } | Select-Object -First 1`) {
-		return Permission{Kind: KindMicrophone, Status: StatusGranted, Note: "audio device detected"}
+	out, err := execProbe("powershell", "-NoProfile", "-Command",
+		`Get-WmiObject -Class Win32_SoundDevice | Where-Object { $_.Status -eq 'OK' } | Select-Object -ExpandProperty Name`)
+	if err != nil {
+		return Permission{
+			Kind:   KindMicrophone,
+			Status: StatusUnknown,
+			Note:   "unable to enumerate audio devices; verify via Settings → Privacy & Security → Microphone",
+		}
 	}
+	if len(out) == 0 {
+		return Permission{
+			Kind:   KindMicrophone,
+			Status: StatusDenied,
+			Note:   "no audio capture device detected; plug in a microphone or check Device Manager",
+		}
+	}
+	// Device present but permission state unknowable in advance.
+	// Surface StatusUnknown so the UI shows "not determined" and
+	// the first WASAPI call will reveal the actual state.
 	return Permission{
 		Kind:   KindMicrophone,
 		Status: StatusUnknown,
-		Note:   "no microphone device detected or permission not determined; grant via Settings → Privacy & Security → Microphone",
+		Note:   "audio capture device detected; permission state is determined on first WASAPI call — grant via Settings → Privacy & Security → Microphone",
 	}
 }
 
-// probeAutomationWindows checks UI Automation capability (same as
-// Accessibility on Windows — both use UIA).
+// probeAutomationWindows shares the same backend (UIA) as
+// accessibility on Windows. There is no separate OS-level grant
+// for automation; the app's uiAccess manifest flag is the gate.
+// We surface StatusUnknown with a pointer to the Accessibility
+// Settings pane where users can enable per-app access.
 func probeAutomationWindows() Permission {
-	if runProbe("powershell", "-NoProfile", "-Command",
-		`[System.Windows.Automation.AutomationElement]::RootElement`) {
-		return Permission{Kind: KindAutomation, Status: StatusGranted, Note: "UIA root accessible"}
-	}
 	return Permission{
 		Kind:   KindAutomation,
 		Status: StatusUnknown,
-		Note:   "UIA not directly probeable; grant via Settings → Privacy & Security → Accessibility",
+		Note:   "Windows has no separate Automation permission; depends on the same uiAccess flag as Accessibility. Configure via Settings → Privacy & Security → Accessibility",
 	}
 }
 
-// probeNotificationsWindows checks whether the Windows toast
-// notification API is available.
+// probeNotificationsWindows verifies that the Windows toast
+// notification infrastructure (Windows.UI.Notifications) is
+// available. The per-app notification toggle is recorded in
+// HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\
+// but the key name requires the UWP-style AppId which unpackaged
+// Win32 apps do not have. We return StatusUnknown and rely on the
+// first ToastNotificationManager.CreateToastNotifier call to
+// surface E_ACCESSDENIED if the user has disabled notifications.
 func probeNotificationsWindows() Permission {
-	if runProbe("powershell", "-NoProfile", "-Command",
-		`Get-StartApps | Select-Object -First 1`) {
-		return Permission{Kind: KindNotifications, Status: StatusGranted, Note: "notification infrastructure accessible"}
+	out, err := execProbe("powershell", "-NoProfile", "-Command",
+		`try { [Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime] | Out-Null; 'OK' } catch { 'NO' }`)
+	if err != nil || len(out) == 0 || string(out) == "NO\r\n" {
+		return Permission{
+			Kind:   KindNotifications,
+			Status: StatusUnknown,
+			Note:   "Windows.UI.Notifications runtime type unavailable; grant via Settings → System → Notifications",
+		}
 	}
 	return Permission{
 		Kind:   KindNotifications,
 		Status: StatusUnknown,
-		Note:   "grant via Settings → System → Notifications",
+		Note:   "toast notification API available; per-app state is determined on first ToastNotificationManager call — configure via Settings → System → Notifications",
 	}
 }

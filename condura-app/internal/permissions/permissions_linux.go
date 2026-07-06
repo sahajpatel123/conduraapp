@@ -47,18 +47,33 @@ func probeAccessibilityLinux() Permission {
 	}
 }
 
-// probeScreenRecordingLinux checks for xdg-desktop-portal (needed
-// for Wayland screen capture) and X11 accessibility.
+// probeScreenRecordingLinux checks for the screen-capture
+// capability. On Wayland, xdg-desktop-portal mediates per-call,
+// per-app consent via the org.freedesktop.portal.ScreenCapture
+// interface — the portal daemon running does NOT mean consent is
+// granted for this app, so we surface StatusUnknown and let the
+// first capture call surface the portal dialog.
+//
+// On X11 there is no OS-level permission gate (any X client can
+// capture any other X client's window), so we report StatusGranted
+// as a capability signal.
 func probeScreenRecordingLinux() Permission {
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
-		if processRunning("xdg-desktop-portal") || processRunning("xdg-desktop-portal-gnome") ||
-			processRunning("xdg-desktop-portal-kde") || processRunning("xdg-desktop-portal-wlr") {
-			return Permission{Kind: KindScreenRecording, Status: StatusGranted, Note: "xdg-desktop-portal detected (Wayland)"}
+		hasPortal := processRunning("xdg-desktop-portal") ||
+			processRunning("xdg-desktop-portal-gnome") ||
+			processRunning("xdg-desktop-portal-kde") ||
+			processRunning("xdg-desktop-portal-wlr")
+		if hasPortal {
+			return Permission{
+				Kind:   KindScreenRecording,
+				Status: StatusUnknown,
+				Note:   "xdg-desktop-portal detected (Wayland); per-app consent is granted at each capture call via the portal dialog",
+			}
 		}
 		return Permission{
 			Kind:   KindScreenRecording,
 			Status: StatusUnknown,
-			Note:   "Wayland requires xdg-desktop-portal; install xdg-desktop-portal + backend (gnome/kde/wlr)",
+			Note:   "Wayland requires xdg-desktop-portal; install xdg-desktop-portal + a backend (gnome/kde/wlr)",
 		}
 	}
 	if os.Getenv("DISPLAY") != "" {
@@ -118,32 +133,36 @@ func probeNotificationsLinux() Permission {
 // commandTimeout is the max wall-clock time a subprocess probe may run.
 const commandTimeout = 2 * time.Second
 
-// runProbe executes cmd with a short timeout. Returns true if the
-// command exited successfully within the deadline.
-func runProbe(name string, args ...string) bool {
+// execProbe is the function used to spawn subprocess probes and
+// read their stdout. Tests override this with a stub that returns
+// canned output; the default spawns the real subprocess.
+var execProbe = func(name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // fixed probe names, not user input
-	return cmd.Run() == nil
+	return cmd.Output()
 }
 
 // processRunning checks whether a process with the given name
 // is running on the system.
 func processRunning(name string) bool {
-	return runProbe("pgrep", "-x", name)
+	out, err := execProbe("pgrep", "-x", name)
+	return err == nil && len(out) > 0
 }
 
 // dbusServiceAccessible checks whether a D-Bus service is
 // reachable via dbus-send or gdbus.
 func dbusServiceAccessible(service string) bool {
 	if _, err := exec.LookPath("dbus-send"); err == nil {
-		return runProbe("dbus-send", "--session", "--print-reply",
+		_, err := execProbe("dbus-send", "--session", "--print-reply",
 			"--dest="+service, "/", "org.freedesktop.DBus.Peer.Ping")
+		return err == nil
 	}
 	if _, err := exec.LookPath("gdbus"); err == nil {
-		return runProbe("gdbus", "call", "--session",
+		_, err := execProbe("gdbus", "call", "--session",
 			"--dest", service, "--object-path", "/",
 			"--method", "org.freedesktop.DBus.Peer.Ping")
+		return err == nil
 	}
 	return false
 }

@@ -5,7 +5,7 @@
   "skipfrontend": true,
   "frontend:install": "echo 'handled by build-gui.sh / CI: npm ci in condura-gui/frontend'",
   "frontend:build": "echo 'handled by build-gui.sh / CI: npm run build → assets/dist'",
-  "frontend:dev:watcher": "cd ../../../../condura-gui/frontend && npm run dev",
+  "frontend:dev:watcher": "cd ../../../condura-gui/frontend && npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "Synaptic/Condura contributors"
