@@ -222,11 +222,7 @@ jobs:
     env:
       GOTOOLCHAIN: local
     # Smoke check only. The real GUI build (with installer packaging,
-    # code signing, etc.) runs in release.yml on tag push. The smoke
-    # here verifies that the Wails toolchain can produce a binary, but
-    # wails v2.12.0 has breaking changes that need coordination with
-    # the build-gui.sh script — tracking that as a follow-up.
-    continue-on-error: true
+    # code signing, etc.) runs in release.yml on tag push.
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout

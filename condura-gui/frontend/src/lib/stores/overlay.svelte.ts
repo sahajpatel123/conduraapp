@@ -2,13 +2,55 @@
 // (frameless, always-on-top, transparent) or normal mode.
 // Handles Esc key and ~5s inactivity auto-dismiss.
 
-import { EventsOn } from '../../../wailsjs/runtime/runtime'
-import {
-  CloseQuickPrompt,
-  OpenQuickPrompt,
-  ToggleQuickPrompt,
-} from '../../../wailsjs/go/main/App'
 import { ipc } from '../ipc/client'
+
+declare global {
+  interface Window {
+    runtime?: {
+      EventsOn?: (
+        eventName: string,
+        callback: (data: unknown) => void
+      ) => () => void
+    }
+    go?: {
+      main?: {
+        App?: {
+          OpenQuickPrompt?: () => Promise<void>
+          CloseQuickPrompt?: () => Promise<void>
+          ToggleQuickPrompt?: () => Promise<void>
+        }
+      }
+    }
+  }
+}
+
+function eventsOn(eventName: string, callback: (data: unknown) => void): () => void {
+  try {
+    const fn = window.runtime?.EventsOn
+    if (fn) return fn(eventName, callback)
+  } catch {
+    // Not running inside Wails (unit tests / static preview).
+  }
+  return () => {}
+}
+
+async function openQuickPrompt(): Promise<void> {
+  const fn = window.go?.main?.App?.OpenQuickPrompt
+  if (fn) await fn()
+  else throw new Error('wails bindings unavailable')
+}
+
+async function closeQuickPrompt(): Promise<void> {
+  const fn = window.go?.main?.App?.CloseQuickPrompt
+  if (fn) await fn()
+  else throw new Error('wails bindings unavailable')
+}
+
+async function toggleQuickPrompt(): Promise<void> {
+  const fn = window.go?.main?.App?.ToggleQuickPrompt
+  if (fn) await fn()
+  else throw new Error('wails bindings unavailable')
+}
 
 class OverlayStore {
   active = $state<boolean>(false)
@@ -23,9 +65,10 @@ class OverlayStore {
   start(): void {
     // Go → JS sync when menu bar, tray, or global hotkey opens the prompt.
     try {
-      const off = EventsOn('condura:overlay', (data: { active?: boolean }) => {
-        if (typeof data?.active === 'boolean') {
-          this.setFromHost(data.active)
+      const off = eventsOn('condura:overlay', (data: unknown) => {
+        const payload = data as { active?: boolean } | null
+        if (typeof payload?.active === 'boolean') {
+          this.setFromHost(payload.active)
         }
       })
       this.cleanups.push(off)
@@ -123,7 +166,7 @@ class OverlayStore {
 
   private async openFromBackend(): Promise<void> {
     try {
-      await OpenQuickPrompt()
+      await openQuickPrompt()
     } catch {
       await ipc.overlayShow().catch(() => {})
     }
@@ -131,7 +174,7 @@ class OverlayStore {
 
   private async closeFromBackend(): Promise<void> {
     try {
-      await CloseQuickPrompt()
+      await closeQuickPrompt()
     } catch {
       await ipc.overlayHide().catch(() => {})
     }
@@ -139,7 +182,7 @@ class OverlayStore {
 
   private async toggleFromBackend(): Promise<void> {
     try {
-      await ToggleQuickPrompt()
+      await toggleQuickPrompt()
     } catch {
       if (this.active) {
         await this.closeFromBackend()
