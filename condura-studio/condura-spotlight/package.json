@@ -1,0 +1,28 @@
+{
+  "name": "condura-spotlight",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts --host 127.0.0.1",
+    "render:hype": "remotion render src/index.ts ConduraHypeReel out/condura-hype-reel.mp4 --codec=h264 --pixel-format=yuv420p",
+    "still:hype": "remotion still src/index.ts ConduraHypeReel out/condura-hype-reel-cover.png --frame=300",
+    "render:masterpiece": "remotion render src/index.ts ConduraMasterpiece out/condura-masterpiece.mp4 --codec=h264 --pixel-format=yuv420p",
+    "still:masterpiece": "remotion still src/index.ts ConduraMasterpiece out/condura-masterpiece-cover.png --frame=420",
+    "render:concerto": "remotion render src/index.ts ConduraConcerto out/condura-concerto.mp4 --codec=h264 --pixel-format=yuv420p",
+    "still:concerto": "remotion still src/index.ts ConduraConcerto out/condura-concerto-cover.png --frame=380",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.5.0"
+  }
+}
