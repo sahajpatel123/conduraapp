@@ -16,13 +16,13 @@
   "dependencies": {
     "@remotion/cli": "^4.0.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.7",
     "remotion": "^4.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react-dom": "^19.2.3",
     "typescript": "^5.5.0"
   }
 }
