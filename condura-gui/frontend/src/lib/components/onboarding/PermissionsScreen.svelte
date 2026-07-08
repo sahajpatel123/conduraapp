@@ -95,13 +95,23 @@
 		return t('onboarding.permissions.status_unknown')
 	}
 
-  // The gate lets the user proceed when at least one permission
-  // is granted (the spec says "at least one of the two"). The
-  // primary CTA still reads "Continue" so the user doesn't feel
-  // blocked when both are denied — they can opt out and grant
-  // later from Settings.
-  const atLeastOneGranted = $derived(rows.some((r) => r.status === 'granted'))
-  const canContinue = $derived(atLeastOneGranted || !onboarding.busy)
+  // The gate enforces the spec: computer-use needs accessibility
+  // and screen recording up front. Microphone, automation, and
+  // notifications are nice-to-haves that can be granted later
+  // from Settings. The CTA stays enabled when BOTH of the required
+  // permissions are denied so the user can opt out via the explicit
+  // Skip button rather than being blocked on the primary action.
+  const accessibilityGranted = $derived(
+    rows.some((r) => r.kind === 'accessibility' && r.status === 'granted')
+  )
+  const screenRecordingGranted = $derived(
+    rows.some((r) => r.kind === 'screen_recording' && r.status === 'granted')
+  )
+  const computerUseReady = $derived(accessibilityGranted || screenRecordingGranted)
+  // canContinue is the strict gate: only true when at least one of
+  // the two required permissions is granted. The Skip CTA is the
+  // honest escape hatch for users who choose not to grant now.
+  const canContinue = $derived(computerUseReady && !onboarding.busy)
 
   async function cont(): Promise<void> {
     await onboarding.completePermissions()
