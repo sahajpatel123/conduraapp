@@ -13,7 +13,7 @@ import { EASE_OUT } from "@/lib/motion";
 
 const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
   mac: [
-    { title: "Extract the archive", desc: "Unzip the .tar.gz and move condurad into /usr/local/bin or your preferred location." },
+    { title: "Open the DMG", desc: "Mount condura-gui-darwin-arm64.dmg and drag Condura into Applications. (Daemon-only builds are a separate .tar.gz.)" },
     { title: "Approve system access", desc: "Grant Accessibility and Screen Recording from Privacy & Security." },
     { title: "Choose your hotkey", desc: "Record a shortcut that summons Condura from anywhere." },
     { title: "Run your first task", desc: "Press the hotkey, choose a model, and start orchestrating." },
@@ -25,22 +25,22 @@ const INSTALL_STEPS: Record<PlatformKey, { title: string; desc: string }[]> = {
     { title: "Run your first task", desc: "Choose a model and send a message. GUI overlay is v0.2.0." },
   ],
   linux: [
-    { title: "Extract the archive", desc: "Extract the tarball and move binaries to /usr/local/bin." },
+    { title: "Install the package", desc: "Install the .deb (daemon) or run the GUI binary from the release assets." },
     { title: "Start the daemon", desc: "Confirm the user service is running with condura status." },
     { title: "Choose your hotkey", desc: "Record a shortcut during onboarding for fast access." },
-    { title: "Open Condura", desc: "Launch condura-tui or the Wails GUI binary or run condura-tui from your terminal." },
+    { title: "Open Condura", desc: "Launch the Wails GUI binary or run condura-tui from your terminal." },
   ],
 };
 
 const VERIFY_COMMANDS: Record<PlatformKey, string> = {
-  mac: `shasum -a 256 condurad-*-darwin-*.tar.gz`,
-  windows: `Get-FileHash condura-*-windows-*.zip -Algorithm SHA256`,
-  linux: `sha256sum condurad-*-linux-*.tar.gz`,
+  mac: `shasum -a 256 condura-gui-darwin-arm64.dmg`,
+  windows: `Get-FileHash condura-cli-*-windows-*.zip -Algorithm SHA256`,
+  linux: `sha256sum condurad_*_linux_amd64.deb`,
 };
 
 const VERSIONS = [
   { version: "v0.1.1", badge: "Latest", date: "June 24, 2026", desc: "Audit-driven fix bundle: autonomy + perception wiring, encrypted secrets, wake word rename, shell sanitize, audit prune." },
-  { version: "v0.1.0", badge: "Stable", date: "June 19, 2026", desc: "First public release. Deterministic gatekeeper, 8 optional sub-agents, 12 LLM providers." },
+  { version: "v0.1.0", badge: "Stable", date: "June 19, 2026", desc: "First public release. Deterministic gatekeeper, optional sub-agents, API-key LLM providers (single provider per session). Subscription OAuth and multi-provider routing: v0.2.0." },
   { version: "v0.0.9", badge: "Preview", date: "May 28, 2026", desc: "Initial beta rollout. Improved model context parsing." },
 ];
 
@@ -392,7 +392,7 @@ function SetupSection({ selected }: { selected: PlatformKey }) {
             </a>
 
             <div className="mt-9 grid grid-cols-3 gap-3 border-t border-[rgba(20,17,11,0.12)] pt-6">
-              {["Gatekeeper", "Local data", "SHA-256 verified"].map((label) => (
+              {["Gatekeeper", "Local data", "SHA-256 published"].map((label) => (
                 <div key={label} className="text-[11px] text-[var(--color-ink-mute)]">
                   <div className="mb-2 h-1.5 w-1.5 rounded-full bg-[var(--color-synapse)]" />
                   {label}

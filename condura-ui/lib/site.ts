@@ -49,19 +49,19 @@ export const PLATFORMS = [
     key: "mac",
     name: "macOS",
     requirement: "macOS 13+, Apple silicon (Intel via Rosetta)",
-    artifact: "condura.dmg",
+    artifact: "condura-gui-darwin-arm64.dmg",
   },
   {
     key: "windows",
     name: "Windows",
     requirement: "Windows 10+, x64 (CLI + TUI today; GUI v0.2.0)",
-    artifact: "condura-cli-windows.zip",
+    artifact: "condura-cli-*-windows-amd64.zip",
   },
   {
     key: "linux",
     name: "Linux",
     requirement: "glibc 2.31+, x64",
-    artifact: "condura.AppImage",
+    artifact: "condurad_*_linux_amd64.deb",
   },
 ] as const;
 

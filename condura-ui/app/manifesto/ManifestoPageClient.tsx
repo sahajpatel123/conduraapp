@@ -236,7 +236,7 @@ function ThePromiseSection() {
     { title: "Free forever", desc: "No feature gates. No premium tier. No nags. A donate button in the menu bar — that's it." },
     { title: "Local-first", desc: "Memory, skills, and the audit log — all on disk, encrypted. The only network calls are to your LLM provider. (Vector embeddings arrive in v0.2.0.)" },
     { title: "Your keys, your models", desc: "API keys live encrypted on your device. Never logged, never sent anywhere except the provider you configured." },
-    { title: "Open ecosystem", desc: "12+ LLM providers. 8 CLI sub-agents. Any local model. No vendor lock-in, ever." },
+    { title: "Open ecosystem", desc: "API-key access to many LLM providers and 8 CLI sub-agents. One provider at a time in v0.1.x; multi-provider routing in v0.2.0. Any local model. No vendor lock-in." },
     { title: "Auditable by design", desc: "Every action logged in an HMAC-chained, append-only trail. You can prove what happened." },
     { title: "Yours to leave", desc: "Uninstall auto-backs-up your data. No cloud account to cancel. No data to delete from someone else's server." },
   ];

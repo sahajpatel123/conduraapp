@@ -113,7 +113,7 @@ export default function TheArmor() {
               {[
                 "HMAC-chained audit log of every action",
                 "Twin-snapshot verification engine built; wiring it into every click is v0.2.0",
-                "3-layer kill switch you control",
+                "Hotkey + watchdog + in-process network guard (hard OS guard: v0.2.0)",
                 "Deterministic Gatekeeper — never a model",
               ].map((x) => (
                 <li key={x} className="flex items-start gap-3 text-on-ink-list">
