@@ -202,6 +202,8 @@ export interface ConversationAppendParams {
 
 export interface StreamEvent {
   conversation_id: number
+  /** Correlates SSE events with the llm.stream RPC that started them. */
+  request_id?: string
   delta: string
   role?: 'assistant'
   tool_calls?: ToolCall[]

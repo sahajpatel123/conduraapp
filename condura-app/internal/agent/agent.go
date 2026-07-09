@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/audit"
@@ -260,17 +261,17 @@ func (l *Loop) collectStream(ctx context.Context, requestID string, sub *sse.Sub
 	timer := time.NewTimer(streamBudget)
 	defer timer.Stop()
 
-	var full string
+	var b strings.Builder
 	finished := false
 
 	for !finished {
 		select {
 		case <-ctx.Done():
-			return full, ctx.Err()
+			return b.String(), ctx.Err()
 		case <-timer.C:
-			return full, fmt.Errorf("agent: stream timed out after %s", streamBudget)
+			return b.String(), fmt.Errorf("agent: stream timed out after %s", streamBudget)
 		case <-sub.Done:
-			return full, errors.New("agent: broker channel closed")
+			return b.String(), errors.New("agent: broker channel closed")
 		case ev := <-sub.Events:
 			if !eventMatchesRequest(ev, requestID) {
 				continue
@@ -278,19 +279,19 @@ func (l *Loop) collectStream(ctx context.Context, requestID string, sub *sse.Sub
 			switch ev.Name {
 			case stream.EventDelta:
 				if delta, ok := stringField(ev.Data, "delta"); ok {
-					full += delta
+					b.WriteString(delta)
 				}
 			case stream.EventFinished:
 				finished = true
 			case stream.EventError, stream.EventCancelled:
 				if msg, ok := stringField(ev.Data, "error"); ok {
-					return full, fmt.Errorf("agent: stream %s: %s", ev.Name, msg)
+					return b.String(), fmt.Errorf("agent: stream %s: %s", ev.Name, msg)
 				}
-				return full, fmt.Errorf("agent: stream %s", ev.Name)
+				return b.String(), fmt.Errorf("agent: stream %s", ev.Name)
 			}
 		}
 	}
-	return full, nil
+	return b.String(), nil
 }
 
 func eventMatchesRequest(ev sse.Event, requestID string) bool {

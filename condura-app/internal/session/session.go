@@ -422,17 +422,17 @@ func (s *Session) collectAndSpeak(ctx context.Context, requestID string, sub *ss
 	timer := time.NewTimer(streamBudget)
 	defer timer.Stop()
 
-	var full string
+	var b strings.Builder
 	finished := false
 
 	for !finished {
 		select {
 		case <-ctx.Done():
-			return full, ctx.Err()
+			return b.String(), ctx.Err()
 		case <-timer.C:
-			return full, fmt.Errorf("session: stream timed out after %s", streamBudget)
+			return b.String(), fmt.Errorf("session: stream timed out after %s", streamBudget)
 		case <-sub.Done:
-			return full, errors.New("session: broker channel closed")
+			return b.String(), errors.New("session: broker channel closed")
 		case ev := <-sub.Events:
 			// Filter by requestID and event type. The stream
 			// manager publishes one event name (stream.delta,
@@ -443,19 +443,20 @@ func (s *Session) collectAndSpeak(ctx context.Context, requestID string, sub *ss
 			switch ev.Name {
 			case stream.EventDelta:
 				if delta, ok := stringField(ev.Data, "delta"); ok {
-					full += delta
+					b.WriteString(delta)
 				}
 			case stream.EventFinished:
 				finished = true
 			case stream.EventError, stream.EventCancelled:
 				if msg, ok := stringField(ev.Data, "error"); ok {
-					return full, fmt.Errorf("session: stream %s: %s", ev.Name, msg)
+					return b.String(), fmt.Errorf("session: stream %s: %s", ev.Name, msg)
 				}
-				return full, fmt.Errorf("session: stream %s", ev.Name)
+				return b.String(), fmt.Errorf("session: stream %s", ev.Name)
 			}
 		}
 	}
 
+	full := b.String()
 	// Speak the response (best-effort). Speaker is a separate
 	// sub-system; failures here must not affect the returned text.
 	if full != "" && s.cfg.Speaker != nil {

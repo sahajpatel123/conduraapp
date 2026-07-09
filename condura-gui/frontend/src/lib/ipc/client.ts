@@ -194,7 +194,7 @@ class IPCClient {
   llmChat(provider: string, model: string, request: import('./types').ChatRequest): Promise<{ response: import('./types').ChatResponse; cost_usd: number }> {
     return this.call('llm.chat', { provider, model, request })
   }
-  llmStream(p: LLMStreamParams): Promise<{ started: true }> {
+  llmStream(p: LLMStreamParams): Promise<{ request_id: string; conversation_id?: number }> {
     return this.call('llm.stream', p)
   }
   llmCancel(p: LLMCancelParams): Promise<void> {
@@ -634,6 +634,7 @@ class IPCClient {
           const data = JSON.parse(ev.data)
           const streamEvent: import('./types').StreamEvent = {
             conversation_id: data.conversation_id ?? 0,
+            request_id: data.request_id ?? '',
             delta: data.delta ?? '',
             role: data.role,
             tool_calls: data.tool_calls,

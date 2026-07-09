@@ -5,6 +5,9 @@
 import { ipc } from '../ipc/client'
 import type { Conversation, ConversationMeta, Message, StreamEvent, ToolCall } from '../ipc/types'
 
+/** Idle timeout for in-flight streams when no delta arrives (daemon crash / SSE drop). */
+const STREAM_IDLE_MS = 45_000
+
 class ConversationStore {
   // List of conversations (sidebar).
   conversations = $state<ConversationMeta[]>([])
@@ -32,6 +35,9 @@ class ConversationStore {
   currentRequestId = $state<string>('')
 
   private cleanups: Array<() => void> = []
+  /** Chunk buffer to avoid O(n²) string growth on every token. */
+  private deltaParts: string[] = []
+  private streamWatchdog: ReturnType<typeof setTimeout> | null = null
 
   async refreshList(): Promise<void> {
     try {
@@ -107,11 +113,13 @@ class ConversationStore {
     this.messages = [...this.messages, userMsg]
     await ipc.conversationsAppend({ id: this.currentID, message: userMsg })
 
+    this.deltaParts = []
     this.streamingDelta = ''
     this.streamingError = ''
     this.streamingToolCalls = []
     this.isStreaming = true
     this.currentRequestId = ''
+    this.armStreamWatchdog()
 
     try {
       const res = await ipc.llmStream({
@@ -123,8 +131,10 @@ class ConversationStore {
           stream: true
         }
       })
-      this.currentRequestId = res.request_id
+      this.currentRequestId = res.request_id ?? ''
+      this.armStreamWatchdog()
     } catch (err) {
+      this.clearStreamWatchdog()
       this.isStreaming = false
       this.streamingError = String(err)
     }
@@ -134,8 +144,10 @@ class ConversationStore {
     if (!this.currentID) {
       return
     }
+    this.clearStreamWatchdog()
     await ipc.llmCancel({ conversation_id: this.currentID })
     this.isStreaming = false
+    this.currentRequestId = ''
   }
 
   startListening(): void {
@@ -154,15 +166,21 @@ class ConversationStore {
           return
         }
         if (ev.err) {
+          this.clearStreamWatchdog()
           this.streamingError = ev.err
           this.isStreaming = false
+          this.currentRequestId = ''
           return
         }
         if (ev.done) {
+          this.clearStreamWatchdog()
           // Persist the assistant message and reset streaming state.
+          const content = this.deltaParts.length > 0
+            ? this.deltaParts.join('')
+            : this.streamingDelta
           const assistantMsg: Message = {
             role: 'assistant',
-            content: this.streamingDelta,
+            content,
             // Attach tool calls to the persisted message so a
             // page reload shows them in context. Skip the
             // field entirely when no calls were made.
@@ -175,6 +193,7 @@ class ConversationStore {
             id: this.currentID,
             message: assistantMsg
           })
+          this.deltaParts = []
           this.streamingDelta = ''
           this.streamingToolCalls = []
           this.isStreaming = false
@@ -184,7 +203,9 @@ class ConversationStore {
           return
         }
         if (ev.delta) {
-          this.streamingDelta += ev.delta
+          this.deltaParts.push(ev.delta)
+          this.streamingDelta = this.deltaParts.join('')
+          this.armStreamWatchdog()
         }
         if (ev.tool_calls && ev.tool_calls.length > 0) {
           // Merge new tool calls with any we already saw.
@@ -198,7 +219,17 @@ class ConversationStore {
             existing.set(tc.id, tc)
           }
           this.streamingToolCalls = Array.from(existing.values())
+          this.armStreamWatchdog()
         }
+      })
+    )
+    this.cleanups.push(
+      ipc.on('disconnected', () => {
+        if (!this.isStreaming) return
+        this.clearStreamWatchdog()
+        this.streamingError = this.streamingError || 'Connection lost during stream'
+        this.isStreaming = false
+        this.currentRequestId = ''
       })
     )
   }
@@ -219,8 +250,28 @@ class ConversationStore {
     }
   }
 
+  private armStreamWatchdog(): void {
+    this.clearStreamWatchdog()
+    this.streamWatchdog = setTimeout(() => {
+      if (!this.isStreaming) return
+      this.streamingError = this.streamingError || 'Stream stalled — no data received'
+      this.isStreaming = false
+      this.currentRequestId = ''
+      void ipc.llmCancel({ conversation_id: this.currentID }).catch(() => {})
+    }, STREAM_IDLE_MS)
+  }
+
+  private clearStreamWatchdog(): void {
+    if (this.streamWatchdog != null) {
+      clearTimeout(this.streamWatchdog)
+      this.streamWatchdog = null
+    }
+  }
+
   private clearStreamingState(): void {
+    this.clearStreamWatchdog()
     this.isStreaming = false
+    this.deltaParts = []
     this.streamingDelta = ''
     this.streamingError = ''
     this.streamingToolCalls = []
@@ -228,6 +279,7 @@ class ConversationStore {
   }
 
   stopListening(): void {
+    this.clearStreamWatchdog()
     this.cleanups.forEach((c) => c())
     this.cleanups = []
   }
