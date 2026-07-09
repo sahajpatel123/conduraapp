@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // State is the health state of a single check or the overall system.
@@ -99,10 +100,10 @@ func (r *Register) Snapshot(ctx context.Context) Snapshot {
 	var wg sync.WaitGroup
 	for i, c := range checks {
 		wg.Add(1)
-		go func(i int, c Check) {
+		safego.Go(func() {
 			defer wg.Done()
 			results[i] = runCheck(ctx, c)
-		}(i, c)
+		})
 	}
 	wg.Wait()
 

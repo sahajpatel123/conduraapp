@@ -21,6 +21,7 @@
   import Button from './Button.svelte';
   import Glyph from './Glyph.svelte';
   import Thread from './Thread.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   let {
     open = false,
@@ -42,6 +43,8 @@
   let listening = $state(false); // purely visual mic affordance
   let draw = $state(false); // top-edge thread-draw gesture
   let textareaEl = $state<HTMLTextAreaElement | undefined>(undefined);
+  let cardEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── provider / model selection (mirrors Chat.svelte's defaultProviderModel) ──
@@ -110,17 +113,24 @@
     };
   });
 
-  // ── global Esc dismiss (robust even if focus leaves the card) ──
+  // ── global Esc + Tab trap (robust even if focus leaves the card) ──
   $effect(() => {
     if (!open) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(cardEl);
     const onWinKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onclose();
+        return;
       }
+      trapTab(cardEl, e);
     };
     window.addEventListener('keydown', onWinKey, true);
-    return () => window.removeEventListener('keydown', onWinKey, true);
+    return () => {
+      window.removeEventListener('keydown', onWinKey, true);
+      previousFocus?.focus();
+    };
   });
 
   // ── idle auto-dismiss (resets on any activity over the card) ──
@@ -185,9 +195,10 @@
     class="qp-card"
     class:enter={!reduceMotion}
     class:streaming={conversation.isStreaming}
+    bind:this={cardEl}
     role="dialog"
     aria-label="Quick prompt"
-    aria-modal="false"
+    aria-modal="true"
     tabindex="-1"
     onkeydown={onKeydown}
     onpointermove={markActivity}

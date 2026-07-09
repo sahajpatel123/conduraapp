@@ -11,6 +11,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/adaptive"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/memory"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/skills"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // PostSessionExtractor runs async memory extraction and skill
@@ -73,24 +74,26 @@ func (e *PostSessionExtractor) AfterSession(ctx context.Context, userMessage, as
 	bg := context.WithoutCancel(ctx)
 
 	if e.observer != nil {
-		go e.observer.Record(bg, adaptive.Observation{
-			SessionID:     newID("sess"),
-			UserQuery:     query,
-			AgentReply:    reply,
-			UserInitiated: true,
+		safego.Go(func() {
+			e.observer.Record(bg, adaptive.Observation{
+				SessionID:     newID("sess"),
+				UserQuery:     query,
+				AgentReply:    reply,
+				UserInitiated: true,
+			})
 		})
 	}
 
 	if e.engine != nil {
-		go e.engine.Run(bg)
+		safego.Go(func() { e.engine.Run(bg) })
 	}
 
 	if e.memory != nil {
-		go e.storeEpisode(ctx, query, reply, conversationID)
+		safego.Go(func() { e.storeEpisode(ctx, query, reply, conversationID) })
 	}
 
 	if e.autoCreate != nil {
-		go e.runAutoCreate(ctx, query, reply, conversationID)
+		safego.Go(func() { e.runAutoCreate(ctx, query, reply, conversationID) })
 	}
 }
 

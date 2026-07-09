@@ -17,6 +17,7 @@
   import Select from '../components/ui/Select.svelte'
   import VoiceOrb from '../components/VoiceOrb.svelte'
   import EmptyState from '../components/ui/EmptyState.svelte'
+  import { navigateListRows } from '../a11y/focusTrap'
 
   let inputText = $state('')
   let voiceOn = $state(false)
@@ -24,6 +25,14 @@
   let slashIndex = $state(0)
   let scrollerEl = $state<HTMLDivElement | null>(null)
   let providers = $state<ProviderInfo[]>([])
+  let railListEl = $state<HTMLElement | null>(null)
+  let railFocusIndex = $state(0)
+
+  function onRailKey(e: KeyboardEvent): void {
+    if (!railListEl) return
+    const rows = railListEl.querySelectorAll<HTMLButtonElement>('.chat-rail-item')
+    railFocusIndex = navigateListRows(e, rows, railFocusIndex)
+  }
 
   const slashCommands = [
     { id: 'help',    label: '/help',    hint: t('composer.slash_help') },
@@ -145,16 +154,22 @@
         + {t('chat.new_chat')}
       </Button>
     </div>
-    <nav class="chat-rail-list" aria-label="Conversations">
+    <nav
+      class="chat-rail-list"
+      aria-label="Conversations"
+      bind:this={railListEl}
+      onkeydown={onRailKey}
+    >
       {#if conversation.conversations.length === 0}
         <div class="chat-rail-empty">{t('chat.no_conversations') ?? 'No conversations yet.'}</div>
       {:else}
-        {#each conversation.conversations as c (c.id)}
+        {#each conversation.conversations as c, i (c.id)}
           <button
             type="button"
             class="chat-rail-item"
             class:active={conversation.currentID === c.id}
             onclick={() => openConversation(c.id)}
+            onfocus={() => { railFocusIndex = i }}
           >
             <span class="chat-rail-title">{c.title || t('chat.new_chat')}</span>
             <span class="chat-rail-meta">{new Date(c.updated_at).toLocaleString()}</span>

@@ -19,6 +19,7 @@
   import { settings } from '../stores/settings.svelte'
   import { t } from '../i18n'
   import { ipc } from '../ipc/client'
+  import { focusFirst, trapTab } from '../a11y/focusTrap'
 
   type Mode = 'compact' | 'expanded'
 
@@ -95,20 +96,43 @@
     void startVoice()
   }
 
+  let rootEl = $state<HTMLDivElement | null>(null)
+  let previousFocus: HTMLElement | null = null
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null
+    focusFirst(rootEl)
+    return () => {
+      previousFocus?.focus()
+    }
+  })
+
   function onKeydown(ev: KeyboardEvent): void {
     if (ev.key === 'Enter' && !ev.shiftKey) {
       ev.preventDefault()
       void submit()
+      return
     }
+    trapTab(rootEl, ev)
     // Escape is handled globally by the overlay store.
   }
+
+  function onWinKey(ev: KeyboardEvent): void {
+    trapTab(rootEl, ev)
+  }
 </script>
+
+<svelte:window onkeydown={onWinKey} />
 
 <div
   class="overlay-prompt glass-card anim-fade-in-up"
   class:expanded={mode === 'expanded'}
+  bind:this={rootEl}
   role="dialog"
+  aria-modal="true"
   aria-label={t('overlay.title')}
+  tabindex="-1"
+  onkeydown={onKeydown}
 >
   <button
     class="overlay-close"

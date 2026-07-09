@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Anthropic implements the Provider interface for Anthropic's Messages API.
@@ -311,7 +312,7 @@ func (a *Anthropic) Stream(ctx context.Context, req ChatRequest) (<-chan StreamE
 	}
 	out := make(chan StreamEvent, 16)
 	cancel := make(chan struct{})
-	go a.streamAnthropicEvents(out, cancel, resp.Body)
+	safego.Go(func() { a.streamAnthropicEvents(out, cancel, resp.Body) })
 	return out, func() { close(cancel) }, nil
 }
 

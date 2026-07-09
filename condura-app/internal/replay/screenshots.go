@@ -32,6 +32,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 var screenshotIDRegex = regexp.MustCompile("^[0-9a-f]{16}$")
@@ -86,7 +87,7 @@ func NewScreenshotStore(db *sql.DB, dataDir string, masterKey []byte) (*Screensh
 // startBackgroundPruner runs TTL cleanup on a ticker so expired
 // screenshots are removed even when no new Put occurs.
 func (s *ScreenshotStore) startBackgroundPruner() {
-	go func() {
+	safego.Go(func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for {
@@ -97,7 +98,7 @@ func (s *ScreenshotStore) startBackgroundPruner() {
 				_ = s.Prune(context.Background(), time.Time{})
 			}
 		}
-	}()
+	})
 }
 
 // SetTTL overrides the default 24h TTL. Mostly for tests.

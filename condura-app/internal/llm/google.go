@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Google implements the Provider interface for Google's Gemini API.
@@ -350,7 +351,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 	}
 	out := make(chan StreamEvent, 16)
 	cancel := make(chan struct{})
-	go func() {
+	safego.Go(func() {
 		defer close(out)
 		defer func() { _ = resp.Body.Close() }()
 		reader := bufio.NewReaderSize(resp.Body, 64*1024)
@@ -386,7 +387,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 			} else if tok != nil {
 				// Reconstruct the value as a single gemResponse.
 				barrier := make(chan struct{})
-				go func() {
+				safego.Go(func() {
 					defer close(barrier)
 					rest, _ := io.ReadAll(reader)
 					combined := append(append([]byte{}, fmt.Sprintf("%v", tok)...), rest...)
@@ -396,7 +397,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 						return
 					}
 					emitGemResponse(&r, out, &accumulated, &finishReason, &usage)
-				}()
+				})
 				select {
 				case <-barrier:
 				case <-cancel:
@@ -409,7 +410,7 @@ func (g *Google) Stream(ctx context.Context, req ChatRequest) (<-chan StreamEven
 			Usage:        usage,
 			Done:         true,
 		}
-	}()
+	})
 	return out, func() { close(cancel) }, nil
 }
 

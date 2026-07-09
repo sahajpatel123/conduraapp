@@ -31,6 +31,7 @@
   import '$lib/v2/motion.css'
   import '$lib/v2/reset.css'
   import { Surface, Ink, Stack, Inline, Rule, Button } from '$lib/v2'
+  import { focusFirst, trapTab } from '$lib/a11y/focusTrap'
 
   type BlastRadius = 'read' | 'write' | 'network' | 'destructive'
 
@@ -102,14 +103,29 @@
            'destructive'
   }
 
-  // Esc to deny. CRITICAL: the listener is registered ONLY inside the
-  // `{#if open}` block (see template below) so it does not swallow Esc
-  // for the rest of the page when the modal is closed.
+  let modalEl = $state<HTMLDivElement | null>(null)
+  let previousFocus: HTMLElement | null = null
+
+  $effect(() => {
+    if (!open) return
+    previousFocus = document.activeElement as HTMLElement | null
+    focusFirst(modalEl)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+      previousFocus?.focus()
+    }
+  })
+
+  // Esc to deny + Tab trap. CRITICAL: the listener is registered ONLY
+  // inside the `{#if open}` block so it does not swallow Esc when closed.
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.preventDefault()
       deny()
+      return
     }
+    trapTab(modalEl, e)
   }
 
   // Reset stamp state when modal closes. Critical to clear any
@@ -144,7 +160,12 @@
     "
   >
     <!-- ── Modal card ──────────────────────────────────────── -->
-    <div style="
+    <div
+      bind:this={modalEl}
+      role="alertdialog"
+      aria-modal="true"
+      tabindex="-1"
+      style="
       width: 100%;
       max-width: 480px;
       animation: v2-scale-in var(--v2-dur-slow) var(--v2-ease-settle) both;

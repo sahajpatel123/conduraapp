@@ -39,6 +39,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Common errors returned by the stream package.
@@ -308,7 +309,7 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 		fieldStartedAt:      s.startedAt.UTC().Format(time.RFC3339Nano),
 	})
 
-	go m.pump(requestID, events, s)
+	safego.Go(func() { m.pump(requestID, events, s) })
 
 	return requestID, nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/getlantern/systray"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Event is a user-driven action from the tray menu.
@@ -199,7 +200,7 @@ func (m *Menu) onReady() {
 	systray.AddSeparator()
 	m.mQuit = systray.AddMenuItem("Quit", "Shut Synaptic down completely")
 
-	go m.watchClicks()
+	safego.Go(func() { m.watchClicks() })
 }
 
 // watchClicks translates systray menu clicks into Event values.
@@ -239,7 +240,7 @@ func (m *Menu) Stop() {
 // Run blocks; call it in a goroutine. It returns when ctx is done
 // OR when EventQuit is received.
 func Run(ctx context.Context, m *Menu, handler func(Event)) {
-	go m.Start()
+	safego.Go(func() { m.Start() })
 	defer m.Stop()
 	for {
 		select {

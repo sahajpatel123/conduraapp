@@ -13,6 +13,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/blastradius"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // runner is an unexported subprocess manager. Only GatedRunner can
@@ -215,10 +216,10 @@ func (g *GatedRunner) runAgent(ctx context.Context, spawnID string, agentCfg Age
 	// channel so the reader goroutine can exit even if the parent
 	// times out its drain and returns early.
 	done := make(chan readResult, 1)
-	go func() {
+	safego.Go(func() {
 		out, err := r.readOutput()
 		done <- readResult{out: out, err: err}
-	}()
+	})
 
 	timeout := agentCfg.Timeout
 	if req.Timeout > 0 {

@@ -27,6 +27,7 @@
   import Button from './Button.svelte';
   import Icon, { type IconName } from './icons/Icon.svelte';
   import KeyCombo from './KeyCombo.svelte';
+  import { focusFirst, trapTab } from '../../a11y/focusTrap';
 
   type BlastRadius = 'read' | 'write' | 'network' | 'destructive';
 
@@ -76,10 +77,25 @@
     return () => clearTimeout(id);
   });
 
+  let modalEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(modalEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       ondeny?.();
+      return;
     }
+    trapTab(modalEl, e);
   }
 </script>
 
@@ -93,10 +109,12 @@
 
   <div
     class="modal"
+    bind:this={modalEl}
     role="alertdialog"
     aria-modal="true"
     aria-labelledby="consent-title"
     aria-describedby="consent-body"
+    tabindex="-1"
   >
     <header class="modal__head">
       <div class="modal__blast" style="--blast-color: {meta.color};">

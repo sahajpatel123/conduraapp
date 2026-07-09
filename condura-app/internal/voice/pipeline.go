@@ -15,6 +15,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrSHAMismatch is returned by the Pipeline when the binary or model
@@ -195,7 +196,7 @@ func (p *Pipeline) ListenAndProcess(ctx context.Context) (Result, error) {
 	defer cancelRecord()
 
 	if p.cfg.Broker != nil {
-		go p.emitPartials(recordCtx)
+		safego.Go(func() { p.emitPartials(recordCtx) })
 	}
 
 	// 2-3. Record

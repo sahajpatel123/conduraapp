@@ -3,6 +3,7 @@
   import { consent } from '../stores/consent.svelte';
   import Button from './Button.svelte';
   import Glyph from './Glyph.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   // The gatekeeper's face. A protective synapse thread draws a rectangle
   // around the action summary (armoring it). On approval, a wax seal stamps.
@@ -78,11 +79,43 @@
       console.error('deny failed', e);
     }
   }
+
+  let cardEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    if (!hasTicket) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(cardEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
+  function onWinKey(e: KeyboardEvent): void {
+    if (!hasTicket) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      void deny();
+      return;
+    }
+    trapTab(cardEl, e);
+  }
 </script>
 
 {#if hasTicket}
+  <svelte:window onkeydown={onWinKey} />
   <div class="scrim" class:ink={destructive}>
-    <div class="consent-card" class:ink={destructive} role="alertdialog" aria-modal="true">
+    <div
+      class="consent-card"
+      class:ink={destructive}
+      bind:this={cardEl}
+      role="alertdialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
       <div class="c-eyebrow">{blastLabel(ticket?.action_kind)} action · requires your consent</div>
       <h2 class="c-title">Condura wants to act.</h2>
       <p class="c-sub">{destructive ? 'This cannot be undone. Review exactly what will happen before you allow.' : 'Review what will happen before you allow.'}</p>

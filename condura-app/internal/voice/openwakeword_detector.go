@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // OpenWakeWordDetector implements WakeWordDetector using the openWakeWord library.
@@ -90,7 +91,7 @@ func (d *OpenWakeWordDetector) Start(ctx context.Context) (<-chan WakeEvent, err
 	events := make(chan WakeEvent, 10)
 
 	// Goroutine to read events from stdout.
-	go func() {
+	safego.Go(func() {
 		defer close(events)
 		defer func() {
 			_ = cmd.Process.Kill()
@@ -118,7 +119,7 @@ func (d *OpenWakeWordDetector) Start(ctx context.Context) (<-chan WakeEvent, err
 				Confidence: event.Score,
 			}
 		}
-	}()
+	})
 
 	return events, nil
 }

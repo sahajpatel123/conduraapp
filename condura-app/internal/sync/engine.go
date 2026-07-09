@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Engine orchestrates synchronization between local and remote stores.
@@ -85,15 +86,15 @@ func (e *Engine) Start() {
 	}
 	e.running = true
 	e.stopCh = make(chan struct{})
-	go e.announceLoop()
+	safego.Go(func() { e.announceLoop() })
 	if e.discovery != nil {
-		go func() {
+		safego.Go(func() {
 			if err := e.discovery.Listen(); err != nil {
 				e.logger.Debug("discovery listen stopped", "err", err)
 			}
-		}()
+		})
 	}
-	go e.serveSyncLoop()
+	safego.Go(func() { e.serveSyncLoop() })
 	e.logger.Info("sync engine started",
 		"device_id", e.identity.DeviceID,
 		"name", e.identity.Name,
@@ -429,7 +430,7 @@ func (e *Engine) serveSyncLoop() {
 			}
 			return
 		}
-		go e.handleInbound(conn)
+		safego.Go(func() { e.handleInbound(conn) })
 	}
 }
 

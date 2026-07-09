@@ -23,6 +23,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/overlay"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/session"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrNoVoice is returned by voice.* RPCs when voice is disabled
@@ -205,7 +206,10 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		// Trigger async memory extraction on success (fire-and-forget).
 		if subs.Extractor != nil && reply != "" {
-			go subs.Extractor.AfterSession(context.Background(), p.Query, reply, p.ConversationID) //nolint:gosec // intentional: async, must survive request ctx
+			//nolint:gosec // intentional: async, must survive request ctx
+			safego.Go(func() {
+				subs.Extractor.AfterSession(context.Background(), p.Query, reply, p.ConversationID)
+			})
 		}
 		return map[string]any{
 			"reply":           reply,

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	xhotkey "golang.design/x/hotkey"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Manager wraps a single registered hotkey and the callback fired
@@ -72,7 +73,7 @@ func (m *Manager) Start(handler func()) error {
 	m.hk = hk
 	m.callback = handler
 	m.started = true
-	go m.listen()
+	safego.Go(func() { m.listen() })
 	return nil
 }
 
@@ -146,7 +147,7 @@ func (m *Manager) StartHold(onDown, onUp func(), minMs int) error {
 	}
 	m.hk = hk
 	m.started = true
-	go m.listenHold(onDown, onUp, minMs)
+	safego.Go(func() { m.listenHold(onDown, onUp, minMs) })
 	return nil
 }
 
@@ -241,7 +242,7 @@ func (m *Manager) StartTap(onTap func(), tapCount int, windowMs int) error {
 	}
 	m.hk = hk
 	m.started = true
-	go m.listenTap(onTap, tapCount, time.Duration(windowMs)*time.Millisecond)
+	safego.Go(func() { m.listenTap(onTap, tapCount, time.Duration(windowMs)*time.Millisecond) })
 	return nil
 }
 

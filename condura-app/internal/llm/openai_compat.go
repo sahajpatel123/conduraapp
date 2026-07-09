@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Default values for OpenAICompat auth fields. Most OpenAI-compatible
@@ -393,7 +394,7 @@ func (p *OpenAICompat) Stream(ctx context.Context, req ChatRequest) (<-chan Stre
 
 	out := make(chan StreamEvent, 16)
 	cancel := make(chan struct{})
-	go p.streamOAIResponses(out, cancel, resp.Body)
+	safego.Go(func() { p.streamOAIResponses(out, cancel, resp.Body) })
 	return out, func() { close(cancel) }, nil
 }
 

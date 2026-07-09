@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 const (
@@ -99,7 +100,7 @@ func (t *whisperTranscriber) Transcribe(ctx context.Context, audio []byte) (Tran
 func (t *whisperTranscriber) TranscribeStream(ctx context.Context, audio <-chan []float32) (<-chan Partial, error) {
 	out := make(chan Partial, 100)
 
-	go func() {
+	safego.Go(func() {
 		defer close(out)
 
 		// Collect all samples until channel closes.
@@ -126,7 +127,7 @@ func (t *whisperTranscriber) TranscribeStream(ctx context.Context, audio <-chan 
 				IsFinal: i == len(transcript.Segments)-1,
 			}
 		}
-	}()
+	})
 
 	return out, nil
 }

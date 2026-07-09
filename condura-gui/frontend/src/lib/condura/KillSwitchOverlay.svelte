@@ -1,22 +1,50 @@
 <script lang="ts">
   import Pulse from './Pulse.svelte';
   import Button from './Button.svelte';
-  import Glyph from './Glyph.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   // The "agent went insane" / halted state. Calm but firm. The Pulse goes red
   // and fast. Motion here is unreducible (16ms) — safety beats aesthetics.
+  // Focus stays inside the overlay until the user mints a resume ticket.
   let {
     reason = 'user requested',
     onresume,
   }: { reason?: string; onresume?: () => void } = $props();
+
+  let cardEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(cardEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
+  function onKeydown(e: KeyboardEvent): void {
+    trapTab(cardEl, e);
+  }
 </script>
 
-<div class="kill-overlay">
-  <div class="kill-card">
+<svelte:window onkeydown={onKeydown} />
+
+<div class="kill-overlay" role="presentation">
+  <div
+    class="kill-card"
+    bind:this={cardEl}
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="kill-title"
+    aria-describedby="kill-body"
+    tabindex="-1"
+  >
     <Pulse phase="error" size={12} />
     <div class="kill-eyebrow">— Halted · kill switch engaged</div>
-    <h2 class="kill-title">Condura has stopped.</h2>
-    <p class="kill-body">
+    <h2 id="kill-title" class="kill-title">Condura has stopped.</h2>
+    <p id="kill-body" class="kill-body">
       Every active stream was canceled. The agent is not running. Reason:
       <span class="kill-reason">{reason}</span>.
     </p>

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/blastradius"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ConsentProvider drives the OS-level consent dialog. Implementations:
@@ -305,10 +306,10 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 		err      error
 	}
 	done := make(chan providerResult, 1)
-	go func() {
+	safego.Go(func() {
 		ap, err := e.consent.Show(ctx, ticket)
 		done <- providerResult{approved: ap, err: err}
-	}()
+	})
 	var (
 		approved bool
 		err      error

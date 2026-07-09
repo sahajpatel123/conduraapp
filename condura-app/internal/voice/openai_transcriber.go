@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // OpenAITranscriber implements Transcriber using the OpenAI Whisper API.
@@ -116,7 +117,7 @@ func (t *OpenAITranscriber) TranscribeStream(ctx context.Context, audio <-chan [
 	// and transcribe at once when the channel is closed.
 	ch := make(chan Partial, 1)
 
-	go func() {
+	safego.Go(func() {
 		defer close(ch)
 
 		var samples []float32
@@ -132,7 +133,7 @@ func (t *OpenAITranscriber) TranscribeStream(ctx context.Context, audio <-chan [
 			Text:    "",
 			IsFinal: true,
 		}
-	}()
+	})
 
 	return ch, nil
 }

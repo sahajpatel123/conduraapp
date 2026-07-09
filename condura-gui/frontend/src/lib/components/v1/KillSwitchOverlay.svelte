@@ -18,6 +18,7 @@
 <script lang="ts">
   import Pulse from './Pulse.svelte';
   import Button from './Button.svelte';
+  import { focusFirst, trapTab } from '../../a11y/focusTrap';
 
   type Reason = 'user' | 'watchdog' | 'anomaly' | 'network';
 
@@ -35,9 +36,28 @@
     anomaly: 'I paused myself — that action pattern looked unusual.',
     network: "Network guard tripped — that endpoint wasn't on the allowlist.",
   };
+
+  let rootEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(rootEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
+  function onKeydown(e: KeyboardEvent): void {
+    trapTab(rootEl, e);
+  }
 </script>
 
-<div class="kill" role="alertdialog" aria-modal="true" aria-label="Synaptic stopped">
+<svelte:window onkeydown={onKeydown} />
+
+<div class="kill" bind:this={rootEl} role="alertdialog" aria-modal="true" aria-label="Condura stopped" tabindex="-1">
   <!-- The instant black overlay -->
   <div class="kill__black" aria-hidden="true"></div>
 

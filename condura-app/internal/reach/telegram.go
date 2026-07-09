@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // telegramChannel implements the Channel interface for Telegram
@@ -72,7 +73,7 @@ func (t *telegramChannel) Receive(ctx context.Context) (<-chan Message, error) {
 		return nil, fmt.Errorf("reach: telegram not connected")
 	}
 	ch := make(chan Message, 10)
-	go t.longPoll(ctx, ch)
+	safego.Go(func() { t.longPoll(ctx, ch) })
 	return ch, nil
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/daemon"
 	"github.com/sahajpatel123/conduraapp/condura-gui/frontend/assets"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // embeddedDaemon lets the Wails App struct talk to the in-process
@@ -65,7 +66,7 @@ func main() {
 	appInstance = NewApp()
 	appInstance.quitCancel = cancel
 
-	go func() {
+	safego.Go(func() {
 		subs, err := daemon.Run(ctx, daemon.Options{
 			Config: cfg,
 			Loader: loader,
@@ -114,7 +115,7 @@ func main() {
 		// overlay) so a misbehaving overlay cannot block the user
 		// from killing the agent.
 		appInstance.startKillSwitch(subs, resolveKillSwitchHotkey(cfg.Hotkey.KillSwitch))
-	}()
+	})
 
 	// Start the Wails app. The Wails runtime takes over the main
 	// goroutine; the daemon runs in its own goroutine above.

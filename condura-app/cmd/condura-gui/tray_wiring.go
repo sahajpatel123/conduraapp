@@ -12,6 +12,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/tray"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // startTray wires the system tray to the running daemon. Called
@@ -59,7 +60,7 @@ func (a *App) startTray(ctx context.Context, subs *daemon.Subsystems) {
 	// Drive tray.Run in its own goroutine so main can keep
 	// going. tray.Run blocks until ctx is done OR the user
 	// clicks Quit.
-	go func() {
+	safego.Go(func() {
 		defer subs.Broker.Unsubscribe(sub)
 		tray.Run(ctx, menu, func(ev tray.Event) {
 			switch ev {
@@ -72,13 +73,12 @@ func (a *App) startTray(ctx context.Context, subs *daemon.Subsystems) {
 			case tray.EventQuit:
 				slog.Info("tray: quit requested; daemon will shut down")
 				a.requestQuit()
-			}
-		})
-	}()
+			})
+	}() })
 
 	// Drain SSE events and forward to the tray. Runs until ctx
 	// is canceled. Cheap (select on one channel + a ticker).
-	go a.pumpTrayStatus(ctx, menu, sub)
+	safego.Go(func() { a.pumpTrayStatus(ctx, menu, sub) })
 }
 
 // pumpTrayStatus reads daemon events from the broker subscription

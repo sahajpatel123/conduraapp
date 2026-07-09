@@ -8,7 +8,11 @@
 // the interface allows swapping for different backends.
 package voice
 
-import "context"
+import (
+	"context"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+)
 
 // WakeWordDetector listens for a hotword on the microphone stream.
 type WakeWordDetector interface {
@@ -45,10 +49,10 @@ type NoopWakeDetector struct{}
 // the context is canceled.
 func (NoopWakeDetector) Start(ctx context.Context) (<-chan WakeEvent, error) {
 	ch := make(chan WakeEvent)
-	go func() {
+	safego.Go(func() {
 		defer close(ch)
 		<-ctx.Done()
-	}()
+	})
 	return ch, nil
 }
 

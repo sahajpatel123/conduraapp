@@ -28,6 +28,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Event is one anonymous event to be sent.
@@ -176,7 +177,7 @@ func (r *Reporter) incr(name string) {
 }
 
 func (r *Reporter) sendAsync(ev Event) {
-	go func() {
+	safego.Go(func() {
 		endpoint := r.Endpoint()
 		if endpoint == "" {
 			return
@@ -210,7 +211,7 @@ func (r *Reporter) sendAsync(ev Event) {
 			return
 		}
 		_ = resp.Body.Close()
-	}()
+	})
 }
 
 // jsonReader is unused — removed; bytes.NewReader is used instead.

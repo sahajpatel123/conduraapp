@@ -34,6 +34,7 @@
   import Pulse from './Pulse.svelte';
   import Thread from './Thread.svelte';
   import ErrorState from './ErrorState.svelte';
+  import { navigateListRows } from '../a11y/focusTrap';
 
   // ---- local state ---------------------------------------------------------
   let inputText = $state('');
@@ -41,6 +42,14 @@
   let selectedModel = $state('');
   let scrollEl: HTMLDivElement | undefined = $state();
   let conversations = $state<ConversationMeta[]>([]);
+  let railListEl = $state<HTMLElement | null>(null);
+  let railFocusIndex = $state(0);
+
+  function onRailKey(e: KeyboardEvent): void {
+    if (!railListEl) return;
+    const rows = railListEl.querySelectorAll<HTMLButtonElement>('.cl-row');
+    railFocusIndex = navigateListRows(e, rows, railFocusIndex);
+  }
   let docsGranted = $state(false);
   let micAvailable = $state(true);
   let voiceListening = $state(false);
@@ -645,7 +654,7 @@
         <button type="button" class="cl-new tactile" onclick={() => void newConvo()}>
           <Glyph name="plus" size={14} /> New conversation
         </button>
-        <div class="cl-list">
+        <div class="cl-list" bind:this={railListEl} onkeydown={onRailKey} role="listbox" aria-label="Conversation list">
           {#if loadingConvos && conversations.length === 0}
             <div class="cl-loading">
               <span class="cl-loading-label">indexing conversations</span>
@@ -654,12 +663,15 @@
           {:else if conversations.length === 0}
             <div class="cl-empty">No conversations yet.</div>
           {:else}
-            {#each conversations as c (c.id)}
+            {#each conversations as c, i (c.id)}
               <button
                 type="button"
                 class="cl-row tactile"
                 class:active={c.id === conversation.currentID}
+                role="option"
+                aria-selected={c.id === conversation.currentID}
                 onclick={() => void openConvo(c.id)}
+                onfocus={() => { railFocusIndex = i }}
               >
                 <span class="cl-title">{c.title || 'New conversation'}</span>
                 <span class="cl-time">{formatTime(c.last_touch ?? c.updated_at ?? c.created_at)}</span>
