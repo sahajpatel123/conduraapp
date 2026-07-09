@@ -46,6 +46,10 @@ If you came here looking for the Wails shell, go to
 
 ## Build & run
 
+**Package manager:** **npm only** for `frontend/` (and the rest of the monorepo’s
+Node packages). Do not commit `pnpm-lock.yaml` here — dual lockfiles cause
+supply-chain noise. `package.json` sets `"packageManager": "npm@10"`.
+
 ```bash
 # Build the desktop app for the current OS
 make build-gui
@@ -54,6 +58,7 @@ make build-gui
 cd condura-gui/frontend
 npm install
 npm run dev          # standalone Vite dev server
+npm test             # vitest
 ```
 
 ## Where the TUI lives
