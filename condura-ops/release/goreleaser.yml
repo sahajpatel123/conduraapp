@@ -226,8 +226,10 @@ release:
   header: |
     ## Condura {{.Version}}
 
-    Signed binaries and SHA-256 checksums are attached below.
-    The update manifest (`update-manifest.json`) is signed with Ed25519 for auto-update.
+    SHA-256 checksums are attached below. Platform code-signing is not applied
+    to CLI/daemon archives in this job. The update manifest is Ed25519-signed
+    when `UPDATE_SIGNING_KEY` is set (fail-closed otherwise). macOS GUI
+    notarization is a separate CI job when Apple secrets are configured.
 
   footer: |
     ---
