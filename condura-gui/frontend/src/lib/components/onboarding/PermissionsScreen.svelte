@@ -59,26 +59,34 @@
     if (pollTimer) clearInterval(pollTimer)
   })
 
-  function openExternal(url: string): void {
-    const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
-    if (w.runtime?.BrowserOpenURL) {
-      w.runtime.BrowserOpenURL(url)
-    } else {
-      window.open(url, '_blank')
-    }
-  }
-
   async function openSettings(kind: string): Promise<void> {
     try {
-      const g = await ipc.permissionsGuide(kind)
-      guide = g
-      if (g.deep_link) openExternal(g.deep_link)
+      const { openPermissionSettings } = await import('../../utils/openPermissionSettings')
+      const res = await openPermissionSettings(kind, ipc)
+      // Still load guide steps for the in-app panel.
+      try {
+        guide = await ipc.permissionsGuide(kind)
+      } catch {
+        /* ignore */
+      }
+      if (!res.opened && res.error) {
+        guide = {
+          kind,
+          platform: '',
+          title: t('onboarding.permissions.grant_title', LABELS[kind] ?? kind),
+          steps: [
+            res.error,
+            'If System Settings did not open, open Privacy & Security manually and enable Condura.',
+          ],
+        }
+      }
+      void refresh()
     } catch (err) {
       guide = {
         kind,
         platform: '',
         title: t('onboarding.permissions.grant_title', LABELS[kind] ?? kind),
-        steps: [String(err)]
+        steps: [String(err)],
       }
     }
   }

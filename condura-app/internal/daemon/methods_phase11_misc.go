@@ -82,6 +82,9 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 //     grant Status.
 //   - permissions.request_guide — return the per-platform
 //     guide for granting a specific Kind.
+//   - permissions.open_settings — open the OS System Settings /
+//     Privacy pane for a kind (daemon-side `open` / `start` /
+//     xdg-open). Prefer this over BrowserOpenURL for deep links.
 func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 	if subs.Permissions == nil {
 		notAvailable := func(_ context.Context, _ json.RawMessage) (any, error) {
@@ -89,6 +92,7 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		srv.Register("permissions.status", notAvailable)
 		srv.Register("permissions.request_guide", notAvailable)
+		srv.Register("permissions.open_settings", notAvailable)
 		return
 	}
 
@@ -103,16 +107,13 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 		}, nil
 	})
 
-	srv.Register("permissions.request_guide", func(_ context.Context, params json.RawMessage) (any, error) {
+	parseKind := func(params json.RawMessage) (permissions.Kind, error) {
 		var p struct {
 			Kind string `json:"kind"`
 		}
 		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+			return "", &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
-		// Validate kind is a known value to prevent arbitrary
-		// input from reaching the package-level API.
-		known := false
 		for _, k := range []permissions.Kind{
 			permissions.KindAccessibility,
 			permissions.KindScreenRecording,
@@ -121,16 +122,36 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 			permissions.KindNotifications,
 		} {
 			if strings.EqualFold(p.Kind, string(k)) {
-				known = true
-				p.Kind = string(k)
-				break
+				return k, nil
 			}
 		}
-		if !known {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown permission kind: " + p.Kind}
+		return "", &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown permission kind: " + p.Kind}
+	}
+
+	srv.Register("permissions.request_guide", func(_ context.Context, params json.RawMessage) (any, error) {
+		k, err := parseKind(params)
+		if err != nil {
+			return nil, err
 		}
-		guide := permissions.RequestGuide(permissions.Kind(p.Kind))
-		return guide, nil
+		return permissions.RequestGuide(k), nil
+	})
+
+	// permissions.open_settings: open the OS pane AND return the guide
+	// so the UI can show steps even if the open fails.
+	srv.Register("permissions.open_settings", func(_ context.Context, params json.RawMessage) (any, error) {
+		k, err := parseKind(params)
+		if err != nil {
+			return nil, err
+		}
+		guide, opened, openErr := permissions.OpenSettings(k)
+		out := map[string]any{
+			"guide":  guide,
+			"opened": opened,
+		}
+		if openErr != nil {
+			out["error"] = openErr.Error()
+		}
+		return out, nil
 	})
 }
 

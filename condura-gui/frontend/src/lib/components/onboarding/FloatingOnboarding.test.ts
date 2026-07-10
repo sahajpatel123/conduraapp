@@ -41,6 +41,10 @@ vi.mock('../../ipc/client', () => ({
     firstRunComplete: vi.fn().mockResolvedValue(undefined),
     permissionsStatus: vi.fn().mockResolvedValue([]),
     permissionsGuide: vi.fn().mockResolvedValue({ deep_link: '' }),
+    permissionsOpenSettings: vi.fn().mockResolvedValue({
+      guide: { deep_link: '', steps: [] },
+      opened: false,
+    }),
   },
 }))
 

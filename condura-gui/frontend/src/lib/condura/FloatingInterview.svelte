@@ -67,11 +67,13 @@
   }
   async function openPermSettings(kind: string) {
     try {
-      const g = await ipc.permissionsGuide(kind);
-      const url = (g as { deep_link?: string; help_url?: string }).deep_link ?? (g as { help_url?: string }).help_url;
-      if (url) window.open(url, '_blank');
+      const { openPermissionSettings } = await import('../utils/openPermissionSettings');
+      const res = await openPermissionSettings(kind, ipc);
+      if (!res.opened && res.error) console.warn('openPermSettings:', res.error);
+      // Keep polling so badges flip when the user grants in System Settings.
+      void refreshPerms();
     } catch (e) {
-      console.error('permissionsGuide failed', e);
+      console.error('openPermSettings failed', e);
     }
   }
   let atLeastOneGranted = $derived(permRows.some((r) => r.status === 'granted'));

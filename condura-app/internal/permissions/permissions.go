@@ -20,7 +20,10 @@ package permissions
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	"runtime"
+	"strings"
 )
 
 // Kind is a Condura permission requirement.
@@ -142,6 +145,67 @@ func RequestGuide(k Kind) Guide {
 	return buildGuide(k, runtime.GOOS)
 }
 
+// OpenSettings opens the OS privacy / settings pane for kind, when a
+// deep link exists. On macOS this uses `open` with the
+// x-apple.systempreferences URL; on Windows `start ms-settings:…`;
+// on Linux xdg-open / desktop control center when available.
+//
+// Returns the guide (so the UI can still show steps) and whether the
+// OS open command was launched successfully. Callers must never
+// assume the user granted the permission — re-probe after return.
+func OpenSettings(k Kind) (Guide, bool, error) {
+	g := RequestGuide(k)
+	opened, err := openDeepLink(g.DeepLink, g.HelpURL, runtime.GOOS)
+	return g, opened, err
+}
+
+// openDeepLink launches the platform handler for a settings deep link.
+// Prefer DeepLink; fall back to HelpURL only when no deep link exists
+// (Linux guides often only have documentation URLs).
+func openDeepLink(deep, help, platform string) (bool, error) {
+	target := strings.TrimSpace(deep)
+	if target == "" {
+		target = strings.TrimSpace(help)
+	}
+	if target == "" {
+		return false, nil
+	}
+	var cmd *exec.Cmd
+	switch platform {
+	case "darwin":
+		// `open` handles x-apple.systempreferences: and https: URLs.
+		cmd = exec.Command("open", target)
+	case "windows":
+		// start requires an empty window title when the first arg is quoted.
+		cmd = exec.Command("cmd", "/c", "start", "", target)
+	default:
+		// Linux: deep links may be "gnome-control-center privacy" (space-separated)
+		// or a URL for xdg-open.
+		if strings.HasPrefix(target, "gnome-control-center") {
+			parts := strings.Fields(target)
+			if path, err := exec.LookPath(parts[0]); err == nil {
+				args := parts[1:]
+				cmd = exec.Command(path, args...)
+			}
+		}
+		if cmd == nil {
+			if path, err := exec.LookPath("xdg-open"); err == nil && (strings.Contains(target, "://") || strings.HasPrefix(target, "http")) {
+				cmd = exec.Command(path, target)
+			} else if path, err := exec.LookPath("gnome-control-center"); err == nil {
+				cmd = exec.Command(path, "privacy")
+			} else {
+				return false, fmt.Errorf("permissions: no opener available for %q", target)
+			}
+		}
+	}
+	if err := cmd.Start(); err != nil {
+		return false, fmt.Errorf("permissions: open settings: %w", err)
+	}
+	// Detach — we do not wait for System Settings to close.
+	_ = cmd.Process.Release()
+	return true, nil
+}
+
 // buildGuide is the platform-agnostic dispatcher.
 func buildGuide(k Kind, platform string) Guide {
 	g := Guide{Kind: k, Platform: platform, Title: humanTitle(k)}
@@ -178,36 +242,38 @@ func stepsFor(k Kind, platform string) (steps []string, deep, help string) {
 }
 
 func darwinSteps(k Kind) ([]string, string, string) {
+	// Prefer Extension settings URLs (macOS Ventura+ System Settings).
+	// Legacy x-apple.systempreferences: still works as open fallback on older macOS.
 	switch k {
 	case KindAccessibility:
 		return []string{
 			"Open System Settings → Privacy & Security → Accessibility",
-			"Click the lock icon and authenticate",
+			"Click the lock icon and authenticate if needed",
 			"Find Condura in the list and toggle it ON",
-			"If Condura is not in the list, click + and add it from /Applications",
+			"If Condura is not in the list, click + and add it from /Applications (or the app bundle you launched)",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindScreenRecording:
 		return []string{
 			"Open System Settings → Privacy & Security → Screen & System Audio Recording",
-			"Click the lock icon and authenticate",
+			"Click the lock icon and authenticate if needed",
 			"Find Condura in the list and toggle it ON",
+			"You may need to quit and reopen Condura after granting",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindMicrophone:
 		return []string{
 			"Open System Settings → Privacy & Security → Microphone",
-			"Click the lock icon and authenticate",
 			"Find Condura in the list and toggle it ON",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone", "https://support.apple.com/guide/mac-help/mh43185/mac"
 	case KindAutomation:
 		return []string{
 			"Open System Settings → Privacy & Security → Automation",
-			"Find Condura in the list and toggle it ON for each app Condura should control",
+			"Find Condura in the list and toggle ON for each app Condura should control",
 		}, "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation", ""
 	case KindNotifications:
 		return []string{
 			"Open System Settings → Notifications",
 			"Find Condura in the list and set Allow Notifications to ON",
-		}, "x-apple.systempreferences:com.apple.preference.notifications", ""
+		}, "x-apple.systempreferences:com.apple.Notifications-Settings.extension", ""
 	}
 	return nil, "", ""
 }
@@ -243,24 +309,25 @@ func windowsSteps(k Kind) ([]string, string, string) {
 }
 
 func linuxSteps(k Kind) ([]string, string, string) {
+	// Deep links use xdg-open with settings: or gnome-control-center URIs where possible.
 	switch k {
 	case KindAccessibility:
 		return []string{
 			"Install at-spi2-core: sudo apt install at-spi2-core (Debian/Ubuntu) or sudo dnf install at-spi2-core (Fedora)",
-			"GNOME: Settings → Accessibility → Always Show Universal Access Menu",
+			"GNOME: Settings → Accessibility",
 			"KDE: System Settings → Accessibility",
-		}, "", "https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/"
+		}, "gnome-control-center", "https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/"
 	case KindScreenRecording:
 		return []string{
 			"Wayland: install xdg-desktop-portal and a backend (e.g. xdg-desktop-portal-gnome)",
 			"X11: no permission required (any X client can capture the screen)",
-		}, "", ""
+		}, "gnome-control-center", ""
 	case KindMicrophone:
 		return []string{
-			"Add your user to the 'audio' group: sudo usermod -aG audio $USER",
 			"GNOME: Settings → Privacy → Microphone",
-			"PipeWire / PulseAudio: ensure the Condura process can access the mic source",
-		}, "", ""
+			"Add your user to the 'audio' group if capture still fails: sudo usermod -aG audio $USER",
+			"PipeWire / PulseAudio: ensure Condura can access the mic source",
+		}, "gnome-control-center privacy", ""
 	case KindAutomation:
 		return []string{
 			"AT-SPI2 provides accessibility scripting; no separate OS-level grant needed",
@@ -268,8 +335,8 @@ func linuxSteps(k Kind) ([]string, string, string) {
 	case KindNotifications:
 		return []string{
 			"GNOME: Settings → Notifications",
-			"Install libnotify (usually preinstalled)",
-		}, "", ""
+			"Install libnotify if missing (usually preinstalled)",
+		}, "gnome-control-center notifications", ""
 	}
 	return nil, "", ""
 }

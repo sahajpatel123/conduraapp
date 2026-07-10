@@ -64,18 +64,11 @@
     const perm = items[idx]
     if (!perm || perm.granted) return
 
-    // Open the OS System Settings pane for this permission.
+    // Open the OS System Settings pane via the daemon (reliable deep links).
     try {
       const { ipc } = await import('../../ipc/client')
-      const guide = await ipc.permissionsGuide(perm.kind)
-      if (guide.deep_link) {
-        const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
-        if (w.runtime?.BrowserOpenURL) {
-          w.runtime.BrowserOpenURL(guide.deep_link)
-        } else {
-          window.open(guide.deep_link, '_blank')
-        }
-      }
+      const { openPermissionSettings } = await import('../../utils/openPermissionSettings')
+      await openPermissionSettings(perm.kind, ipc)
     } catch {
       // Best-effort: the deep link may fail in a non-Wails preview.
     }

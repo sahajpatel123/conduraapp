@@ -88,6 +88,37 @@ describe('ipc.daemonCapabilities', () => {
   });
 });
 
+describe('ipc.permissionsStatus unwrap', () => {
+  beforeEach(() => {
+    (ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0'
+    ;(ipc as unknown as { authToken: string }).authToken = ''
+  })
+
+  it('unwraps { platform, items } from the daemon into an array', async () => {
+    const items = [
+      { kind: 'accessibility', status: 'denied' },
+      { kind: 'screen_recording', status: 'unknown' },
+    ]
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          result: { platform: 'darwin', items },
+          id: 1,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await ipc.permissionsStatus()
+    expect(Array.isArray(res)).toBe(true)
+    expect(res).toHaveLength(2)
+    expect(res[0].kind).toBe('accessibility')
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('ipc.llmStream contract', () => {
   beforeEach(() => {
     (ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0';

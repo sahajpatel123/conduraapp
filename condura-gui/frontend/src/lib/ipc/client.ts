@@ -312,11 +312,34 @@ class IPCClient {
   backupRestore(p: import('./types').BackupRestoreParams): Promise<import('./types').BackupRestoreResult> {
     return this.call('backup.restore', p)
   }
-  permissionsStatus(): Promise<import('./types').PermissionStatus[]> {
-    return this.call('permissions.status', {})
+  /**
+   * permissionsStatus returns the probed permission list.
+   * The daemon returns { platform, items }; we unwrap items so
+   * every UI surface can treat the result as PermissionStatus[].
+   */
+  async permissionsStatus(): Promise<import('./types').PermissionStatus[]> {
+    const res = await this.call<
+      | import('./types').PermissionStatus[]
+      | { platform?: string; items?: import('./types').PermissionStatus[] }
+    >('permissions.status', {})
+    if (Array.isArray(res)) return res
+    if (res && Array.isArray(res.items)) return res.items
+    return []
   }
   permissionsGuide(kind: string): Promise<import('./types').PermissionGuide> {
     return this.call('permissions.request_guide', { kind })
+  }
+  /**
+   * permissionsOpenSettings asks the daemon to open the OS System
+   * Settings / Privacy pane for `kind` (macOS open, Windows start,
+   * Linux xdg-open). Prefer this over BrowserOpenURL for deep links.
+   */
+  permissionsOpenSettings(kind: string): Promise<{
+    guide: import('./types').PermissionGuide
+    opened: boolean
+    error?: string
+  }> {
+    return this.call('permissions.open_settings', { kind })
   }
   onboardingState(): Promise<import('./types').OnboardingDaemonState> {
     return this.call('onboarding.state', {})

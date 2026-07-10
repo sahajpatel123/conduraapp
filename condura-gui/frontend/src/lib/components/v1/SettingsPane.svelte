@@ -368,10 +368,18 @@
 
   async function openPermissionSettings(kind: string): Promise<void> {
     try {
-      const guide = await trust.loadGuide(kind);
-      if (guide.deep_link) openExternal(guide.deep_link);
+      const { openPermissionSettings: openOS } = await import('../../utils/openPermissionSettings');
+      const { ipc } = await import('../../ipc/client');
+      await openOS(kind, ipc);
+      void trust.refreshPermissions();
     } catch {
-      // guide unavailable
+      // guide unavailable — fall back to deep link only
+      try {
+        const guide = await trust.loadGuide(kind);
+        if (guide.deep_link) openExternal(guide.deep_link);
+      } catch {
+        /* ignore */
+      }
     }
   }
 

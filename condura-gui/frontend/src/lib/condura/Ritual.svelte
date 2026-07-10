@@ -254,18 +254,12 @@
 
   async function openPermSettings(kind: string): Promise<void> {
     try {
-      const g = await ipc.permissionsGuide(kind);
-      const url = g.deep_link ?? g.help_url;
-      if (!url) return;
-      const r = (window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }).runtime;
-      if (r?.BrowserOpenURL) {
-        r.BrowserOpenURL(url);
-        return;
-      }
-      try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
-      window.open(url, '_blank');
+      const { openPermissionSettings } = await import('../utils/openPermissionSettings');
+      const res = await openPermissionSettings(kind, ipc);
+      if (!res.opened && res.error) console.warn('openPermSettings:', res.error);
+      void refreshPerms();
     } catch (e) {
-      console.error('permissionsGuide failed', e);
+      console.error('openPermSettings failed', e);
     }
   }
 

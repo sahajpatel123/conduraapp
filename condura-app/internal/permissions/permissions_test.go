@@ -82,3 +82,24 @@ func TestNewManager_AlwaysSucceeds(t *testing.T) {
 		t.Fatalf("NewManager returned nil")
 	}
 }
+
+func TestOpenDeepLink_EmptyReturnsFalse(t *testing.T) {
+	opened, err := openDeepLink("", "", "darwin")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if opened {
+		t.Fatal("expected opened=false for empty targets")
+	}
+}
+
+func TestOpenSettings_ReturnsGuide(t *testing.T) {
+	// We don't assert opened=true (CI may not have a display / open may fail).
+	g, _, _ := OpenSettings(KindAccessibility)
+	if g.Title == "" {
+		t.Fatal("expected non-empty guide title")
+	}
+	if len(g.Steps) == 0 {
+		t.Fatal("expected steps")
+	}
+}
