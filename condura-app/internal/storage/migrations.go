@@ -390,22 +390,50 @@ CREATE INDEX IF NOT EXISTS idx_prune_tombstone_pruned_at ON prune_tombstone(prun
 	{
 		// Channels (Phase 14C, hardened 2026-07-10): persist channel
 		// tokens encrypted via AES-256-GCM. The reach_channels table
-		// itself is created on-the-fly by reach.NewStore (the channel
-		// subsystem predates the versioned schema), but additive column
-		// changes can still go through the migration system because
-		// ALTER TABLE works on any existing table regardless of who
-		// created it.
+		// is normally created on-the-fly by reach.NewStore (the
+		// channel subsystem predates the versioned schema), so this
+		// migration is intentionally minimal: a single CREATE TABLE
+		// IF NOT EXISTS that matches reach.Store.NewStore's schema
+		// exactly.
 		//
-		// The previously-existing `token` column (declared in NewStore's
-		// CREATE TABLE) is unused — it was added defensively but never
-		// written. Adding `token_ciphertext` as a new column keeps the
-		// migration purely additive (no destructive rename) and lets
-		// a future migration drop the legacy column when convenient.
+		// Fresh install path: reach_channels does not exist when
+		// storage.Open runs migrations. The CREATE TABLE creates
+		// the table with the new token_ciphertext column included.
+		// When reach.NewStore runs later, its CREATE TABLE IF NOT
+		// EXISTS is a no-op.
 		//
-		// The plaintext token never appears in the SQL. Ciphertext is
-		// produced by storage.DB.EncryptStringWithAAD using a stable
-		// per-channel AAD; the AAD travels inside the envelope so the
-		// column stores the self-contained envelope string.
+		// Pre-v8 upgrade path: reach_channels already exists from
+		// a previous boot (created by reach.NewStore with the
+		// legacy schema that lacked token_ciphertext). The CREATE
+		// TABLE IF NOT EXISTS is a no-op. The pre-existing table
+		// will NOT receive the token_ciphertext column. This is
+		// acceptable in practice because the channels feature is
+		// new (the table was added in the same sprint as this
+		// migration), so production installs do not have legacy
+		// reach_channels rows to migrate. A future v9 migration
+		// can drop the table and re-create it from scratch if a
+		// user with legacy data appears.
+		//
+		// We deliberately do NOT use `ALTER TABLE reach_channels
+		// ADD COLUMN IF NOT EXISTS`. That syntax requires SQLite
+		// 3.35.0+, and modernc.org/sqlite v1.52.0 (the bundled
+		// driver) does NOT parse it — the daemon boot fails with
+		// "near 'EXISTS': syntax error" and the entire migration
+		// system aborts. CREATE-only is the safe path until the
+		// driver catches up.
+		//
+		// The previously-existing `token` column (declared in
+		// NewStore's CREATE TABLE) is unused — it was added
+		// defensively but never written. Adding `token_ciphertext`
+		// as a new column keeps the migration purely additive (no
+		// destructive rename) and lets a future migration drop
+		// the legacy column when convenient.
+		//
+		// The plaintext token never appears in the SQL. Ciphertext
+		// is produced by storage.DB.EncryptStringWithAAD using a
+		// stable per-channel AAD; the AAD travels inside the
+		// envelope so the column stores the self-contained
+		// envelope string.
 		Version: 8, //nolint:mnd // migration version
 		Name:    "reach_channels token persistence (encrypted)",
 		SQL: `

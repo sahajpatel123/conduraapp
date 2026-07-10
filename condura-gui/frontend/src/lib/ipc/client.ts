@@ -569,6 +569,26 @@ class IPCClient {
     return this.call('hub.publish', p)
   }
 
+  // ----- Channels (reach) -----
+  // Typed wrappers for the four channels.* RPCs registered in
+  // internal/daemon/methods_reach.go. The Meridian shell's
+  // MeridianChannels.svelte calls these directly without an
+  // `as unknown as` cast; without these wrappers the runtime
+  // check `if (!ipc.channelsConnect)` fires and the user sees
+  // "Channel connect is unavailable in this build."
+  channelsList(): Promise<import('./types').ChannelInfo[]> {
+    return this.call('channels.list', {})
+  }
+  channelsConnect(channel: string, token: string): Promise<import('./types').ChannelInfo> {
+    return this.call('channels.connect', { channel, token })
+  }
+  channelsDisconnect(channel: string): Promise<{ ok: boolean }> {
+    return this.call('channels.disconnect', { channel })
+  }
+  channelsStatus(channel: string): Promise<import('./types').ChannelInfo> {
+    return this.call('channels.status', { channel })
+  }
+
   // ---- SSE transport ----
 
   private async openSse(): Promise<void> {

@@ -973,3 +973,20 @@ export interface HubPublishResult {
   published_at: string
 }
 
+// ----- Channels (reach) -----
+//
+// ChannelInfo is the shape returned by channels.list, channels.status,
+// and channels.connect on the daemon. The `channel` field is the
+// canonical id (e.g., "telegram", "whatsapp"); `id` and `name` are
+// kept for forward compatibility with older builds that may not yet
+// emit the `channel` field. MeridianChannels.svelte and
+// lib/condura/Channels.svelte both consume this shape.
+export interface ChannelInfo {
+  id: string
+  name: string
+  channel: string
+  status: string
+  connected: boolean
+  detail?: string
+}
+
