@@ -65,20 +65,28 @@
 
 <style>
   .dock {
-    position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 20;
-    display: flex; align-items: center; justify-content: flex-start; gap: 8px;
-    padding: 10px 12px; border-radius: 22px;
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 22px;
     background: color-mix(in oklab, var(--md-surface) 78%, transparent);
     border: 1px solid var(--md-line-strong);
     backdrop-filter: blur(18px) saturate(1.2);
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: var(--md-shadow);
+    /* Soft downward shadow only — no side cast on the rounded ends */
+    box-shadow: 0 16px 28px -22px color-mix(in oklab, var(--md-ink) 28%, transparent);
     animation: md-dock-up 640ms var(--md-ease) 120ms both;
-    overflow-x: auto; scrollbar-width: none;
+    overflow-x: auto;
+    scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-padding-inline: 8px;
-    mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent);
   }
   .dock::-webkit-scrollbar { display: none; }
   .primary, .more { display: flex; align-items: center; gap: 4px; flex: none; }
@@ -87,7 +95,7 @@
     background: var(--md-line-strong); flex: none;
   }
   .dock:hover {
-    box-shadow: var(--md-shadow-lift);
+    box-shadow: 0 20px 34px -22px color-mix(in oklab, var(--md-ink) 34%, transparent);
     border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line-strong));
   }
   .tab {
@@ -146,7 +154,7 @@
   }
   @media (max-width: 720px) {
     .dock {
-      left: 8px; right: 8px; bottom: 10px;
+      left: 14px; right: 14px; bottom: 10px;
       padding: 8px 10px; gap: 6px; border-radius: 18px;
       justify-content: flex-start;
     }
@@ -155,7 +163,7 @@
   }
   @media (max-width: 420px) {
     .dock {
-      left: 6px; right: 6px; bottom: 8px;
+      left: 10px; right: 10px; bottom: 8px;
       padding: 7px 8px;
     }
     .tab { padding: 8px 9px; font-size: 11.5px; }
