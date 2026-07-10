@@ -134,7 +134,7 @@ Every decision made during planning. Nothing is open. Implementation may surface
 | 14 | Support channels | **All** — Discord + GitHub Issues + support@condura.app | User |
 | 15 | Provider down behavior | **Auto-failover** — Ollama local first, then any configured backup key | User |
 | 16 | Multi-machine sync | **P2P encrypted sync** (device-to-device, E2E encrypted, no central server) | User |
-| 17 | Uninstall behavior | **Auto-backup before uninstall** to `~/Documents/synaptic-backups/` | User |
+| 17 | Uninstall behavior | **Auto-backup before uninstall** to `~/Documents/condura-backups/` | User |
 | 18 | Skill sharing | **Public Skills Hub** at `hub.condura.app` (curated, safety-scanned, versioned) | User |
 | 19 | Feedback UX | **Thumbs up/down** on every response (optional text; feeds adaptive engine) | User |
 | 20 | Persona | **Adaptive, mirrors user** (no fixed character; learns communication style) | User |
@@ -145,14 +145,14 @@ Every decision made during planning. Nothing is open. Implementation may surface
 | 25 | Uncertainty handling | **Ask user immediately** — overlay shows "I'm 60% sure you want X. Proceed?" | User |
 | 26 | Energy budget | **Refuse, force user decision** — when budget hit and vision needed, pause and ask | User |
 | 27 | Daemon autostart | **Auto-start on login** (LaunchAgent / Run key / systemd user) | User |
-| 28 | Backup destination | `~/Documents/synaptic-backups/synaptic-backup-<date>.zip` | User |
+| 28 | Backup destination | `~/Documents/condura-backups/condura-backup-<date>.zip` | User |
 | 29 | Cloud sync infra | **P2P sync** (Syncthing-style, no central server, E2E encrypted) | User |
 | 30 | User account | **Email + magic link** (for hub, donations, support; sync is P2P, no account needed) | User |
 | 31 | Action replay | **Yes, built-in** — last 24h scrubbable with screenshots + decisions | User |
 | 32 | Versioning | **v0.1.0** (SemVer) | User |
 | 33 | Web dashboard auth | Same magic-link as desktop app | User |
 | 34 | Multi-install | **Block second install** (one stable instance per machine) | User |
-| 35 | Wake word | **"hey synaptic"** (custom, local, openWakeWord) | User |
+| 35 | Wake word | **"hey condura"** (custom, local, openWakeWord) | User |
 | 36 | EULA clauses | **Freeware EULA** — free personal + commercial, no redistribution, revocable for abuse | User |
 
 > Note: The original count was "26 decisions" but additional small decisions were made during finalization. All are listed here for completeness.
@@ -331,7 +331,7 @@ When the user is typing, **the agent is asleep**. When the user clicks, the agen
 | Overlay window | Wails frameless, always-on-top, transparent | Native feel |
 | Voice STT | **whisper.cpp** (local) + OpenAI Whisper (cloud fallback) | Local = no cloud cost, fast, private |
 | Voice TTS | OpenAI + ElevenLabs + native `say` (mac) | Multiple providers |
-| Wake word | **openWakeWord** (local, custom phrase "hey synaptic") | Open source, runs offline |
+| Wake word | **openWakeWord** (local, custom phrase "hey condura") | Open source, runs offline |
 | Auto-update | **`go-update` + Sparkle-like delta** (mac) / Squirrel (win) | Standard pattern, signed |
 | Code signing | Apple Developer ID + `codesign --deep --strict --options=runtime`; Microsoft Authenticode | Required for distribution |
 | Notarization | `notarytool` + altool for macOS | Required for Gatekeeper |
@@ -776,7 +776,7 @@ Transparency. User can see exactly what the agent did and why. Forensics if some
 ### 19.3 Voice
 - **STT**: whisper.cpp local (default), OpenAI Whisper (cloud fallback)
 - **TTS**: OpenAI, ElevenLabs, native `say` (mac)
-- **Wake word**: "hey synaptic" (custom, local, openWakeWord)
+- **Wake word**: "hey condura" (custom, local, openWakeWord)
 - **Push-to-talk** OR **continuous** (configurable)
 - **Live transcription** while speaking
 - **Submit on silence** (1.5s default)
@@ -877,7 +877,7 @@ One stable instance per machine. Second install blocked with friendly message.
 ### 24.1 Auto-Backup on Uninstall
 - Triggered by OS uninstaller
 - Zips: memory + skills + config + sanitized audit
-- Saves to `~/Documents/synaptic-backups/synaptic-backup-<ISO-date>.zip`
+- Saves to `~/Documents/condura-backups/condura-backup-<ISO-date>.zip`
 - Then proceeds with uninstall
 
 ### 24.2 Manual Backup
@@ -1258,7 +1258,7 @@ right next pass, signed off by the spec author.
 | 8 | 8 × `defer crash.Recover()` sites | Duplicated pattern; `safego.Go(name, fn)` helper is the right altitude | **Tracked as refactor** — extraction would touch every consumer; separate PR |
 | 9 | `daemon.info` | Makes `daemon.uptime` + `daemon.pid` partially redundant | **Tracked** — three-endpoint shape is intentional for ops debug; revisit on any v0.2 RPC overhaul |
 | 10 | `condura-gui/frontend/package.json.md5` | Stale single-purpose hash file | **Fixed**: deleted |
-| 11 | `condura-studio/condura-receipt/` | Orphan stub (`index.html` + `styles.css` only) | **Tracked**: studio-scope cleanup; defer |
+| 11 | `condura-studio/condura-receipt/` | Orphan stub (`index.html` + `styles.css` only) | **Fixed**: directory never landed in main; studio README documents active projects only (`condura-demo`, `condura-spotlight`, `condura-thread`; `my-video/` is exploration) |
 | 12 | `.github/dependabot.yml:14` | `production` group combined `patterns: ["*"]` with `dependency-type: "production"` (contradictory) | **Fixed**: removed the wildcard `patterns` clause |
 
 ### Honest residuals (intentional, non-blocking for v0.1.0)

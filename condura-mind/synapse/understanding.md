@@ -43,13 +43,12 @@ Synaptic to Condura`.
 - **Makefile** `BINARY_NAME := condurad`.
 - **Domain:** `condura.app`. Hub: `hub.condura.app`. Support: `support@condura.app`.
 - **GitHub:** `github.com/sahajpatel123/conduraapp` (private).
-- **Wake word still says "hey synaptic"** in `MISSION.md` §4 decision 35 and
-  §19.3 — this is a **known drift**; the user wants it to be
-  "hey condura" per the FOOTHPATH rename. Fix in a future session if
-  asked.
+- **Wake word:** `"hey condura"` (MISSION §4 #35 + code defaults). Legacy
+  `hey_synaptic` model name still accepted as a deprecated alias in
+  `internal/voice/modelmgr` for old configs; ONNX asset URL remains on the
+  pre-rebrand HuggingFace path (model detects the condura phrase).
 - **OAuth scheme:** `condura://` (was `synaptic://`).
-- **Backup directory:** `~/Documents/synaptic-backups/` — still uses the
-  old name in code (known drift).
+- **Backup directory:** `~/Documents/condura-backups/` (code + MISSION aligned).
 
 **The agent must mentally substitute Condura → Synaptic when reading the
 spec, and "Synaptic" still appearing in code is a backlog item, not a
@@ -354,7 +353,7 @@ All decisions are listed verbatim in the spec. Key ones to internalize:
   configured backup key.
 - **#16 Multi-machine sync:** P2P encrypted sync, no central server.
 - **#17 Uninstall behavior:** auto-backup before uninstall to
-  `~/Documents/synaptic-backups/`.
+  `~/Documents/condura-backups/`.
 - **#23 Concurrency:** default 2 parallel sub-agents, max 5, user-configurable.
 - **#24 Autonomy:** default cautious (warn before any action).
 - **#25 Uncertainty:** ask user immediately ("I'm 60% sure you want X. Proceed?").
@@ -363,8 +362,7 @@ All decisions are listed verbatim in the spec. Key ones to internalize:
 - **#30 User account:** email + magic link (for hub, donations, support;
   P2P sync needs no account).
 - **#34 Multi-install:** block second install.
-- **#35 Wake word:** "hey synaptic" — **STILL DRIFT in code**, the user
-  wants "hey condura". Backlog item.
+- **#35 Wake word:** "hey condura" (code + MISSION aligned as of 2026-07-10).
 - **#36 EULA:** Freeware EULA — free personal + commercial, no
   redistribution, revocable for abuse.
 
@@ -422,10 +420,9 @@ Per `docs/roadmap-v0.2.0.md` and `MISSION.md` §33.5.2:
   configured provider+model.
 
 ### 9.4 Drift Between Spec and Implementation (Known)
-- **Wake word "hey synaptic"** in `MISSION.md` §4 #35 and §19.3 — user
-  wants "hey condura". Backlog.
-- **Backup directory `~/Documents/synaptic-backups/`** — still uses old
-  name. Backlog.
+- **Wake word / backup path brand rename** — closed 2026-07-10 (MISSION +
+  GUI + defaults use `hey condura` / `condura-backups`). Residual:
+  historical design docs may still mention the pre-rebrand phrase.
 - **`internal/router/`** — spec describes a hybrid-with-memory router;
   package does not exist. v0.2.0 work.
 - **OAuth subscription flows** — marketing copy mentions ChatGPT Plus /
@@ -520,14 +517,14 @@ with conventional-commit messages and push at end of session. Use
    not exist. Intentional drift. The H1 preserves the link targets other
    docs use.
 
-2. **Wake word is "hey synaptic"** in `MISSION.md` §4 #35 and §19.3, but
-   the user wants "hey condura". Backlog. Files affected: 11.
+2. **Wake word is "hey condura"** in MISSION + code defaults. Deprecated
+   `hey_synaptic` alias remains in modelmgr for old configs only.
 
 3. **OAuth scheme `condura://`** — was `synaptic://`, renamed in 6 files
    (Go + Svelte + tests).
 
-4. **Backup directory `~/Documents/synaptic-backups/`** — still uses old
-   name. Backlog.
+4. **Backup directory `~/Documents/condura-backups/`** — aligned with
+   MISSION §24.1 / decisions #17 and #28.
 
 5. **Two consent namespaces:** `gatekeeper.*` (canonical) and
    `safety.consent.*` (DEPRECATED alias). GUI uses `gatekeeper.*`.

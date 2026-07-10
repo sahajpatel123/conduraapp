@@ -14,7 +14,14 @@ output that lands in `condura-brand/assets/` for consumption by
 |---|---|---|
 | `condura-demo/` | shipping | 60s product demo film |
 | `condura-spotlight/` | shipping | AI-authored hype reel + cinematic masterpiece |
-| `my-video/` | exploration | earlier brand experiments |
+| `condura-thread/` | shipping | Interactive HTML/CSS/JS film (thread / receipt motif) |
+| `my-video/` | exploration | Earlier brand experiments — keep for reference; not a launch hero |
+
+## Explicitly not present
+
+- `condura-receipt/` — was an orphan stub (`index.html` + `styles.css` only).
+  Never merged to main; **dropped**. Receipt visual language lives inside
+  `condura-thread/` and the desktop Replay surface, not a separate film.
 
 ## Develop
 
@@ -38,3 +45,9 @@ npm run build        # render to .mp4
 
 Final outputs belong in `condura-brand/assets/`. Intermediate renders,
 `node_modules/`, and `build/` directories are gitignored.
+
+## Creative thrash rule
+
+Do not start a new studio film until one hero for v0.1.0 launch is locked
+and signed off. Prefer polishing `condura-demo/` / `condura-spotlight/`
+over new subfolders.

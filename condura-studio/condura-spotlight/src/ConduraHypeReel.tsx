@@ -281,7 +281,7 @@ const powers = [
   {word: 'MODELS', sub: '12 providers', color: acid, at: 0},
   {word: 'AGENTS', sub: '8 CLIs orchestrated', color: cyan, at: 16},
   {word: 'BROWSER', sub: 'clicks & types for you', color: orange, at: 32},
-  {word: 'VOICE', sub: '"hey synaptic"', color: magenta, at: 48},
+  {word: 'VOICE', sub: '"hey condura"', color: magenta, at: 48},
   {word: 'CONTROL', sub: 'asks before it acts', color: acid, at: 64},
   {word: 'FREE', sub: 'no subscription. ever.', color: cyan, at: 80},
 ];

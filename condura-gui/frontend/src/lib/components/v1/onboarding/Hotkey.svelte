@@ -4,7 +4,7 @@
   Per spec §10.5: a single recordable field. No skip — without a hotkey
   the agent is unreachable. Three suggested combos as ghosted suggestions.
 
-  Below: voice test toggle (the "hey synaptic" wake word).
+  Below: voice test toggle (the "hey condura" wake word).
 -->
 <script lang="ts">
   import Button from '../Button.svelte';
@@ -135,11 +135,11 @@
       </div>
     {/if}
 
-    <p class="hint">Press this from anywhere. Synaptic will appear at your cursor.</p>
+    <p class="hint">Press this from anywhere. Condura will appear at your cursor.</p>
 
     <div class="voice">
       <Switch
-        label="Also say 'hey synaptic' to wake me"
+        label="Also say 'hey condura' to wake me"
         description="Local wake word, runs on your machine. You can change the phrase later."
         checked={voiceWakeEnabled}
         onchange={onvoicetoggle}

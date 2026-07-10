@@ -116,7 +116,7 @@
 
 | # | Step | Expected Result | Status | Notes |
 |---|------|-----------------|--------|-------|
-| 8.1 | On macOS: enable wake word | "hey synaptic" wakes overlay | | |
+| 8.1 | On macOS: enable wake word | "hey condura" wakes overlay | | |
 | 8.2 | On macOS: press-and-hold hotkey | Voice orb appears; release submits transcript | | |
 | 8.3 | On Windows/Linux: attempt voice | Meaningful error: "audio capture not available on this platform..." | | |
 | 8.4 | Configure cloud transcription | OpenAI Whisper fallback works with API key | | |
