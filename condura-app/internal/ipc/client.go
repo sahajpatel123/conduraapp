@@ -33,7 +33,7 @@ type Client struct {
 // Dial creates a Client. The addr has the form
 //
 //	tcp://127.0.0.1:7666
-//	unix:///tmp/synapticd.sock
+//	unix:///tmp/condurad.sock
 //
 // An optional bearer token is sent in the Authorization header.
 func Dial(addr, token string) (*Client, error) {

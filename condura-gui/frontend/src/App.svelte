@@ -147,7 +147,7 @@
       showOnboarding = true
       window.location.hash = '#/'
     }
-    window.addEventListener('synaptic:show-onboarding', onShowOnboarding)
+    window.addEventListener('condura:show-onboarding', onShowOnboarding)
 
     consent.start()
 
@@ -166,12 +166,12 @@
     window.addEventListener('keydown', onKey)
 
     const onOpenPalette = (): void => { paletteOpen = true }
-    window.addEventListener('synaptic:open-palette', onOpenPalette)
+    window.addEventListener('condura:open-palette', onOpenPalette)
 
     return () => {
       window.removeEventListener('hashchange', onHashChange)
-      window.removeEventListener('synaptic:show-onboarding', onShowOnboarding)
-      window.removeEventListener('synaptic:open-palette', onOpenPalette)
+      window.removeEventListener('condura:show-onboarding', onShowOnboarding)
+      window.removeEventListener('condura:open-palette', onOpenPalette)
       window.removeEventListener('keydown', onKey)
       consent.stop()
     }

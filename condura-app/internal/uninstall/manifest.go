@@ -455,26 +455,26 @@ func PostUninstallGuide() string {
 	case "darwin":
 		return strings.Join([]string{
 			"macOS permissions to revoke manually:",
-			"  System Settings → Privacy & Security → Accessibility: remove Synaptic",
-			"  System Settings → Privacy & Security → Screen Recording: remove Synaptic",
-			"  System Settings → Privacy & Security → Microphone: remove Synaptic",
-			"  System Settings → Privacy & Security → Automation: remove Synaptic (if present)",
-			"  Login Items: remove Synaptic LaunchAgent (if present)",
-			"  Keychain: remove 'master_key' (and any OAuth tokens stored under Synaptic)",
+			"  System Settings → Privacy & Security → Accessibility: remove Condura",
+			"  System Settings → Privacy & Security → Screen Recording: remove Condura",
+			"  System Settings → Privacy & Security → Microphone: remove Condura",
+			"  System Settings → Privacy & Security → Automation: remove Condura (if present)",
+			"  Login Items: remove Condura LaunchAgent (if present)",
+			"  Keychain: remove 'master_key' (and any OAuth tokens stored under Condura)",
 		}, "\n")
 	case "windows":
 		return strings.Join([]string{
 			"Windows permissions to revoke manually:",
-			"  Settings → Privacy → Microphone: remove Synaptic",
-			"  Settings → Privacy → Screen recording: remove Synaptic (if present)",
-			"  Services: remove Synaptic service (if installed)",
+			"  Settings → Privacy → Microphone: remove Condura",
+			"  Settings → Privacy → Screen recording: remove Condura (if present)",
+			"  Services: remove Condura service (if installed)",
 		}, "\n")
 	case "linux":
 		return strings.Join([]string{
 			"Linux permissions to revoke manually:",
 			"  Remove the systemd user unit:",
-			"    systemctl --user disable synapticd.service",
-			"    rm ~/.config/systemd/user/synapticd.service",
+			"    systemctl --user disable condurad.service",
+			"    rm ~/.config/systemd/user/condurad.service",
 		}, "\n")
 	default:
 		return "No OS-specific post-uninstall steps for this platform."

@@ -9,7 +9,7 @@
   let { title }: Props = $props()
 
   function openPalette(): void {
-    window.dispatchEvent(new CustomEvent('synaptic:open-palette'))
+    window.dispatchEvent(new CustomEvent('condura:open-palette'))
   }
 
   function back(): void {

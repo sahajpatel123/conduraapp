@@ -6,11 +6,11 @@
 //
 // Typical lifecycle:
 //
-//	synapticd --config ~/.condura/config.yaml
-//	synapticd --print-default-config > ~/.condura/config.yaml
+//	condurad --config ~/.condura/config.yaml
+//	condurad --print-default-config > ~/.condura/config.yaml
 //
 // Phase 2+: this binary is the standalone CLI daemon. The GUI
-// (cmd/synaptic-gui) embeds the same daemon logic via
+// (cmd/condura-gui) embeds the same daemon logic via
 // internal/daemon.Run() — see that package for the actual entry
 // point.
 package main

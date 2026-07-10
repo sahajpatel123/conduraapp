@@ -66,7 +66,7 @@
 
   async function reRunSetup(): Promise<void> {
     showReRunSetup = false
-    window.dispatchEvent(new CustomEvent('synaptic:show-onboarding'))
+    window.dispatchEvent(new CustomEvent('condura:show-onboarding'))
   }
 
   async function haltAgent(): Promise<void> {

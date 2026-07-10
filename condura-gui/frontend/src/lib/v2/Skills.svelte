@@ -6,7 +6,7 @@
   faint red-warm ribbon at the top."
 
   This is the local mirror of Hub. Skills appear here after
-  they are installed from Hub and live in `~/.synaptic/skills/`.
+  they are installed from Hub and live in `~/.condura/skills/`.
 
   Props:
     skills: Skill[]

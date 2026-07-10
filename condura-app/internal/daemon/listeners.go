@@ -36,7 +36,7 @@ func startListeners(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Lo
 }
 
 // bindUnixSocket binds a Unix domain socket inside the data dir, on
-// macOS / Linux. The path is <data_dir>/synapticd.sock. We
+// macOS / Linux. The path is <data_dir>/condurad.sock. We
 // best-effort remove any stale socket file first.
 func bindUnixSocket(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Logger, cfg *config.Config) {
 	if isWindows {

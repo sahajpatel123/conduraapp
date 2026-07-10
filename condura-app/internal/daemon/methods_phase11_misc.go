@@ -47,7 +47,7 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
-		if !subs.GatekeeperAllow(ctx, "uninstall.execute", "Uninstall Synaptic from this machine") {
+		if !subs.GatekeeperAllow(ctx, "uninstall.execute", "Uninstall Condura from this machine") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		var backupPath string

@@ -38,7 +38,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
-// ErrAlreadyRunning is returned by Run if another synaptic instance
+// ErrAlreadyRunning is returned by Run if another Condura instance
 // is already using the same data directory. The user-visible message
 // should be "Another instance of Condura is already running."
 var ErrAlreadyRunning = errors.New("daemon: another instance is already running")

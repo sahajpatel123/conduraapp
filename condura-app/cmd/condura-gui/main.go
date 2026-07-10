@@ -1,7 +1,7 @@
-// Command web is the Synaptic GUI entry point.
+// Command web is the Condura GUI entry point.
 //
 // This is a Wails v2 app: a single binary that embeds the system
-// WebView and the synaptic daemon in the same process. The daemon
+// WebView and the condura daemon in the same process. The daemon
 // is started in a goroutine via internal/daemon.Run(); the Wails
 // App struct exposes IPC methods to the frontend.
 package main

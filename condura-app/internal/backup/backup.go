@@ -118,7 +118,7 @@ type Manifest struct {
 
 // ManifestFile is one entry in Manifest.Files.
 type ManifestFile struct {
-	Path      string `json:"path"`      // path inside the archive (e.g. "synaptic.db")
+	Path      string `json:"path"`      // path inside the archive (e.g. "condura.db")
 	Size      int64  `json:"size"`      // plaintext size in bytes
 	SHA256    string `json:"sha256"`    // hex SHA-256 of the plaintext
 	Encrypted bool   `json:"encrypted"` // always true in v1

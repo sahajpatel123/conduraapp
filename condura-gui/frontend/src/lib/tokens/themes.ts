@@ -10,7 +10,7 @@
 
 export type Mode = 'light' | 'dark' | 'hc' | 'system';
 
-const STORAGE_KEY = 'synaptic:mode';
+const STORAGE_KEY = 'condura:mode';
 const VALID_MODES: Mode[] = ['light', 'dark', 'hc', 'system'];
 
 let current: Mode = 'system';
@@ -77,6 +77,13 @@ function readStored(): Mode | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
     if (v && VALID_MODES.includes(v as Mode)) return v as Mode;
+    // One-time migration from pre-rename key (synaptic:mode → condura:mode).
+    const legacy = localStorage.getItem('synaptic:mode');
+    if (legacy && VALID_MODES.includes(legacy as Mode)) {
+      localStorage.setItem(STORAGE_KEY, legacy);
+      localStorage.removeItem('synaptic:mode');
+      return legacy as Mode;
+    }
   } catch {
     /* ignore (privacy mode, etc.) */
   }

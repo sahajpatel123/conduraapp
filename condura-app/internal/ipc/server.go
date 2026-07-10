@@ -1,5 +1,5 @@
 // Package ipc implements the inter-process communication bridge between
-// the Synaptic daemon (synapticd) and the Wails GUI (Phase 2) / CLI.
+// the Condura daemon (condurad) and the Wails GUI (Phase 2) / CLI.
 //
 // Transport: JSON-RPC 2.0 over WebSocket (coder/websocket). The daemon
 // listens on a localhost TCP port and (on macOS/Linux) a Unix domain
