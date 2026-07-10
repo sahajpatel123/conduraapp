@@ -85,9 +85,15 @@ func DefaultManifest(dataDir string) Manifest {
 	// sibling-dir convention. Everything is in the data dir.
 
 	m := Manifest{
-		{Name: "main DB (encrypted)", Path: filepath.Join(dataDir, "synaptic.db"), Description: "Encrypted SQLite: API keys, audit log, memory index, spend."},
-		{Name: "main DB WAL", Path: filepath.Join(dataDir, "synaptic.db-wal"), Optional: true, Description: "SQLite write-ahead log."},
-		{Name: "main DB SHM", Path: filepath.Join(dataDir, "synaptic.db-shm"), Optional: true, Description: "SQLite shared memory."},
+		// Canonical name (config/loader.go). Optional so uninstall succeeds
+		// on either naming scheme.
+		{Name: "main DB (encrypted)", Path: filepath.Join(dataDir, "condura.db"), Optional: true, Description: "Encrypted SQLite: API keys, audit log, memory index, spend."},
+		{Name: "main DB WAL", Path: filepath.Join(dataDir, "condura.db-wal"), Optional: true, Description: "SQLite write-ahead log."},
+		{Name: "main DB SHM", Path: filepath.Join(dataDir, "condura.db-shm"), Optional: true, Description: "SQLite shared memory."},
+		// Legacy filename (pre-rename). Optional: present only on old installs.
+		{Name: "main DB (legacy name)", Path: filepath.Join(dataDir, "synaptic.db"), Optional: true, Description: "Legacy main DB filename (pre Condura rename)."},
+		{Name: "main DB WAL (legacy)", Path: filepath.Join(dataDir, "synaptic.db-wal"), Optional: true},
+		{Name: "main DB SHM (legacy)", Path: filepath.Join(dataDir, "synaptic.db-shm"), Optional: true},
 		{Name: "memory DB", Path: filepath.Join(dataDir, "memory.db"), Description: "Episodic + semantic + procedural memory."},
 		{Name: "memory DB WAL", Path: filepath.Join(dataDir, "memory.db-wal"), Optional: true},
 		{Name: "memory DB SHM", Path: filepath.Join(dataDir, "memory.db-shm"), Optional: true},
@@ -103,7 +109,7 @@ func DefaultManifest(dataDir string) Manifest {
 		{Name: "replay screenshots", Path: filepath.Join(dataDir, "replay"), Optional: true, Description: "Encrypted screenshot ring buffer (24h TTL)."},
 		{Name: "whisper binary", Path: filepath.Join(dataDir, "bin", "whisper"), Optional: true, Description: "Whisper.cpp binary (SHA256-pinned)."},
 		{Name: "whisper model", Path: filepath.Join(dataDir, "models", "whisper-base.bin"), Optional: true, Description: "Whisper model file (SHA256-pinned)."},
-		{Name: "data dir itself", Path: dataDir, Description: "Root of all Synaptic on-disk state. Removed last."},
+		{Name: "data dir itself", Path: dataDir, Description: "Root of all Condura on-disk state. Removed last."},
 		{Name: "lockfile", Path: filepath.Join(dataDir, "condurad.lock"), Optional: true, Description: "Single-instance lock (usually gone if daemon exited)."},
 		{Name: "addr sidecar", Path: filepath.Join(dataDir, "condurad.addr"), Optional: true, Description: "Daemon listen address sidecar."},
 	}

@@ -232,7 +232,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 func runPostRestoreIntegrityChecks(ctx context.Context, subs *Subsystems) error {
 	var errs []error
 	if subs.Storage != nil {
-		if err := checkSQLiteIntegrity(ctx, subs.Storage.SQL(), "synaptic.db"); err != nil {
+		if err := checkSQLiteIntegrity(ctx, subs.Storage.SQL(), "condura.db"); err != nil {
 			errs = append(errs, err)
 		}
 	}

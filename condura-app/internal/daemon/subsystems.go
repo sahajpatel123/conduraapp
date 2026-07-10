@@ -1301,16 +1301,16 @@ func healthCheckIPC() health.Check {
 }
 
 // initExtractor creates the post-session extractor if stores are available.
-// `dataDir` is conventionally the *synaptic.db* path (e.g.
-// "/var/synaptic/synaptic.db"); the skills store lives at
-// the parent dir + "skills.db" = "/var/synaptic/skills.db".
+// `dataDir` is conventionally the main DB path (e.g. ".../condura.db");
+// the skills store lives at the parent dir + "skills.db".
 // We unwrap the file part explicitly here so the path is
 // obvious from the call site and the test suite can grep for it.
 func initExtractor(dataDir string, memMgr *memory.StoreManager, log *slog.Logger) *PostSessionExtractor {
-	// dataDir may be either a directory OR a file (synaptic.db).
+	// dataDir may be either a directory OR a file (condura.db / legacy synaptic.db).
 	// Accept both shapes; if it's a file, take its parent.
 	parent := dataDir
-	if filepath.Base(parent) == "synaptic.db" {
+	base := filepath.Base(parent)
+	if base == "condura.db" || base == "synaptic.db" {
 		parent = filepath.Dir(parent)
 	}
 	skillPath := filepath.Join(parent, "skills.db")

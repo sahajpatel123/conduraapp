@@ -119,7 +119,7 @@ func TestUninstall_EmptyDataDir(t *testing.T) {
 // actually delete.
 func TestUninstall_DryRun(t *testing.T) {
 	tmp := t.TempDir()
-	mustWrite(t, filepath.Join(tmp, "synaptic.db"), []byte("main"))
+	mustWrite(t, filepath.Join(tmp, "condura.db"), []byte("main"))
 
 	opts := Options{
 		DataDir:      tmp,
@@ -135,7 +135,7 @@ func TestUninstall_DryRun(t *testing.T) {
 		t.Error("expected DryRun to count at least 1 file")
 	}
 	// The file must still be there.
-	if _, err := os.Stat(filepath.Join(tmp, "synaptic.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmp, "condura.db")); err != nil {
 		t.Errorf("DryRun deleted the file: %v", err)
 	}
 }
@@ -143,7 +143,7 @@ func TestUninstall_DryRun(t *testing.T) {
 // TestPreview_DoesNotMutate asserts Preview is non-destructive.
 func TestPreview_DoesNotMutate(t *testing.T) {
 	tmp := t.TempDir()
-	mustWrite(t, filepath.Join(tmp, "synaptic.db"), []byte("x"))
+	mustWrite(t, filepath.Join(tmp, "condura.db"), []byte("x"))
 	opts := Options{DataDir: tmp, HomeDir: tmp}
 	pr, err := Preview(opts)
 	if err != nil {
@@ -153,7 +153,7 @@ func TestPreview_DoesNotMutate(t *testing.T) {
 		t.Errorf("preview total = %d, want >= 2", pr.Total)
 	}
 	// File still there.
-	if _, err := os.Stat(filepath.Join(tmp, "synaptic.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmp, "condura.db")); err != nil {
 		t.Errorf("Preview deleted the file: %v", err)
 	}
 }
@@ -207,9 +207,9 @@ func TestUninstall_DoesNotFollowSymlinks(t *testing.T) {
 	victim := filepath.Join(outside, "victim.txt")
 	mustWrite(t, victim, []byte("precious"))
 
-	// Create the real synaptic.db file first, then replace it with a
+	// Create the real condura.db file first, then replace it with a
 	// symlink pointing outside the data dir.
-	dbPath := filepath.Join(tmp, "synaptic.db")
+	dbPath := filepath.Join(tmp, "condura.db")
 	mustWrite(t, dbPath, []byte("x"))
 	if err := os.Remove(dbPath); err != nil {
 		t.Fatal(err)
@@ -245,7 +245,7 @@ func TestUninstall_DryRun_DoesNotFollowSymlinks(t *testing.T) {
 	victim := filepath.Join(outside, "victim.txt")
 	mustWrite(t, victim, []byte("precious"))
 
-	dbPath := filepath.Join(tmp, "synaptic.db")
+	dbPath := filepath.Join(tmp, "condura.db")
 	mustWrite(t, dbPath, []byte("x"))
 	if err := os.Remove(dbPath); err != nil {
 		t.Fatal(err)
@@ -278,7 +278,7 @@ func TestUninstall_DryRun_DoesNotFollowSymlinks(t *testing.T) {
 
 func TestEntriesForPaths(t *testing.T) {
 	tmp := t.TempDir()
-	mustWrite(t, filepath.Join(tmp, "synaptic.db"), []byte("x"))
+	mustWrite(t, filepath.Join(tmp, "condura.db"), []byte("x"))
 	got := EntriesForPaths(tmp)
 	if len(got) == 0 {
 		t.Error("expected at least 1 existing path")

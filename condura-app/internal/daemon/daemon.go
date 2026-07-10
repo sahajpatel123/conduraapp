@@ -365,6 +365,26 @@ func migrateLegacyDataDir(newDir string) {
 	}
 	slog.Info("migrating legacy Synaptic data", "from", legacyDir, "to", newDir)
 	copyDir(legacyDir, newDir)
+	// Rename main DB to the canonical Condura filename if needed.
+	legacyDB := filepath.Join(newDir, "synaptic.db")
+	canonicalDB := filepath.Join(newDir, "condura.db")
+	if _, err := os.Stat(legacyDB); err == nil {
+		if _, err2 := os.Stat(canonicalDB); os.IsNotExist(err2) {
+			if err3 := os.Rename(legacyDB, canonicalDB); err3 != nil {
+				slog.Warn("could not rename synaptic.db → condura.db", "err", err3)
+			} else {
+				// Sidecars follow the same rename when present.
+				for _, suf := range []string{"-wal", "-shm"} {
+					old := legacyDB + suf
+					neu := canonicalDB + suf
+					if _, e := os.Stat(old); e == nil {
+						_ = os.Rename(old, neu)
+					}
+				}
+				slog.Info("renamed main DB synaptic.db → condura.db")
+			}
+		}
+	}
 	slog.Info("data migration complete — you can safely delete ~/.synaptic/")
 }
 

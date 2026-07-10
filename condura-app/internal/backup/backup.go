@@ -1,8 +1,8 @@
-// Package backup implements encrypted backup and restore for Synaptic's
+// Package backup implements encrypted backup and restore for Condura's
 // on-disk state (Phase 11, sub-phase 11B).
 //
 // What we back up (per MISSION §24 + the Phase 11 plan):
-//   - main DB:      <data-dir>/synaptic.db         (+ WAL/SHM sidecars)
+//   - main DB:      <data-dir>/condura.db         (+ WAL/SHM sidecars)
 //   - memory DB:    <data-dir>/memory.db           (+ WAL/SHM sidecars)
 //   - skills DB:    <data-dir>/skills.db           (+ WAL/SHM sidecars)
 //   - secrets.json: <data-dir>/secrets.json
@@ -22,9 +22,9 @@
 //
 //	<archive>.zip
 //	  ├─ manifest.json     (versions, checksums, schema, timestamp)
-//	  ├─ synaptic.db
-//	  ├─ synaptic.db-wal
-//	  ├─ synaptic.db-shm
+//	  ├─ condura.db
+//	  ├─ condura.db-wal
+//	  ├─ condura.db-shm
 //	  ├─ memory.db
 //	  ├─ memory.db-wal
 //	  ├─ memory.db-shm
@@ -143,7 +143,7 @@ type artifactSpec struct {
 
 // Options configures a Manager.
 type Options struct {
-	// DataDir is the Synaptic data directory (parent of synaptic.db).
+	// DataDir is the Condura data directory (parent of condura.db).
 	DataDir string
 	// ConfigPath is the path to the user's config.yaml (optional).
 	ConfigPath string
@@ -368,12 +368,32 @@ func (b *Manager) rebuildWithManifest(manifest Manifest, key []byte, specs []art
 	return outPath, nil
 }
 
+// resolveMainDBPaths returns the on-disk main DB (+ WAL/SHM) for backup.
+// Canonical name is condura.db; legacy synaptic.db is accepted so upgrades
+// never break backup.create on installs that only have the old filename.
+func resolveMainDBPaths(dataDir string) (db, wal, shm string) {
+	canonical := filepath.Join(dataDir, "condura.db")
+	legacy := filepath.Join(dataDir, "synaptic.db")
+	if _, err := os.Stat(canonical); err == nil {
+		return canonical, canonical + "-wal", canonical + "-shm"
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy, legacy + "-wal", legacy + "-shm"
+	}
+	// Neither exists yet (fresh install mid-boot): require canonical so the
+	// error message names the path the daemon actually uses.
+	return canonical, canonical + "-wal", canonical + "-shm"
+}
+
 func (b *Manager) collectSpecs() []artifactSpec {
 	dd := b.opts.DataDir
+	mainDB, mainWAL, mainSHM := resolveMainDBPaths(dd)
+	// Archive always uses the canonical name so restores land on condura.db
+	// even when the source install still had synaptic.db.
 	return []artifactSpec{
-		{pathInArchive: "synaptic.db", sourcePath: filepath.Join(dd, "synaptic.db")},
-		{pathInArchive: "synaptic.db-wal", sourcePath: filepath.Join(dd, "synaptic.db-wal"), optional: true},
-		{pathInArchive: "synaptic.db-shm", sourcePath: filepath.Join(dd, "synaptic.db-shm"), optional: true},
+		{pathInArchive: "condura.db", sourcePath: mainDB},
+		{pathInArchive: "condura.db-wal", sourcePath: mainWAL, optional: true},
+		{pathInArchive: "condura.db-shm", sourcePath: mainSHM, optional: true},
 		{pathInArchive: "memory.db", sourcePath: filepath.Join(dd, "memory.db")},
 		{pathInArchive: "memory.db-wal", sourcePath: filepath.Join(dd, "memory.db-wal"), optional: true},
 		{pathInArchive: "memory.db-shm", sourcePath: filepath.Join(dd, "memory.db-shm"), optional: true},

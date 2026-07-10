@@ -27,7 +27,7 @@ func setupDataDir(t *testing.T) (dataDir, configPath string, masterKey []byte) {
 	dataDir = t.TempDir()
 
 	// main DB
-	mustWrite(t, filepath.Join(dataDir, "synaptic.db"), []byte("MAIN-DB-CONTENT"))
+	mustWrite(t, filepath.Join(dataDir, "condura.db"), []byte("MAIN-DB-CONTENT"))
 	// memory DB
 	mustWrite(t, filepath.Join(dataDir, "memory.db"), []byte("MEMORY-DB-CONTENT"))
 	// skills DB lives in the data dir (matches subsystems.go
@@ -136,6 +136,7 @@ func TestCreate_ArchiveContainsExpectedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
+		"condura.db",
 		"config.yaml",
 		"manifest.json",
 		"memory.db",
@@ -143,13 +144,12 @@ func TestCreate_ArchiveContainsExpectedFiles(t *testing.T) {
 		"skills.db",
 		"skills.db-shm",
 		"skills.db-wal",
-		"synaptic.db",
 	}
 	if len(names) != len(want) {
 		t.Errorf("file count = %d, want %d (got %v)", len(names), len(want), names)
 	}
 	for i, w := range want {
-		if names[i] != w {
+		if i < len(names) && names[i] != w {
 			t.Errorf("file[%d] = %q, want %q", i, names[i], w)
 		}
 	}
@@ -212,7 +212,7 @@ func TestRestore_RoundTripPreservesContents(t *testing.T) {
 	}
 	// Put a throwaway file in restoreDir so we can prove the
 	// restore replaced it.
-	mustWrite(t, filepath.Join(restoreDir, "synaptic.db"), []byte("THROWAWAY"))
+	mustWrite(t, filepath.Join(restoreDir, "condura.db"), []byte("THROWAWAY"))
 
 	if err := Restore(context.Background(), RestoreOptions{
 		ArchivePath:          outPath,
@@ -225,12 +225,12 @@ func TestRestore_RoundTripPreservesContents(t *testing.T) {
 	}
 
 	// 3. Verify the originals are back.
-	got, err := os.ReadFile(filepath.Join(restoreDir, "synaptic.db"))
+	got, err := os.ReadFile(filepath.Join(restoreDir, "condura.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "MAIN-DB-CONTENT" {
-		t.Errorf("synaptic.db = %q, want %q", got, "MAIN-DB-CONTENT")
+		t.Errorf("condura.db = %q, want %q", got, "MAIN-DB-CONTENT")
 	}
 	got, _ = os.ReadFile(filepath.Join(restoreDir, "memory.db"))
 	if string(got) != "MEMORY-DB-CONTENT" {
@@ -355,13 +355,13 @@ func TestRestore_RejectsOversizedEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Mutate the manifest to claim synaptic.db is 2 GiB.
+	// Mutate the manifest to claim condura.db is 2 GiB.
 	m, err := LoadManifest(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := range m.Files {
-		if m.Files[i].Path == "synaptic.db" {
+		if m.Files[i].Path == "condura.db" {
 			m.Files[i].Size = 2 << 30
 			break
 		}
@@ -504,5 +504,41 @@ func TestScheduler_RotateKeepsN(t *testing.T) {
 	}
 	if backups != 2 {
 		t.Errorf("after rotate, kept %d backups, want 2", backups)
+	}
+}
+
+
+func TestCreate_LegacySynapticDBName(t *testing.T) {
+	// Installs that still have synaptic.db (pre-rename) must still back up.
+	tmp := t.TempDir()
+	mustWrite(t, filepath.Join(tmp, "synaptic.db"), []byte("LEGACY-MAIN"))
+	mustWrite(t, filepath.Join(tmp, "memory.db"), []byte("MEM"))
+	mustWrite(t, filepath.Join(tmp, "skills.db"), []byte("SK"))
+	cfgPath := filepath.Join(tmp, "config.yaml")
+	mustWrite(t, cfgPath, []byte("general: {}\n"))
+	mk := make([]byte, 32)
+	for i := range mk {
+		mk[i] = byte(i + 1)
+	}
+	bm, err := New(Options{DataDir: tmp, MasterKey: mk, ConfigPath: cfgPath, SchemaVersion: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("Create with legacy synaptic.db: %v", err)
+	}
+	names, err := ListBackupFiles(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range names {
+		if n == "condura.db" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("archive should contain condura.db (canonical name), got %v", names)
 	}
 }

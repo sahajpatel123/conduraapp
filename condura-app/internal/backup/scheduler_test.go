@@ -31,7 +31,7 @@ func TestScheduler_CreateAndRotate(t *testing.T) {
 	// (the daemon's real data dir has all of these; the test
 	// fixture must match). Every file backup.New tries to read
 	// must exist; the production daemon guarantees this.
-	mustWriteForTest(t, filepath.Join(dir, "synaptic.db"), []byte("X"))
+	mustWriteForTest(t, filepath.Join(dir, "condura.db"), []byte("X"))
 	mustWriteForTest(t, filepath.Join(dir, "memory.db"), []byte("X"))
 	mustWriteForTest(t, filepath.Join(dir, "skills.db"), []byte("X"))
 	mustWriteForTest(t, filepath.Join(dir, "secrets.json"), []byte(`{"master_key":"k6Qm1xJ4pYqZ8cV2nB3wD5rT7eH9uL0sA1bC2dE3fG4="}`))
