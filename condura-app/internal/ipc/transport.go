@@ -167,39 +167,14 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Health probes first. No auth, no logging of the request body.
-	if t.Health != nil && (r.URL.Path == "/livez" || r.URL.Path == "/readyz") {
-		t.Health.ServeHTTP(w, r)
+	// Unauthenticated routes (health probes + SSE setup + SSE stream)
+	// are dispatched in their own helper to keep this function's
+	// cyclomatic complexity under the gocyclo ceiling. Each
+	// sub-route's auth + handler is colocated there.
+	if t.routeUnauthenticated(w, r) {
 		return
 	}
-	if r.Method == http.MethodGet && r.URL.Path == "/healthz" {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-		return
-	}
-	// SSE ticket exchange: the client POSTs with Authorization:
-	// Bearer <token> (header, not URL) and receives a short-lived
-	// one-time ticket. The ticket is then used as ?ticket= on the
-	// EventSource URL. This keeps the real token out of URLs/logs.
-	if r.Method == http.MethodPost && r.URL.Path == "/sse-ticket" {
-		if !t.authorize(w, r) {
-			return
-		}
-		t.handleSSETicket(w, r)
-		return
-	}
-	// SSE endpoint: mount the broker at /events.
-	if r.Method == http.MethodGet && r.URL.Path == "/events" {
-		if !t.authorizeSSE(w, r) {
-			return
-		}
-		if t.SSE == nil {
-			http.Error(w, "events not enabled", http.StatusNotImplemented)
-			return
-		}
-		t.SSE.ServeHTTP(w, r)
-		return
-	}
+
 	if !t.authorize(w, r) {
 		return
 	}
@@ -209,6 +184,54 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.handleJSONRPC(w, r)
+}
+
+// routeUnauthenticated handles the requests that don't require
+// the bearer-token auth gate: health probes (/livez, /readyz,
+// /healthz), the SSE ticket exchange, and the SSE event stream
+// itself (which uses one-time tickets, not the bearer token).
+// Returns true when the request was fully handled, false when
+// the caller should fall through to bearer-token auth + JSON-RPC.
+//
+// Extracted from handleHTTP so the parent's cyclomatic
+// complexity stays under the gocyclo ceiling. The health and
+// SSE paths each have their own short-circuit auth so the
+// bearer token never reaches a route that doesn't need it.
+func (t *ServerTransport) routeUnauthenticated(w http.ResponseWriter, r *http.Request) bool {
+	// Health probes first. No auth, no logging of the request body.
+	if t.Health != nil && (r.URL.Path == "/livez" || r.URL.Path == "/readyz") {
+		t.Health.ServeHTTP(w, r)
+		return true
+	}
+	if r.Method == http.MethodGet && r.URL.Path == "/healthz" {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+		return true
+	}
+	// SSE ticket exchange: the client POSTs with Authorization:
+	// Bearer <token> (header, not URL) and receives a short-lived
+	// one-time ticket. The ticket is then used as ?ticket= on the
+	// EventSource URL. This keeps the real token out of URLs/logs.
+	if r.Method == http.MethodPost && r.URL.Path == "/sse-ticket" {
+		if !t.authorize(w, r) {
+			return true
+		}
+		t.handleSSETicket(w, r)
+		return true
+	}
+	// SSE endpoint: mount the broker at /events.
+	if r.Method == http.MethodGet && r.URL.Path == "/events" {
+		if !t.authorizeSSE(w, r) {
+			return true
+		}
+		if t.SSE == nil {
+			http.Error(w, "events not enabled", http.StatusNotImplemented)
+			return true
+		}
+		t.SSE.ServeHTTP(w, r)
+		return true
+	}
+	return false
 }
 
 // setCORSHeaders writes the cross-origin headers the Wails webview
