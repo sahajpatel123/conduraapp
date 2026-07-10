@@ -1032,8 +1032,10 @@
   .stage-plate {
     position: relative;
     isolation: isolate;
-    min-height: 340px;
-    padding: 36px 36px 22px;
+    height: 380px;
+    min-height: 380px;
+    max-height: 380px;
+    padding: 28px 36px 22px;
     border-radius: 28px;
     border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
     background: var(--md-surface);
@@ -1044,7 +1046,8 @@
   .stage-watermark {
     position: absolute;
     right: -2%;
-    top: -8%;
+    top: 50%;
+    transform: translateY(-50%);
     margin: 0;
     font-family: var(--md-font-display);
     font-size: clamp(140px, 28vw, 240px);
@@ -1063,15 +1066,19 @@
     position: relative;
     z-index: 1;
     flex: 1;
+    min-height: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    max-width: 34rem;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     animation: about-station 480ms var(--about-ease) both;
   }
   @keyframes about-station {
     from {
       opacity: 0;
-      transform: translateY(14px);
+      transform: translateY(10px);
       filter: blur(4px);
     }
     to {
@@ -1084,8 +1091,9 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 10px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .stage-index {
     font-family: var(--md-font-sans);
@@ -1109,7 +1117,7 @@
     background: color-mix(in oklab, var(--md-stage) 55%, var(--md-surface));
   }
   .stage-cite-foot {
-    margin: 22px 0 0;
+    margin: 18px auto 0;
     width: fit-content;
   }
   .stage-live {
@@ -1144,36 +1152,37 @@
   }
   .stage-copy h3 {
     font-family: var(--md-font-display);
-    font-size: clamp(30px, 5vw, 44px);
+    font-size: clamp(28px, 4.5vw, 40px);
     font-weight: 700;
     letter-spacing: -0.045em;
-    line-height: 1.08;
-    margin: 0 0 14px;
-    max-width: 16ch;
+    line-height: 1.1;
+    margin: 0 0 12px;
+    max-width: 18ch;
     color: var(--md-ink);
     text-wrap: balance;
   }
   .stage-body {
     margin: 0;
     font-family: var(--md-font-sans);
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 450;
-    line-height: 1.7;
+    line-height: 1.65;
     letter-spacing: -0.011em;
     text-transform: none;
     color: color-mix(in oklab, var(--md-ink) 72%, var(--md-ink-mute));
-    max-width: 48ch;
+    max-width: 44ch;
   }
 
   .stage-controls {
     position: relative;
     z-index: 1;
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-top: 28px;
-    padding-top: 18px;
+    margin-top: auto;
+    padding-top: 16px;
     border-top: 1px solid color-mix(in oklab, var(--md-ink) 7%, transparent);
   }
   .stage-nav {
@@ -1520,13 +1529,15 @@
       font-size: 10px;
     }
     .stage-plate {
-      padding: 26px 20px 18px;
-      min-height: 300px;
+      height: 360px;
+      min-height: 360px;
+      max-height: 360px;
+      padding: 22px 20px 16px;
       border-radius: 22px;
     }
     .stage-copy h3 {
-      max-width: none;
-      font-size: clamp(30px, 9vw, 42px);
+      max-width: 16ch;
+      font-size: clamp(26px, 7vw, 34px);
     }
     .stage-watermark {
       font-size: 160px;
