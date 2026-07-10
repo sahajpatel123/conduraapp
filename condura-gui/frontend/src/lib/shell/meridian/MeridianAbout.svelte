@@ -375,41 +375,27 @@
     </div>
   </section>
 
-  <!-- Closing plate -->
-  <footer class="plate">
-    <div class="plate-copy">
-      <p class="plate-v">If Condura earns your trust, help keep it independent.</p>
-    </div>
-    <div class="plate-actions">
-      <button type="button" class="plate-btn" onclick={goAudit}>
-        <span class="plate-btn-ico" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1H9V5Z" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span>Audit</span>
+  <!-- Closing colophon -->
+  <footer class="close">
+    <div class="close-mark" aria-hidden="true"></div>
+    <p class="close-line">If Condura earns your trust, help keep it independent.</p>
+    <nav class="close-index" aria-label="Continue from About">
+      <button type="button" class="close-row" onclick={goAudit}>
+        <span class="close-name">Audit</span>
+        <span class="close-lead" aria-hidden="true"></span>
+        <span class="close-meta">the ledger</span>
       </button>
-      <button type="button" class="plate-btn" onclick={openSite}>
-        <span class="plate-btn-ico" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3Z" stroke="currentColor" stroke-width="1.8"/>
-          </svg>
-        </span>
-        <span>condura.app</span>
+      <button type="button" class="close-row" onclick={openSite}>
+        <span class="close-name">Site</span>
+        <span class="close-lead" aria-hidden="true"></span>
+        <span class="close-meta">condura.app</span>
       </button>
-      <button type="button" class="plate-btn plate-btn-primary" onclick={openDonate}>
-        <span class="plate-btn-ico" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.6-7 10-7 10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          </svg>
-        </span>
-        <span>Donate</span>
+      <button type="button" class="close-row primary" onclick={openDonate}>
+        <span class="close-name">Donate</span>
+        <span class="close-lead" aria-hidden="true"></span>
+        <span class="close-meta">keep it free · {modLabel}D</span>
       </button>
-    </div>
-    <p class="plate-hint">⌘D opens donate · ↑↓ walks the meridian</p>
+    </nav>
   </footer>
 </article>
 
@@ -427,7 +413,7 @@
 
   .thesis,
   .meridian,
-  .plate {
+  .close {
     position: relative;
     z-index: 1;
   }
@@ -1044,105 +1030,112 @@
     box-shadow: 0 0 12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
   }
 
-  /* —— Plate —— */
-  .plate {
-    display: grid;
-    gap: 16px;
-    padding-top: 8px;
-    border-top: 1px solid var(--md-line);
+  /* —— Closing colophon —— */
+  .close {
+    margin-top: 8px;
+    padding-top: 28px;
     opacity: 0;
     transition: opacity 700ms var(--about-ease) 280ms;
   }
-  .colophon.in .plate {
+  .colophon.in .close {
     opacity: 1;
   }
-  .plate-v {
-    margin: 0;
-    font-family: var(--md-font-display);
-    font-size: 22px;
-    letter-spacing: -0.035em;
-    line-height: 1.2;
-    max-width: 28ch;
-  }
-  .plate-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .plate-btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 18px;
+  .close-mark {
+    width: 28px;
+    height: 2px;
     border-radius: 999px;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 14%, transparent);
-    background: color-mix(in oklab, var(--md-surface) 92%, transparent);
+    background: var(--md-cobalt);
+    margin-bottom: 18px;
+    opacity: 0.85;
+  }
+  .close-line {
+    margin: 0 0 28px;
+    font-family: var(--md-font-display);
+    font-size: clamp(24px, 3.6vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.18;
+    max-width: 18ch;
     color: var(--md-ink);
+    text-wrap: balance;
+  }
+  .close-index {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 34rem;
+  }
+  .close-row {
+    appearance: none;
+    display: grid;
+    grid-template-columns: auto minmax(24px, 1fr) auto;
+    align-items: baseline;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: color 180ms var(--about-ease), padding 180ms var(--about-ease);
+  }
+  .close-row:first-child {
+    border-top: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
+  }
+  .close-row:hover,
+  .close-row:focus-visible {
+    color: var(--md-cobalt);
+  }
+  .close-row:focus-visible {
+    outline: none;
+    box-shadow: inset 0 -2px 0 var(--md-cobalt);
+  }
+  .close-name {
+    font-family: var(--md-font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--md-ink);
+    transition: color 180ms var(--about-ease);
+  }
+  .close-row:hover .close-name,
+  .close-row:focus-visible .close-name {
+    color: var(--md-cobalt);
+  }
+  .close-lead {
+    height: 1px;
+    align-self: center;
+    border-bottom: 1px dotted color-mix(in oklab, var(--md-ink) 22%, transparent);
+    transform: translateY(-2px);
+    transition: border-color 180ms var(--about-ease);
+  }
+  .close-row:hover .close-lead,
+  .close-row:focus-visible .close-lead {
+    border-bottom-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+  }
+  .close-meta {
     font-family: var(--md-font-sans);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: -0.01em;
-    line-height: 1;
-    cursor: pointer;
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 70%, transparent) inset,
-      0 8px 22px -16px color-mix(in oklab, var(--md-ink) 35%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    transition:
-      transform 180ms var(--about-spring),
-      background 180ms var(--about-ease),
-      border-color 180ms var(--about-ease),
-      box-shadow 220ms var(--about-ease),
-      color 180ms var(--about-ease);
-  }
-  .plate-btn:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 42%, var(--md-line-strong));
-    background: var(--md-surface);
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 80%, transparent) inset,
-      0 14px 28px -16px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
-  }
-  .plate-btn:active {
-    transform: scale(0.97);
-  }
-  .plate-btn:focus-visible {
-    outline: none;
-    box-shadow:
-      var(--md-focus),
-      0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
-  }
-  .plate-btn-ico {
-    display: inline-flex;
-    color: var(--md-cobalt);
-    opacity: 0.9;
-  }
-  .plate-btn-primary {
-    border-color: transparent;
-    background: var(--md-cobalt);
-    color: #fff;
-    box-shadow: 0 12px 28px -12px color-mix(in oklab, var(--md-cobalt) 72%, transparent);
-  }
-  .plate-btn-primary .plate-btn-ico {
-    color: #fff;
-    opacity: 1;
-  }
-  .plate-btn-primary:hover {
-    background: var(--md-cobalt-deep);
-    border-color: transparent;
-    box-shadow: 0 16px 34px -12px color-mix(in oklab, var(--md-cobalt) 82%, transparent);
-  }
-  .plate-hint {
-    margin: 0;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
     color: var(--md-ink-faint);
+    transition: color 180ms var(--about-ease);
+  }
+  .close-row:hover .close-meta,
+  .close-row:focus-visible .close-meta {
+    color: var(--md-ink-mute);
+  }
+  .close-row.primary .close-name {
+    color: var(--md-cobalt);
+  }
+  .close-row.primary .close-meta {
+    color: color-mix(in oklab, var(--md-cobalt) 70%, var(--md-ink-mute));
+  }
+  .close-row.primary:hover .close-name,
+  .close-row.primary:focus-visible .close-name {
+    color: var(--md-cobalt-deep);
   }
 
   @keyframes about-spin {
@@ -1237,15 +1230,14 @@
     .word {
       font-size: clamp(44px, 14vw, 64px);
     }
-    .plate-btn {
-      flex: 1;
-      justify-content: center;
+    .close-line {
+      max-width: none;
     }
   }
 
   .colophon.calm .thesis,
   .colophon.calm .meridian,
-    .colophon.calm .plate,
+    .colophon.calm .close,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
   .colophon.calm .atlas-door {
@@ -1253,7 +1245,7 @@
   }
   .colophon.calm .thesis,
   .colophon.calm .meridian,
-    .colophon.calm .plate {
+    .colophon.calm .close {
     opacity: 1;
     transform: none;
   }
