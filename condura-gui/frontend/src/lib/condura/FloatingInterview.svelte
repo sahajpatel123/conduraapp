@@ -6,6 +6,7 @@
   import Button from './Button.svelte';
   import Glyph from './Glyph.svelte';
   import Pulse from './Pulse.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   // The floating interview — first-run setup as a conversation over the
   // living shell, one question at a time. Renders the real daemon onboarding
@@ -186,10 +187,36 @@
   });
 
   let progressPct = $derived((stepIndex / (STEPS.length - 1)) * 100);
+
+  let cardEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(cardEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
+  function onCardKey(e: KeyboardEvent): void {
+    trapTab(cardEl, e);
+  }
 </script>
 
 <div class="scrim" transition:fade={{ duration: 320 }}>
-  <div class="float-card" transition:fly={{ y: 16, duration: 520, delay: 80 }}>
+  <div
+    class="float-card"
+    bind:this={cardEl}
+    role="dialog"
+    aria-modal="true"
+    aria-label="Onboarding interview"
+    tabindex="-1"
+    onkeydown={onCardKey}
+    transition:fly={{ y: 16, duration: 520, delay: 80 }}
+  >
     <svg class="fc-thread" preserveAspectRatio="none" aria-hidden="true">
       <path d="M 0 12 L 9999 12" stroke="var(--synapse)" stroke-width="1.25" fill="none" stroke-linecap="round" pathLength="1" vector-effect="non-scaling-stroke" stroke-dasharray="1" stroke-dashoffset="0" />
       <circle cx="0" cy="12" r="3" fill="var(--pollen)" />

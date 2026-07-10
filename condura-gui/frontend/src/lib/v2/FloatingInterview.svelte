@@ -27,6 +27,7 @@
   import '$lib/v2/motion.css'
   import '$lib/v2/reset.css'
   import { Surface, Ink, Stack, Inline, Rule, Button, Chip } from '$lib/v2'
+  import { focusFirst, trapTab } from '$lib/a11y/focusTrap'
 
   type Power = 'local' | 'cloud-when-needed' | 'always-cloud'
   type Domain = 'email' | 'money' | 'calendar' | 'files' | 'code'
@@ -113,13 +114,26 @@
     onComplete?.(answers)
   }
 
+  let panelEl = $state<HTMLDivElement | null>(null)
+  let previousFocus: HTMLElement | null = null
+
+  $effect(() => {
+    previousFocus = document.activeElement as HTMLElement | null
+    focusFirst(panelEl)
+    return () => {
+      previousFocus?.focus()
+    }
+  })
+
   // Keyboard nav — Enter advances, Esc backs. CRITICAL: bound to the
   // panel root (not <svelte:window>) so it does not intercept keys
   // typed elsewhere on the page. If focus is inside a textarea/input
   // (day-vision step, name field) we let the key do its native thing.
   // Also guards against double-firing while hotkey capture is active.
+  // Tab is trapped inside the panel (aria-modal interview surface).
   function onKeydown(e: KeyboardEvent) {
     if (capturingHotkey) return
+    trapTab(panelEl, e)
     const t = e.target as HTMLElement | null
     const inField = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')
     if (inField) {
@@ -184,6 +198,10 @@
 
 <div
   data-v2
+  bind:this={panelEl}
+  role="dialog"
+  aria-modal="true"
+  aria-label="Personalization interview"
   tabindex={-1}
   onkeydown={onKeydown}
   style="

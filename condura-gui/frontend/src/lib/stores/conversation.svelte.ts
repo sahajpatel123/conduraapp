@@ -6,7 +6,7 @@ import { ipc } from '../ipc/client'
 import type { Conversation, ConversationMeta, Message, StreamEvent, ToolCall } from '../ipc/types'
 
 /** Idle timeout for in-flight streams when no delta arrives (daemon crash / SSE drop). */
-const STREAM_IDLE_MS = 45_000
+export const STREAM_IDLE_MS = 45_000
 
 class ConversationStore {
   // List of conversations (sidebar).

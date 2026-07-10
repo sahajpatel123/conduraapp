@@ -87,3 +87,36 @@ describe('ipc.daemonCapabilities', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('ipc.llmStream contract', () => {
+  beforeEach(() => {
+    (ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0';
+    (ipc as unknown as { authToken: string }).authToken = '';
+  });
+
+  it('returns request_id from the daemon llm.stream RPC', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          result: { request_id: '01HXYZ', conversation_id: 42 },
+          id: 1,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await ipc.llmStream({
+      conversation_id: 42,
+      provider: 'ollama',
+      request: { model: 'llama3', messages: [], stream: true },
+    });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+    expect(body.method).toBe('llm.stream');
+    expect(res.request_id).toBe('01HXYZ');
+    expect(res.conversation_id).toBe(42);
+    vi.unstubAllGlobals();
+  });
+});

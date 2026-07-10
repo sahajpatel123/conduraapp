@@ -20,6 +20,7 @@
 -->
 <script lang="ts">
   import IconButton from './IconButton.svelte';
+  import { focusFirst, trapTab } from '../../a11y/focusTrap';
 
   type Position = 'right' | 'left' | 'bottom';
 
@@ -34,12 +35,28 @@
 
   let { open, onclose, position = 'right', width = 480, title, children }: Props = $props();
 
+  let sheetEl = $state<HTMLElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    if (!open) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(sheetEl);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      previousFocus?.focus();
+    };
+  });
+
   function handleKeydown(e: KeyboardEvent) {
     if (!open) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       onclose?.();
+      return;
     }
+    trapTab(sheetEl, e);
   }
 </script>
 
@@ -56,9 +73,11 @@
 
   <aside
     class="sheet sheet--{position}"
+    bind:this={sheetEl}
     role="dialog"
     aria-modal="true"
     aria-label={title ?? 'Sheet'}
+    tabindex="-1"
     style="--sheet-width: {width}px;"
   >
     {#if title}

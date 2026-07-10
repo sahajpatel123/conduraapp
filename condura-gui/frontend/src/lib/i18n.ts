@@ -52,10 +52,18 @@ async function loadCatalog(locale: Locale): Promise<Catalog> {
 
 function getInitialLocale(): Locale {
 	if (!isBrowser) return DEFAULT_LOCALE;
-	const saved = localStorage.getItem('condura_locale') as Locale | null;
-	if (saved && SUPPORTED_LOCALES.includes(saved)) return saved;
-	const navLang = navigator.language.split('-')[0] as Locale;
-	if (SUPPORTED_LOCALES.includes(navLang)) return navLang;
+	try {
+		const saved = localStorage.getItem('condura_locale') as Locale | null;
+		if (saved && SUPPORTED_LOCALES.includes(saved)) return saved;
+	} catch {
+		// private mode / missing storage — fall through
+	}
+	try {
+		const navLang = navigator.language.split('-')[0] as Locale;
+		if (SUPPORTED_LOCALES.includes(navLang)) return navLang;
+	} catch {
+		// ignore
+	}
 	return DEFAULT_LOCALE;
 }
 
@@ -64,12 +72,20 @@ export const locale = writable<Locale>(getInitialLocale());
 // Trigger catalog load + mirror into currentLocale whenever locale changes.
 // We don't expose a Readable catalog anymore; t() reads directly from the
 // in-memory localeCatalogs map via the currentLocale variable.
-locale.subscribe((loc) => {
+	locale.subscribe((loc) => {
 	currentLocale = loc;
 	void loadCatalog(loc);
 	if (isBrowser) {
-		localStorage.setItem('condura_locale', loc);
-		document.documentElement.lang = loc;
+		try {
+			localStorage.setItem('condura_locale', loc);
+		} catch {
+			// ignore quota / private mode
+		}
+		try {
+			document.documentElement.lang = loc;
+		} catch {
+			// ignore
+		}
 	}
 });
 
