@@ -1,17 +1,16 @@
 <script lang="ts">
   /**
    * Meridian About — living instrument colophon.
-   * Signature: a constellation of seven stations along the meridian.
-   * Logic: version · capabilities · ping · clipboard · donate.
+   * Signature: interactive Gatekeeper demo + constellation of seven stations.
+   * Logic: capabilities · donate · station navigation.
    */
   import { onMount } from 'svelte'
   import { ipc } from '../../ipc/client'
   import { daemon } from '../../stores/daemon.svelte'
-  import type { DaemonCapabilities, VersionInfo } from '../../ipc/types'
+  import type { DaemonCapabilities } from '../../ipc/types'
 
   const DONATE_URL = 'https://condura.app/donate'
   const SITE_URL = 'https://condura.app'
-  const GUI_VERSION = '0.1.0'
 
   type Station = {
     id: string
@@ -22,14 +21,15 @@
     live?: () => { ok: boolean; note: string }
   }
 
-  let version = $state<VersionInfo | null>(null)
+  type GatePhase = 'idle' | 'sending' | 'held' | 'allowed' | 'denied'
+
   let caps = $state<DaemonCapabilities | null>(null)
   let loading = $state(true)
-  let pingMs = $state<number | null>(null)
   let active = $state('i')
-  let copied = $state(false)
   let entered = $state(false)
   let reduceMotion = $state(false)
+  let gatePhase = $state<GatePhase>('idle')
+  let gateTimers: number[] = []
 
   const connected = $derived(daemon.connected)
 
@@ -107,11 +107,19 @@
   const activeStation = $derived(STATIONS.find((s) => s.id === active) ?? STATIONS[0]!)
   const activeIndex = $derived(STATIONS.findIndex((s) => s.id === active))
 
-  const buildLine = $derived.by(() => {
-    if (!version) return `Meridian ${GUI_VERSION}`
-    const v = version.version || GUI_VERSION
-    const c = version.commit ? version.commit.slice(0, 7) : ''
-    return c ? `${v} · ${c}` : v
+  const gateNote = $derived.by(() => {
+    switch (gatePhase) {
+      case 'sending':
+        return 'Intent is moving toward the door…'
+      case 'held':
+        return 'Gatekeeper holds the line. Nothing proceeds without you.'
+      case 'allowed':
+        return 'Consent granted — the action may reach your machine.'
+      case 'denied':
+        return 'Denied. The model never touched your machine.'
+      default:
+        return 'Model text alone cannot act. Propose an action and feel the lock.'
+    }
   })
 
   onMount(() => {
@@ -137,8 +145,40 @@
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      clearGateTimers()
+    }
   })
+
+  function clearGateTimers(): void {
+    for (const t of gateTimers) clearTimeout(t)
+    gateTimers = []
+  }
+
+  function proposeAction(): void {
+    if (gatePhase === 'sending' || gatePhase === 'held') return
+    clearGateTimers()
+    gatePhase = 'sending'
+    const delay = reduceMotion ? 80 : 920
+    gateTimers.push(
+      window.setTimeout(() => {
+        gatePhase = 'held'
+      }, delay),
+    )
+  }
+
+  function decide(allow: boolean): void {
+    if (gatePhase !== 'held') return
+    clearGateTimers()
+    gatePhase = allow ? 'allowed' : 'denied'
+    const delay = reduceMotion ? 500 : 1700
+    gateTimers.push(
+      window.setTimeout(() => {
+        gatePhase = 'idle'
+      }, delay),
+    )
+  }
 
   function step(dir: number): void {
     const next = Math.max(0, Math.min(STATIONS.length - 1, activeIndex + dir))
@@ -147,21 +187,8 @@
 
   async function refresh(): Promise<void> {
     loading = true
-    pingMs = null
     try {
-      const t0 = performance.now()
-      const [v, c] = await Promise.all([
-        ipc.version().catch(() => null),
-        ipc.daemonCapabilities().catch(() => null),
-      ])
-      try {
-        await ipc.ping()
-        pingMs = Math.round(performance.now() - t0)
-      } catch {
-        /* offline */
-      }
-      version = v
-      caps = c
+      caps = await ipc.daemonCapabilities().catch(() => null)
     } finally {
       loading = false
     }
@@ -177,25 +204,6 @@
 
   function goAudit(): void {
     window.location.hash = '#/audit'
-  }
-
-  function copyBuild(): void {
-    const card = [
-      `Condura ${version?.version ?? GUI_VERSION}`,
-      version?.commit ? `commit ${version.commit}` : null,
-      version?.build_date ? `built ${version.build_date}` : null,
-      version?.platform ? `platform ${version.platform}` : null,
-      version?.go_version ? `go ${version.go_version}` : null,
-      `gui ${GUI_VERSION}`,
-      `daemon ${connected ? 'connected' : 'offline'}`,
-      pingMs != null ? `ping ${pingMs}ms` : null,
-    ]
-      .filter(Boolean)
-      .join('\n')
-    void navigator.clipboard.writeText(card).then(() => {
-      copied = true
-      setTimeout(() => (copied = false), 1600)
-    })
   }
 
   function led(on: boolean | undefined): 'on' | 'off' | 'dim' {
@@ -225,120 +233,68 @@
       <em>This page is the contract — and the live reading of the machine that keeps it.</em>
     </p>
 
-    <div class="identity" data-link={connected ? 'live' : 'quiet'}>
-      <button
-        type="button"
-        class="id-build"
-        onclick={copyBuild}
-        aria-label="Copy build identity"
-        title="Copy build card to clipboard"
-      >
-        <span class="id-mark" aria-hidden="true">
-          <svg viewBox="0 0 56 56" fill="none">
-            <circle cx="28" cy="28" r="26" stroke="currentColor" stroke-opacity="0.18" stroke-width="1.25" />
-            <circle
-              cx="28"
-              cy="28"
-              r="26"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-dasharray="48 120"
-              transform="rotate(-90 28 28)"
-              class="id-mark-arc"
-            />
-            <path
-              d="M28 12c0 10 0 22 0 32M18 22c6 2 12 4 20 0M18 34c6-2 12-4 20 0"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linecap="round"
-              opacity="0.9"
-            />
-          </svg>
-        </span>
-        <span class="id-body">
-          <span class="id-k">Build identity</span>
-          <span class="id-v">{buildLine}</span>
-          <span class="id-sub">
-            {#if version?.build_date}
-              Built {version.build_date}
-            {:else}
-              GUI {GUI_VERSION}
-            {/if}
-            {#if version?.go_version}
-              <span class="id-dot" aria-hidden="true">·</span>
-              {version.go_version}
-            {/if}
+    <div class="gate" data-phase={gatePhase} aria-live="polite">
+      <div class="gate-head">
+        <p class="gate-k">Try the lock</p>
+        <p class="gate-note">{gateNote}</p>
+      </div>
+
+      <div class="gate-flow" aria-hidden="true">
+        <div class="gate-node" data-role="strategist">
+          <span class="gate-orb">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" stroke-width="1.7"/>
+            </svg>
           </span>
-        </span>
-        <span class="id-chip" class:done={copied}>
-          {#if copied}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Copied
-          {:else}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="8" y="8" width="11" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-            Copy
-          {/if}
-        </span>
-      </button>
-
-      <div class="id-rail" aria-label="Daemon vitals">
-        <div class="meter" data-tone={connected ? 'on' : 'off'}>
-          <span class="meter-led" aria-hidden="true"></span>
-          <div class="meter-text">
-            <span class="meter-k">Link</span>
-            <span class="meter-v">{connected ? 'Live' : 'Quiet'}</span>
-          </div>
+          <span class="gate-role">Strategist</span>
+          <span class="gate-sub">any model</span>
         </div>
 
-        <div class="meter">
-          <div class="meter-text">
-            <span class="meter-k">Latency</span>
-            <span class="meter-v mono">
-              {#if loading && pingMs == null}
-                …
-              {:else if pingMs != null}
-                {pingMs}<span class="meter-unit">ms</span>
-              {:else}
-                —
-              {/if}
-            </span>
-          </div>
+        <div class="gate-path">
+          <span class="gate-track"></span>
+          <span class="gate-pulse"></span>
         </div>
 
-        {#if version?.platform}
-          <div class="meter">
-            <div class="meter-text">
-              <span class="meter-k">Host</span>
-              <span class="meter-v host">{version.platform}</span>
-            </div>
-          </div>
+        <div class="gate-node" data-role="keeper">
+          <span class="gate-orb">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="gate-role">Gatekeeper</span>
+          <span class="gate-sub">deterministic code</span>
+        </div>
+
+        <div class="gate-path">
+          <span class="gate-track"></span>
+          <span class="gate-pulse late"></span>
+        </div>
+
+        <div class="gate-node" data-role="machine">
+          <span class="gate-orb">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="5" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="gate-role">Your machine</span>
+          <span class="gate-sub">protected</span>
+        </div>
+      </div>
+
+      <div class="gate-actions">
+        {#if gatePhase === 'idle' || gatePhase === 'allowed' || gatePhase === 'denied'}
+          <button type="button" class="gate-btn primary" onclick={proposeAction}>
+            Propose an action
+          </button>
+        {:else if gatePhase === 'sending'}
+          <button type="button" class="gate-btn" disabled>Traveling…</button>
+        {:else}
+          <button type="button" class="gate-btn danger" onclick={() => decide(false)}>Deny</button>
+          <button type="button" class="gate-btn primary" onclick={() => decide(true)}>Allow</button>
         {/if}
-
-        <button
-          type="button"
-          class="id-refresh"
-          class:spin={loading}
-          onclick={() => void refresh()}
-          disabled={loading}
-          aria-label={loading ? 'Reading vitals' : 'Refresh vitals'}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M20 12a8 8 0 1 1-2.2-5.4"
-              stroke="currentColor"
-              stroke-width="1.9"
-              stroke-linecap="round"
-            />
-            <path d="M20 5v5h-5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>{loading ? 'Reading' : 'Refresh'}</span>
-        </button>
       </div>
     </div>
   </header>
@@ -701,295 +657,307 @@
     font-size: 0.92em;
   }
 
-  .identity {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.9fr);
-    gap: 0;
-    align-items: stretch;
-    border-radius: 22px;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in oklab, var(--md-surface) 92%, transparent) 0%,
-        color-mix(in oklab, var(--md-surface) 72%, transparent) 100%
-      );
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 65%, transparent) inset,
-      0 18px 40px -28px color-mix(in oklab, var(--md-ink) 28%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    overflow: hidden;
-  }
-  .identity[data-link='live'] {
-    border-color: color-mix(in oklab, var(--md-live) 22%, var(--md-line));
-  }
-  .identity[data-link='quiet'] {
-    border-color: color-mix(in oklab, var(--md-halt) 16%, var(--md-line));
-  }
-
-  .id-build {
-    appearance: none;
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    padding: 18px 20px;
-    text-align: left;
-    cursor: pointer;
-    color: inherit;
+  /* —— Interactive Gatekeeper —— */
+  .gate {
+    margin-top: 8px;
+    padding: 22px 22px 20px;
+    border-radius: 26px;
+    border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
     background:
       radial-gradient(
-        120% 90% at 0% 0%,
-        color-mix(in oklab, var(--md-cobalt) 8%, transparent),
+        90% 80% at 12% 0%,
+        color-mix(in oklab, var(--md-cobalt) 10%, transparent),
         transparent 55%
-      );
-    border: 0;
-    border-right: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
-    transition:
-      background 220ms var(--about-ease),
-      transform 200ms var(--about-spring);
-  }
-  .id-build:hover {
-    background:
+      ),
       radial-gradient(
-        120% 90% at 0% 0%,
-        color-mix(in oklab, var(--md-cobalt) 14%, transparent),
-        transparent 58%
-      );
-  }
-  .id-build:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
-  }
-  .id-build:active {
-    transform: scale(0.995);
-  }
-
-  .id-mark {
-    width: 52px;
-    height: 52px;
-    color: var(--md-cobalt);
-    display: grid;
-    place-items: center;
-  }
-  .id-mark svg {
-    width: 52px;
-    height: 52px;
-  }
-  .id-mark-arc {
-    transition: stroke-dasharray 600ms var(--about-ease);
-  }
-  .identity[data-link='live'] .id-mark-arc {
-    stroke: var(--md-live);
-    stroke-dasharray: 100 120;
-  }
-  .identity[data-link='quiet'] .id-mark-arc {
-    stroke: var(--md-halt);
-    stroke-dasharray: 28 120;
-  }
-
-  .id-body {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
-  .id-k {
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-  }
-  .id-v {
-    font-family: var(--md-font-display);
-    font-size: 18px;
-    font-weight: 650;
-    letter-spacing: -0.03em;
-    color: var(--md-ink);
-    line-height: 1.15;
+        70% 70% at 88% 100%,
+        color-mix(in oklab, var(--md-live) 8%, transparent),
+        transparent 60%
+      ),
+      color-mix(in oklab, var(--md-surface) 70%, transparent);
+    box-shadow:
+      0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset,
+      0 24px 50px -34px color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
-  .id-sub {
+  .gate-head {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    color: var(--md-ink-mute);
-  }
-  .id-dot {
-    opacity: 0.5;
-  }
-
-  .id-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex: none;
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
-    color: var(--md-cobalt);
-    font-family: var(--md-font-sans);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    transition:
-      background 180ms var(--about-ease),
-      border-color 180ms var(--about-ease),
-      color 180ms var(--about-ease),
-      transform 180ms var(--about-spring);
-  }
-  .id-build:hover .id-chip {
-    background: var(--md-cobalt);
-    border-color: transparent;
-    color: #fff;
-    transform: translateY(-1px);
-  }
-  .id-chip.done {
-    background: color-mix(in oklab, var(--md-live) 12%, var(--md-surface));
-    border-color: color-mix(in oklab, var(--md-live) 32%, transparent);
-    color: var(--md-live);
-  }
-
-  .id-rail {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: color-mix(in oklab, var(--md-ink) 6%, transparent);
-    min-width: 0;
-  }
-  .meter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: color-mix(in oklab, var(--md-surface) 78%, transparent);
-    min-width: 0;
-  }
-  .meter-led {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex: none;
-    background: var(--md-ink-faint);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-ink-faint) 16%, transparent);
-  }
-  .meter[data-tone='on'] .meter-led {
-    background: var(--md-live);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-live) 18%, transparent);
-    animation: about-led 1.8s ease-in-out infinite;
-  }
-  .meter[data-tone='off'] .meter-led {
-    background: var(--md-halt);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-halt) 16%, transparent);
-  }
-  .meter-text {
-    display: flex;
-    flex-direction: row;
     align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
+    gap: 8px 20px;
+    margin-bottom: 22px;
   }
-  .meter-k {
+  .gate-k {
+    margin: 0;
     font-family: var(--md-font-mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
+    font-size: 10px;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    flex: none;
   }
-  .meter-v {
-    font-family: var(--md-font-sans);
+  .gate-note {
+    margin: 0;
+    flex: 1;
+    min-width: 16ch;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--md-ink-soft);
+    transition: color 220ms var(--about-ease);
+  }
+  .gate[data-phase='held'] .gate-note {
+    color: var(--md-cobalt);
+  }
+  .gate[data-phase='allowed'] .gate-note {
+    color: var(--md-live);
+  }
+  .gate[data-phase='denied'] .gate-note {
+    color: var(--md-halt);
+  }
+
+  .gate-flow {
+    display: grid;
+    grid-template-columns: 1fr minmax(36px, 1.1fr) 1fr minmax(36px, 1.1fr) 1fr;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+  .gate-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    min-width: 0;
+  }
+  .gate-orb {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    color: var(--md-ink-mute);
+    box-shadow: 0 10px 24px -18px color-mix(in oklab, var(--md-ink) 40%, transparent);
+    transition:
+      transform 320ms var(--about-spring),
+      border-color 280ms var(--about-ease),
+      background 280ms var(--about-ease),
+      color 280ms var(--about-ease),
+      box-shadow 280ms var(--about-ease);
+  }
+  .gate-role {
+    font-family: var(--md-font-display);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--md-ink);
-    line-height: 1.2;
-    text-align: right;
   }
-  .meter-v.mono {
+  .gate-sub {
     font-family: var(--md-font-mono);
-    font-weight: 500;
-    letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
-  }
-  .meter-v.host {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--md-ink-soft);
-  }
-  .meter[data-tone='on'] .meter-v {
-    color: var(--md-live);
-  }
-  .meter[data-tone='off'] .meter-v {
-    color: var(--md-halt);
-  }
-  .meter-unit {
-    margin-left: 2px;
     font-size: 10px;
+    letter-spacing: 0.06em;
     color: var(--md-ink-faint);
   }
 
-  .id-refresh {
+  .gate-path {
+    position: relative;
+    height: 28px;
+    display: grid;
+    place-items: center;
+  }
+  .gate-track {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--md-line-strong) 40%, transparent),
+      var(--md-line-strong),
+      color-mix(in oklab, var(--md-line-strong) 40%, transparent)
+    );
+  }
+  .gate-pulse {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: var(--md-cobalt);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    opacity: 0;
+    transform: translateX(0) scale(0.6);
+  }
+  .gate-pulse.late {
+    background: var(--md-live);
+  }
+
+  /* Phase: sending — pulse travels first path */
+  .gate[data-phase='sending'] .gate-pulse:not(.late) {
+    opacity: 1;
+    animation: gate-travel 920ms var(--about-ease) forwards;
+  }
+  .gate[data-phase='sending'] .gate-node[data-role='strategist'] .gate-orb {
+    color: var(--md-cobalt);
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+  }
+
+  /* Phase: held — pulse parked at gatekeeper */
+  .gate[data-phase='held'] .gate-node[data-role='keeper'] .gate-orb {
+    color: #fff;
+    background: var(--md-cobalt);
+    border-color: transparent;
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 8px color-mix(in oklab, var(--md-cobalt) 16%, transparent),
+      0 16px 32px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+    animation: gate-hold 1.4s ease-in-out infinite;
+  }
+  .gate[data-phase='held'] .gate-path:nth-child(2) .gate-track {
+    background: linear-gradient(90deg, var(--md-cobalt), color-mix(in oklab, var(--md-cobalt) 35%, transparent));
+  }
+
+  /* Phase: allowed — second pulse travels to machine */
+  .gate[data-phase='allowed'] .gate-pulse.late {
+    opacity: 1;
+    animation: gate-travel 700ms var(--about-ease) forwards;
+  }
+  .gate[data-phase='allowed'] .gate-node[data-role='keeper'] .gate-orb,
+  .gate[data-phase='allowed'] .gate-node[data-role='machine'] .gate-orb {
+    color: var(--md-live);
+    border-color: color-mix(in oklab, var(--md-live) 40%, transparent);
+    background: color-mix(in oklab, var(--md-live) 10%, var(--md-surface));
+  }
+  .gate[data-phase='allowed'] .gate-node[data-role='machine'] .gate-orb {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 7px color-mix(in oklab, var(--md-live) 14%, transparent);
+  }
+  .gate[data-phase='allowed'] .gate-track {
+    background: linear-gradient(90deg, var(--md-live), color-mix(in oklab, var(--md-live) 30%, transparent));
+  }
+
+  /* Phase: denied — gate flashes halt, machine stays quiet */
+  .gate[data-phase='denied'] .gate-node[data-role='keeper'] .gate-orb {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 45%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 10%, var(--md-surface));
+    animation: gate-deny 420ms var(--about-spring) both;
+  }
+  .gate[data-phase='denied'] .gate-path:nth-child(2) .gate-track {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--md-halt) 55%, transparent), var(--md-line));
+  }
+
+  .gate-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .gate-btn {
     appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 0 16px;
-    border: 0;
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    color: var(--md-ink-soft);
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
+    color: var(--md-ink);
     font-family: var(--md-font-sans);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: -0.01em;
     cursor: pointer;
     transition:
+      transform 180ms var(--about-spring),
       background 180ms var(--about-ease),
-      color 180ms var(--about-ease);
+      border-color 180ms var(--about-ease),
+      color 180ms var(--about-ease),
+      box-shadow 180ms var(--about-ease);
   }
-  .id-refresh:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
-    color: var(--md-cobalt);
+  .gate-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
   }
-  .id-refresh:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
-  }
-  .id-refresh:disabled {
+  .gate-btn:disabled {
+    opacity: 0.55;
     cursor: wait;
-    opacity: 0.7;
   }
-  .id-refresh.spin svg {
-    animation: about-spin 0.9s linear infinite;
+  .gate-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+  .gate-btn.primary {
+    background: var(--md-cobalt);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 14px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+  }
+  .gate-btn.primary:hover:not(:disabled) {
+    background: var(--md-cobalt-deep);
+    border-color: transparent;
+  }
+  .gate-btn.danger {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 32%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 8%, var(--md-surface));
+  }
+  .gate-btn.danger:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--md-halt) 14%, var(--md-surface));
   }
 
-  @keyframes about-led {
+  @keyframes gate-travel {
+    0% {
+      opacity: 0;
+      transform: translateX(0) scale(0.5);
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+    }
+    12% {
+      opacity: 1;
+      transform: translateX(8%) scale(1);
+    }
+    70% {
+      opacity: 1;
+      transform: translateX(88%) scale(1);
+      box-shadow: 0 0 0 8px color-mix(in oklab, var(--md-cobalt) 0%, transparent);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(100%) scale(0.7);
+    }
+  }
+  @keyframes gate-hold {
     0%,
     100% {
-      transform: scale(1);
-      opacity: 1;
+      transform: scale(1.08);
     }
     50% {
-      transform: scale(1.15);
-      opacity: 0.75;
+      transform: scale(1.14);
+    }
+  }
+  @keyframes gate-deny {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.12) rotate(-3deg);
+    }
+    70% {
+      transform: scale(0.96) rotate(2deg);
+    }
+    100% {
+      transform: scale(1);
     }
   }
 
@@ -1628,19 +1596,27 @@
     .colophon {
       padding: 24px 16px 120px;
     }
-    .identity {
-      grid-template-columns: 1fr;
+    .gate {
+      padding: 18px 16px 16px;
+      border-radius: 22px;
     }
-    .id-build {
-      border-right: 0;
-      border-bottom: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
+    .gate-note {
+      text-align: left;
+      width: 100%;
+      font-size: 13px;
     }
-    .id-rail {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .gate-flow {
+      gap: 2px;
     }
-    .id-refresh {
-      grid-column: 1 / -1;
+    .gate-orb {
+      width: 46px;
+      height: 46px;
+    }
+    .gate-role {
+      font-size: 11px;
+    }
+    .gate-sub {
+      display: none;
     }
     .meridian-head {
       align-items: flex-start;
@@ -1699,34 +1675,9 @@
   }
 
   @media (max-width: 480px) {
-    .identity {
-      border-radius: 18px;
-    }
-    .id-build {
-      grid-template-columns: 44px minmax(0, 1fr);
-      gap: 12px;
-      padding: 16px;
-    }
-    .id-mark {
-      width: 44px;
-      height: 44px;
-    }
-    .id-mark svg {
-      width: 44px;
-      height: 44px;
-    }
-    .id-chip {
-      grid-column: 1 / -1;
-      justify-content: center;
-      width: 100%;
-      min-height: 36px;
-    }
-    .id-v {
-      font-size: 16px;
-      white-space: normal;
-    }
-    .id-rail {
-      grid-template-columns: 1fr;
+    .gate-btn {
+      flex: 1;
+      min-width: 120px;
     }
     .word {
       font-size: clamp(44px, 14vw, 64px);
@@ -1745,8 +1696,8 @@
   .colophon.calm .orbit,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
-  .colophon.calm .meter-led,
-  .colophon.calm .id-refresh.spin svg {
+  .colophon.calm .gate-pulse,
+  .colophon.calm .gate-orb {
     transition: none !important;
     animation: none !important;
   }
