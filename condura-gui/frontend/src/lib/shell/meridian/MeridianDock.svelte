@@ -15,6 +15,7 @@
     { id: 'skills', label: 'Skills' },
     { id: 'sync', label: 'Sync' },
     { id: 'audit', label: 'Audit' },
+    { id: 'replay', label: 'Replay' },
     { id: 'channels', label: 'Channels' },
     { id: 'delegation', label: 'Agents' },
   ]

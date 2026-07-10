@@ -9,6 +9,7 @@
     { id: 'skills', label: 'Skills', hint: 'Local procedures' },
     { id: 'sync', label: 'Sync', hint: 'Pair a device' },
     { id: 'audit', label: 'Audit', hint: 'Action ledger' },
+    { id: 'replay', label: 'Replay', hint: 'Day meridian frames' },
     { id: 'channels', label: 'Channels', hint: 'Telegram & more' },
     { id: 'delegation', label: 'Agents', hint: 'Pending actions' },
     { id: 'account', label: 'Account', hint: 'Sign in' },
@@ -34,6 +35,7 @@
 {#if open}
   <div class="back" onclick={onclose} role="presentation"></div>
   <div class="panel" role="dialog" aria-label="Jump" aria-modal="true">
+    <p class="jump-cite">Jump · meridian</p>
     <input bind:this={inputEl} bind:value={q} placeholder="Jump anywhere…" class="q" />
     <ul>
       {#each filtered as item, i (item.id)}
@@ -64,6 +66,15 @@
     box-shadow: var(--md-shadow-lift);
     transform: translateX(-50%);
     animation: md-palette 320ms var(--md-spring) both;
+  }
+  .jump-cite {
+    margin: 0;
+    padding: 14px 20px 0;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
   }
   .q {
     width: 100%; border: 0; border-bottom: 1px solid var(--md-line);

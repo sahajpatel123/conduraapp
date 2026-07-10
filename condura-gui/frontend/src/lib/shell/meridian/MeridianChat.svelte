@@ -4,7 +4,7 @@
   import { settings } from '../../stores/settings.svelte'
   import { halt } from '../../stores/halt.svelte'
   import { ipc } from '../../ipc/client'
-  import type { ProviderInfo } from '../../ipc/types'
+  import type { Message, ProviderInfo, ToolCall } from '../../ipc/types'
 
   const STARTERS = [
     { id: 'sum', label: 'Summarize what’s on my screen' },
@@ -33,6 +33,18 @@
   const halted = $derived(halt.state.halted)
   const canSend = $derived(
     !!draft.trim() && !conversation.isStreaming && !halted && selectedModel.includes(':')
+  )
+  const tone = $derived<'halted' | 'thinking' | 'ready' | 'idle'>(
+    halted ? 'halted' : conversation.isStreaming ? 'thinking' : canSend ? 'ready' : 'idle'
+  )
+  const toneLabel = $derived(
+    tone === 'halted'
+      ? 'Halted — line cut'
+      : tone === 'thinking'
+        ? 'Thinking · watch the plan'
+        : tone === 'ready'
+          ? 'Ready to send'
+          : 'Waiting for a line'
   )
 
   onMount(() => {
@@ -71,6 +83,7 @@
   $effect(() => {
     conversation.messages.length
     conversation.streamingDelta
+    conversation.streamingToolCalls.length
     if (!scrollEl) return
     scrollEl.scrollTop = scrollEl.scrollHeight
   })
@@ -110,6 +123,37 @@
     draft = label
     void send(label)
   }
+
+  function toolLabel(tc: ToolCall): string {
+    return tc.function?.name || 'gated action'
+  }
+
+  function toolArgs(tc: ToolCall): string {
+    const raw = tc.function?.arguments?.trim()
+    if (!raw) return ''
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      const keys = Object.keys(parsed)
+      if (!keys.length) return ''
+      return keys
+        .slice(0, 3)
+        .map((k) => `${k}: ${String(parsed[k]).slice(0, 48)}`)
+        .join(' · ')
+    } catch {
+      return raw.slice(0, 80)
+    }
+  }
+
+  function stepsFor(msg: Message): ToolCall[] {
+    return msg.tool_calls ?? []
+  }
+
+  async function clearThread(): Promise<void> {
+    if (conversation.isStreaming) await conversation.cancel()
+    await conversation.createNew().catch(() => {
+      conversation.messages = []
+    })
+  }
 </script>
 
 <section class="chat">
@@ -132,16 +176,41 @@
         </div>
       </div>
     {:else}
+      <div class="thread-bar">
+        <p class="cite">thread · gated</p>
+        <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void clearThread()}>
+          New ask
+        </button>
+      </div>
       <div class="messages">
         {#each conversation.messages as msg, i (i)}
           <article class="msg" data-role={msg.role}>
             <header>
               <span>{msg.role === 'user' ? 'You' : 'Condura'}</span>
               {#if msg.role === 'assistant'}
-                <span class="cite">plan · gated</span>
+                <span class="cite">
+                  {stepsFor(msg).length ? `${stepsFor(msg).length} gated step${stepsFor(msg).length === 1 ? '' : 's'}` : 'plan · gated'}
+                </span>
               {/if}
             </header>
-            <div class="bubble">{msg.content}</div>
+            {#if msg.content}
+              <div class="bubble">{msg.content}</div>
+            {/if}
+            {#if stepsFor(msg).length}
+              <ol class="steps">
+                {#each stepsFor(msg) as tc (tc.id)}
+                  <li>
+                    <span class="step-dot" aria-hidden="true"></span>
+                    <div>
+                      <strong>{toolLabel(tc)}</strong>
+                      {#if toolArgs(tc)}
+                        <span class="args">{toolArgs(tc)}</span>
+                      {/if}
+                    </div>
+                  </li>
+                {/each}
+              </ol>
+            {/if}
           </article>
         {/each}
         {#if conversation.isStreaming}
@@ -150,7 +219,26 @@
               <span>Condura</span>
               <span class="cite live">thinking</span>
             </header>
-            <div class="bubble streaming">{conversation.streamingDelta || '…'}</div>
+            {#if conversation.streamingDelta}
+              <div class="bubble streaming">{conversation.streamingDelta}</div>
+            {:else}
+              <div class="bubble streaming muted">Reading the room…</div>
+            {/if}
+            {#if conversation.streamingToolCalls.length}
+              <ol class="steps live">
+                {#each conversation.streamingToolCalls as tc (tc.id)}
+                  <li>
+                    <span class="step-dot" aria-hidden="true"></span>
+                    <div>
+                      <strong>{toolLabel(tc)}</strong>
+                      {#if toolArgs(tc)}
+                        <span class="args">{toolArgs(tc)}</span>
+                      {/if}
+                    </div>
+                  </li>
+                {/each}
+              </ol>
+            {/if}
           </article>
         {/if}
         {#if conversation.streamingError}
@@ -160,13 +248,17 @@
     {/if}
   </div>
 
-  <div class="composer" class:focused class:ready={canSend}>
+  <div class="composer" class:focused class:ready={canSend} data-tone={tone}>
+    <div class="tone" aria-live="polite">
+      <span class="tone-dot" aria-hidden="true"></span>
+      {toneLabel}
+    </div>
     <textarea
       bind:this={ta}
       bind:value={draft}
       class="input"
       rows="1"
-      placeholder={halted ? 'Halted — resume to ask' : 'Ask Condura…'}
+      placeholder={halted ? 'Halted — resume to ask' : conversation.isStreaming ? 'Thinking…' : 'Ask Condura…'}
       disabled={halted || conversation.isStreaming}
       onfocus={() => (focused = true)}
       onblur={() => (focused = false)}
@@ -194,7 +286,7 @@
             <span class="short">{selectedModel ? selectedModel.split(':').pop() : 'No model'}</span>
           </span>
         {/if}
-        <span class="hint">Enter to send · Shift+Enter for line</span>
+        <span class="hint">Enter to send · Esc to stop</span>
       </div>
       <div class="actions">
         {#if conversation.isStreaming}
@@ -409,6 +501,79 @@
     box-shadow: var(--md-shadow);
     color: var(--md-ink);
   }
+  .bubble.muted {
+    color: var(--md-ink-mute);
+    font-style: italic;
+  }
+  .thread-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto 12px;
+    padding: 0 4px;
+  }
+  .thread-bar .cite {
+    margin: 0;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+  }
+  :global(.md-btn.tiny) {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    max-width: min(100%, 560px);
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-stage) 70%, var(--md-surface));
+  }
+  .steps.live li {
+    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
+  }
+  .step-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: var(--md-cobalt);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
+  }
+  .steps.live .step-dot {
+    background: var(--md-live);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+  }
+  .steps strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .steps .args {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    color: var(--md-ink-faint);
+    word-break: break-word;
+  }
   .bubble.streaming::after {
     content: '';
     display: inline-block;
@@ -426,7 +591,65 @@
     align-self: flex-start;
   }
   .composer {
-    margin: 0 28px 88px;
+    margin: 0 auto 88px;
+    max-width: 760px;
+    width: calc(100% - 56px);
+    border-radius: 22px;
+    border: 1px solid var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    box-shadow: var(--md-shadow);
+    padding: 10px 12px 12px;
+    transition:
+      border-color var(--md-dur) var(--md-ease),
+      box-shadow var(--md-dur) var(--md-ease);
+  }
+  .composer .tone {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 6px 8px;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+  }
+  .tone-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .composer[data-tone='ready'] {
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+  }
+  .composer[data-tone='ready'] .tone {
+    color: var(--md-cobalt);
+  }
+  .composer[data-tone='ready'] .tone-dot {
+    background: var(--md-cobalt);
+  }
+  .composer[data-tone='thinking'] {
+    border-color: color-mix(in oklab, var(--md-live) 40%, transparent);
+  }
+  .composer[data-tone='thinking'] .tone {
+    color: var(--md-live);
+  }
+  .composer[data-tone='thinking'] .tone-dot {
+    background: var(--md-live);
+    animation: md-tone-pulse 1.2s var(--md-ease) infinite;
+  }
+  .composer[data-tone='halted'] {
+    border-color: color-mix(in oklab, var(--md-halt) 45%, transparent);
+  }
+  .composer[data-tone='halted'] .tone {
+    color: var(--md-halt);
+  }
+  .composer[data-tone='halted'] .tone-dot {
+    background: var(--md-halt);
+  }
+  .composer.focused,
+  .composer.ready.focused {
     max-width: 760px;
     width: calc(100% - 56px);
     align-self: center;
@@ -577,12 +800,24 @@
       opacity: 0;
     }
   }
+  @keyframes md-tone-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.35);
+      opacity: 0.65;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .orb,
     h1 span,
     .msg,
     .composer,
-    .bubble.streaming::after {
+    .bubble.streaming::after,
+    .tone-dot {
       animation: none !important;
     }
     h1 span {
