@@ -15,23 +15,46 @@ import (
 
 // telegramChannel implements the Channel interface for Telegram
 // Bot API.
+//
+// httpClient is injectable so tests can swap it for an httptest
+// transport. In production it is a *http.Client with a 60s timeout,
+// which is comfortably larger than Telegram's long-poll window
+// (30s by default — see the timeout param on getUpdates below).
 type telegramChannel struct {
-	token     string
-	chatID    string
-	connected bool
+	token      string
+	chatID     string
+	connected  bool
+	httpClient *http.Client
 }
 
 func newTelegramChannel() *telegramChannel {
-	return &telegramChannel{}
+	return &telegramChannel{
+		httpClient: &http.Client{Timeout: 60 * time.Second},
+	}
+}
+
+// setHTTPClient replaces the HTTP client used for Telegram API
+// calls. Tests use this to wire in an httptest.NewServer; production
+// code should not need to call it.
+func (t *telegramChannel) setHTTPClient(c *http.Client) {
+	if c == nil {
+		return
+	}
+	t.httpClient = c
 }
 
 func (t *telegramChannel) Connect(ctx context.Context, token string) error {
 	if token == "" {
 		return fmt.Errorf("reach: telegram token is empty")
 	}
-	// Validate the token by calling getMe.
+	// Set t.token before the validation call: apiCall reads
+	// t.token to build the bot URL. If validation fails we
+	// roll back below so an invalid token never leaves a
+	// half-configured channel behind.
+	t.token = token
 	resp, err := t.apiCall(ctx, "getMe", nil)
 	if err != nil {
+		t.token = ""
 		return fmt.Errorf("reach: telegram connect: %w", err)
 	}
 	var me struct {
@@ -41,14 +64,14 @@ func (t *telegramChannel) Connect(ctx context.Context, token string) error {
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(resp, &me); err != nil || !me.OK {
+		t.token = ""
 		return fmt.Errorf("reach: invalid telegram token")
 	}
-	t.token = token
 	t.connected = true
 	return nil
 }
 
-func (t *telegramChannel) Disconnect(ctx context.Context) error {
+func (t *telegramChannel) Disconnect(_ context.Context) error {
 	t.token = ""
 	t.chatID = ""
 	t.connected = false
@@ -61,6 +84,9 @@ func (t *telegramChannel) Send(ctx context.Context, chatID, text string) error {
 	}
 	if chatID == "" {
 		chatID = t.chatID
+	}
+	if chatID == "" {
+		return fmt.Errorf("reach: telegram chat_id unknown — message the bot once to establish")
 	}
 	_, err := t.apiCall(ctx, "sendMessage", url.Values{
 		"chat_id": {chatID},
@@ -78,7 +104,7 @@ func (t *telegramChannel) Receive(ctx context.Context) (<-chan Message, error) {
 	return ch, nil
 }
 
-func (t *telegramChannel) Status(ctx context.Context) (ChannelStatus, error) {
+func (t *telegramChannel) Status(_ context.Context) (ChannelStatus, error) {
 	return ChannelStatus{
 		Name:      "telegram",
 		Connected: t.connected,
@@ -101,8 +127,14 @@ func (t *telegramChannel) longPoll(ctx context.Context, out chan<- Message) {
 		}
 		resp, err := t.apiCall(ctx, "getUpdates", params)
 		if err != nil {
-			time.Sleep(2 * time.Second)
-			continue
+			// Wait briefly on error, then retry. Bounded so a
+			// daemon shutdown can stop us within ~2s.
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+				continue
+			}
 		}
 		var updates struct {
 			OK     bool `json:"ok"`
@@ -120,8 +152,12 @@ func (t *telegramChannel) longPoll(ctx context.Context, out chan<- Message) {
 			} `json:"result"`
 		}
 		if err := json.Unmarshal(resp, &updates); err != nil {
-			time.Sleep(2 * time.Second)
-			continue
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+				continue
+			}
 		}
 		for _, upd := range updates.Result {
 			if upd.UpdateID > offset {
@@ -159,7 +195,11 @@ func (t *telegramChannel) apiCall(ctx context.Context, method string, params url
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := t.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

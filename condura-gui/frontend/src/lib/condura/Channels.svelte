@@ -14,9 +14,16 @@
   // dots whose heights step up like real radio bars. When connected they
   // breathe with a staggered cascade using the shared `breathe` keyframe.
   // When degraded the lit dots hold steady in --warn. The "Connect" action
-  // opens BotFather (via the Wails runtime, falling back to window.open).
+  // opens BotFather (via the Wails runtime, falling back to window.open) and
+  // reveals an inline token-input field for the user to paste the bot token.
 
-  type ChannelRow = { id: string; name: string; state: 'connected' | 'degraded' | 'off' | 'soon'; hint?: string };
+  type ChannelRow = {
+    id: string;
+    name: string;
+    state: 'connected' | 'degraded' | 'off' | 'soon';
+    hint?: string;
+    chatId?: string;
+  };
 
   let rows = $state<ChannelRow[]>([
     { id: 'telegram', name: 'Telegram', state: 'off', hint: 'Connect a BotFather token' },
@@ -30,11 +37,34 @@
   let hydrating = $state(true);
   let hydrateError = $state<string | null>(null);
 
+  // Inline token-entry state. openInput is the channel id whose
+  // token form is currently visible; inputToken holds the typed
+  // value; submitError surfaces a backend failure inline.
+  let openInput = $state<string | null>(null);
+  let inputToken = $state('');
+  let submitError = $state<string | null>(null);
+  let submitting = $state<string | null>(null);
+
   // try to hydrate the list from the daemon (best-effort) and draw the note
   onMount(async () => {
     try {
       const list = await ipc.channelsList();
-      if (Array.isArray(list) && list.length) rows = list;
+      if (Array.isArray(list) && list.length) {
+        rows = list.map((c) => {
+          const id = (c.channel || c.id || c.name || '').toLowerCase() || 'unknown';
+          let state: ChannelRow['state'] = 'off';
+          if (c.connected || c.status === 'connected') state = 'connected';
+          else if (c.status === 'degraded') state = 'degraded';
+          else if (c.status === 'soon' || c.status === 'v0.2.0') state = 'soon';
+          return {
+            id,
+            name: c.name || c.channel || id,
+            state,
+            hint: c.detail,
+            chatId: (c as { chat_id?: string }).chat_id,
+          };
+        });
+      }
       hydrateError = null;
     } catch (e) {
       hydrateError = String(e);
@@ -59,18 +89,63 @@
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function connect(id: string): Promise<void> {
+  // connect is the entry point on the row's Connect button. It
+  // opens BotFather so the user can mint a bot, then reveals the
+  // inline token-entry form. No daemon call yet — the token is
+  // what the daemon needs; we wait for it before calling
+  // channels.connect.
+  function connect(id: string): void {
     if (id !== 'telegram') return;
+    openBotFather();
+    openInput = id;
+    inputToken = '';
+    submitError = null;
+  }
+
+  // submitToken fires the actual channels.connect IPC. On
+  // success, the row flips to 'connected'. On error, the error
+  // message is rendered inline (in the hint slot).
+  async function submitToken(id: string): Promise<void> {
+    if (id !== 'telegram') return;
+    const token = inputToken.trim();
+    if (!token) {
+      submitError = 'Token is empty';
+      return;
+    }
+    submitting = id;
+    submitError = null;
+    try {
+      const info = await ipc.channelsConnect('telegram', token);
+      rows = rows.map((r) =>
+        r.id === id
+          ? { ...r, state: 'connected', hint: undefined, chatId: (info as { chat_id?: string }).chat_id }
+          : r
+      );
+      openInput = null;
+      inputToken = '';
+    } catch (e) {
+      submitError = String(e);
+    } finally {
+      submitting = null;
+    }
+  }
+
+  function cancelInput(): void {
+    openInput = null;
+    inputToken = '';
+    submitError = null;
+  }
+
+  // disconnect is wired to the future Manage button (post-
+  // connected). Currently unused in the row template but kept
+  // here so the runtime behavior matches the spec.
+  async function disconnect(id: string): Promise<void> {
     busy = id;
     try {
-      openBotFather();
-      // best-effort: nudge the daemon so it knows we're trying
-      // no typed wrapper yet
-      await ipc.call('channels.telegram.start', {});
-      // optimistic local state
-      rows = rows.map((r) => (r.id === id ? { ...r, state: 'degraded', hint: 'token entry → open Channels' } : r));
+      await ipc.channelsDisconnect(id);
+      rows = rows.map((r) => (r.id === id ? { ...r, state: 'off', hint: undefined, chatId: undefined } : r));
     } catch {
-      // ignore — keep honest state
+      // keep honest state
     } finally {
       busy = null;
     }
@@ -103,43 +178,104 @@
 
   <div class="grid">
     {#each rows as r (r.id)}
-      <button
-        type="button"
-        class="row"
-        class:connected={r.state === 'connected'}
-        class:degraded={r.state === 'degraded'}
-        class:soon={r.state === 'soon'}
-        aria-label={`${r.name}, ${stateLabel(r)}`}
+      <div
+        class="row-wrap"
       >
-        <div class="cell">
-          <div class="name">{r.name}</div>
-          <div class="hint">{r.hint ?? (r.state === 'soon' ? 'coming in v0.2.0' : r.state)}</div>
-        </div>
-        <div class="signal" aria-hidden="true">
-          {#each Array.from({ length: 5 }) as _, i (i)}
-            <span
-              class="dot"
-              class:on={i < dotCount(r.state)}
-              style:--i={i}
-            ></span>
-          {/each}
-        </div>
-        <div class="action">
-          {#if r.state === 'soon'}
-            <span class="pill-soon">v0.2.0</span>
-          {:else}
+        <button
+          type="button"
+          class="row"
+          class:connected={r.state === 'connected'}
+          class:degraded={r.state === 'degraded'}
+          class:soon={r.state === 'soon'}
+          class:open={openInput === r.id}
+          aria-label={`${r.name}, ${stateLabel(r)}`}
+        >
+          <div class="cell">
+            <div class="name">{r.name}</div>
+            <div class="hint">
+              {#if submitError && openInput === r.id}
+                {submitError}
+              {:else if r.state === 'connected' && r.chatId}
+                connected · chat {r.chatId}
+              {:else if r.state === 'connected'}
+                connected
+              {:else if r.state === 'soon'}
+                coming in v0.2.0
+              {:else if openInput === r.id}
+                paste your BotFather token
+              {:else}
+                {r.hint ?? 'not connected'}
+              {/if}
+            </div>
+          </div>
+          <div class="signal" aria-hidden="true">
+            {#each Array.from({ length: 5 }) as _, i (i)}
+              <span
+                class="dot"
+                class:on={i < dotCount(r.state)}
+                style:--i={i}
+              ></span>
+            {/each}
+          </div>
+          <div class="action">
+            {#if r.state === 'soon'}
+              <span class="pill-soon">v0.2.0</span>
+            {:else if r.state === 'connected'}
+              <Button
+                variant="ghost"
+                size="sm"
+                magnetic={false}
+                disabled={busy === r.id}
+                onclick={() => disconnect(r.id)}
+              >
+                {busy === r.id ? 'disconnecting…' : 'Disconnect'}
+              </Button>
+            {:else if openInput !== r.id}
+              <Button
+                variant="primary"
+                size="sm"
+                magnetic={true}
+                onclick={() => connect(r.id)}
+              >
+                Connect →
+              </Button>
+            {/if}
+          </div>
+        </button>
+        {#if openInput === r.id && r.state !== 'soon' && r.state !== 'connected'}
+          <div class="token-form" role="group" aria-label="Telegram bot token">
+            <input
+              type="password"
+              class="token-input"
+              placeholder="bot token from BotFather"
+              bind:value={inputToken}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') void submitToken(r.id);
+                if (e.key === 'Escape') cancelInput();
+              }}
+              disabled={submitting === r.id}
+            />
             <Button
               variant="primary"
               size="sm"
               magnetic={true}
-              disabled={busy === r.id}
-              onclick={() => connect(r.id)}
+              disabled={submitting === r.id || !inputToken.trim()}
+              onclick={() => submitToken(r.id)}
             >
-              {busy === r.id ? 'opening…' : 'Connect →'}
+              {submitting === r.id ? 'connecting…' : 'Connect'}
             </Button>
-          {/if}
-        </div>
-      </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              magnetic={false}
+              disabled={submitting === r.id}
+              onclick={cancelInput}
+            >
+              Cancel
+            </Button>
+          </div>
+        {/if}
+      </div>
     {/each}
   </div>
 
@@ -208,6 +344,58 @@
     flex-direction: column;
     gap: var(--space-3);
     margin-bottom: var(--space-6);
+  }
+  .row-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .token-form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    margin-left: var(--space-5);
+    border-left: 2px solid var(--synapse);
+    background: color-mix(in oklab, var(--synapse) 4%, transparent);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    animation: token-form-in 240ms var(--ease) both;
+  }
+  .token-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--content);
+    background: var(--surface-card);
+    border: 1px solid var(--hair-strong);
+    border-radius: var(--r-sm);
+    outline: none;
+    transition:
+      border-color var(--dur) var(--ease),
+      box-shadow var(--dur) var(--ease);
+  }
+  .token-input:focus-visible {
+    border-color: var(--synapse);
+    box-shadow: 0 0 0 4px var(--pollen-halo);
+  }
+  .token-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .row.open {
+    border-color: var(--synapse);
+  }
+  @keyframes token-form-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .row {
     display: grid;

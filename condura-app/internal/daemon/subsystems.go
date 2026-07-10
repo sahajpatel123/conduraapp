@@ -916,7 +916,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		Onboarding:      buildOnboarding(db.SQL(), log),
 		Permissions:     buildPermissions(log),
 		Account:         buildAccount(cfg, db, sm, log),
-		Reach:           buildReach(db, log),
+		Reach:           buildReach(db, broker, log),
 		AuditLog:        auditLog,
 		db:              db,
 		cfg:             cfg,
@@ -1614,14 +1614,41 @@ func overrideWithEnv(providers map[string]account.ProviderConfig) {
 
 // buildReach constructs the channels manager (Phase 14C).
 // Returns nil when disabled or construction fails.
-func buildReach(db *storage.DB, log *slog.Logger) *reach.Manager {
+//
+// Hardened 2026-07-10: the Manager now receives the storage.DB
+// (for token encryption at rest) and the SSE broker (for forwarding
+// inbound channel messages to the GUI). Restore() re-establishes
+// any channels that were connected at the last shutdown so users
+// do not have to re-enter their Telegram bot token every time
+// the daemon restarts.
+func buildReach(db *storage.DB, broker *sse.Broker, log *slog.Logger) *reach.Manager {
 	store, err := reach.NewStore(db.SQL())
 	if err != nil {
 		log.Warn("reach: store creation failed, channels disabled", "err", err)
 		return nil
 	}
-	mgr := reach.NewManager(store)
+	mgr := reach.NewManager(store, db, broker)
 	log.Info("reach subsystem ready", "channels", "telegram")
+
+	// Restore channels that were connected at the last shutdown.
+	// Bounded context so a stuck decrypt cannot block the boot
+	// sequence forever.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := mgr.Restore(ctx); err != nil {
+		log.Warn("reach: restore on boot failed", "err", err)
+	} else {
+		statuses, _ := mgr.List(ctx)
+		connected := 0
+		for _, s := range statuses {
+			if s.Connected {
+				connected++
+			}
+		}
+		if connected > 0 {
+			log.Info("reach: restored channels from previous session", "count", connected)
+		}
+	}
 	return mgr
 }
 
