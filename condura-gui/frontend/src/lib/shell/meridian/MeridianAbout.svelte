@@ -24,7 +24,6 @@
   type AtlasId = 'audit' | 'promises' | 'independence'
 
   let caps = $state<DaemonCapabilities | null>(null)
-  let loading = $state(true)
   let active = $state('i')
   let entered = $state(false)
   let reduceMotion = $state(false)
@@ -190,12 +189,7 @@
   }
 
   async function refresh(): Promise<void> {
-    loading = true
-    try {
-      caps = await ipc.daemonCapabilities().catch(() => null)
-    } finally {
-      loading = false
-    }
+    caps = await ipc.daemonCapabilities().catch(() => null)
   }
 
   function openDonate(): void {
@@ -208,12 +202,6 @@
 
   function goAudit(): void {
     window.location.hash = '#/audit'
-  }
-
-  function led(on: boolean | undefined): 'on' | 'off' | 'dim' {
-    if (on === true) return 'on'
-    if (on === false) return 'off'
-    return 'dim'
   }
 </script>
 
@@ -387,45 +375,6 @@
     </div>
   </section>
 
-  <!-- Quiet instrument readout -->
-  <section class="readout" aria-label="What this build can do">
-    <div class="readout-label">
-      <span>Instrument readout</span>
-      <span class="sub">daemon.capabilities · facts only</span>
-    </div>
-    {#if !caps && !loading}
-      <p class="readout-empty">Connect the daemon to light the board.</p>
-    {:else}
-      <ul class="leds">
-        <li data-led={led(caps?.kill_switch.layer1_hotkey)}>
-          <i></i><span>Hotkey</span>
-        </li>
-        <li data-led={led(caps?.kill_switch.layer2_watchdog)}>
-          <i></i><span>Watchdog</span>
-        </li>
-        <li data-led={led(caps?.kill_switch.layer3_network_isolation.in_process)}>
-          <i></i><span>Net isolate</span>
-        </li>
-        <li data-led={led(caps?.audit.hmac_subkey)}>
-          <i></i><span>HMAC chain</span>
-        </li>
-        <li data-led={led(caps?.audit.redaction)}>
-          <i></i><span>Redaction</span>
-        </li>
-        <li data-led={caps ? 'on' : 'dim'}>
-          <i></i>
-          <span class="mono">
-            {#if caps}
-              {caps.computer_use.orax}/{caps.computer_use.mac_cua}
-            {:else}
-              …
-            {/if}
-          </span>
-        </li>
-      </ul>
-    {/if}
-  </section>
-
   <!-- Closing plate -->
   <footer class="plate">
     <div class="plate-copy">
@@ -479,7 +428,6 @@
 
   .thesis,
   .meridian,
-  .readout,
   .plate {
     position: relative;
     z-index: 1;
@@ -1097,87 +1045,6 @@
     box-shadow: 0 0 12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
   }
 
-  /* —— Readout —— */
-  .readout {
-    margin-bottom: 40px;
-    padding: 18px 20px;
-    border-radius: 22px;
-    border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-stage) 65%, transparent);
-    opacity: 0;
-    transform: translateY(16px);
-    transition:
-      opacity 700ms var(--about-ease) 220ms,
-      transform 700ms var(--about-ease) 220ms;
-  }
-  .colophon.in .readout {
-    opacity: 1;
-    transform: none;
-  }
-  .readout-label {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 14px;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-  }
-  .readout-label .sub {
-    color: var(--md-ink-mute);
-    letter-spacing: 0.06em;
-    text-transform: none;
-  }
-  .readout-empty {
-    margin: 0;
-    font-size: 13px;
-    color: var(--md-ink-mute);
-  }
-  .leds {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 14px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .leds li {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--md-ink-soft);
-    padding: 6px 2px;
-  }
-  .leds i {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--md-ink-faint);
-    box-shadow: inset 0 0 0 1px var(--md-line-strong);
-  }
-  .leds li[data-led='on'] i {
-    background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 22%, transparent);
-  }
-  .leds li[data-led='off'] i {
-    background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 18%, transparent);
-  }
-  .leds li[data-led='dim'] {
-    color: var(--md-ink-faint);
-  }
-  .mono {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
-
   /* —— Plate —— */
   .plate {
     display: grid;
@@ -1387,8 +1254,7 @@
 
   .colophon.calm .thesis,
   .colophon.calm .meridian,
-  .colophon.calm .readout,
-  .colophon.calm .plate,
+    .colophon.calm .plate,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
   .colophon.calm .atlas-door {
@@ -1396,8 +1262,7 @@
   }
   .colophon.calm .thesis,
   .colophon.calm .meridian,
-  .colophon.calm .readout,
-  .colophon.calm .plate {
+    .colophon.calm .plate {
     opacity: 1;
     transform: none;
   }
