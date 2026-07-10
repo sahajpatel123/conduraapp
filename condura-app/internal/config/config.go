@@ -152,7 +152,17 @@ type LoggingConfig struct {
 	// Format: "text" or "json".
 	Format string `yaml:"format"`
 	// File is an optional file to log to in addition to stderr.
+	// When set, size-based rotation is applied (see MaxSizeMB / MaxBackups / MaxAgeDays).
 	File string `yaml:"file"`
+	// MaxSizeMB is the maximum size in megabytes of a single log file
+	// before rotation. 0 uses the logger package default (50 MB).
+	MaxSizeMB int `yaml:"max_size_mb"`
+	// MaxBackups is the maximum number of rotated log files to retain.
+	// 0 uses the logger package default (5). Negative disables count pruning.
+	MaxBackups int `yaml:"max_backups"`
+	// MaxAgeDays is the maximum age in days of a rotated log file before
+	// it is deleted. 0 uses the logger package default (30). Negative disables age pruning.
+	MaxAgeDays int `yaml:"max_age_days"`
 	// AddSource adds file:line to each entry.
 	AddSource bool `yaml:"add_source"`
 }

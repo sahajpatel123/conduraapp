@@ -103,10 +103,13 @@ func Default() *Config {
 			},
 		},
 		Logging: LoggingConfig{
-			Level:     LogLevelInfo,
-			Format:    "text",
-			File:      "",
-			AddSource: false,
+			Level:      LogLevelInfo,
+			Format:     "text",
+			File:       "",
+			MaxSizeMB:  0, // 0 → logger.DefaultMaxSizeMB
+			MaxBackups: 0, // 0 → logger.DefaultMaxBackups
+			MaxAgeDays: 0, // 0 → logger.DefaultMaxAgeDays
+			AddSource:  false,
 		},
 		Storage: StorageConfig{
 			Path: "", // resolved by loader
@@ -892,6 +895,24 @@ func setLogging(c *LoggingConfig, parts []string, value string) error {
 		c.Format = value
 	case "file":
 		c.File = value
+	case "max_size_mb":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.MaxSizeMB = n
+	case "max_backups":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.MaxBackups = n
+	case "max_age_days":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		c.MaxAgeDays = n
 	case "add_source":
 		b, err := strconv.ParseBool(value)
 		if err != nil {

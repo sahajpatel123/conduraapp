@@ -1,4 +1,4 @@
-// Package logger provides the structured logging for Synaptic.
+// Package logger provides structured logging for Condura.
 //
 // It wraps log/slog (Go 1.21+ standard library) and adds:
 //
@@ -6,7 +6,7 @@
 //     (api_key, token, password, secret, authorization, cookie, etc.).
 //   - Standard attribute names for request_id, session_id, user_id, run_id.
 //   - Two output formats: JSON (production) and Text (development).
-//   - Two sinks: stderr (always) and optional file (with rotation, future).
+//   - Two sinks: stderr (always) and optional size-rotated file.
 //
 // The redaction is applied via a wrapping slog.Handler, so any handler
 // (slog.NewJSONHandler, slog.NewTextHandler, custom) is supported.
@@ -80,6 +80,15 @@ func ParseFormat(s string) Format {
 	}
 }
 
+// Default rotation limits when a file sink is configured.
+// Sized so a chatty debug day cannot fill a disk while still
+// retaining enough history for post-incident forensics.
+const (
+	DefaultMaxSizeMB  = 50
+	DefaultMaxBackups = 5
+	DefaultMaxAgeDays = 30
+)
+
 // Config configures the logger.
 type Config struct {
 	// Level is the minimum log level. Default: "info".
@@ -89,8 +98,17 @@ type Config struct {
 	// AddSource adds the source file:line to each log entry. Default: false (in prod).
 	AddSource bool
 	// File is an optional file path to write logs to in addition to stderr.
-	// Empty means stderr only.
+	// Empty means stderr only. When set, size-based rotation is applied.
 	File string
+	// MaxSizeMB is the maximum size in megabytes of a single log file
+	// before rotation. 0 uses DefaultMaxSizeMB. Only applied when File is set.
+	MaxSizeMB int
+	// MaxBackups is the maximum number of rotated files to retain
+	// (name.log.1 … name.log.N). 0 uses DefaultMaxBackups. Negative disables pruning.
+	MaxBackups int
+	// MaxAgeDays is the maximum age in days of a rotated file before
+	// it is deleted. 0 uses DefaultMaxAgeDays. Negative disables age pruning.
+	MaxAgeDays int
 	// Redact enables sensitive data redaction. Default: true.
 	Redact *bool
 }
@@ -136,7 +154,7 @@ func New(cfg Config) *slog.Logger {
 
 	var writer io.Writer = os.Stderr
 	if cfg.File != "" {
-		writer = openFileOrStderr(cfg.File, writer)
+		writer = openFileOrStderr(cfg, writer)
 	}
 
 	var base slog.Handler
@@ -234,25 +252,44 @@ func toSlogLevel(lvl Level) slog.Level {
 
 func boolPtr(b bool) *bool { return &b }
 
-func openFileOrStderr(path string, fallback io.Writer) io.Writer {
-	dir := filepath.Dir(path)
+func openFileOrStderr(cfg Config, fallback io.Writer) io.Writer {
+	dir := filepath.Dir(cfg.File)
 	if err := os.MkdirAll(dir, logDirPerm); err != nil {
 		return fallback
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerm) //nolint:gosec // G304: path is the user-configured log file, not user input
+
+	maxSize := cfg.MaxSizeMB
+	if maxSize <= 0 {
+		maxSize = DefaultMaxSizeMB
+	}
+	maxBackups := cfg.MaxBackups
+	if maxBackups == 0 {
+		maxBackups = DefaultMaxBackups
+	}
+	maxAge := cfg.MaxAgeDays
+	if maxAge == 0 {
+		maxAge = DefaultMaxAgeDays
+	}
+
+	w, err := newRotatingWriter(rotatingConfig{
+		Filename:   cfg.File,
+		MaxSize:    int64(maxSize) * 1024 * 1024,
+		MaxBackups: maxBackups,
+		MaxAgeDays: maxAge,
+	})
 	if err != nil {
 		return fallback
 	}
-	// We intentionally do not close f — the OS will clean up on process exit.
-	// For long-running daemons, a future log rotation module can take over.
-	return f
+	// Tee to stderr so operators still see live output when a file sink
+	// is configured (daemon journal + on-disk forensics).
+	return io.MultiWriter(os.Stderr, w)
 }
 
 // -----------------------------------------------------------------------------
 // Standard attribute keys
 // -----------------------------------------------------------------------------
 
-// Standard attribute keys used across Synaptic. Using constants avoids typos
+// Standard attribute keys used across Condura. Using constants avoids typos
 // and makes refactors safe.
 const (
 	KeyRequestID = "request_id"

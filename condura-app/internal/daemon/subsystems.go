@@ -1254,13 +1254,16 @@ func mkdirDataDir(path string) error {
 }
 
 // newLoggerFromConfig creates an slog.Logger from the config's logging
-// section, applying level / format / file / source settings.
+// section, applying level / format / file / rotation / source settings.
 func newLoggerFromConfig(cfg *config.Config) *slog.Logger {
 	return logger.New(logger.Config{
-		Level:     logger.ParseLevel(cfg.Logging.Level),
-		Format:    logger.ParseFormat(cfg.Logging.Format),
-		File:      cfg.Logging.File,
-		AddSource: cfg.Logging.AddSource,
+		Level:      logger.ParseLevel(cfg.Logging.Level),
+		Format:     logger.ParseFormat(cfg.Logging.Format),
+		File:       cfg.Logging.File,
+		MaxSizeMB:  cfg.Logging.MaxSizeMB,
+		MaxBackups: cfg.Logging.MaxBackups,
+		MaxAgeDays: cfg.Logging.MaxAgeDays,
+		AddSource:  cfg.Logging.AddSource,
 	})
 }
 
