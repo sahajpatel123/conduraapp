@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"io"
 	"mime/multipart"
 	"net/http"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // OpenAITranscriber implements Transcriber using the OpenAI Whisper API.

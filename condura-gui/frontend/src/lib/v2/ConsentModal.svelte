@@ -142,9 +142,10 @@
   })
 </script>
 
-{#if open}
-<svelte:window onkeydown={onKeydown} />
+<!-- Must be top-level (not inside {#if}) — Svelte forbids <svelte:window> in blocks. -->
+<svelte:window onkeydown={open ? onKeydown : undefined} />
 
+{#if open}
   <!-- ── Backdrop ───────────────────────────────────────────── -->
   <div
     data-v2

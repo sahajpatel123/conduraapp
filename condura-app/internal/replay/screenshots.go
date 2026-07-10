@@ -25,7 +25,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"io"
 	"os"
 	"path/filepath"
@@ -33,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 var screenshotIDRegex = regexp.MustCompile("^[0-9a-f]{16}$")

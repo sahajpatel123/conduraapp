@@ -7,11 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Default values for OpenAICompat auth fields. Most OpenAI-compatible

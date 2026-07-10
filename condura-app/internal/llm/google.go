@@ -6,11 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Google implements the Provider interface for Google's Gemini API.

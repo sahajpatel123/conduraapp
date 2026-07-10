@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 const (
