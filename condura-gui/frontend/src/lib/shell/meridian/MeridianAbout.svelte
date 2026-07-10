@@ -365,7 +365,6 @@
       {#key active}
         <div class="stage-copy">
           <div class="stage-top">
-            <span class="stage-index">Station {activeStation.roman}</span>
             {#if activeStation.live}
               {@const live = activeStation.live()}
               <span class="stage-live" data-ok={live.ok}>
@@ -1095,13 +1094,8 @@
     gap: 10px;
     margin-bottom: 16px;
   }
-  .stage-index {
-    font-family: var(--md-font-sans);
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: none;
-    color: var(--md-cobalt);
-    font-weight: 700;
+  .stage-top:empty {
+    display: none;
   }
   .stage-cite,
   .stage-cite-foot {
