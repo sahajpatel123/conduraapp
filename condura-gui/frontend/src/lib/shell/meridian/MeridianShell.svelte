@@ -21,7 +21,6 @@
   } from '../../theme/condura-theme'
   import { ROUTE_HASH, hashToRoute, type RouteId } from './routes'
 
-  import MeridianArc from './MeridianArc.svelte'
   import MeridianDock from './MeridianDock.svelte'
   import MeridianChat from './MeridianChat.svelte'
   import MeridianHub from './MeridianHub.svelte'
@@ -196,10 +195,6 @@
       </button>
     </div>
   </header>
-
-  <div class="arc-wrap">
-    <MeridianArc tone={statusTone} />
-  </div>
 
   <main class="stage">
     <svg class="stage-rim" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
@@ -453,12 +448,6 @@
     border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
     color: var(--md-ink);
-  }
-  .arc-wrap {
-    position: relative;
-    z-index: 1;
-    padding: 0 12px;
-    margin-top: -4px;
   }
   .stage {
     position: relative;
