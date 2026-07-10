@@ -202,6 +202,51 @@
   </div>
 
   <main class="stage">
+    <svg class="stage-rim" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="mdRimCrown" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="var(--md-live)" stop-opacity="0.2" />
+          <stop offset="50%" stop-color="var(--md-cobalt)" stop-opacity="0.95" />
+          <stop offset="100%" stop-color="var(--md-live)" stop-opacity="0.28" />
+        </linearGradient>
+        <linearGradient id="mdRimSide" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="var(--md-cobalt)" stop-opacity="0.85" />
+          <stop offset="28%" stop-color="var(--md-cobalt)" stop-opacity="0.4" />
+          <stop offset="62%" stop-color="var(--md-cobalt)" stop-opacity="0.12" />
+          <stop offset="100%" stop-color="var(--md-cobalt)" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <!-- Left margin: rides the light panel edge, dissolves by ~25% height -->
+      <path
+        d="M 5 48 L 5 210"
+        fill="none"
+        stroke="url(#mdRimSide)"
+        stroke-width="2.75"
+        stroke-linecap="round"
+      />
+      <!-- Crown: same family as the status arc, seated on the stage top -->
+      <path
+        d="M 5 48
+           C 5 18, 28 5, 58 5
+           L 420 5
+           C 560 -2, 640 -2, 780 5
+           L 1142 5
+           C 1172 5, 1195 18, 1195 48"
+        fill="none"
+        stroke="url(#mdRimCrown)"
+        stroke-width="2.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <!-- Right margin -->
+      <path
+        d="M 1195 48 L 1195 210"
+        fill="none"
+        stroke="url(#mdRimSide)"
+        stroke-width="2.75"
+        stroke-linecap="round"
+      />
+    </svg>
     {#key route}
       {#if route === 'chat'}
         <MeridianChat />
@@ -274,11 +319,11 @@
   .top {
     position: relative;
     z-index: 2;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
     align-items: center;
     gap: 16px;
     padding: 14px 22px 0;
+    min-height: 52px;
     animation: md-fade 400ms var(--md-ease) both;
   }
   .brand {
@@ -286,7 +331,7 @@
     align-items: baseline;
     gap: 10px;
     flex: none;
-    justify-self: start;
+    z-index: 1;
   }
   .word {
     font-family: var(--md-font-display);
@@ -302,9 +347,13 @@
     color: var(--md-ink-faint);
   }
   .jump {
-    justify-self: center;
-    width: min(420px, 100%);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100% - 360px));
     max-width: 420px;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -323,7 +372,7 @@
   .jump:hover {
     border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
     color: var(--md-ink);
-    transform: translateY(-1px);
+    transform: translate(-50%, calc(-50% - 1px));
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
   }
   .jump kbd {
@@ -340,7 +389,8 @@
     justify-content: flex-end;
     gap: 10px;
     flex: none;
-    justify-self: end;
+    margin-left: auto;
+    z-index: 1;
   }
   .status {
     display: inline-flex;
@@ -407,7 +457,7 @@
   .arc-wrap {
     position: relative;
     z-index: 1;
-    padding: 0 8px;
+    padding: 0 12px;
     margin-top: -4px;
   }
   .stage {
@@ -425,3 +475,55 @@
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
   }
+  .stage-rim {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+    overflow: visible;
+  }
+  @keyframes md-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.35); opacity: 0.7; }
+  }
+  @media (max-width: 720px) {
+    .edition,
+    .jump span {
+      display: none;
+    }
+    .top {
+      padding: 12px 14px 0;
+      gap: 10px;
+      min-height: 48px;
+    }
+    .jump {
+      width: 44px;
+      max-width: 44px;
+      justify-content: center;
+      padding: 10px;
+    }
+    .jump kbd { display: none; }
+    .status {
+      padding: 6px 9px;
+      font-size: 9px;
+    }
+    .stage { margin: 0 8px; border-radius: 22px 22px 0 0; }
+  }
+  @media (max-width: 420px) {
+    .word { font-size: 18px; }
+    .right { gap: 6px; }
+    .icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+    }
+    .jump {
+      width: min(420px, calc(100% - 200px));
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .top, .status .dot { animation: none !important; }
+  }
+</style>
