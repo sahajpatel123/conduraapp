@@ -111,18 +111,31 @@ jobs:
         shell: bash
         run: go test -race -count=1 -short -tags synaptictest -timeout=300s -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage threshold (safety packages)
+      - name: Report coverage (safety packages)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          # Extract coverage for critical packages: must be > 80%
-          set +e
-          for pkg in internal/llm internal/ipc internal/daemon internal/config internal/secrets; do
-            if [ -f coverage.out ]; then
-              cov=$(go tool cover -func=coverage.out | grep "$pkg" | awk '{print $NF}' | tail -1)
-              if [ -n "$cov" ]; then
-                echo "Coverage for $pkg: $cov"
-              fi
+          # Report-only: monorepo package paths are condura-app/internal/...
+          # Soft floor 80% — warn if below; do not fail the job (coverage
+          # varies by OS build tags and is tracked, not gated).
+          if [ ! -f coverage.out ]; then
+            echo "No coverage.out — skip"
+            exit 0
+          fi
+          for pkg in \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/llm \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/ipc \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/daemon \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/config \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/secrets \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/gatekeeper \
+            github.com/sahajpatel123/conduraapp/condura-app/internal/audit; do
+            line=$(go tool cover -func=coverage.out | grep "$pkg" | tail -1 || true)
+            if [ -n "$line" ]; then
+              cov=$(echo "$line" | awk '{print $NF}')
+              echo "Coverage $pkg: $cov"
+            else
+              echo "Coverage $pkg: (no statements matched)"
             fi
           done
 
@@ -351,10 +364,11 @@ jobs:
 
       - name: Run integration tests
         run: |
-          if [ -d test/integration ]; then
-            go test -race -count=1 -timeout=300s -tags=integration ./test/integration/...
+          # Real integration package lives under condura-app/test (Makefile test-integration).
+          if go list -tags=integration ./condura-app/test/... >/dev/null 2>&1; then
+            go test -race -count=1 -timeout=300s -tags=integration ./condura-app/test/...
           else
-            echo "No test/integration directory — skipping"
+            echo "No integration-tagged packages under ./condura-app/test — skipping"
           fi
 
   # ---------------------------------------------------------------

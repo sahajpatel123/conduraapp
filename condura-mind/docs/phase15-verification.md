@@ -5,7 +5,7 @@
 >
 > Execute this checklist on **at least one clean machine per OS**:
 > macOS (arm64), Windows 11 (amd64), Ubuntu 22.04 (amd64).
-> A "clean machine" means no prior Condura install, no pre-existing `~/.synaptic/`,
+> A "clean machine" means no prior Condura install, no pre-existing `~/.condura/`,
 > no Ollama, no API keys configured, and no developer tooling beyond a browser.
 
 ---
@@ -182,7 +182,7 @@
 **Listen:** `tcp://127.0.0.1:18801`.
 **Evidence:** `/tmp/condura-phase15-evidence/` (daemon.log, config.yaml, rpc-transcript.txt).
 
-> The Wails GUI binary could not be tested in this run: `wails build` on **Go 1.26.4** (the local dev toolchain) fails with a duplicate-symbol linker error (`_OBJC_METACLASS_$_AppDelegate` and `_OBJC_CLASS_$_AppDelegate` defined twice in Wails v2.12.0's internal darwin bundle). **This is a Go 1.26+ ↔ Wails v2.12.0 incompatibility, not a project bug** — the CI uses Go 1.25.11 (per `ci.yml: env.GO_VERSION`) and the GUI Build (darwin/arm64) CI job passes green. The CLI daemon exercises the same backend RPCs the Wails app uses, so the chat/onboarding/audit path is verified at the system level. The GUI visual confirmation is deferred to a human run on a real Mac. **Workaround for Go 1.26+ local builds:** pin Go to 1.25.x (`go.work` `toolchain go1.25.x` or `asdf local go 1.25.11`), or upgrade `wails/v2` to a version that handles Go 1.26.
+> The Wails GUI binary could not be tested in this run: `wails build` on **Go 1.26.4** (the local dev toolchain) fails with a duplicate-symbol linker error (`_OBJC_METACLASS_$_AppDelegate` and `_OBJC_CLASS_$_AppDelegate` defined twice in Wails v2.12.0's internal darwin bundle). **This is a Go 1.26+ ↔ Wails v2.12.0 incompatibility, not a project bug** — the CI uses Go 1.25.12 (per `ci.yml: env.GO_VERSION`) and the GUI Build (darwin/arm64) CI job passes green. The CLI daemon exercises the same backend RPCs the Wails app uses, so the chat/onboarding/audit path is verified at the system level. The GUI visual confirmation is deferred to a human run on a real Mac. **Workaround for Go 1.26+ local builds:** pin Go to 1.25.x (`go.work` `toolchain go1.25.x` or `asdf local go 1.25.12`), or upgrade `wails/v2` to a version that handles Go 1.26.
 
 ### Verified rows
 
@@ -207,7 +207,7 @@
 
 | Severity | Finding | Status | Resolution |
 |----------|---------|-------|------------|
-| **env** | `wails build` fails on Go 1.26.4 with duplicate `AppDelegate` symbols. CI uses Go 1.25.11 and is green, so this is a Go 1.26+ ↔ Wails v2.12.0 toolchain incompatibility, not a project bug. Local devs on Go 1.26+ see a false-negative build failure. | Known, not blocking | Pin Go to 1.25.x in local dev (`go.work` toolchain directive, `asdf local go 1.25.11`). Track upstream Wails issue for Go 1.26+ support. |
+| **env** | `wails build` fails on Go 1.26.4 with duplicate `AppDelegate` symbols. CI uses Go 1.25.12 and is green, so this is a Go 1.26+ ↔ Wails v2.12.0 toolchain incompatibility, not a project bug. Local devs on Go 1.26+ see a false-negative build failure. | Known, not blocking | Pin Go to 1.25.x in local dev (`go.work` toolchain directive, `asdf local go 1.25.12`). Track upstream Wails issue for Go 1.26+ support. |
 | **P3** | First call to `onboarding.probe_power` returns `ollama_reachable: false` even when Ollama is up; second call returns true. Race during boot. | **Fixed** | `internal/onboarding/power.go:54-71` — one retry with 250ms back-off. Per-attempt timeout reduced from 2s to 1s so the full retry (1s + 250ms + 1s = 2.25s) fits inside the 3s parent context from `ProbePowerWithTimeout`. |
 | **P3** | `apikeys.set ollama ""` rejects with "empty secret" — Ollama doesn't need a real key, but the API requires a non-empty string. | **Fixed** | `internal/api_key/manager.go:217-243` and `:457-471` — `validateSetKey` and `Validate` special-case `provider=ollama` to auto-fill `OllamaLocalSentinel = "ollama-local-no-key"`. The sentinel is stable + grep-able so admin tools can identify "no real key" rows. Non-Ollama providers still require non-empty. |
 | **P3** | `llm.stream` returns `request_id` but the assistant message is not auto-persisted to the conversation store — the GUI normally appends it from the SSE delta stream. Direct-RPC users (like this test) don't get the assistant message persisted. | **Documented** | `internal/stream/manager.go:23-32` — package doc now spells out the contract: StreamManager fans out SSE events but persistence is always the caller's responsibility. Both `llm.stream` and `llm.chat` skip persistence by design. |

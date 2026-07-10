@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # verify-release-artifacts.sh — download a GitHub release and verify checksums + manifest signature.
-# Usage: ./scripts/verify-release-artifacts.sh [v0.1.0]
+# Usage: ./condura-ops/scripts/verify-release-artifacts.sh [v0.1.0]
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TAG="${1:-v0.1.0}"
 REPO="${GITHUB_REPOSITORY:-sahajpatel123/conduraapp}"
 WORKDIR="${ROOT}/dist/verify-${TAG}"
@@ -30,7 +30,7 @@ if [ ! -f "$WORKDIR/manifest.json" ]; then
 fi
 
 echo "Verifying manifest Ed25519 signature..."
-(cd "$ROOT" && go run ./cmd/gen-update-manifest verify "$WORKDIR/manifest.json")
+(cd "$ROOT" && go run ./condura-app/cmd/gen-update-manifest verify "$WORKDIR/manifest.json")
 
 echo "Verifying archive checksums..."
 while read -r hash file; do

@@ -12,7 +12,7 @@ agent in **≤9 in-app clicks**, with no account and no API key required.
 
 - A clean environment (fresh VM/user account, or remove prior state):
   ```bash
-  rm -rf ~/.synaptic
+  rm -rf ~/.condura
   ```
 - A built GUI app for the target OS (see `scripts/package-gui-installers.sh`).
 - Optional, to exercise the happy path: [Ollama](https://ollama.com/download)
@@ -49,7 +49,7 @@ our control and not counted).
       the accepted version.
 - [ ] Settings → **Setup** → "Re-run setup" relaunches the wizard at the
       EULA step without deleting data.
-- [ ] Config persisted: `~/.synaptic/config.yaml` has the chosen
+- [ ] Config persisted: `~/.condura/config.yaml` has the chosen
       `hotkey.overlay`, and `llm.providers.ollama.enabled: true` when
       Ollama was reachable at finish.
 

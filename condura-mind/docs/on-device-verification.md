@@ -20,7 +20,7 @@ hotkey latency, consent modals, voice mic/TTS, and real computer-use clicks.
    `wails dev` build, unless you are explicitly testing a pre-release candidate.
 2. **Use a clean machine** (or a clean user account):
    - No prior Condura/Synaptic install
-   - No `~/.synaptic/` directory
+   - No `~/.condura/` directory
    - No Ollama, no API keys, no developer tools beyond a browser
    - macOS: prefer a real Mac (not a VM) for Accessibility + Screen Recording
 3. **Prepare evidence folder** on the test machine, e.g.
@@ -50,7 +50,7 @@ hotkey latency, consent modals, voice mic/TTS, and real computer-use clicks.
 
 - Mark each checkbox in this file and each table row in phase15.
 - For any **FAIL**: stop the run, open a GitHub issue labeled `P0` or `P1`,
-  attach logs from `~/.synaptic/logs/` (redact API keys), and do not sign off.
+  attach logs from `~/.condura/logs/` (redact API keys), and do not sign off.
 - **Ship-ready** means: all phase15 rows PASS on at least one clean machine
   per OS (macOS arm64, Windows 11 amd64, Ubuntu 22.04 amd64) and sign-off table complete.
 
@@ -58,9 +58,9 @@ hotkey latency, consent modals, voice mic/TTS, and real computer-use clicks.
 
 | OS | Daemon / app logs |
 |----|-------------------|
-| macOS | `~/.synaptic/logs/`, Console.app → filter "condura" |
+| macOS | `~/.condura/logs/`, Console.app → filter "condura" |
 | Windows | `%USERPROFILE%\.synaptic\logs\` |
-| Linux | `~/.synaptic/logs/`, `journalctl --user -u condura` if using systemd user unit |
+| Linux | `~/.condura/logs/`, `journalctl --user -u condura` if using systemd user unit |
 
 ### When you are done
 
@@ -76,13 +76,13 @@ hotkey latency, consent modals, voice mic/TTS, and real computer-use clicks.
 - [x] `release-verify` — GoReleaser snapshot + manifest sign roundtrip
 - [x] `embedded-key-check` — `UPDATE_SIGNING_KEY` matches embedded `PublicKey` (when secret set)
 - [x] Updater unit tests + `update_e2e_test.go` through IPC
-- [x] `scripts/verify-release-artifacts.sh v0.1.0` after tag (checksums + manifest sig)
+- [x] `condura-ops/scripts/verify-release-artifacts.sh v0.1.0` after tag (checksums + manifest sig)
 
 Run locally after a tag:
 
 ```bash
 make verify-release TAG=v0.1.0
-go run ./cmd/gen-update-manifest verify dist/verify-v0.1.0/manifest.json
+go run ./condura-app/cmd/gen-update-manifest verify dist/verify-v0.1.0/manifest.json
 ```
 
 ## macOS (primary target)
@@ -98,11 +98,11 @@ go run ./cmd/gen-update-manifest verify dist/verify-v0.1.0/manifest.json
 - [ ] Auto-update: signed manifest check → "update available" notification
 - [ ] Backup: create backup from Settings → verify `.synaptic-backup` exists
 - [ ] Restore: restore from backup → verify data intact
-- [ ] Uninstall: drag to Trash + delete `~/.synaptic/` → clean state
+- [ ] Uninstall: drag to Trash + delete `~/.condura/` → clean state
 - [ ] Re-install: no second-install message (clean install after removal)
 - [ ] Second-install block: re-run installer without removing → "already installed" message
 - [ ] Halt: press Cmd+Shift+Escape → agent stops, menu bar shows halted
-- [ ] No telemetry: check `~/.synaptic/` — no crash reports sent (opt-in disabled)
+- [ ] No telemetry: check `~/.condura/` — no crash reports sent (opt-in disabled)
 
 ## Windows
 
