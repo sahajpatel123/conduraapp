@@ -158,7 +158,7 @@
   }
 </script>
 
-<div class="md root" class:route-about={route === 'about'}>
+<div class="md root">
   <div class="wash" aria-hidden="true"></div>
 
   <header class="top">
@@ -201,7 +201,7 @@
     <MeridianArc tone={statusTone} />
   </div>
 
-  <main class="stage" class:flat={route === 'about'}>
+  <main class="stage">
     {#key route}
       {#if route === 'chat'}
         <MeridianChat />
@@ -422,21 +422,6 @@
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
     scrollbar-gutter: stable;
-  }
-  /* About: even mist surface — no inset panel, no wash split */
-  .root.route-about {
-    background: var(--md-mist);
-  }
-  .root.route-about .wash,
-  .root.route-about::before {
-    display: none;
-  }
-  .stage.flat {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    background: var(--md-mist);
   }
   .stage::-webkit-scrollbar {
     width: 10px;
