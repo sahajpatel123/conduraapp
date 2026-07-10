@@ -15,6 +15,7 @@
   import LoadingState from '$components/v1/LoadingState.svelte'
   import AgentActionLog from '$components/v1/AgentActionLog.svelte'
   import Pill from '$components/v1/Pill.svelte'
+  import { focusFirst, trapTab } from '../a11y/focusTrap'
 
   type BlastFilter = 'all' | 'read' | 'write' | 'network' | 'destructive'
   type ActionType = 'read' | 'write' | 'network' | 'destructive'
@@ -41,6 +42,30 @@
   } | null>(null)
   let verifyOpen = $state(false)
   let verifying = $state(false)
+
+  let detailEl = $state<HTMLElement | null>(null)
+  let verifyEl = $state<HTMLElement | null>(null)
+  let previousFocus: HTMLElement | null = null
+
+  $effect(() => {
+    if (!detailOpen && !verifyOpen) return
+    previousFocus = document.activeElement as HTMLElement | null
+    focusFirst(detailOpen ? detailEl : verifyEl)
+    return () => {
+      previousFocus?.focus()
+    }
+  })
+
+  function onModalKey(e: KeyboardEvent): void {
+    if (!detailOpen && !verifyOpen) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      detailOpen = false
+      verifyOpen = false
+      return
+    }
+    trapTab(detailOpen ? detailEl : verifyEl, e)
+  }
 
   const total = $derived(audit.events.length)
 
@@ -218,14 +243,18 @@
   {/if}
 </Stack>
 
+<svelte:window onkeydown={detailOpen || verifyOpen ? onModalKey : undefined} />
+
 {#if detailOpen && selected}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="modal-scrim" onclick={() => (detailOpen = false)} role="presentation"></div>
   <aside
     class="modal-panel"
+    bind:this={detailEl}
     role="dialog"
     aria-labelledby="audit-detail-title"
     aria-modal="true"
+    tabindex="-1"
   >
     <Surface variant="overlay" padding="5" class="modal-surface">
       <Stack gap="4">
@@ -285,9 +314,11 @@
   <div class="modal-scrim" onclick={() => (verifyOpen = false)} role="presentation"></div>
   <aside
     class="modal-panel modal-panel--sm"
+    bind:this={verifyEl}
     role="alertdialog"
     aria-labelledby="verify-title"
     aria-modal="true"
+    tabindex="-1"
   >
     <Surface variant="overlay" padding="5" class="modal-surface">
       <Stack gap="4">

@@ -12,6 +12,7 @@
   import { halt } from '../stores/halt.svelte';
   import { overlay } from '../stores/overlay.svelte';
   import { getResolvedTheme, onThemeChange, toggleLightDark } from '../theme/condura-theme';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   let {
     open,
@@ -22,6 +23,32 @@
     onclose: () => void;
     onnavigate?: (r: RouteId) => void;
   } = $props();
+
+  let panelEl = $state<HTMLDivElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    if (!open) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    // Prefer search input; focusFirst is fallback if not yet bound.
+    void tick().then(() => {
+      if (inputEl) inputEl.focus();
+      else focusFirst(panelEl);
+    });
+    return () => {
+      previousFocus?.focus();
+    };
+  });
+
+  function onWinKey(e: KeyboardEvent): void {
+    if (!open) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onclose();
+      return;
+    }
+    trapTab(panelEl, e);
+  }
 
   // ── command model ──
   type Command =
@@ -182,10 +209,14 @@
   }
 </script>
 
+<!-- Must be top-level — Svelte forbids <svelte:window> inside blocks. -->
+<svelte:window onkeydown={open ? onWinKey : undefined} />
+
 {#if open}
   <div class="scrim" onclick={onScrimClick} role="presentation">
     <div
       class="panel"
+      bind:this={panelEl}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"

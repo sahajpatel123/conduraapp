@@ -14,6 +14,7 @@
   import Stack from '$components/v1/Stack.svelte'
   import Inline from '$components/v1/Inline.svelte'
   import Hairline from '$components/v1/Hairline.svelte'
+  import { focusFirst, trapTab } from '../a11y/focusTrap'
 
   interface ChannelStatus {
     name: string
@@ -45,6 +46,28 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let confirmOpen = $state(false)
   let confirmAction = $state<(() => void) | null>(null)
+
+  let sheetEl = $state<HTMLElement | null>(null)
+  let previousFocus: HTMLElement | null = null
+
+  $effect(() => {
+    if (!sheetOpen) return
+    previousFocus = document.activeElement as HTMLElement | null
+    focusFirst(sheetEl)
+    return () => {
+      previousFocus?.focus()
+    }
+  })
+
+  function onSheetKey(e: KeyboardEvent): void {
+    if (!sheetOpen) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      sheetOpen = false
+      return
+    }
+    trapTab(sheetEl, e)
+  }
 
   async function refresh(): Promise<void> {
     loading = true
@@ -197,10 +220,19 @@
   </footer>
 </div>
 
+<svelte:window onkeydown={sheetOpen ? onSheetKey : undefined} />
+
 {#if sheetOpen}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="sheet-scrim" onclick={() => (sheetOpen = false)} role="presentation"></div>
-  <aside class="sheet-panel" role="dialog" aria-labelledby="tg-sheet-title" aria-modal="true">
+  <aside
+    class="sheet-panel"
+    bind:this={sheetEl}
+    role="dialog"
+    aria-labelledby="tg-sheet-title"
+    aria-modal="true"
+    tabindex="-1"
+  >
     <Surface variant="overlay" padding="5" radius="none" class="sheet-surface">
       <Stack gap="4">
         <header>
