@@ -249,10 +249,27 @@
   }
   .wash {
     position: absolute;
-    inset: 0;
+    inset: -8% -4% -4%;
     background: var(--md-wash);
+    filter: blur(28px);
+    transform: translateZ(0);
     pointer-events: none;
     z-index: 0;
+  }
+  .root::before {
+    /* Soft veil so mist never meets the stage as a hard band */
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--md-mist) 0%, transparent) 0%,
+        color-mix(in oklab, var(--md-stage) 28%, transparent) 42%,
+        color-mix(in oklab, var(--md-stage) 55%, transparent) 100%
+      );
   }
   .top {
     position: relative;
@@ -396,7 +413,7 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    background: color-mix(in oklab, var(--md-stage) 78%, transparent);
+    background: color-mix(in oklab, var(--md-stage) 62%, transparent);
     border-radius: 28px 28px 0 0;
     margin: 0 12px;
     border: 1px solid var(--md-line);

@@ -446,23 +446,56 @@
     z-index: 0;
     overflow: hidden;
     border-radius: 0;
+    /* Dissolve atmosphere before the spine so nothing reads as a hard band */
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      #000 0%,
+      #000 42%,
+      rgb(0 0 0 / 0.55) 68%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      #000 0%,
+      #000 42%,
+      rgb(0 0 0 / 0.55) 68%,
+      transparent 100%
+    );
   }
   .wash {
     position: absolute;
-    inset: -10% -5% 40%;
+    inset: -28% -18% -8%;
     background:
-      radial-gradient(55% 45% at 18% 12%, color-mix(in oklab, var(--md-cobalt) 18%, transparent), transparent 70%),
-      radial-gradient(50% 40% at 88% 8%, color-mix(in oklab, var(--md-live) 12%, transparent), transparent 65%);
+      radial-gradient(
+        ellipse 78% 62% at 14% 6%,
+        color-mix(in oklab, var(--md-cobalt) 22%, transparent) 0%,
+        color-mix(in oklab, var(--md-cobalt) 10%, transparent) 28%,
+        color-mix(in oklab, var(--md-cobalt) 4%, transparent) 52%,
+        transparent 78%
+      ),
+      radial-gradient(
+        ellipse 58% 48% at 88% 4%,
+        color-mix(in oklab, var(--md-live) 14%, transparent) 0%,
+        color-mix(in oklab, var(--md-live) 5%, transparent) 36%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 42% 34% at 46% 22%,
+        color-mix(in oklab, var(--md-cobalt) 7%, transparent) 0%,
+        transparent 70%
+      );
+    filter: blur(36px);
+    transform: translateZ(0);
     opacity: 0;
-    transition: opacity 900ms var(--about-ease);
+    transition: opacity 1100ms var(--about-ease);
   }
   .colophon.in .wash {
-    opacity: 1;
+    opacity: 0.9;
   }
   .grain {
     position: absolute;
     inset: 0;
-    opacity: 0.035;
+    opacity: 0.028;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     mix-blend-mode: multiply;
   }

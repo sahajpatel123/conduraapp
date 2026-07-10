@@ -36,8 +36,9 @@ img, svg { display: block; max-width: 100%; }
   --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
   --md-scrim: color-mix(in oklab, #0B1526 52%, transparent);
   --md-scrim-strong: color-mix(in oklab, #0B1526 68%, transparent);
-  --md-wash: radial-gradient(120% 80% at 70% -10%, rgba(47, 91, 255, 0.16), transparent 55%),
-             radial-gradient(90% 60% at 10% 100%, rgba(15, 159, 138, 0.1), transparent 50%),
+  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(47, 91, 255, 0.14) 0%, rgba(47, 91, 255, 0.06) 32%, transparent 68%),
+             radial-gradient(110% 80% at 8% 108%, rgba(15, 159, 138, 0.08) 0%, rgba(15, 159, 138, 0.03) 40%, transparent 72%),
+             radial-gradient(90% 70% at 40% 40%, rgba(201, 212, 227, 0.55) 0%, transparent 70%),
              var(--md-mist);
 }
 
@@ -60,8 +61,9 @@ img, svg { display: block; max-width: 100%; }
   --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
   --md-scrim: color-mix(in oklab, #000 62%, transparent);
   --md-scrim-strong: color-mix(in oklab, #000 78%, transparent);
-  --md-wash: radial-gradient(120% 80% at 70% -10%, rgba(107, 140, 255, 0.2), transparent 55%),
-             radial-gradient(90% 60% at 10% 100%, rgba(45, 212, 191, 0.08), transparent 50%),
+  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(107, 140, 255, 0.18) 0%, rgba(107, 140, 255, 0.07) 32%, transparent 68%),
+             radial-gradient(110% 80% at 8% 108%, rgba(45, 212, 191, 0.07) 0%, rgba(45, 212, 191, 0.025) 40%, transparent 72%),
+             radial-gradient(90% 70% at 40% 40%, rgba(7, 10, 16, 0.4) 0%, transparent 70%),
              var(--md-mist);
 }
 
