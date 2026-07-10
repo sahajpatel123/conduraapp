@@ -430,7 +430,7 @@ func (s *anthropicStreamState) dispatch(out chan<- StreamEvent, ev anthStreamEve
 			out <- StreamEvent{Delta: Message{Role: RoleAssistant, Content: ev.Delta.Text}}
 		}
 	case "message_delta":
-		s.finishReason = FinishReason(ev.Delta.StopReason)
+		s.finishReason = mapAnthStopReason(ev.Delta.StopReason)
 	case "message_start":
 		s.usage.InputTokens = ev.Message.Usage.InputTokens
 		s.usage.OutputTokens = ev.Message.Usage.OutputTokens

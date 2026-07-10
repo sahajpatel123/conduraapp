@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -562,6 +563,81 @@ func TestAnthropic_Stream_OK(t *testing.T) {
 		content.WriteString(ev.Delta.Content)
 	}
 	assert.Equal(t, "Hello", content.String())
+}
+
+// TestAnthropic_Chat_Stream_OK pins the fix for the agent's finding #2:
+// Chat(req.Stream=true) previously returned only the LAST Delta (a single
+// fragment), discarding the accumulated content. The fix drains the
+// stream and joins every Delta.Content. This test would have FAILED
+// against the original code.
+func TestAnthropic_Chat_Stream_OK(t *testing.T) {
+	srv := newChunkedSSE(t, []string{
+		"Hel", "lo", " ", "world", "!",
+	}, anthropicStopReason)
+	defer srv.Close()
+	p := NewAnthropic("k", nil)
+	p.BaseURL = srv.URL
+	resp, err := p.Chat(context.Background(), ChatRequest{
+		Model:    "m",
+		Messages: []Message{{Role: RoleUser, Content: "x"}},
+		Stream:   true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Hello world!", resp.Message.Content,
+		"Chat(Stream=true) must accumulate every Delta.Content")
+	assert.Equal(t, FinishStop, resp.FinishReason)
+}
+
+// anthropicStopReason is the SSE "stop_reason" Anthropic emits in
+// the message_delta event; tested value is end_turn (FinishStop).
+const anthropicStopReason = "end_turn"
+
+// newChunkedSSE returns an httptest server that streams the given
+// text fragments as a series of SSE content_block_delta events
+// followed by a message_delta and message_stop. It is the shared
+// fixture for both TestAnthropic_Chat_Stream_OK and TestGoogle_Chat_Stream_OK.
+func newChunkedSSE(t *testing.T, fragments []string, stopReason string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(200)
+		flusher, _ := w.(http.Flusher)
+		// message_start with usage.
+		lines := []string{
+			"event: message_start",
+			`data: {"type":"message_start","message":{"usage":{"input_tokens":3,"output_tokens":0}}}`,
+			"",
+		}
+		for _, l := range lines {
+			_, _ = w.Write([]byte(l + "\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+		// content_block_start.
+		_, _ = w.Write([]byte("event: content_block_start\ndata: {\"type\":\"content_block_start\"}\n\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+		// content_block_delta for each fragment.
+		for _, frag := range fragments {
+			payload := `data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"` + frag + `"}}`
+			_, _ = w.Write([]byte("event: content_block_delta\n" + payload + "\n\n"))
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+		// message_delta with stop_reason.
+		_, _ = fmt.Fprintf(w, "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"%s\"}}\n\n", stopReason)
+		if flusher != nil {
+			flusher.Flush()
+		}
+		// message_stop.
+		_, _ = w.Write([]byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}))
 }
 
 // -----------------------------------------------------------------------------
