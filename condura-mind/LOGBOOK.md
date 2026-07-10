@@ -6,6 +6,34 @@
 
 ---
 
+## [2026-07-10] AI Model: grok-4.5 (opencode)
+**Session ID:** p0-p1-production-harden
+**Branch:** main
+**Task:** Production-grade close-out of P0.2/P0.4 + P1 (release docs, marketing honesty, streaming, a11y, safego, i18n, npm toolchain) so this workstream does not need re-entry.
+
+### Shipped
+- Release: fail-closed runbook/keys, `make release-dry-run-local`, honest GoReleaser header
+- Marketing honesty freeze in condura-ui (providers, kill-switch layers, artifacts, checksums)
+- Streaming: request_id, idle watchdog, disconnect clear, O(n²) buffers (JS + Go)
+- A11y: focus traps on kill/consent/quick/overlay/sheet/FloatingInterview; chat rail keyboard nav
+- Crash: `internal/safego.Go` + migrate remaining production `go` launches (0 bare `go` left in prod)
+- i18n: real sync.pair + confirm/undo translations; locale parity vitest
+- Toolchain: npm-only (removed pnpm-lock); `make check-lockfiles`; CI `frontend-test` job
+- Tests: vitest 36/36 green; Go packages touched green
+
+### Not in this session (still human/external)
+- Configure 7 GitHub secrets + push `v0.0.0-test` dry-run tag
+- Phase 15 human on-device verification
+- Full non-English catalog translation beyond sync.pair / recent keys
+- Pre-existing svelte-check debt in dev demos (unrelated)
+
+### Next steps for human
+1. Set `UPDATE_SIGNING_KEY` + 6 Apple secrets
+2. `make release-dry-run-local` then §2c tag dry-run
+3. Phase 15 Mac checklist before public v0.1.x tag
+
+---
+
 ## [2026-07-01 IST] AI Model: DeepSeek V4 Pro
 **Session:** /design surface pass — verify 8-dimension report + product UI hardening
 

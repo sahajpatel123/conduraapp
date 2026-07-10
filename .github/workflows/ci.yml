@@ -210,6 +210,32 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------
+  # Frontend unit tests + package-manager hygiene (every PR/push).
+  # ---------------------------------------------------------------
+  frontend-test:
+    name: Frontend tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dual lockfile guard
+        run: make check-lockfiles
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: condura-gui/frontend/package-lock.json
+
+      - name: Install + test
+        working-directory: condura-gui/frontend
+        run: |
+          npm ci
+          npm test
+
+  # ---------------------------------------------------------------
   # GUI build (Wails). Catches regressions in condura-gui/ that the
   # daemon-side build steps would miss. Only runs on main (not
   # PRs) and on the user's primary dev platform (macOS arm64) to

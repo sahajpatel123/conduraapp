@@ -58,11 +58,13 @@ Key generation and rotation: see [`release-keys.md`](./release-keys.md).
 ### 2a. Local packaging only (no GitHub secrets)
 
 ```bash
-# From repo root — validates GoReleaser config + archive layout
-make release-snapshot
+# One-shot local packaging dry-run (tests + snapshot + optional unsigned manifest)
+make release-dry-run-local
 
-# Optional: unsigned update manifest from snapshot checksums
-make gen-manifest
+# Or step-by-step:
+make release-snapshot
+make gen-manifest   # requires dist/checksums.txt from snapshot
+make check-lockfiles
 ```
 
 What this proves: GoReleaser config, artifact names, checksum generation.

@@ -118,6 +118,22 @@ verify-release: ## Verify a GitHub release tag (TAG=v0.1.0)
 	chmod +x ./condura-ops/scripts/verify-release-artifacts.sh
 	./condura-ops/scripts/verify-release-artifacts.sh $(or $(TAG),v0.1.0)
 
+.PHONY: release-dry-run-local
+release-dry-run-local: ## Local packaging dry-run (no GitHub secrets)
+	chmod +x ./condura-ops/scripts/release-dry-run-local.sh
+	./condura-ops/scripts/release-dry-run-local.sh
+
+.PHONY: check-lockfiles
+check-lockfiles: ## Fail if any package has both package-lock.json and pnpm-lock.yaml
+	@bad=0; \
+	for d in condura-gui/frontend condura-ui condura-studio/condura-demo condura-studio/condura-spotlight condura-studio/my-video; do \
+	  if [ -f "$$d/package-lock.json" ] && [ -f "$$d/pnpm-lock.yaml" ]; then \
+	    echo "ERROR: dual lockfiles in $$d (npm + pnpm)"; bad=1; \
+	  fi; \
+	done; \
+	if [ "$$bad" -ne 0 ]; then exit 1; fi; \
+	echo "OK: no dual package-manager lockfiles"
+
 # passthrough for goreleaser for normal release runs
 .PHONY: release
 release: ## Cut a release via GoReleaser (TAG=vX.Y.Z, GITHUB_TOKEN=...)
@@ -126,7 +142,7 @@ release: ## Cut a release via GoReleaser (TAG=vX.Y.Z, GITHUB_TOKEN=...)
 .PHONY: gen-manifest
 gen-manifest: ## Generate unsigned update manifest from dist/checksums.txt
 	@test -f dist/checksums.txt || (echo "run release-snapshot first" && exit 1)
-	go run ./cmd/gen-update-manifest generate --unsigned \
+	go run ./condura-app/cmd/gen-update-manifest generate --unsigned \
 	  --version $(VERSION) \
 	  --checksums dist/checksums.txt \
 	  --base-url "https://github.com/sahajpatel123/conduraapp/releases/download/$(VERSION)" \
