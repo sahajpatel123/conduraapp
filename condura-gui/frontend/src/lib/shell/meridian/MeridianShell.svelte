@@ -274,7 +274,8 @@
   .top {
     position: relative;
     z-index: 2;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
     padding: 14px 22px 0;
@@ -285,6 +286,7 @@
     align-items: baseline;
     gap: 10px;
     flex: none;
+    justify-self: start;
   }
   .word {
     font-family: var(--md-font-display);
@@ -300,9 +302,9 @@
     color: var(--md-ink-faint);
   }
   .jump {
-    flex: 1;
+    justify-self: center;
+    width: min(420px, 100%);
     max-width: 420px;
-    margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -335,9 +337,10 @@
   .right {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 10px;
-    margin-left: auto;
     flex: none;
+    justify-self: end;
   }
   .status {
     display: inline-flex;
