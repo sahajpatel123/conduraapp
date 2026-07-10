@@ -1,4 +1,8 @@
 <script lang="ts">
+  /**
+   * Agents — consent control room for pending sub-agent actions.
+   * Signature: live queue pulse + consent sheets (Approve / Run / Deny).
+   */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import {
@@ -20,17 +24,23 @@
 
   const rows = $derived($pendingActions)
   const count = $derived($pendingCount)
+  const waiting = $derived(rows.filter((r) => r.status === 'pending'))
+  const settled = $derived(rows.filter((r) => r.status !== 'pending').slice(0, 6))
 
   function initial(name: string): string {
     const t = name.trim()
     return t ? t[0]!.toUpperCase() : '?'
   }
+
+  function goAsk(): void {
+    window.location.hash = '#/'
+  }
 </script>
 
 <MeridianPage
-  kicker="Control"
+  kicker="Control room"
   title="Agents"
-  lead="Sub-agents and pending actions. Approve, deny, or execute — you stay in charge."
+  lead="Sub-agents wait here. You approve, run, or deny — the Gatekeeper never decides alone."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void refreshPendingActions()}>
@@ -38,111 +48,166 @@
     </button>
   {/snippet}
 
-  <p class="count">
-    <span class="pill" class:live={count > 0}>{count}</span>
-    pending
-  </p>
+  <div class="board md-stagger">
+    <section class="pulse" class:hot={count > 0} aria-live="polite">
+      <div class="pulse-ring" aria-hidden="true">
+        <span class="pulse-core">{count}</span>
+      </div>
+      <div class="pulse-copy">
+        <p class="cite">{count > 0 ? 'awaiting you' : 'quiet'}</p>
+        <h2>{count > 0 ? `${count} pending consent` : 'Nothing in flight'}</h2>
+        <p>
+          {#if count > 0}
+            Each sheet below is a gated action. Approve opens the door; Deny seals it; Run executes an approved row.
+          {:else}
+            When a sub-agent needs you, this room lights up. Until then, the meridian stays calm.
+          {/if}
+        </p>
+        {#if count === 0}
+          <button type="button" class="md-btn md-btn-primary" onclick={goAsk}>Ask Condura</button>
+        {/if}
+      </div>
+    </section>
 
-  {#if rows.length === 0}
-    <div class="md-empty empty">
-      <p class="empty-title">Nothing in flight</p>
-      <p class="empty-lead">When a sub-agent waits on you, it shows up here with Approve, Run, or Deny.</p>
-    </div>
-  {:else}
-    <div class="list md-stagger">
-      {#each rows as row (row.id)}
-        <article class="md-panel md-panel-static card">
-          <header>
-            <div class="mono" aria-hidden="true">{initial(row.agent_name || row.kind || row.id)}</div>
-            <div class="copy">
+    {#if waiting.length > 0}
+      <section class="queue">
+        <p class="cite">consent sheets</p>
+        <div class="list">
+          {#each waiting as row (row.id)}
+            <article class="sheet">
+              <header>
+                <div class="mono" aria-hidden="true">{initial(row.agent_name || row.kind || row.id)}</div>
+                <div class="copy">
+                  <strong>{row.agent_name || row.kind || row.id}</strong>
+                  <span class="meta">{row.kind || 'action'} · {row.status}</span>
+                </div>
+              </header>
+              <p class="reason">{row.gate_reason || 'Gatekeeper requires your decision.'}</p>
+              {#if row.payload?.command || row.payload?.path || row.payload?.target}
+                <p class="payload">
+                  <span>cite</span>
+                  {row.payload?.command || row.payload?.path || row.payload?.target}
+                </p>
+              {/if}
+              <footer>
+                <button type="button" class="md-btn md-btn-primary" onclick={() => void approvePending(row.id)}>
+                  Approve
+                </button>
+                <button type="button" class="md-btn md-btn-ghost" onclick={() => void executePending(row.id)}>
+                  Run
+                </button>
+                <button type="button" class="md-btn md-btn-danger" onclick={() => void denyPending(row.id)}>
+                  Deny
+                </button>
+              </footer>
+            </article>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
+    {#if settled.length > 0}
+      <section class="settled">
+        <p class="cite">recent decisions</p>
+        <ul>
+          {#each settled as row (row.id)}
+            <li data-status={row.status}>
+              <span class="dot" aria-hidden="true"></span>
               <strong>{row.agent_name || row.kind || row.id}</strong>
               <span class="meta">{row.status}</span>
-            </div>
-          </header>
-          {#if row.gate_reason || row.payload?.command}
-            <p>{row.gate_reason || row.payload?.command}</p>
-          {/if}
-          <footer>
-            <button type="button" class="md-btn md-btn-primary" onclick={() => void approvePending(row.id)}>
-              Approve
-            </button>
-            <button type="button" class="md-btn md-btn-ghost" onclick={() => void executePending(row.id)}>
-              Run
-            </button>
-            <button type="button" class="md-btn md-btn-danger" onclick={() => void denyPending(row.id)}>
-              Deny
-            </button>
-          </footer>
-        </article>
-      {/each}
-    </div>
-  {/if}
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+  </div>
 </MeridianPage>
 
 <style>
-  .count {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .board {
+    display: grid;
+    gap: 20px;
+  }
+  .cite {
     font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
+    font-size: 10px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    margin: 0 0 16px;
+    margin: 0 0 12px;
   }
-  .pill {
-    display: inline-flex;
+  .pulse {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 22px;
     align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 7px;
-    border-radius: 999px;
-    background: var(--md-stage);
+    padding: 22px 24px;
+    border-radius: 22px;
     border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+  }
+  .pulse.hot {
+    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 10%, transparent);
+  }
+  .pulse-ring {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--md-line-strong);
+    background: var(--md-stage);
+    position: relative;
+  }
+  .pulse.hot .pulse-ring {
+    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    animation: md-pulse-soft 2.4s var(--md-ease) infinite;
+  }
+  .pulse-core {
+    font-family: var(--md-font-display);
+    font-size: 32px;
     font-weight: 700;
+    letter-spacing: -0.05em;
     color: var(--md-ink-mute);
   }
-  .pill.live {
-    background: color-mix(in oklab, var(--md-cobalt) 14%, transparent);
-    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+  .pulse.hot .pulse-core {
     color: var(--md-cobalt);
-    animation: md-rise 280ms var(--md-spring) both;
   }
-  .empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .empty-title {
-    margin: 0;
+  .pulse-copy h2 {
     font-family: var(--md-font-display);
-    font-size: 16px;
-    letter-spacing: -0.03em;
-    color: var(--md-ink);
+    font-size: 24px;
+    letter-spacing: -0.04em;
+    margin: 0 0 8px;
   }
-  .empty-lead {
-    margin: 0;
-    max-width: 42ch;
-    font-size: 13px;
+  .pulse-copy p {
+    margin: 0 0 14px;
+    font-size: 14px;
     line-height: 1.5;
     color: var(--md-ink-mute);
+    max-width: 48ch;
   }
+
   .list {
     display: grid;
     gap: 12px;
   }
-  .card header {
+  .sheet {
+    border-radius: 20px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-surface);
+    padding: 18px 18px 16px;
+    box-shadow: var(--md-shadow);
+  }
+  .sheet header {
     display: flex;
     align-items: center;
     gap: 14px;
     margin-bottom: 12px;
   }
   .mono {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     border-radius: 14px;
     display: grid;
     place-items: center;
@@ -150,19 +215,17 @@
     font-family: var(--md-font-display);
     font-size: 18px;
     font-weight: 700;
-    letter-spacing: -0.04em;
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
   }
   .copy {
     min-width: 0;
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  .card strong {
+  .sheet strong {
     font-family: var(--md-font-display);
     font-size: 18px;
     letter-spacing: -0.03em;
@@ -174,50 +237,95 @@
     text-transform: uppercase;
     color: var(--md-ink-faint);
   }
-  .card p {
-    margin: 0 0 16px;
-    color: var(--md-ink-mute);
+  .reason {
+    margin: 0 0 10px;
     font-size: 14px;
     line-height: 1.5;
+    color: var(--md-ink-soft);
+  }
+  .payload {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--md-stage);
+    border: 1px solid var(--md-line);
+    font-family: var(--md-font-mono);
+    font-size: 12px;
+    color: var(--md-ink-mute);
+    word-break: break-all;
+  }
+  .payload span {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin-bottom: 4px;
   }
   footer {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
   }
-  @media (max-width: 560px) {
-    .empty {
-      padding: 28px 14px;
+
+  .settled ul {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .settled li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    border: 1px solid var(--md-line);
+  }
+  .settled .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .settled li[data-status='approved'] .dot,
+  .settled li[data-status='executed'] .dot {
+    background: var(--md-live);
+  }
+  .settled li[data-status='denied'] .dot,
+  .settled li[data-status='failed'] .dot {
+    background: var(--md-halt);
+  }
+  .settled strong {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  @keyframes md-pulse-soft {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--md-cobalt) 0%, transparent);
     }
-    .empty-lead {
-      font-size: 12.5px;
-      max-width: 32ch;
+    50% {
+      box-shadow: 0 0 0 10px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
     }
-    .card header {
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .mono {
-      width: 38px;
-      height: 38px;
-      font-size: 16px;
-    }
-    .card strong {
-      font-size: 16px;
-    }
-    .card p {
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-    footer {
-      gap: 6px;
+  }
+
+  @media (max-width: 640px) {
+    .pulse {
+      grid-template-columns: 1fr;
+      justify-items: start;
     }
     footer :global(.md-btn) {
       flex: 1;
-      min-width: 0;
       justify-content: center;
-      padding: 9px 12px;
-      font-size: 12px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse.hot .pulse-ring {
+      animation: none;
     }
   }
 </style>

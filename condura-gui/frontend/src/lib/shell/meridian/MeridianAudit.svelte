@@ -1,12 +1,36 @@
 <script lang="ts">
+  /**
+   * Audit — append-only chain instrument with seal + detail stage.
+   */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { audit } from '../../stores/audit.svelte'
+  import type { AuditEvent } from '../../ipc/types'
+
+  let selectedId = $state<number | null>(null)
+  let filter = $state<'all' | 'allow' | 'block' | 'prompt'>('all')
 
   onMount(() => {
     void audit.refresh()
     audit.startLive()
     return () => audit.stopLive()
+  })
+
+  const filtered = $derived(
+    filter === 'all' ? audit.events : audit.events.filter((e) => e.result === filter)
+  )
+  const selected = $derived(
+    filtered.find((e) => e.id === selectedId) ?? filtered[0] ?? null
+  )
+
+  $effect(() => {
+    if (!filtered.length) {
+      selectedId = null
+      return
+    }
+    if (selectedId === null || !filtered.some((e) => e.id === selectedId)) {
+      selectedId = filtered[0]!.id
+    }
   })
 
   function formatWhen(v: unknown): string {
@@ -24,25 +48,44 @@
   }
 
   const showError = $derived(!!audit.error && !isOffline(audit.error))
+
+  function pick(ev: AuditEvent): void {
+    selectedId = ev.id
+  }
 </script>
 
 <MeridianPage
   kicker="Ledger"
   title="Audit"
-  lead="Every action Condura took — and every verdict. The chain is the truth."
+  lead="Every gated action is written here. The chain is the truth — verify it, then read each seal."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void audit.refresh()}>Refresh</button>
-    <button type="button" class="md-btn md-btn-ghost" onclick={() => void audit.verifyIntegrity()}>Verify</button>
+    <button type="button" class="md-btn md-btn-primary" onclick={() => void audit.verifyIntegrity()}>
+      Verify seal
+    </button>
   {/snippet}
 
   {#if audit.integrity}
-    <div class="md-panel md-panel-static banner" class:bad={!audit.integrity.ok}>
-      <span class="dot" aria-hidden="true"></span>
-      Chain {audit.integrity.ok ? 'intact' : 'broken'}
-      {#if audit.integrity.reason}<span class="reason">— {audit.integrity.reason}</span>{/if}
+    <div class="seal" class:bad={!audit.integrity.ok} class:ok={audit.integrity.ok}>
+      <span class="seal-mark" aria-hidden="true"></span>
+      <div>
+        <p class="cite">chain seal</p>
+        <strong>Chain {audit.integrity.ok ? 'intact' : 'broken'}</strong>
+        {#if audit.integrity.reason}
+          <p class="reason">{audit.integrity.reason}</p>
+        {/if}
+      </div>
     </div>
   {/if}
+
+  <div class="filters" role="group" aria-label="Filter by verdict">
+    {#each (['all', 'allow', 'block', 'prompt'] as const) as f}
+      <button type="button" class:on={filter === f} data-f={f} onclick={() => (filter = f)}>
+        {f}
+      </button>
+    {/each}
+  </div>
 
   {#if audit.loading && audit.events.length === 0}
     <div class="md-empty">Loading ledger…</div>
@@ -55,28 +98,72 @@
         {#if isOffline(audit.error)}
           Connect the daemon to load the action chain.
         {:else}
-          When Condura acts, every verdict lands here.
+          When Condura acts, every verdict lands here as a sealed link.
         {/if}
       </p>
     </div>
+  {:else if filtered.length === 0}
+    <div class="md-empty empty">
+      <p class="empty-title">No {filter} events</p>
+      <p class="empty-lead">Try another verdict filter.</p>
+    </div>
   {:else}
-    <div class="table" role="table" aria-label="Audit events">
-      <div class="head" role="row">
-        <span role="columnheader">When</span>
-        <span role="columnheader">Action</span>
-        <span role="columnheader">Verdict</span>
-      </div>
-      <div class="body md-stagger">
-        {#each audit.events as ev (ev.id)}
-          <div class="row" role="row">
-            <span class="when" role="cell">{formatWhen(ev.ts)}</span>
-            <span class="action" role="cell">{ev.action || ev.message || 'event'}</span>
-            <span class="verdict" role="cell" data-v={ev.result}>
-              <span class="chip">{ev.result}</span>
+    <div class="layout md-stagger">
+      <div class="chain">
+        {#each filtered as ev (ev.id)}
+          <button
+            type="button"
+            class="link"
+            class:on={selected?.id === ev.id}
+            onclick={() => pick(ev)}
+          >
+            <span class="tick" data-v={ev.result} aria-hidden="true"></span>
+            <span class="link-copy">
+              <strong>{ev.action || ev.message || 'event'}</strong>
+              <span class="when">{formatWhen(ev.ts)}</span>
             </span>
-          </div>
+            <span class="chip" data-v={ev.result}>{ev.result}</span>
+          </button>
         {/each}
       </div>
+
+      {#if selected}
+        <article class="stage-plate">
+          <p class="cite">event · {selected.id}</p>
+          <h2>{selected.action || 'Event'}</h2>
+          <p class="body">{selected.message || 'No message on this link.'}</p>
+          <dl class="facts">
+            <div>
+              <dt>When</dt>
+              <dd>{formatWhen(selected.ts)}</dd>
+            </div>
+            <div>
+              <dt>Verdict</dt>
+              <dd data-v={selected.result}>{selected.result}</dd>
+            </div>
+            <div>
+              <dt>Actor</dt>
+              <dd>{selected.actor || '—'}</dd>
+            </div>
+            <div>
+              <dt>App</dt>
+              <dd>{selected.app || selected.target_app || '—'}</dd>
+            </div>
+            {#if selected.command}
+              <div class="wide">
+                <dt>Command</dt>
+                <dd class="mono">{selected.command}</dd>
+              </div>
+            {/if}
+            {#if selected.this_hash}
+              <div class="wide">
+                <dt>Hash</dt>
+                <dd class="mono">{selected.this_hash}</dd>
+              </div>
+            {/if}
+          </dl>
+        </article>
+      {/if}
     </div>
     <div class="pager">
       <button
@@ -92,193 +179,278 @@
 </MeridianPage>
 
 <style>
-  .banner {
-    margin-bottom: 16px;
+  .cite {
     font-family: var(--md-font-mono);
-    font-size: 12px;
-    letter-spacing: 0.06em;
+    font-size: 10px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 6px;
+  }
+  .seal {
     display: flex;
+    gap: 14px;
     align-items: center;
-    gap: 10px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    margin-bottom: 16px;
   }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex: none;
-    background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 20%, transparent);
+  .seal.ok {
+    border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
   }
-  .banner.bad {
+  .seal.bad {
     border-color: color-mix(in oklab, var(--md-halt) 40%, transparent);
     color: var(--md-halt);
   }
-  .banner.bad .dot {
+  .seal-mark {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-ink-faint) 18%, transparent);
+  }
+  .seal.ok .seal-mark {
+    background: var(--md-live);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-live) 18%, transparent);
+  }
+  .seal.bad .seal-mark {
     background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 20%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-halt) 18%, transparent);
+  }
+  .seal strong {
+    font-family: var(--md-font-display);
+    font-size: 16px;
+    letter-spacing: -0.03em;
   }
   .reason {
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-    opacity: 0.85;
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--md-ink-mute);
   }
-  .empty {
+
+  .filters {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
   }
+  .filters button {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-stage);
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--md-ink-mute);
+    cursor: pointer;
+  }
+  .filters button.on[data-f='all'] {
+    background: var(--md-cobalt);
+    border-color: var(--md-cobalt);
+    color: #fff;
+  }
+  .filters button.on[data-f='allow'] {
+    color: var(--md-live);
+    border-color: color-mix(in oklab, var(--md-live) 40%, transparent);
+    background: color-mix(in oklab, var(--md-live) 12%, transparent);
+  }
+  .filters button.on[data-f='block'] {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 40%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 12%, transparent);
+  }
+  .filters button.on[data-f='prompt'] {
+    color: var(--md-cobalt);
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    background: color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+  }
+  .filters button:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+
   .empty-title {
     margin: 0;
     font-family: var(--md-font-display);
     font-size: 16px;
-    letter-spacing: -0.03em;
-    color: var(--md-ink);
   }
   .empty-lead {
-    margin: 0;
-    max-width: 40ch;
+    margin: 6px 0 0;
     font-size: 13px;
-    line-height: 1.5;
     color: var(--md-ink-mute);
+    max-width: 40ch;
   }
-  .table {
-    background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: var(--md-shadow);
-  }
-  .head {
+
+  .layout {
     display: grid;
-    grid-template-columns: 148px 1fr 96px;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-stage) 70%, var(--md-surface));
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
+    grid-template-columns: minmax(240px, 1fr) minmax(260px, 0.9fr);
+    gap: 14px;
+    align-items: start;
   }
-  .row {
+  .chain {
     display: grid;
-    grid-template-columns: 148px 1fr 96px;
+    gap: 0;
+    position: relative;
+    padding-left: 6px;
+  }
+  .link {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     gap: 12px;
     align-items: center;
-    padding: 11px 16px;
+    width: 100%;
+    text-align: left;
+    padding: 12px 12px 12px 8px;
+    border: 0;
     border-bottom: 1px solid var(--md-line);
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    position: relative;
+  }
+  .link:hover {
+    background: color-mix(in oklab, var(--md-stage) 70%, transparent);
+  }
+  .link.on {
+    background: var(--md-surface);
+    border-radius: 14px;
+    border-bottom-color: transparent;
+    box-shadow: var(--md-shadow);
+  }
+  .link:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+  .tick {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+    box-shadow: 0 0 0 3px var(--md-stage);
+  }
+  .tick[data-v='allow'] {
+    background: var(--md-live);
+  }
+  .tick[data-v='block'] {
+    background: var(--md-halt);
+  }
+  .tick[data-v='prompt'] {
+    background: var(--md-cobalt);
+  }
+  .link-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .link-copy strong {
     font-size: 13px;
-    transition: background 160ms var(--md-ease);
-  }
-  .row:hover {
-    background: var(--md-stage);
-  }
-  .row:last-child {
-    border-bottom: 0;
-  }
-  .when {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    color: var(--md-ink-faint);
-    font-variant-numeric: tabular-nums;
-  }
-  .action {
-    font-weight: 600;
-    color: var(--md-ink-soft);
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .verdict {
-    text-align: right;
-  }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 64px;
-    padding: 4px 8px;
-    border-radius: 999px;
+  .when {
     font-family: var(--md-font-mono);
     font-size: 10px;
+    color: var(--md-ink-faint);
+  }
+  .chip {
+    font-family: var(--md-font-mono);
+    font-size: 9px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
     border: 1px solid var(--md-line);
-    background: var(--md-stage);
     color: var(--md-ink-mute);
   }
-  .verdict[data-v='allow'] .chip {
+  .chip[data-v='allow'] {
     color: var(--md-live);
     border-color: color-mix(in oklab, var(--md-live) 30%, transparent);
-    background: color-mix(in oklab, var(--md-live) 10%, transparent);
   }
-  .verdict[data-v='block'] .chip,
-  .verdict[data-v='error'] .chip {
+  .chip[data-v='block'] {
     color: var(--md-halt);
     border-color: color-mix(in oklab, var(--md-halt) 30%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 10%, transparent);
   }
-  .verdict[data-v='prompt'] .chip {
+  .chip[data-v='prompt'] {
     color: var(--md-cobalt);
     border-color: color-mix(in oklab, var(--md-cobalt) 30%, transparent);
-    background: color-mix(in oklab, var(--md-cobalt) 10%, transparent);
+  }
+
+  .stage-plate {
+    border-radius: 22px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-surface);
+    padding: 22px;
+    box-shadow: var(--md-shadow);
+    position: sticky;
+    top: 8px;
+  }
+  .stage-plate h2 {
+    font-family: var(--md-font-display);
+    font-size: 24px;
+    letter-spacing: -0.04em;
+    margin: 0 0 8px;
+  }
+  .body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--md-ink-mute);
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-line);
+  }
+  .facts .wide {
+    grid-column: 1 / -1;
+  }
+  .facts dt {
+    font-family: var(--md-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin-bottom: 4px;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-ink-soft);
+    word-break: break-word;
+  }
+  .facts dd[data-v='allow'] {
+    color: var(--md-live);
+  }
+  .facts dd[data-v='block'] {
+    color: var(--md-halt);
+  }
+  .facts dd[data-v='prompt'] {
+    color: var(--md-cobalt);
+  }
+  .facts dd.mono {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    font-weight: 500;
   }
   .pager {
-    display: flex;
-    gap: 8px;
     margin-top: 16px;
   }
-  @media (max-width: 640px) {
-    .head {
-      display: none;
+  @media (max-width: 800px) {
+    .layout {
+      grid-template-columns: 1fr;
     }
-    .table {
-      border-radius: 18px;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      display: grid;
-      gap: 8px;
-    }
-    .body {
-      display: contents;
-    }
-    .row {
-      grid-template-columns: 1fr auto;
-      grid-template-areas:
-        'action verdict'
-        'when when';
-      gap: 6px 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--md-line-strong);
-      border-radius: 16px;
-      background: var(--md-surface);
-      box-shadow: var(--md-shadow);
-      border-bottom: 1px solid var(--md-line-strong);
-    }
-    .row:last-child {
-      border-bottom: 1px solid var(--md-line-strong);
-    }
-    .when {
-      grid-area: when;
-      font-size: 10px;
-    }
-    .action {
-      grid-area: action;
-      white-space: normal;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .verdict {
-      grid-area: verdict;
-      text-align: right;
-      align-self: start;
+    .stage-plate {
+      position: static;
     }
   }
 </style>

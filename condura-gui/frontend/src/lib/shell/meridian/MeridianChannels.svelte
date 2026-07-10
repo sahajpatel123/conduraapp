@@ -175,12 +175,15 @@
   function isSoon(ch: ChannelRow): boolean {
     return ch.state === 'soon'
   }
+  const live = $derived(channels.filter((c) => !isSoon(c)))
+  const soon = $derived(channels.filter((c) => isSoon(c)))
+  const telegram = $derived(live.find((c) => c.id === 'telegram') ?? live[0] ?? null)
 </script>
 
 <MeridianPage
-  kicker="Reach · on your terms"
+  kicker="Reach"
   title="Channels"
-  lead="Talk to Condura from elsewhere — Telegram today, more later. Each connection is gated; you can revoke it any time."
+  lead="Talk to Condura from elsewhere. Telegram is live today — every connection is gated and revocable."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void load()}>Refresh</button>
@@ -191,231 +194,233 @@
   {:else if error}
     <div class="md-empty">{error}</div>
   {:else}
-    <div class="list md-stagger">
-      {#each channels as ch (ch.id)}
-        <div class="item">
-          <div class="mono" aria-hidden="true">{ch.name.trim()[0]?.toUpperCase() || '?'}</div>
-          <div class="copy">
-            <strong>{ch.name}</strong>
-            <span class="meta" class:on={isConnected(ch)}>
-              {#if submitError && openInput === ch.id}
-                {submitError}
-              {:else if isConnected(ch) && ch.chatId}
-                connected · chat {ch.chatId}
-              {:else if isConnected(ch)}
-                connected
-              {:else if isSoon(ch)}
-                coming in v0.2.0
-              {:else if openInput === ch.id}
-                paste your BotFather token
-              {:else}
-                {ch.hint ?? 'not connected'}
-              {/if}
-            </span>
+    <div class="reach md-stagger">
+      {#if telegram}
+        <section class="instrument" class:live={isConnected(telegram)}>
+          <p class="cite">instrument · telegram</p>
+          <div class="inst-head">
+            <div class="node" class:on={isConnected(telegram)} aria-hidden="true">T</div>
+            <div>
+              <h2>Telegram</h2>
+              <p class="hint">
+                {#if isConnected(telegram)}
+                  Live node. Messages still pass the Gatekeeper before any action.
+                {:else}
+                  Mint a bot with BotFather, then paste the token. Condura never stores your personal Telegram password.
+                {/if}
+              </p>
+            </div>
           </div>
-          {#if isSoon(ch)}
-            <span class="soon">Soon</span>
-          {:else if isConnected(ch)}
+
+          {#if isConnected(telegram)}
+            <dl class="facts">
+              <div>
+                <dt>Status</dt>
+                <dd class="ok">connected</dd>
+              </div>
+              <div>
+                <dt>Chat</dt>
+                <dd>{telegram.chatId || 'linked'}</dd>
+              </div>
+            </dl>
             <button
               type="button"
               class="md-btn md-btn-danger"
-              disabled={busy === ch.id}
-              onclick={() => void disconnect(ch.id)}
+              disabled={busy === telegram.id}
+              onclick={() => void disconnect(telegram.id)}
             >
-              {busy === ch.id ? 'disconnecting…' : 'Disconnect'}
+              {busy === telegram.id ? 'Disconnecting…' : 'Revoke channel'}
             </button>
-          {:else if openInput !== ch.id}
-            <button
-              type="button"
-              class="md-btn md-btn-primary"
-              onclick={() => connect(ch.id)}
-            >
-              Connect
-            </button>
+          {:else if openInput === telegram.id}
+            <div class="token-form" role="group" aria-label="Telegram bot token">
+              <input
+                type="password"
+                class="token-input"
+                placeholder="bot token from BotFather"
+                bind:value={inputToken}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') void submitToken(telegram.id)
+                  if (e.key === 'Escape') cancelInput()
+                }}
+                disabled={busy === telegram.id}
+              />
+              <button
+                type="button"
+                class="md-btn md-btn-primary"
+                disabled={busy === telegram.id || !inputToken.trim()}
+                onclick={() => void submitToken(telegram.id)}
+              >
+                {busy === telegram.id ? 'Connecting…' : 'Connect'}
+              </button>
+              <button type="button" class="md-btn md-btn-ghost" disabled={busy === telegram.id} onclick={cancelInput}>
+                Cancel
+              </button>
+            </div>
+            {#if submitError}
+              <p class="err">{submitError}</p>
+            {/if}
+          {:else}
+            <div class="actions-row">
+              <button type="button" class="md-btn md-btn-primary" onclick={() => connect(telegram.id)}>
+                Connect with BotFather
+              </button>
+              <button type="button" class="md-btn md-btn-ghost" onclick={openBotFather}>Open BotFather</button>
+            </div>
           {/if}
-        </div>
-        {#if openInput === ch.id && !isSoon(ch) && !isConnected(ch)}
-          <div class="token-form" role="group" aria-label="Telegram bot token">
-            <input
-              type="password"
-              class="token-input"
-              placeholder="bot token from BotFather"
-              bind:value={inputToken}
-              onkeydown={(e) => {
-                if (e.key === 'Enter') void submitToken(ch.id)
-                if (e.key === 'Escape') cancelInput()
-              }}
-              disabled={busy === ch.id}
-            />
-            <button
-              type="button"
-              class="md-btn md-btn-primary token-submit"
-              disabled={busy === ch.id || !inputToken.trim()}
-              onclick={() => void submitToken(ch.id)}
-            >
-              {busy === ch.id ? 'connecting…' : 'Connect'}
-            </button>
-            <button
-              type="button"
-              class="md-btn md-btn-ghost token-cancel"
-              disabled={busy === ch.id}
-              onclick={cancelInput}
-            >
-              Cancel
-            </button>
+        </section>
+      {/if}
+
+      {#if soon.length}
+        <section class="horizon">
+          <p class="cite">coming along the meridian · v0.2.0</p>
+          <div class="soon-strip">
+            {#each soon as ch (ch.id)}
+              <span>{ch.name}</span>
+            {/each}
           </div>
-        {/if}
-      {/each}
+        </section>
+      {/if}
     </div>
   {/if}
 </MeridianPage>
 
 <style>
-  .list {
-    background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
+  .cite {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 12px;
+  }
+  .reach {
+    display: grid;
+    gap: 16px;
+    max-width: 640px;
+  }
+  .instrument {
     border-radius: 22px;
-    padding: 8px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-surface);
+    padding: 24px;
     box-shadow: var(--md-shadow);
   }
-  .item {
+  .instrument.live {
+    border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
+  }
+  .inst-head {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: 14px;
-    align-items: center;
-    margin: 0;
-    padding: 14px 12px;
+    align-items: start;
+    margin-bottom: 18px;
+  }
+  .node {
+    width: 52px;
+    height: 52px;
     border-radius: 16px;
-    transition: background 160ms var(--md-ease);
-  }
-  .item:hover { background: var(--md-stage); }
-  .item:focus-within {
-    background: var(--md-stage);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-  }
-  .mono {
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
     display: grid;
     place-items: center;
     font-family: var(--md-font-display);
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 700;
-    letter-spacing: -0.04em;
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
   }
-  .copy { min-width: 0; }
-  strong {
-    display: block;
+  .node.on {
+    color: var(--md-live);
+    background: color-mix(in oklab, var(--md-live) 12%, var(--md-stage));
+    border-color: color-mix(in oklab, var(--md-live) 28%, var(--md-line));
+  }
+  h2 {
     font-family: var(--md-font-display);
-    font-size: 18px;
-    letter-spacing: -0.03em;
+    font-size: 26px;
+    letter-spacing: -0.04em;
+    margin: 0 0 6px;
   }
-  .meta {
-    display: block;
-    margin-top: 3px;
+  .hint {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--md-ink-mute);
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 0 18px;
+    padding: 14px 0;
+    border-top: 1px solid var(--md-line);
+    border-bottom: 1px solid var(--md-line);
+  }
+  .facts dt {
     font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 9px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
+    margin-bottom: 4px;
   }
-  .meta.on { color: var(--md-live); }
-  .soon {
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line);
-    background: var(--md-stage);
+  .facts dd {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .facts dd.ok {
+    color: var(--md-live);
+  }
+  .actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .token-form {
     display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    margin: 4px 0 8px 54px;
-    border-left: 2px solid var(--md-cobalt);
-    background: color-mix(in oklab, var(--md-cobalt) 5%, transparent);
-    border-radius: 0 12px 12px 0;
-    animation: token-form-in 240ms var(--md-ease) both;
   }
   .token-input {
-    flex: 1 1 auto;
+    flex: 1 1 200px;
     min-width: 0;
-    padding: 9px 12px;
+    padding: 10px 12px;
     font-family: var(--md-font-mono);
     font-size: 12px;
-    color: var(--md-ink);
-    background: var(--md-surface);
-    border: 1px solid var(--md-line);
-    border-radius: 10px;
+    border: 1px solid var(--md-line-strong);
+    border-radius: 12px;
+    background: var(--md-stage);
     outline: none;
-    transition:
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease);
   }
   .token-input:focus-visible {
     border-color: var(--md-cobalt);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 14%, transparent);
+    box-shadow: var(--md-focus);
   }
-  .token-input:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
+  .err {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--md-halt);
   }
-  .token-submit,
-  .token-cancel {
-    flex: none;
-    padding: 9px 14px;
-    font-size: 12px;
+  .horizon {
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px dashed var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-stage) 60%, transparent);
   }
-  @keyframes token-form-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+  .soon-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  @media (max-width: 560px) {
-    .list {
-      padding: 6px;
-      border-radius: 18px;
-    }
-    .item {
-      grid-template-columns: auto 1fr;
-      gap: 10px;
-      padding: 12px 10px;
-    }
-    .item .md-btn,
-    .item button,
-    .item .soon {
-      grid-column: 1 / -1;
-      justify-self: stretch;
-      text-align: center;
-    }
-    .token-form {
-      flex-direction: column;
-      align-items: stretch;
-      margin-left: 12px;
-      padding: 10px;
-    }
-    .token-submit,
-    .token-cancel {
-      width: 100%;
-    }
-    .mono {
-      width: 38px;
-      height: 38px;
-      font-size: 16px;
-    }
-    strong {
-      font-size: 16px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .token-form { animation: none !important; }
+  .soon-strip span {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    color: var(--md-ink-faint);
+    background: var(--md-surface);
   }
 </style>

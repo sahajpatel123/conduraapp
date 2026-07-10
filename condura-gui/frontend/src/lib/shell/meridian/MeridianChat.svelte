@@ -54,6 +54,15 @@
       } catch {
         /* preview */
       }
+      try {
+        const seeded = sessionStorage.getItem('md-ask-starter')
+        if (seeded) {
+          sessionStorage.removeItem('md-ask-starter')
+          draft = seeded
+        }
+      } catch {
+        /* ignore */
+      }
       ta?.focus()
       resize()
     })()
@@ -126,13 +135,21 @@
       <div class="messages">
         {#each conversation.messages as msg, i (i)}
           <article class="msg" data-role={msg.role}>
-            <header>{msg.role === 'user' ? 'You' : 'Condura'}</header>
+            <header>
+              <span>{msg.role === 'user' ? 'You' : 'Condura'}</span>
+              {#if msg.role === 'assistant'}
+                <span class="cite">plan · gated</span>
+              {/if}
+            </header>
             <div class="bubble">{msg.content}</div>
           </article>
         {/each}
         {#if conversation.isStreaming}
           <article class="msg" data-role="assistant">
-            <header>Condura</header>
+            <header>
+              <span>Condura</span>
+              <span class="cite live">thinking</span>
+            </header>
             <div class="bubble streaming">{conversation.streamingDelta || '…'}</div>
           </article>
         {/if}
@@ -353,6 +370,17 @@
     text-transform: uppercase;
     color: var(--md-ink-faint);
     padding: 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .msg header .cite {
+    letter-spacing: 0.1em;
+    color: var(--md-cobalt);
+    opacity: 0.85;
+  }
+  .msg header .cite.live {
+    color: var(--md-live);
   }
   .msg[data-role='user'] header {
     color: var(--md-cobalt);

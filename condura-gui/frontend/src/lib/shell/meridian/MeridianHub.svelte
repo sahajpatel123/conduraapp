@@ -5,17 +5,28 @@
 
   let q = $state('')
   let installing = $state<string | null>(null)
+  let note = $state('')
+  let featuredId = $state<string | null>(null)
 
   onMount(() => {
     void hub.search('', 24)
   })
 
+  const featured = $derived(
+    hub.results.find((s) => s.id === featuredId) ?? hub.results[0] ?? null
+  )
+  const rest = $derived(
+    featured ? hub.results.filter((s) => s.id !== featured.id) : hub.results
+  )
+
   function search(): void {
+    note = ''
     void hub.search(q.trim(), 24)
   }
 
   function clearSearch(): void {
     q = ''
+    note = ''
     void hub.search('', 24)
   }
 
@@ -27,21 +38,28 @@
   async function install(id: string): Promise<void> {
     if (hub.installed.has(id) || installing) return
     installing = id
+    note = ''
     try {
       await hub.install(id)
+      note = 'Installed locally — open Skills to inspect.'
     } finally {
       installing = null
     }
   }
+
+  function goSkills(): void {
+    window.location.hash = '#/skills'
+  }
 </script>
 
 <MeridianPage
-  kicker="Catalog"
+  kicker="Shelf"
   title="Hub"
   lead="Browse community skills. Install stays local — nothing runs until you say so."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={search}>Refresh</button>
+    <button type="button" class="md-btn md-btn-ghost" onclick={goSkills}>My Skills</button>
   {/snippet}
 
   <div class="search">
@@ -64,6 +82,13 @@
     <button type="button" class="md-btn md-btn-primary" onclick={search}>Search</button>
   </div>
 
+  {#if note}
+    <p class="install-note">
+      {note}
+      <button type="button" class="linkish" onclick={goSkills}>Open Skills →</button>
+    </p>
+  {/if}
+
   {#if hub.loading}
     <div class="md-empty">Loading the shelf…</div>
   {:else if hub.error && !/IPC client not started|not connected|Failed to fetch/i.test(hub.error)}
@@ -83,38 +108,40 @@
       {/if}
     </div>
   {:else}
-    <div class="grid md-stagger">
-      {#each hub.results as skill (skill.id)}
-        <article class="card">
-          <div class="top">
-            <div class="mono" aria-hidden="true">{initial(skill.name)}</div>
+    <div class="shelf md-stagger">
+      {#if featured}
+        <article class="feature">
+          <p class="cite">featured on the shelf</p>
+          <div class="feature-top">
+            <div class="mono lg" aria-hidden="true">{initial(featured.name)}</div>
             <div class="tags">
-              {#if skill.trust}
-                <span class="tag" data-trust={skill.trust}>{skill.trust}</span>
+              {#if featured.trust}
+                <span class="tag" data-trust={featured.trust}>{featured.trust}</span>
               {/if}
-              {#if skill.version}
-                <span class="tag quiet">v{skill.version}</span>
+              {#if featured.version}
+                <span class="tag quiet">v{featured.version}</span>
               {/if}
             </div>
           </div>
-          <h2>{skill.name}</h2>
-          <p>{skill.description || 'No description.'}</p>
+          <h2>{featured.name}</h2>
+          <p>{featured.description || 'No description.'}</p>
           <footer>
             <span class="meta">
-              {skill.author || 'community'}
-              {#if skill.downloads != null && skill.downloads > 0}
-                · {skill.downloads.toLocaleString()} installs
+              {featured.author || 'community'}
+              {#if featured.downloads != null && featured.downloads > 0}
+                · {featured.downloads.toLocaleString()} installs
               {/if}
+              · stays local after install
             </span>
             <button
               type="button"
               class="md-btn md-btn-primary"
-              disabled={hub.installed.has(skill.id) || installing === skill.id}
-              onclick={() => void install(skill.id)}
+              disabled={hub.installed.has(featured.id) || installing === featured.id}
+              onclick={() => void install(featured.id)}
             >
-              {#if hub.installed.has(skill.id)}
+              {#if hub.installed.has(featured.id)}
                 Installed
-              {:else if installing === skill.id}
+              {:else if installing === featured.id}
                 Installing…
               {:else}
                 Install
@@ -122,7 +149,40 @@
             </button>
           </footer>
         </article>
-      {/each}
+      {/if}
+
+      {#if rest.length}
+        <div class="list">
+          {#each rest as skill (skill.id)}
+            <div class="row">
+              <button type="button" class="row-main" onclick={() => (featuredId = skill.id)}>
+                <div class="mono" aria-hidden="true">{initial(skill.name)}</div>
+                <div class="copy">
+                  <strong>{skill.name}</strong>
+                  <span class="meta">
+                    {skill.author || 'community'}
+                    {#if skill.trust} · {skill.trust}{/if}
+                  </span>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="md-btn md-btn-primary mini"
+                disabled={hub.installed.has(skill.id) || installing === skill.id}
+                onclick={() => void install(skill.id)}
+              >
+                {#if hub.installed.has(skill.id)}
+                  In
+                {:else if installing === skill.id}
+                  …
+                {:else}
+                  Install
+                {/if}
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 </MeridianPage>
@@ -203,45 +263,46 @@
     line-height: 1.5;
     color: var(--md-ink-mute);
   }
-  .grid {
+  .install-note {
+    margin: -8px 0 18px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--md-live);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .linkish {
+    color: var(--md-cobalt);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cite {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 12px;
+  }
+  .shelf {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 14px;
   }
-  .card {
+  .feature {
     background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-radius: 22px;
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 196px;
-    box-shadow: var(--md-shadow);
-    transition:
-      transform 220ms var(--md-spring),
-      box-shadow 220ms var(--md-ease),
-      border-color 220ms var(--md-ease);
-  }
-  .card:hover {
-    transform: translateY(-4px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 32%, var(--md-line-strong));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line-strong));
+    border-radius: 24px;
+    padding: 24px;
     box-shadow: var(--md-shadow-lift);
   }
-  .card:focus-within {
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, var(--md-line-strong));
-    box-shadow: var(--md-focus), var(--md-shadow);
-  }
-  .clear:focus-visible {
-    outline: none;
-    color: var(--md-ink);
-    box-shadow: var(--md-focus);
-  }
-  .top {
+  .feature-top {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
   .mono {
     width: 40px;
@@ -256,6 +317,12 @@
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+  }
+  .mono.lg {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    font-size: 24px;
   }
   .tags {
     display: flex;
@@ -283,26 +350,25 @@
     border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
     background: color-mix(in oklab, var(--md-live) 10%, transparent);
   }
-  .card h2 {
+  .feature h2 {
     font-family: var(--md-font-display);
-    font-size: 20px;
-    letter-spacing: -0.03em;
-    margin: 0;
-    line-height: 1.15;
+    font-size: clamp(26px, 4vw, 34px);
+    letter-spacing: -0.045em;
+    margin: 0 0 10px;
   }
-  .card p {
-    margin: 0;
-    flex: 1;
-    font-size: 13px;
-    line-height: 1.5;
+  .feature > p {
+    margin: 0 0 18px;
+    font-size: 15px;
+    line-height: 1.55;
     color: var(--md-ink-mute);
+    max-width: 52ch;
   }
   footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-top: 4px;
+    gap: 12px;
+    flex-wrap: wrap;
   }
   .meta {
     font-family: var(--md-font-mono);
@@ -310,10 +376,52 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
+  }
+  .list {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 20px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .row-main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+    text-align: left;
+    padding: 10px;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+  }
+  .row-main:hover {
+    background: var(--md-stage);
+  }
+  .row-main:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+  .copy {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  .copy strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .mini {
+    padding: 8px 12px;
+    font-size: 12px;
   }
   @media (max-width: 560px) {
     .search {
@@ -332,25 +440,13 @@
     .search :global(.md-btn-primary) {
       width: 100%;
     }
-    .grid {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .card {
-      min-height: 0;
-      padding: 16px;
-      border-radius: 18px;
-    }
-    .card:hover {
-      transform: none;
+    .feature {
+      padding: 18px;
     }
   }
   @media (max-width: 420px) {
-    .card h2 {
-      font-size: 18px;
-    }
-    footer {
-      flex-wrap: wrap;
+    .feature h2 {
+      font-size: 22px;
     }
   }
 </style>
