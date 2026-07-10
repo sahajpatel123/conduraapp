@@ -378,7 +378,6 @@
   <!-- Closing plate -->
   <footer class="plate">
     <div class="plate-copy">
-      <p class="plate-k">Free means free</p>
       <p class="plate-v">If Condura earns your trust, help keep it independent.</p>
     </div>
     <div class="plate-actions">
@@ -1056,14 +1055,6 @@
   }
   .colophon.in .plate {
     opacity: 1;
-  }
-  .plate-k {
-    margin: 0 0 6px;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
   }
   .plate-v {
     margin: 0;
