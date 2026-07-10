@@ -365,11 +365,14 @@ jobs:
       - name: Run integration tests
         run: |
           # Real integration package lives under condura-app/test (Makefile test-integration).
-          if go list -tags=integration ./condura-app/test/... >/dev/null 2>&1; then
-            go test -race -count=1 -timeout=300s -tags=integration ./condura-app/test/...
-          else
+          # go list exits 0 with "matched no packages" — check for real package paths.
+          pkgs=$(go list -tags=integration ./condura-app/test/... 2>/dev/null || true)
+          if [ -z "$pkgs" ]; then
             echo "No integration-tagged packages under ./condura-app/test — skipping"
+            exit 0
           fi
+          echo "Running: $pkgs"
+          go test -race -count=1 -timeout=300s -tags=integration $pkgs
 
   # ---------------------------------------------------------------
   # Security: govulncheck
