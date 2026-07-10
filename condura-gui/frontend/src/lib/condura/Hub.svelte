@@ -3,6 +3,7 @@
   import { hub } from '../stores/hub.svelte';
   import Thread from './Thread.svelte';
   import Pulse from './Pulse.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   // Condura Hub — the public Skills Hub as a 3D bookshelf. Each skill is a
   // slim vertical "spine"; hover tilts it forward; install draws a thread.
@@ -13,6 +14,27 @@
   let debouncedQuery = $state('');
   let debounceTimer = 0;
   let detail = $state<typeof hub.results[number] | null>(null);
+  let detailEl = $state<HTMLElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    if (!detail) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(detailEl);
+    return () => {
+      previousFocus?.focus();
+    };
+  });
+
+  function onDetailKey(e: KeyboardEvent): void {
+    if (!detail) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      detail = null;
+      return;
+    }
+    trapTab(detailEl, e);
+  }
 
   function setQuery(v: string): void {
     query = v;
@@ -120,7 +142,15 @@
 
   {#if detail}
     <div class="detail-overlay" onclick={() => (detail = null)}></div>
-    <aside class="detail-sheet" role="dialog" aria-modal="true">
+    <aside
+      class="detail-sheet"
+      bind:this={detailEl}
+      role="dialog"
+      aria-modal="true"
+      aria-label={detail.name}
+      tabindex="-1"
+      onkeydown={onDetailKey}
+    >
       <button class="d-close" onclick={() => (detail = null)} aria-label="Close detail">×</button>
       <div class="d-eyebrow">— {detail.trust_level ?? detail.trust ?? 'community'}</div>
       <h2 class="d-title">{detail.name}</h2>

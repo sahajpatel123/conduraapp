@@ -30,5 +30,6 @@
   },
   "sideEffects": [
     "*.css"
-  ]
+  ],
+  "packageManager": "npm@10"
 }

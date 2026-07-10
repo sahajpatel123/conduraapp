@@ -3,6 +3,7 @@
   import { ipc } from '../ipc/client';
   import Thread from './Thread.svelte';
   import Pulse from './Pulse.svelte';
+  import { focusFirst, trapTab } from '../a11y/focusTrap';
 
   // Condura Skills — local installed skills as a card index. Each card is a
   // procedure the bot can run. Auto-created skills carry a green thread (the
@@ -12,6 +13,27 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
   let detail = $state<{ id: string; name: string; description?: string; author?: string; steps?: string[] } | null>(null);
+  let detailEl = $state<HTMLElement | null>(null);
+  let previousFocus: HTMLElement | null = null;
+
+  $effect(() => {
+    if (!detail) return;
+    previousFocus = document.activeElement as HTMLElement | null;
+    focusFirst(detailEl);
+    return () => {
+      previousFocus?.focus();
+    };
+  });
+
+  function onDetailKey(e: KeyboardEvent): void {
+    if (!detail) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      detail = null;
+      return;
+    }
+    trapTab(detailEl, e);
+  }
 
   function isYouAuthored(a: string | undefined): boolean {
     if (!a) return false;
@@ -107,7 +129,15 @@
 
   {#if detail}
     <div class="overlay" onclick={() => (detail = null)}></div>
-    <aside class="sheet" role="dialog" aria-modal="true">
+    <aside
+      class="sheet"
+      bind:this={detailEl}
+      role="dialog"
+      aria-modal="true"
+      aria-label={detail.name}
+      tabindex="-1"
+      onkeydown={onDetailKey}
+    >
       <button class="s-close" onclick={() => (detail = null)} aria-label="Close">×</button>
       <div class="s-eyebrow">{isYouAuthored(detail.author) ? '— You authored this' : '— Condura authored this'}</div>
       <h2 class="s-title">{detail.name}</h2>
