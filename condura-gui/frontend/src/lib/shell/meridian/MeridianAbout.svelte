@@ -112,18 +112,48 @@
     return cite.charAt(0).toUpperCase() + cite.slice(1)
   }
 
+  const gateTitle = $derived.by(() => {
+    switch (gatePhase) {
+      case 'sending':
+        return 'An intent approaches'
+      case 'held':
+        return 'The door is waiting'
+      case 'allowed':
+        return 'You opened the door'
+      case 'denied':
+        return 'You kept it closed'
+      default:
+        return 'Nothing moves without you'
+    }
+  })
+
   const gateNote = $derived.by(() => {
     switch (gatePhase) {
       case 'sending':
-        return 'Intent is moving toward the door…'
+        return 'The model has proposed an action. It has not reached your machine.'
       case 'held':
-        return 'Gatekeeper holds the line. Nothing proceeds without you.'
+        return 'Gatekeeper holds the line. Allow to proceed, or Deny to end it here.'
       case 'allowed':
-        return 'Consent granted — the action may reach your machine.'
+        return 'Consent granted. The action may continue past the lock.'
       case 'denied':
         return 'Denied. The model never touched your machine.'
       default:
-        return 'Model text alone cannot act. Propose an action and feel the lock.'
+        return 'Propose an action. Watch it stop at the Gatekeeper until you decide.'
+    }
+  })
+
+  const gateStep = $derived.by(() => {
+    switch (gatePhase) {
+      case 'sending':
+        return 1
+      case 'held':
+        return 2
+      case 'allowed':
+        return 3
+      case 'denied':
+        return 2
+      default:
+        return 0
     }
   })
 
@@ -231,67 +261,51 @@
       <em>This page is the contract — and the live reading of the machine that keeps it.</em>
     </p>
 
-    <div class="gate" data-phase={gatePhase} aria-live="polite">
-      <div class="gate-head">
-        <p class="gate-k">Try the lock</p>
-        <p class="gate-note">{gateNote}</p>
+    <div class="lock" data-phase={gatePhase} aria-live="polite">
+      <div class="lock-copy">
+        <p class="lock-k">Consent</p>
+        <h2 class="lock-title">{gateTitle}</h2>
+        <p class="lock-note">{gateNote}</p>
       </div>
 
-      <div class="gate-flow" aria-hidden="true">
-        <div class="gate-node" data-role="strategist">
-          <span class="gate-orb">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" stroke-width="1.7"/>
+      <div class="lock-seal" aria-hidden="true">
+        <span class="lock-halo"></span>
+        <span class="lock-mark">
+          {#if gatePhase === 'allowed'}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M8 11V8a4 4 0 0 1 7.5-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M12 14v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
             </svg>
-          </span>
-          <span class="gate-role">Strategist</span>
-          <span class="gate-sub">any model</span>
-        </div>
-
-        <div class="gate-path">
-          <span class="gate-track"></span>
-          <span class="gate-pulse"></span>
-        </div>
-
-        <div class="gate-node" data-role="keeper">
-          <span class="gate-orb">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          {:else if gatePhase === 'denied'}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          {:else}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
               <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
               <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M12 14v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
             </svg>
-          </span>
-          <span class="gate-role">Gatekeeper</span>
-          <span class="gate-sub">deterministic code</span>
-        </div>
-
-        <div class="gate-path">
-          <span class="gate-track"></span>
-          <span class="gate-pulse late"></span>
-        </div>
-
-        <div class="gate-node" data-role="machine">
-          <span class="gate-orb">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="5" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/>
-              <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="gate-role">Your machine</span>
-          <span class="gate-sub">protected</span>
-        </div>
+          {/if}
+        </span>
       </div>
 
-      <div class="gate-actions">
+      <ol class="lock-steps" aria-hidden="true">
+        <li class:on={gateStep >= 1} class:now={gatePhase === 'sending'}>Model</li>
+        <li class:on={gateStep >= 2} class:now={gatePhase === 'held' || gatePhase === 'denied'}>Gate</li>
+        <li class:on={gateStep >= 3} class:now={gatePhase === 'allowed'}>Machine</li>
+      </ol>
+
+      <div class="lock-actions">
         {#if gatePhase === 'idle' || gatePhase === 'allowed' || gatePhase === 'denied'}
-          <button type="button" class="gate-btn primary" onclick={proposeAction}>
-            Propose an action
-          </button>
+          <button type="button" class="lock-btn" onclick={proposeAction}>Propose an action</button>
         {:else if gatePhase === 'sending'}
-          <button type="button" class="gate-btn" disabled>Traveling…</button>
+          <p class="lock-wait">Waiting at the door…</p>
         {:else}
-          <button type="button" class="gate-btn danger" onclick={() => decide(false)}>Deny</button>
-          <button type="button" class="gate-btn primary" onclick={() => decide(true)}>Allow</button>
+          <button type="button" class="lock-btn quiet" onclick={() => decide(false)}>Deny</button>
+          <button type="button" class="lock-btn solid" onclick={() => decide(true)}>Allow</button>
         {/if}
       </div>
     </div>
@@ -563,207 +577,208 @@
     font-size: 0.92em;
   }
 
-  /* —— Interactive Gatekeeper —— */
-  .gate {
-    margin-top: 8px;
-    padding: 22px 22px 20px;
-    border-radius: 26px;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
-    background: var(--md-surface);
-    box-shadow: 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
-    overflow: hidden;
-  }
-  .gate-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px 20px;
-    margin-bottom: 22px;
-  }
-  .gate-k {
-    margin: 0;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-  }
-  .gate-note {
-    margin: 0;
-    flex: 1;
-    min-width: 16ch;
-    text-align: right;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    color: var(--md-ink-soft);
-    transition: color 220ms var(--about-ease);
-  }
-  .gate[data-phase='held'] .gate-note {
-    color: var(--md-cobalt);
-  }
-  .gate[data-phase='allowed'] .gate-note {
-    color: var(--md-live);
-  }
-  .gate[data-phase='denied'] .gate-note {
-    color: var(--md-halt);
-  }
-
-  .gate-flow {
+  /* —— Consent lock —— */
+  .lock {
+    margin-top: 28px;
     display: grid;
-    grid-template-columns: 1fr minmax(36px, 1.1fr) 1fr minmax(36px, 1.1fr) 1fr;
+    grid-template-columns: minmax(0, 1.2fr) auto;
+    grid-template-areas:
+      'copy seal'
+      'steps seal'
+      'actions actions';
+    gap: 18px 40px;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 22px;
+    padding: 8px 0 4px;
   }
-  .gate-node {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
+  .lock-copy {
+    grid-area: copy;
     min-width: 0;
   }
-  .gate-orb {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    color: var(--md-ink-mute);
-    box-shadow: 0 10px 24px -18px color-mix(in oklab, var(--md-ink) 40%, transparent);
-    transition:
-      transform 320ms var(--about-spring),
-      border-color 280ms var(--about-ease),
-      background 280ms var(--about-ease),
-      color 280ms var(--about-ease),
-      box-shadow 280ms var(--about-ease);
-  }
-  .gate-role {
-    font-family: var(--md-font-display);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--md-ink);
-  }
-  .gate-sub {
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.06em;
+  .lock-k {
+    margin: 0 0 10px;
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
     color: var(--md-ink-faint);
   }
+  .lock-title {
+    margin: 0 0 10px;
+    font-family: var(--md-font-display);
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
+    color: var(--md-ink);
+    text-wrap: balance;
+    transition: color 280ms var(--about-ease);
+  }
+  .lock[data-phase='held'] .lock-title {
+    color: var(--md-cobalt);
+  }
+  .lock[data-phase='allowed'] .lock-title {
+    color: var(--md-live);
+  }
+  .lock[data-phase='denied'] .lock-title {
+    color: var(--md-halt);
+  }
+  .lock-note {
+    margin: 0;
+    max-width: 38ch;
+    font-family: var(--md-font-sans);
+    font-size: 15px;
+    font-weight: 450;
+    line-height: 1.65;
+    letter-spacing: -0.011em;
+    color: color-mix(in oklab, var(--md-ink) 68%, var(--md-ink-mute));
+  }
 
-  .gate-path {
+  .lock-seal {
+    grid-area: seal;
     position: relative;
-    height: 28px;
+    width: 112px;
+    height: 112px;
     display: grid;
     place-items: center;
+    justify-self: end;
   }
-  .gate-track {
-    display: block;
-    width: 100%;
-    height: 2px;
-    border-radius: 999px;
-    background: linear-gradient(
-      90deg,
-      color-mix(in oklab, var(--md-line-strong) 40%, transparent),
-      var(--md-line-strong),
-      color-mix(in oklab, var(--md-line-strong) 40%, transparent)
-    );
-  }
-  .gate-pulse {
+  .lock-halo {
     position: absolute;
-    left: 0;
-    top: 50%;
-    width: 10px;
-    height: 10px;
-    margin-top: -5px;
-    margin-left: -5px;
+    inset: 0;
     border-radius: 50%;
-    background: var(--md-cobalt);
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--md-cobalt) 40%, transparent);
-    opacity: 0;
-    transform: translateX(0) scale(0.6);
+    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
+    transition:
+      border-color 320ms var(--about-ease),
+      background 320ms var(--about-ease),
+      box-shadow 320ms var(--about-ease),
+      transform 420ms var(--about-spring);
   }
-  .gate-pulse.late {
-    background: var(--md-live);
+  .lock-mark {
+    position: relative;
+    z-index: 1;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--md-ink-soft);
+    background: var(--md-surface);
+    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
+    transition:
+      color 280ms var(--about-ease),
+      border-color 280ms var(--about-ease),
+      background 280ms var(--about-ease),
+      transform 320ms var(--about-spring);
   }
-
-  /* Phase: sending — pulse travels first path */
-  .gate[data-phase='sending'] .gate-pulse:not(.late) {
-    opacity: 1;
-    animation: gate-travel 920ms var(--about-ease) forwards;
+  .lock[data-phase='sending'] .lock-halo {
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+    animation: lock-breathe 1.2s ease-in-out infinite;
   }
-  .gate[data-phase='sending'] .gate-node[data-role='strategist'] .gate-orb {
+  .lock[data-phase='sending'] .lock-mark {
     color: var(--md-cobalt);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
-    box-shadow: 0 0 0 6px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 30%, transparent);
   }
-
-  /* Phase: held — pulse parked at gatekeeper */
-  .gate[data-phase='held'] .gate-node[data-role='keeper'] .gate-orb {
+  .lock[data-phase='held'] .lock-halo {
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    box-shadow: 0 0 0 10px color-mix(in oklab, var(--md-cobalt) 8%, transparent);
+    animation: lock-breathe 1.6s ease-in-out infinite;
+  }
+  .lock[data-phase='held'] .lock-mark {
     color: #fff;
     background: var(--md-cobalt);
     border-color: transparent;
-    transform: scale(1.08);
-    box-shadow:
-      0 0 0 8px color-mix(in oklab, var(--md-cobalt) 16%, transparent),
-      0 16px 32px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
-    animation: gate-hold 1.4s ease-in-out infinite;
+    transform: scale(1.04);
   }
-  .gate[data-phase='held'] .gate-path:nth-child(2) .gate-track {
-    background: linear-gradient(90deg, var(--md-cobalt), color-mix(in oklab, var(--md-cobalt) 35%, transparent));
+  .lock[data-phase='allowed'] .lock-halo {
+    border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
+    box-shadow: 0 0 0 10px color-mix(in oklab, var(--md-live) 8%, transparent);
   }
-
-  /* Phase: allowed — second pulse travels to machine */
-  .gate[data-phase='allowed'] .gate-pulse.late {
-    opacity: 1;
-    animation: gate-travel 700ms var(--about-ease) forwards;
-  }
-  .gate[data-phase='allowed'] .gate-node[data-role='keeper'] .gate-orb,
-  .gate[data-phase='allowed'] .gate-node[data-role='machine'] .gate-orb {
+  .lock[data-phase='allowed'] .lock-mark {
     color: var(--md-live);
-    border-color: color-mix(in oklab, var(--md-live) 40%, transparent);
-    background: color-mix(in oklab, var(--md-live) 10%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-live) 30%, transparent);
+    background: color-mix(in oklab, var(--md-live) 8%, var(--md-surface));
   }
-  .gate[data-phase='allowed'] .gate-node[data-role='machine'] .gate-orb {
-    transform: scale(1.06);
-    box-shadow: 0 0 0 7px color-mix(in oklab, var(--md-live) 14%, transparent);
+  .lock[data-phase='denied'] .lock-halo {
+    border-color: color-mix(in oklab, var(--md-halt) 30%, transparent);
   }
-  .gate[data-phase='allowed'] .gate-track {
-    background: linear-gradient(90deg, var(--md-live), color-mix(in oklab, var(--md-live) 30%, transparent));
-  }
-
-  /* Phase: denied — gate flashes halt, machine stays quiet */
-  .gate[data-phase='denied'] .gate-node[data-role='keeper'] .gate-orb {
+  .lock[data-phase='denied'] .lock-mark {
     color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 45%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 10%, var(--md-surface));
-    animation: gate-deny 420ms var(--about-spring) both;
-  }
-  .gate[data-phase='denied'] .gate-path:nth-child(2) .gate-track {
-    background: linear-gradient(90deg, color-mix(in oklab, var(--md-halt) 55%, transparent), var(--md-line));
+    border-color: color-mix(in oklab, var(--md-halt) 28%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 7%, var(--md-surface));
+    animation: lock-deny 420ms var(--about-spring) both;
   }
 
-  .gate-actions {
+  .lock-steps {
+    grid-area: steps;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
-  .gate-btn {
+  .lock-steps li {
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--md-ink-faint);
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    transition:
+      color 240ms var(--about-ease),
+      background 240ms var(--about-ease),
+      border-color 240ms var(--about-ease);
+  }
+  .lock-steps li.on {
+    color: var(--md-ink-soft);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    border-color: color-mix(in oklab, var(--md-ink) 8%, transparent);
+  }
+  .lock-steps li.now {
+    color: var(--md-cobalt);
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+    background: color-mix(in oklab, var(--md-cobalt) 7%, var(--md-surface));
+  }
+  .lock[data-phase='allowed'] .lock-steps li.now {
+    color: var(--md-live);
+    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
+    background: color-mix(in oklab, var(--md-live) 7%, var(--md-surface));
+  }
+  .lock[data-phase='denied'] .lock-steps li.now {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 26%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 7%, var(--md-surface));
+  }
+
+  .lock-actions {
+    grid-area: actions;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 4px;
+  }
+  .lock-wait {
+    margin: 0;
+    font-family: var(--md-font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-ink-mute);
+    letter-spacing: -0.01em;
+  }
+  .lock-btn {
     appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    padding: 0 20px;
+    min-height: 42px;
+    padding: 0 18px;
     border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
+    border: 1px solid color-mix(in oklab, var(--md-ink) 12%, transparent);
+    background: var(--md-surface);
     color: var(--md-ink);
     font-family: var(--md-font-sans);
     font-size: 13px;
@@ -777,75 +792,49 @@
       color 180ms var(--about-ease),
       box-shadow 180ms var(--about-ease);
   }
-  .gate-btn:hover:not(:disabled) {
+  .lock-btn:hover {
     transform: translateY(-1px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
   }
-  .gate-btn:disabled {
-    opacity: 0.55;
-    cursor: wait;
-  }
-  .gate-btn:focus-visible {
+  .lock-btn:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
   }
-  .gate-btn.primary {
+  .lock-btn.solid {
     background: var(--md-cobalt);
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 14px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
   }
-  .gate-btn.primary:hover:not(:disabled) {
+  .lock-btn.solid:hover {
     background: var(--md-cobalt-deep);
     border-color: transparent;
   }
-  .gate-btn.danger {
+  .lock-btn.quiet {
     color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 32%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 8%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-halt) 24%, transparent);
+    background: color-mix(in oklab, var(--md-halt) 5%, var(--md-surface));
   }
-  .gate-btn.danger:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--md-halt) 14%, var(--md-surface));
+  .lock-btn.quiet:hover {
+    background: color-mix(in oklab, var(--md-halt) 10%, var(--md-surface));
   }
 
-  @keyframes gate-travel {
-    0% {
-      opacity: 0;
-      transform: translateX(0) scale(0.5);
-      box-shadow: 0 0 0 0 color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    }
-    12% {
-      opacity: 1;
-      transform: translateX(8%) scale(1);
-    }
-    70% {
-      opacity: 1;
-      transform: translateX(88%) scale(1);
-      box-shadow: 0 0 0 8px color-mix(in oklab, var(--md-cobalt) 0%, transparent);
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(100%) scale(0.7);
-    }
-  }
-  @keyframes gate-hold {
+  @keyframes lock-breathe {
     0%,
     100% {
-      transform: scale(1.08);
+      transform: scale(1);
+      opacity: 1;
     }
     50% {
-      transform: scale(1.14);
+      transform: scale(1.04);
+      opacity: 0.92;
     }
   }
-  @keyframes gate-deny {
+  @keyframes lock-deny {
     0% {
       transform: scale(1);
     }
-    35% {
-      transform: scale(1.12) rotate(-3deg);
-    }
-    70% {
-      transform: scale(0.96) rotate(2deg);
+    40% {
+      transform: scale(1.06);
     }
     100% {
       transform: scale(1);
@@ -1475,27 +1464,26 @@
     .colophon {
       padding: 24px 16px 120px;
     }
-    .gate {
-      padding: 18px 16px 16px;
-      border-radius: 22px;
+    .lock {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        'copy'
+        'seal'
+        'steps'
+        'actions';
+      gap: 16px;
     }
-    .gate-note {
-      text-align: left;
-      width: 100%;
-      font-size: 13px;
+    .lock-seal {
+      justify-self: start;
+      width: 96px;
+      height: 96px;
     }
-    .gate-flow {
-      gap: 2px;
+    .lock-mark {
+      width: 56px;
+      height: 56px;
     }
-    .gate-orb {
-      width: 46px;
-      height: 46px;
-    }
-    .gate-role {
-      font-size: 11px;
-    }
-    .gate-sub {
-      display: none;
+    .lock-note {
+      font-size: 14px;
     }
     .meridian-head {
       align-items: flex-start;
@@ -1548,7 +1536,7 @@
   }
 
   @media (max-width: 480px) {
-    .gate-btn {
+    .lock-btn {
       flex: 1;
       min-width: 120px;
     }
@@ -1567,8 +1555,8 @@
   .colophon.calm .plate,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
-  .colophon.calm .gate-pulse,
-  .colophon.calm .gate-orb {
+  .colophon.calm .lock-halo,
+  .colophon.calm .lock-mark {
     transition: none !important;
     animation: none !important;
   }
