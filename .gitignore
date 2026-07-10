@@ -90,8 +90,27 @@ desktop.ini
 .settings/
 *.iml
 
-# Wails GUI build artifacts (shell lives in condura-app/cmd/condura-gui/)
+# Wails GUI build artifacts (shell lives in condura-app/cmd/condura-gui/).
+# Most of build/ is compiled output that should not be tracked
+# (.app bundles, compiled binaries, NSIS templates), but the source
+# TEMPLATES under build/darwin/ and build/windows/ are inputs to
+# `wails build` and carry fixes that need to survive across builds.
+# We gitignore build/ broadly and then whitelist the specific
+# templates we maintain by hand. Adding a template here means the
+# build system reads the tracked version rather than a regenerated
+# copy.
+#
+# Without this exception, a hand-maintained template change can
+# only land via `git add -f` (which is what landed the Info.plist
+# ATS exception in 8309ece) — that works once but is brittle.
+# Whitelisting the template makes the inclusion legitimate going
+# forward and lets future fixes land via plain `git add`.
 /condura-app/cmd/condura-gui/build/
+
+# Source templates under build/ that ARE tracked (whitelist).
+# Add new entries here when shipping a fix that lives in a Wails-side
+# template file (Info.plist, NSIS scripts, build hooks, etc.).
+!/condura-app/cmd/condura-gui/build/darwin/Info.plist
 
 # Svelte / frontend build outputs
 /condura-gui/frontend/node_modules/
