@@ -105,7 +105,7 @@ type Query struct {
 // before this change remain verifiable.
 type Log struct {
 	db     *sql.DB
-	subkey []byte // derived audit HMAC subkey (HKDF-SHA-256 output)
+	subkey []byte     // derived audit HMAC subkey (HKDF-SHA-256 output)
 	mu     sync.Mutex // serializes Append so the chain is consistent
 	// lastHMACCache caches the most-recently-inserted row's hmac so
 	// Append doesn't have to issue a SELECT before every INSERT.
@@ -226,7 +226,7 @@ func (l *Log) Append(ctx context.Context, e Event) error {
 	// This eliminates one synchronous DB roundtrip per Append on the
 	// hot path while still being safe under reload (Reload invalidates
 	// the cache) and concurrent calls (l.mu serializes us).
-	prevHash := genesisHash
+	var prevHash string
 	if l.lastHMACValid {
 		prevHash = l.lastHMACValue
 	} else {

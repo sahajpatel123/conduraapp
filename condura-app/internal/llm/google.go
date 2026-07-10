@@ -268,6 +268,8 @@ func (g *Google) buildRequest(ctx context.Context, model string, body any, strea
 
 // Chat sends a non-streaming request to the Google Gemini generateContent
 // endpoint and returns the assembled response.
+//
+//nolint:gocyclo // the validate + stream-or-HTTP + response-shape branch is inherently branchy
 func (g *Google) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	if req.Model == "" {
 		return ChatResponse{}, ErrNoModel
