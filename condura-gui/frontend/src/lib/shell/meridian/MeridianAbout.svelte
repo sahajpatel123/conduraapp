@@ -226,35 +226,119 @@
       <em>This page is the contract — and the live reading of the machine that keeps it.</em>
     </p>
 
-    <div class="seal-row">
+    <div class="identity" data-link={connected ? 'live' : 'quiet'}>
       <button
         type="button"
-        class="seal"
+        class="id-build"
         onclick={copyBuild}
         aria-label="Copy build identity"
-        title="Click to copy build card"
+        title="Copy build card to clipboard"
       >
-        <span class="seal-ring" aria-hidden="true"></span>
-        <span class="seal-core">
-          <span class="seal-k">Build</span>
-          <span class="seal-v">{buildLine}</span>
-          <span class="seal-a">{copied ? 'Copied to clipboard' : 'Press to copy'}</span>
+        <span class="id-mark" aria-hidden="true">
+          <svg viewBox="0 0 56 56" fill="none">
+            <circle cx="28" cy="28" r="26" stroke="currentColor" stroke-opacity="0.18" stroke-width="1.25" />
+            <circle
+              cx="28"
+              cy="28"
+              r="26"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-dasharray="48 120"
+              transform="rotate(-90 28 28)"
+              class="id-mark-arc"
+            />
+            <path
+              d="M28 12c0 10 0 22 0 32M18 22c6 2 12 4 20 0M18 34c6-2 12-4 20 0"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              opacity="0.9"
+            />
+          </svg>
+        </span>
+        <span class="id-body">
+          <span class="id-k">Build identity</span>
+          <span class="id-v">{buildLine}</span>
+          <span class="id-sub">
+            {#if version?.build_date}
+              Built {version.build_date}
+            {:else}
+              GUI {GUI_VERSION}
+            {/if}
+            {#if version?.go_version}
+              <span class="id-dot" aria-hidden="true">·</span>
+              {version.go_version}
+            {/if}
+          </span>
+        </span>
+        <span class="id-chip" class:done={copied}>
+          {#if copied}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Copied
+          {:else}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="8" y="8" width="11" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Copy
+          {/if}
         </span>
       </button>
 
-      <div class="vitals" aria-label="Daemon vitals">
-        <span class="vital" data-tone={connected ? 'on' : 'off'}>
-          <i></i>
-          {connected ? 'Daemon live' : 'Daemon quiet'}
-        </span>
-        {#if pingMs != null}
-          <span class="vital dim">{pingMs} ms</span>
-        {/if}
+      <div class="id-rail" aria-label="Daemon vitals">
+        <div class="meter" data-tone={connected ? 'on' : 'off'}>
+          <span class="meter-led" aria-hidden="true"></span>
+          <div class="meter-text">
+            <span class="meter-k">Link</span>
+            <span class="meter-v">{connected ? 'Live' : 'Quiet'}</span>
+          </div>
+        </div>
+
+        <div class="meter">
+          <div class="meter-text">
+            <span class="meter-k">Latency</span>
+            <span class="meter-v mono">
+              {#if loading && pingMs == null}
+                …
+              {:else if pingMs != null}
+                {pingMs}<span class="meter-unit">ms</span>
+              {:else}
+                —
+              {/if}
+            </span>
+          </div>
+        </div>
+
         {#if version?.platform}
-          <span class="vital dim">{version.platform}</span>
+          <div class="meter">
+            <div class="meter-text">
+              <span class="meter-k">Host</span>
+              <span class="meter-v host">{version.platform}</span>
+            </div>
+          </div>
         {/if}
-        <button type="button" class="vital ghost" onclick={() => void refresh()} disabled={loading}>
-          {loading ? 'Reading…' : 'Refresh'}
+
+        <button
+          type="button"
+          class="id-refresh"
+          class:spin={loading}
+          onclick={() => void refresh()}
+          disabled={loading}
+          aria-label={loading ? 'Reading vitals' : 'Refresh vitals'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M20 12a8 8 0 1 1-2.2-5.4"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+            />
+            <path d="M20 5v5h-5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>{loading ? 'Reading' : 'Refresh'}</span>
         </button>
       </div>
     </div>
@@ -608,134 +692,296 @@
     font-size: 0.92em;
   }
 
-  .seal-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 20px 28px;
+  .identity {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.9fr);
+    gap: 0;
+    align-items: stretch;
+    border-radius: 22px;
+    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in oklab, var(--md-surface) 92%, transparent) 0%,
+        color-mix(in oklab, var(--md-surface) 72%, transparent) 100%
+      );
+    box-shadow:
+      0 1px 0 color-mix(in oklab, #fff 65%, transparent) inset,
+      0 18px 40px -28px color-mix(in oklab, var(--md-ink) 28%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    overflow: hidden;
+  }
+  .identity[data-link='live'] {
+    border-color: color-mix(in oklab, var(--md-live) 22%, var(--md-line));
+  }
+  .identity[data-link='quiet'] {
+    border-color: color-mix(in oklab, var(--md-halt) 16%, var(--md-line));
   }
 
-  .seal {
-    position: relative;
+  .id-build {
+    appearance: none;
     display: grid;
-    place-items: center;
-    width: min(100%, 280px);
-    min-height: 108px;
-    padding: 18px 22px;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 18px 20px;
     text-align: left;
     cursor: pointer;
-    border-radius: 28px;
-    background: color-mix(in oklab, var(--md-surface) 72%, transparent);
-    border: 1px solid var(--md-line-strong);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: var(--md-shadow);
+    color: inherit;
+    background:
+      radial-gradient(
+        120% 90% at 0% 0%,
+        color-mix(in oklab, var(--md-cobalt) 8%, transparent),
+        transparent 55%
+      );
+    border: 0;
+    border-right: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
     transition:
-      transform 240ms var(--about-spring),
-      border-color 220ms var(--about-ease),
-      box-shadow 220ms var(--about-ease);
+      background 220ms var(--about-ease),
+      transform 200ms var(--about-spring);
   }
-  .seal:hover {
-    transform: translateY(-3px) rotate(-0.4deg);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line-strong));
-    box-shadow: var(--md-shadow-lift);
+  .id-build:hover {
+    background:
+      radial-gradient(
+        120% 90% at 0% 0%,
+        color-mix(in oklab, var(--md-cobalt) 14%, transparent),
+        transparent 58%
+      );
   }
-  .seal:focus-visible {
+  .id-build:focus-visible {
     outline: none;
-    box-shadow: var(--md-focus), var(--md-shadow-lift);
+    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
   }
-  .seal:active {
-    transform: scale(0.985);
-  }
-  .seal-ring {
-    position: absolute;
-    inset: 8px;
-    border-radius: 22px;
-    border: 1px dashed color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-    opacity: 0.7;
-    pointer-events: none;
-  }
-  .seal-core {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    width: 100%;
-  }
-  .seal-k {
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-  }
-  .seal-v {
-    font-family: var(--md-font-mono);
-    font-size: 15px;
-    letter-spacing: 0.02em;
-    color: var(--md-ink);
-    font-weight: 500;
-  }
-  .seal-a {
-    font-size: 12px;
-    color: var(--md-cobalt);
-    font-weight: 600;
-    margin-top: 4px;
+  .id-build:active {
+    transform: scale(0.995);
   }
 
-  .vitals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+  .id-mark {
+    width: 52px;
+    height: 52px;
+    color: var(--md-cobalt);
+    display: grid;
+    place-items: center;
   }
-  .vital {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  .id-mark svg {
+    width: 52px;
+    height: 52px;
+  }
+  .id-mark-arc {
+    transition: stroke-dasharray 600ms var(--about-ease);
+  }
+  .identity[data-link='live'] .id-mark-arc {
+    stroke: var(--md-live);
+    stroke-dasharray: 100 120;
+  }
+  .identity[data-link='quiet'] .id-mark-arc {
+    stroke: var(--md-halt);
+    stroke-dasharray: 28 120;
+  }
+
+  .id-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .id-k {
     font-family: var(--md-font-mono);
     font-size: 10px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--md-ink-mute);
-    padding: 8px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
-  }
-  .vital i {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 20%, transparent);
-  }
-  .vital[data-tone='on'] {
-    color: var(--md-live);
-    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
-  }
-  .vital[data-tone='off'] {
-    color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 26%, transparent);
-  }
-  .vital.dim {
     color: var(--md-ink-faint);
   }
-  .vital.ghost {
-    cursor: pointer;
-    color: var(--md-ink-soft);
-    transition: border-color 160ms var(--about-ease), color 160ms var(--about-ease);
-  }
-  .vital.ghost:hover:not(:disabled) {
-    border-color: var(--md-cobalt);
+  .id-v {
+    font-family: var(--md-font-display);
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     color: var(--md-ink);
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .vital.ghost:focus-visible {
-    outline: none;
-    box-shadow: var(--md-focus);
+  .id-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--md-ink-mute);
   }
-  .vital.ghost:disabled {
+  .id-dot {
     opacity: 0.5;
+  }
+
+  .id-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
+    color: var(--md-cobalt);
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    transition:
+      background 180ms var(--about-ease),
+      border-color 180ms var(--about-ease),
+      color 180ms var(--about-ease),
+      transform 180ms var(--about-spring);
+  }
+  .id-build:hover .id-chip {
+    background: var(--md-cobalt);
+    border-color: transparent;
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  .id-chip.done {
+    background: color-mix(in oklab, var(--md-live) 12%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-live) 32%, transparent);
+    color: var(--md-live);
+  }
+
+  .id-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: color-mix(in oklab, var(--md-ink) 6%, transparent);
+    min-width: 0;
+  }
+  .meter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: color-mix(in oklab, var(--md-surface) 78%, transparent);
+    min-width: 0;
+  }
+  .meter-led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--md-ink-faint);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-ink-faint) 16%, transparent);
+  }
+  .meter[data-tone='on'] .meter-led {
+    background: var(--md-live);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-live) 18%, transparent);
+    animation: about-led 1.8s ease-in-out infinite;
+  }
+  .meter[data-tone='off'] .meter-led {
+    background: var(--md-halt);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-halt) 16%, transparent);
+  }
+  .meter-text {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  .meter-k {
+    font-family: var(--md-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    flex: none;
+  }
+  .meter-v {
+    font-family: var(--md-font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--md-ink);
+    line-height: 1.2;
+    text-align: right;
+  }
+  .meter-v.mono {
+    font-family: var(--md-font-mono);
+    font-weight: 500;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .meter-v.host {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--md-ink-soft);
+  }
+  .meter[data-tone='on'] .meter-v {
+    color: var(--md-live);
+  }
+  .meter[data-tone='off'] .meter-v {
+    color: var(--md-halt);
+  }
+  .meter-unit {
+    margin-left: 2px;
+    font-size: 10px;
+    color: var(--md-ink-faint);
+  }
+
+  .id-refresh {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 0;
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    color: var(--md-ink-soft);
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition:
+      background 180ms var(--about-ease),
+      color 180ms var(--about-ease);
+  }
+  .id-refresh:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
+    color: var(--md-cobalt);
+  }
+  .id-refresh:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+  }
+  .id-refresh:disabled {
     cursor: wait;
+    opacity: 0.7;
+  }
+  .id-refresh.spin svg {
+    animation: about-spin 0.9s linear infinite;
+  }
+
+  @keyframes about-led {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.15);
+      opacity: 0.75;
+    }
   }
 
   /* —— Meridian spine —— */
@@ -1195,6 +1441,20 @@
     .colophon {
       padding: 24px 16px 120px;
     }
+    .identity {
+      grid-template-columns: 1fr;
+    }
+    .id-build {
+      border-right: 0;
+      border-bottom: 1px solid color-mix(in oklab, var(--md-ink) 8%, transparent);
+    }
+    .id-rail {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .id-refresh {
+      grid-column: 1 / -1;
+    }
     .spine-stage {
       grid-template-columns: 56px 1fr;
       gap: 14px;
@@ -1223,12 +1483,34 @@
   }
 
   @media (max-width: 480px) {
-    .seal-row {
-      flex-direction: column;
-      align-items: stretch;
+    .identity {
+      border-radius: 18px;
     }
-    .seal {
+    .id-build {
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 12px;
+      padding: 16px;
+    }
+    .id-mark {
+      width: 44px;
+      height: 44px;
+    }
+    .id-mark svg {
+      width: 44px;
+      height: 44px;
+    }
+    .id-chip {
+      grid-column: 1 / -1;
+      justify-content: center;
       width: 100%;
+      min-height: 36px;
+    }
+    .id-v {
+      font-size: 16px;
+      white-space: normal;
+    }
+    .id-rail {
+      grid-template-columns: 1fr;
     }
     .word {
       font-size: clamp(44px, 14vw, 64px);
@@ -1247,7 +1529,9 @@
   .colophon.calm .orbit,
   .colophon.calm .glow,
   .colophon.calm .node-dot,
-  .colophon.calm .station-inner {
+  .colophon.calm .station-inner,
+  .colophon.calm .meter-led,
+  .colophon.calm .id-refresh.spin svg {
     transition: none !important;
     animation: none !important;
   }
