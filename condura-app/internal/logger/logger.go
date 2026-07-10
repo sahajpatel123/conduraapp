@@ -24,6 +24,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -300,7 +301,9 @@ func openFileOrStderr(cfg Config, fallback io.Writer) (io.Writer, io.Closer) {
 }
 
 // fileClosers tracks open rotating file sinks so CloseFileSink can release
-// OS locks (required on Windows before TempDir cleanup).
+// OS locks (required on Windows before TempDir cleanup). Map entries
+// are best-effort cleaned via runtime.SetFinalizer on the *slog.Logger
+// when the daemon forgets to call CloseFileSink (tests, reconfigure paths).
 var (
 	fileClosersMu sync.Mutex
 	fileClosers   = map[*slog.Logger]io.Closer{}
@@ -308,8 +311,23 @@ var (
 
 func registerFileCloser(lg *slog.Logger, c io.Closer) {
 	fileClosersMu.Lock()
+	// If a prior closer is already registered for this logger (e.g.
+	// the daemon was reconfigured with the same *slog.Logger pointer),
+	// close the previous file handle before we drop it — otherwise
+	// the OS file descriptor (and on Windows, the OS file lock)
+	// leaks for the previous rotation sink.
+	if prev, had := fileClosers[lg]; had && prev != nil && prev != c {
+		_ = prev.Close()
+	}
 	fileClosers[lg] = c
 	fileClosersMu.Unlock()
+	// Best-effort auto-cleanup when the logger is garbage-collected.
+	// Production callers should still call CloseFileSink explicitly
+	// (the daemon calls it on shutdown); this finalizer is the safety
+	// net for tests and reconfigure paths.
+	runtime.SetFinalizer(lg, func(z *slog.Logger) {
+		_ = closeFileCloser(z)
+	})
 }
 
 func closeFileCloser(lg *slog.Logger) error {
@@ -322,6 +340,8 @@ func closeFileCloser(lg *slog.Logger) error {
 	if !ok || c == nil {
 		return nil
 	}
+	// Clear the finalizer so we don't double-close.
+	runtime.SetFinalizer(lg, nil)
 	return c.Close()
 }
 

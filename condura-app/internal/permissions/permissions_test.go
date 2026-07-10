@@ -95,7 +95,7 @@ func TestOpenDeepLink_EmptyReturnsFalse(t *testing.T) {
 
 func TestOpenSettings_ReturnsGuide(t *testing.T) {
 	// We don't assert opened=true (CI may not have a display / open may fail).
-	g, _, _ := OpenSettings(KindAccessibility)
+	g, _, _ := OpenSettings(context.Background(), KindAccessibility)
 	if g.Title == "" {
 		t.Fatal("expected non-empty guide title")
 	}

@@ -387,6 +387,38 @@ CREATE TABLE IF NOT EXISTS prune_tombstone (
 CREATE INDEX IF NOT EXISTS idx_prune_tombstone_pruned_at ON prune_tombstone(pruned_at DESC);
 `,
 	},
+	{
+		// Channels (Phase 14C, hardened 2026-07-10): persist channel
+		// tokens encrypted via AES-256-GCM. The reach_channels table
+		// itself is created on-the-fly by reach.NewStore (the channel
+		// subsystem predates the versioned schema), but additive column
+		// changes can still go through the migration system because
+		// ALTER TABLE works on any existing table regardless of who
+		// created it.
+		//
+		// The previously-existing `token` column (declared in NewStore's
+		// CREATE TABLE) is unused — it was added defensively but never
+		// written. Adding `token_ciphertext` as a new column keeps the
+		// migration purely additive (no destructive rename) and lets
+		// a future migration drop the legacy column when convenient.
+		//
+		// The plaintext token never appears in the SQL. Ciphertext is
+		// produced by storage.DB.EncryptStringWithAAD using a stable
+		// per-channel AAD; the AAD travels inside the envelope so the
+		// column stores the self-contained envelope string.
+		Version: 8, //nolint:mnd // migration version
+		Name:    "reach_channels token persistence (encrypted)",
+		SQL: `
+CREATE TABLE IF NOT EXISTS reach_channels (
+    name             TEXT PRIMARY KEY,
+    token            TEXT DEFAULT '',
+    chat_id          TEXT DEFAULT '',
+    enabled          INTEGER DEFAULT 0,
+    connected_at     TEXT DEFAULT '',
+    token_ciphertext TEXT NOT NULL DEFAULT ''
+);
+`,
+	},
 }
 
 // migrate applies all pending migrations in order. Idempotent.

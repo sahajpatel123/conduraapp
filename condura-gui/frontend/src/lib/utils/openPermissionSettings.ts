@@ -28,16 +28,20 @@ export async function openPermissionSettings(
   } catch (e) {
     // Fall through to guide-only path.
     const msg = String(e)
+    let guideErr: string | undefined
     try {
       if (ipc.permissionsGuide) {
         const g = await ipc.permissionsGuide(kind)
         const url = g.deep_link || g.help_url
         if (url && tryBrowserOpen(url)) return { opened: true }
       }
-    } catch {
-      /* ignore */
+    } catch (inner) {
+      // Preserve both errors so UI debugging and telemetry don't
+      // lose the real failure when the daemon RPC AND the guide
+      // fallback both fail.
+      guideErr = String(inner)
     }
-    return { opened: false, error: msg }
+    return { opened: false, error: guideErr ? `${msg}; guide fallback: ${guideErr}` : msg }
   }
   return { opened: false, error: 'permissions open not available' }
 }

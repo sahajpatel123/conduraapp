@@ -112,9 +112,21 @@ func (s *Scheduler) Run(ctx context.Context) {
 			return
 		case <-time.After(wait):
 		}
+	} else {
+		// Defer the very first backup by a short window so it does
+		// not run inside the daemon's boot path. Otherwise a
+		// non-trivial data dir would block cold-start (<500ms SLA)
+		// with a full MkdirAll + zip creation.
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stop:
+			return
+		case <-time.After(30 * time.Second):
+		}
 	}
 
-	// Run the first backup immediately, then loop.
+	// Run the first backup after the initial defer, then loop.
 	s.tryBackup(ctx)
 
 	t := time.NewTicker(s.cfg.Interval)
