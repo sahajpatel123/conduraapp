@@ -84,7 +84,7 @@ func TestNewManager_AlwaysSucceeds(t *testing.T) {
 }
 
 func TestOpenDeepLink_EmptyReturnsFalse(t *testing.T) {
-	opened, err := openDeepLink("", "", "darwin")
+	opened, err := openDeepLink(context.Background(), "", "", "darwin")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}

@@ -155,14 +155,14 @@ func RequestGuide(k Kind) Guide {
 // assume the user granted the permission — re-probe after return.
 func OpenSettings(k Kind) (Guide, bool, error) {
 	g := RequestGuide(k)
-	opened, err := openDeepLink(g.DeepLink, g.HelpURL, runtime.GOOS)
+	opened, err := openDeepLink(context.Background(), g.DeepLink, g.HelpURL, runtime.GOOS)
 	return g, opened, err
 }
 
 // openDeepLink launches the platform handler for a settings deep link.
 // Prefer DeepLink; fall back to HelpURL only when no deep link exists
 // (Linux guides often only have documentation URLs).
-func openDeepLink(deep, help, platform string) (bool, error) {
+func openDeepLink(ctx context.Context, deep, help, platform string) (bool, error) {
 	target := strings.TrimSpace(deep)
 	if target == "" {
 		target = strings.TrimSpace(help)
@@ -177,10 +177,10 @@ func openDeepLink(deep, help, platform string) (bool, error) {
 	switch platform {
 	case "darwin":
 		// `open` handles x-apple.systempreferences: and https: URLs.
-		cmd = exec.Command("open", target) //nolint:gosec // G204: fixed binary + guide deep link
+		cmd = exec.CommandContext(ctx, "open", target) //nolint:gosec // G204: fixed binary + guide deep link
 	case "windows":
 		// start requires an empty window title when the first arg is quoted.
-		cmd = exec.Command("cmd", "/c", "start", "", target) //nolint:gosec // G204: fixed binary + guide deep link
+		cmd = exec.CommandContext(ctx, "cmd", "/c", "start", "", target) //nolint:gosec // G204: fixed binary + guide deep link
 	default:
 		// Linux: deep links may be "gnome-control-center privacy" (space-separated)
 		// or a URL for xdg-open.
@@ -188,14 +188,14 @@ func openDeepLink(deep, help, platform string) (bool, error) {
 			parts := strings.Fields(target)
 			if path, err := exec.LookPath(parts[0]); err == nil {
 				args := parts[1:]
-				cmd = exec.Command(path, args...) //nolint:gosec // G204: LookPath binary + fixed args from guide
+				cmd = exec.CommandContext(ctx, path, args...) //nolint:gosec // G204: LookPath binary + fixed args from guide
 			}
 		}
 		if cmd == nil {
 			if path, err := exec.LookPath("xdg-open"); err == nil && (strings.Contains(target, "://") || strings.HasPrefix(target, "http")) {
-				cmd = exec.Command(path, target) //nolint:gosec // G204: xdg-open + guide URL
+				cmd = exec.CommandContext(ctx, path, target) //nolint:gosec // G204: xdg-open + guide URL
 			} else if path, err := exec.LookPath("gnome-control-center"); err == nil {
-				cmd = exec.Command(path, "privacy") //nolint:gosec // G204: fixed binary + fixed arg
+				cmd = exec.CommandContext(ctx, path, "privacy") //nolint:gosec // G204: fixed binary + fixed arg
 			} else {
 				return false, fmt.Errorf("permissions: no opener available for %q", target)
 			}
