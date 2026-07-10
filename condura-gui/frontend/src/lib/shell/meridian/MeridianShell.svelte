@@ -406,24 +406,9 @@
   }
   .arc-wrap {
     position: relative;
-    z-index: 5;
-    /* Match stage side inset so the continuous line rides the light panel edges */
-    padding: 0 12px;
+    z-index: 1;
+    padding: 0 8px;
     margin-top: -4px;
-    height: 52px;
-    flex: none;
-    pointer-events: none;
-    overflow: visible;
-  }
-  .arc-wrap :global(.arc) {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    top: 0;
-    width: auto;
-    height: 25vh;
-    min-height: 180px;
-    max-height: 280px;
   }
   .stage {
     position: relative;
@@ -440,50 +425,3 @@
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
   }
-  @keyframes md-pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.35); opacity: 0.7; }
-  }
-  @media (max-width: 720px) {
-    .edition,
-    .jump span {
-      display: none;
-    }
-    .top {
-      padding: 12px 14px 0;
-      gap: 10px;
-    }
-    .jump {
-      max-width: 44px;
-      justify-content: center;
-      padding: 10px;
-    }
-    .jump kbd { display: none; }
-    .status {
-      padding: 6px 9px;
-      font-size: 9px;
-    }
-    .stage { margin: 0 8px; border-radius: 22px 22px 0 0; }
-    .arc-wrap {
-      padding: 0 8px;
-    }
-    .arc-wrap :global(.arc) {
-      left: 8px;
-      right: 8px;
-      height: 22vh;
-      min-height: 140px;
-    }
-  }
-  @media (max-width: 420px) {
-    .word { font-size: 18px; }
-    .right { gap: 6px; }
-    .icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .top, .status .dot { animation: none !important; }
-  }
-</style>
