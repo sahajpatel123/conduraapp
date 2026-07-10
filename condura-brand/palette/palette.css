@@ -1,0 +1,48 @@
+/*
+ * Condura — Brand palette reference (light / dark)
+ *
+ * Source of truth for named brand colors. Live CSS tokens that
+ * frontends consume live in tokens/primitives.css + tokens/semantic.css.
+ * This file is documentation for designers and marketing, not runtime CSS.
+ */
+
+:root {
+  /* Surfaces — Synapse Garden paper */
+  --brand-paper:        #F4EFE4;
+  --brand-paper-warm:   #ECE5D4;
+  --brand-paper-raised: #FAF6EE;
+  --brand-paper-deep:   #E2DAC6;
+
+  /* Ink */
+  --brand-ink:          #14110B;
+  --brand-ink-soft:     #2A2519;
+  --brand-ink-mute:     #5C5443;
+  --brand-ink-faint:    #8A8169;
+
+  /* Accent — Electric Plum (the ONE brand accent) */
+  --brand-plum:         #6E3AFF;
+  --brand-plum-deep:    #5A2BD9;
+  --brand-plum-soft:    #8A66FF;
+
+  /* Status (muted; use sparingly) */
+  --brand-ok:           #2E7D5B;
+  --brand-warn:         #A06A1F;
+  --brand-danger:       #A83232;
+}
+
+/* Dark reference (marketing site / future dark desktop theme) */
+[data-palette="dark"] {
+  --brand-paper:        #14110B;
+  --brand-paper-warm:   #1C1810;
+  --brand-paper-raised: #221E14;
+  --brand-paper-deep:   #2A2519;
+
+  --brand-ink:          #FAF6EE;
+  --brand-ink-soft:     #E2DAC6;
+  --brand-ink-mute:     #B8AF98;
+  --brand-ink-faint:    #8A8169;
+
+  --brand-plum:         #8A66FF;
+  --brand-plum-deep:    #6E3AFF;
+  --brand-plum-soft:    #B89AFF;
+}

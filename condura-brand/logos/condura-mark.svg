@@ -1,0 +1,14 @@
+/*
+ * Condura — Brand mark (wordmark-adjacent monogram)
+ *
+ * Canonical SVG for the Condura "C" conductor mark.
+ * Used by marketing site favicons / about pages when a vector mark is needed.
+ * Not a full logo suite — see README.md for brand-kit honesty.
+ */
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Condura">
+  <title>Condura</title>
+  <rect width="64" height="64" rx="14" fill="#14110B"/>
+  <circle cx="32" cy="32" r="18" fill="none" stroke="#6E3AFF" stroke-width="4"/>
+  <path d="M42 22 A14 14 0 1 0 42 42" fill="none" stroke="#FAF6EE" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="4" fill="#6E3AFF"/>
+</svg>

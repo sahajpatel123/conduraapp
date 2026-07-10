@@ -1,0 +1,33 @@
+/*
+ * Condura — Motion language reference
+ *
+ * Runtime CSS motion tokens live in tokens/motion.css.
+ * This file documents the motion grammar for brand / film work
+ * (condura-studio Remotion projects, marketing micro-interactions).
+ *
+ * Durations:
+ *   instant  50ms   — press feedback
+ *   fast    120ms   — hover, focus ring
+ *   base    220ms   — default transition
+ *   slow    320ms   — panel open/close
+ *   epic    800ms   — hero / onboarding moments
+ *
+ * Easing:
+ *   standard   cubic-bezier(0.22, 1, 0.36, 1)  — "thread-ease", default
+ *   decelerate cubic-bezier(0, 0, 0.2, 1)
+ *   accelerate cubic-bezier(0.4, 0, 1, 1)
+ *
+ * Rules:
+ *   - One accent motion at a time (Pulse OR thread, not both competing)
+ *   - No decorative loops on critical safety UI (Gatekeeper, Kill Switch)
+ *   - Prefer opacity + transform; never layout thrash
+ */
+
+:root {
+  --brand-duration-instant: 50ms;
+  --brand-duration-fast: 120ms;
+  --brand-duration-base: 220ms;
+  --brand-duration-slow: 320ms;
+  --brand-duration-epic: 800ms;
+  --brand-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+}

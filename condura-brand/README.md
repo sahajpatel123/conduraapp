@@ -1,55 +1,57 @@
 # condura-brand
 
-> **Visual identity & shared marketing assets.** The single source of truth
-> for tokens, fonts, logos, palettes, and motion. Both `condura-gui/` (the
-> desktop UI) and `condura-ui/` (the marketing site) import from here.
+> **Visual identity & shared marketing assets** for Condura.
+> Honest scope: this is a **starter brand kit**, not a full agency package.
+
+## What ships today
+
+| Path | Status | Notes |
+|---|---|---|
+| `tokens/` | **Canonical** | Primitives, semantic, motion CSS/TS — seeded from the desktop GUI tokens |
+| `palette/` | **Reference** | Named brand colors (paper / ink / plum) for designers |
+| `motion/` | **Reference** | Motion grammar summary for film + marketing |
+| `logos/` | **Minimal** | `condura-mark.svg` monogram only — not a full logo suite |
+| `fonts/` | **Policy only** | No binary fonts; system stacks + app-side loading (see `fonts/README.md`) |
+| `assets/` | **Media** | Hero stills + rendered studio films (MP4s gitignored; see `.gitignore`) |
+
+## What this is NOT
+
+- Not a complete logo system (no wordmark lockups, no app-icon set, no favicon pack).
+- Not a vendored font library.
+- Not auto-synced into frontends yet (`make brand` is aspirational — see below).
+
+Desktop tokens that the Svelte app actually loads still live under
+`condura-gui/frontend/src/lib/tokens/`. The files in `condura-brand/tokens/`
+are the **shared source of truth** we keep in lockstep by hand until a
+sync target lands.
 
 ## Layout
 
 ```
 condura-brand/
-├── tokens/      # JSON/TS/CSS design tokens (colors, spacing, type scale)
-├── fonts/       # Font binaries (Inter, IBM Plex Mono, …)
-├── logos/       # SVG + PNG brand marks
-├── palette/     # Color palette references (light/dark)
-├── motion/      # Easing curves, durations, motion language
-└── assets/      # Hero images, demo film stills, renders from condura-studio/
+├── tokens/      # CSS/TS design tokens (colors, spacing, motion)
+├── fonts/       # Policy README — no binaries today
+├── logos/       # Minimal SVG mark
+├── palette/     # Color palette reference
+├── motion/      # Motion language reference
+└── assets/      # Hero images, demo film stills / renders
 ```
-
-## Why a separate topic?
-
-Design tokens drift. Without a single source, the desktop app's accent color
-ends up a different hex than the marketing site's, and the spacing rhythm
-gets inconsistent. By making `condura-brand/` the canonical owner:
-
-- **One token file** flows into both frontends via `make brand`
-- **One hero image** is committed once and consumed by both UIs
-- **Font binaries** live in one place; both frontends reference them
 
 ## Workflow: change a token
 
-1. Edit the token in `condura-brand/tokens/condura.css` (or `.json` / `.ts`)
-2. Run `make brand` — this regenerates synced copies at:
-   - `condura-gui/frontend/src/lib/tokens/`
-   - `condura-ui/app/(appropriate import)`
-3. Commit both the source change and the synced copies
-4. The CI lint step (when added) catches drift between source and synced
+1. Edit the matching file in **both** `condura-brand/tokens/` and
+   `condura-gui/frontend/src/lib/tokens/` (keep them identical until sync exists).
+2. If marketing CSS needs the same value, update `condura-ui` accordingly.
+3. Commit both sides in one change.
 
-## Workflow: add a font
+## When `make brand` lands
 
-1. Drop the binary into `condura-brand/fonts/<family>/`
-2. Add the `@font-face` rule to `condura-brand/tokens/condura.css`
-3. Run `make brand` — both frontends pick it up
+A future Makefile target will copy `condura-brand/tokens/*` into the GUI
+and marketing import paths and fail CI on drift. Until then, dual-edit.
 
-## When this folder grows
+## Adding a real logo suite later
 
-If `condura-brand/` accumulates >100 assets, consider splitting it into:
-
-```
-condura-brand/
-├── tokens/              # small, fast — kept here
-├── fonts/               # small — kept here
-└── archive/             # older logos, deprecated palettes, etc.
-```
-
-Don't split until it's actually a maintenance burden.
+1. Place SVGs under `logos/` with a short `logos/README.md` describing usage.
+2. Export PNGs only if a surface cannot consume SVG.
+3. Update this README's status table — do not claim "full brand kit" until
+   wordmark + app icon + favicon + mark all exist.

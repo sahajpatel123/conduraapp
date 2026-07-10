@@ -55,7 +55,7 @@ make verify
 | Change the Svelte UI | `condura-gui/frontend/src/` |
 | Change the TUI | `condura-app/cmd/condura-tui/main.go` |
 | Change the marketing site | `condura-ui/app/` |
-| Change design tokens / fonts / logos | `condura-brand/` |
+| Change design tokens / brand mark | `condura-brand/` (starter kit — see its README) |
 | Update CI | `condura-ops/ci/` |
 | Build a release | `condura-ops/release/goreleaser.yml` |
 | Read the most recent session log | `condura-mind/LOGBOOK.md` |
