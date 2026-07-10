@@ -113,7 +113,7 @@ func newPendingStore(t *testing.T) *pending.Store {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := storage.Open(context.Background(), storage.Config{
-		Path: filepath.Join(dir, "synaptic.db"),
+		Path: filepath.Join(dir, "condura.db"),
 	})
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)

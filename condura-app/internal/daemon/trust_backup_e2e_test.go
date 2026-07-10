@@ -62,7 +62,7 @@ func TestTrustE2E_BackupRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = ""
 	cfg.Logging.AddSource = false
 	cfg.Security.SpendLimitUSDPerDay = 1.0
@@ -197,7 +197,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = ""
 	cfg.Logging.AddSource = false
 	cfg.Security.SpendLimitUSDPerDay = 1.0
@@ -241,7 +241,7 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 	// (if any) reveals the path the backup package actually
 	// read. We use a real create by also writing the main DB
 	// so we can confirm the archive contains skills.db.
-	mainDB := filepath.Join(dir, "synaptic.db")
+	mainDB := filepath.Join(dir, "condura.db")
 	if err := os.WriteFile(mainDB, []byte("MAIN"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -298,12 +298,12 @@ func TestTrustE2E_BackupSkillsDBPathConsistency(t *testing.T) {
 // TestTrustE2E_BackupErrorLeavesNoOrphans is a regression
 // test for the reviewer's "orphaned .zip.tmp files" finding.
 // We create a backup on an empty data dir (which must fail
-// because synaptic.db doesn't exist), and verify the data dir
+// because condura.db doesn't exist), and verify the data dir
 // has no .zip.tmp leftovers.
 func TestTrustE2E_BackupErrorLeavesNoOrphans(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CONDURA_BACKUP_DIR", filepath.Join(dir, "backups"))
-	// Note: no synaptic.db written here, so Create must fail.
+	// Note: no condura.db written here, so Create must fail.
 	mk := make([]byte, 32)
 	for i := range mk {
 		mk[i] = byte(i + 1)
@@ -333,7 +333,7 @@ func TestTrustE2E_AuditAppendReachesReplayTimeline(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = ""
 	cfg.Logging.AddSource = false
 	cfg.Security.SpendLimitUSDPerDay = 1.0

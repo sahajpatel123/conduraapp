@@ -507,7 +507,6 @@ func TestScheduler_RotateKeepsN(t *testing.T) {
 	}
 }
 
-
 func TestCreate_LegacySynapticDBName(t *testing.T) {
 	// Installs that still have synaptic.db (pre-rename) must still back up.
 	tmp := t.TempDir()

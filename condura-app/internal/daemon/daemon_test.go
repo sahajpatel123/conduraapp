@@ -19,7 +19,7 @@ func TestRun_Smoke(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = "" // no log file; logs go to stderr
 	cfg.Logging.AddSource = false
 	cfg.Security.SpendLimitUSDPerDay = 1.0
@@ -88,7 +88,7 @@ func TestRun_InvalidConfig(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.APIServer.Port = 99999 // out of 0-65535 range
 
 	_, err := Run(context.Background(), Options{Config: cfg, Listen: ListenSpec{Disable: true}})
@@ -103,7 +103,7 @@ func TestRun_SingleInstance(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = ""
 	cfg.Logging.AddSource = false
 	cfg.APIServer.AuthToken = "test-token"

@@ -26,7 +26,7 @@ func newTestLogger() *slog.Logger {
 func newTestStorage(t *testing.T) *storage.DB {
 	t.Helper()
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "synaptic.db")
+	dbPath := filepath.Join(tmpDir, "condura.db")
 	db, err := storage.Open(context.Background(), storage.Config{
 		Path:      dbPath,
 		MasterKey: "",

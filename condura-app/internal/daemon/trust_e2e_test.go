@@ -73,7 +73,7 @@ func startTrustDaemon(t *testing.T) (string, *Subsystems, func()) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.General.DataDir = dir
-	cfg.Storage.Path = filepath.Join(dir, "synaptic.db")
+	cfg.Storage.Path = filepath.Join(dir, "condura.db")
 	cfg.Logging.File = ""
 	cfg.Logging.AddSource = false
 	cfg.Security.SpendLimitUSDPerDay = 1.0
