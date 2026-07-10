@@ -170,14 +170,17 @@ func openDeepLink(deep, help, platform string) (bool, error) {
 	if target == "" {
 		return false, nil
 	}
+	// G204 (gosec): targets come only from our hardcoded guide tables
+	// (RequestGuide), never from user-controlled RPC strings beyond a
+	// validated permission Kind. Opening System Settings requires exec.
 	var cmd *exec.Cmd
 	switch platform {
 	case "darwin":
 		// `open` handles x-apple.systempreferences: and https: URLs.
-		cmd = exec.Command("open", target)
+		cmd = exec.Command("open", target) //nolint:gosec // G204: fixed binary + guide deep link
 	case "windows":
 		// start requires an empty window title when the first arg is quoted.
-		cmd = exec.Command("cmd", "/c", "start", "", target)
+		cmd = exec.Command("cmd", "/c", "start", "", target) //nolint:gosec // G204: fixed binary + guide deep link
 	default:
 		// Linux: deep links may be "gnome-control-center privacy" (space-separated)
 		// or a URL for xdg-open.
@@ -185,14 +188,14 @@ func openDeepLink(deep, help, platform string) (bool, error) {
 			parts := strings.Fields(target)
 			if path, err := exec.LookPath(parts[0]); err == nil {
 				args := parts[1:]
-				cmd = exec.Command(path, args...)
+				cmd = exec.Command(path, args...) //nolint:gosec // G204: LookPath binary + fixed args from guide
 			}
 		}
 		if cmd == nil {
 			if path, err := exec.LookPath("xdg-open"); err == nil && (strings.Contains(target, "://") || strings.HasPrefix(target, "http")) {
-				cmd = exec.Command(path, target)
+				cmd = exec.Command(path, target) //nolint:gosec // G204: xdg-open + guide URL
 			} else if path, err := exec.LookPath("gnome-control-center"); err == nil {
-				cmd = exec.Command(path, "privacy")
+				cmd = exec.Command(path, "privacy") //nolint:gosec // G204: fixed binary + fixed arg
 			} else {
 				return false, fmt.Errorf("permissions: no opener available for %q", target)
 			}
