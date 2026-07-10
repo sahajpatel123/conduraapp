@@ -21,6 +21,7 @@
   } from '../../theme/condura-theme'
   import { ROUTE_HASH, hashToRoute, type RouteId } from './routes'
 
+  import MeridianArc from './MeridianArc.svelte'
   import MeridianDock from './MeridianDock.svelte'
   import MeridianChat from './MeridianChat.svelte'
   import MeridianHub from './MeridianHub.svelte'
@@ -196,52 +197,11 @@
     </div>
   </header>
 
+  <div class="arc-wrap">
+    <MeridianArc tone={statusTone} />
+  </div>
+
   <main class="stage">
-    <svg class="stage-rim" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="mdRimCrown" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="var(--md-live)" stop-opacity="0.2" />
-          <stop offset="50%" stop-color="var(--md-cobalt)" stop-opacity="0.95" />
-          <stop offset="100%" stop-color="var(--md-live)" stop-opacity="0.28" />
-        </linearGradient>
-        <linearGradient id="mdRimSide" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="var(--md-cobalt)" stop-opacity="0.85" />
-          <stop offset="28%" stop-color="var(--md-cobalt)" stop-opacity="0.4" />
-          <stop offset="62%" stop-color="var(--md-cobalt)" stop-opacity="0.12" />
-          <stop offset="100%" stop-color="var(--md-cobalt)" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <!-- Left margin: rides the light panel edge, dissolves by ~25% height -->
-      <path
-        d="M 5 48 L 5 210"
-        fill="none"
-        stroke="url(#mdRimSide)"
-        stroke-width="2.75"
-        stroke-linecap="round"
-      />
-      <!-- Crown: same family as the status arc, seated on the stage top -->
-      <path
-        d="M 5 48
-           C 5 18, 28 5, 58 5
-           L 420 5
-           C 560 -2, 640 -2, 780 5
-           L 1142 5
-           C 1172 5, 1195 18, 1195 48"
-        fill="none"
-        stroke="url(#mdRimCrown)"
-        stroke-width="2.75"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <!-- Right margin -->
-      <path
-        d="M 1195 48 L 1195 210"
-        fill="none"
-        stroke="url(#mdRimSide)"
-        stroke-width="2.75"
-        stroke-linecap="round"
-      />
-    </svg>
     {#key route}
       {#if route === 'chat'}
         <MeridianChat />
@@ -449,6 +409,12 @@
     box-shadow: var(--md-focus);
     color: var(--md-ink);
   }
+  .arc-wrap {
+    position: relative;
+    z-index: 1;
+    padding: 0 12px;
+    margin-top: -4px;
+  }
   .stage {
     position: relative;
     z-index: 1;
@@ -463,15 +429,6 @@
     box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
-  }
-  .stage-rim {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 4;
-    overflow: visible;
   }
   @keyframes md-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
