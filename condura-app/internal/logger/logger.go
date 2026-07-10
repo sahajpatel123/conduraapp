@@ -153,8 +153,9 @@ func New(cfg Config) *slog.Logger {
 	}
 
 	var writer io.Writer = os.Stderr
+	var fileCloser io.Closer
 	if cfg.File != "" {
-		writer = openFileOrStderr(cfg, writer)
+		writer, fileCloser = openFileOrStderr(cfg, writer)
 	}
 
 	var base slog.Handler
@@ -169,7 +170,20 @@ func New(cfg Config) *slog.Logger {
 		base = newRedactingHandler(base)
 	}
 
-	return slog.New(base)
+	lg := slog.New(base)
+	if fileCloser != nil {
+		// Stash on a package map keyed by logger pointer so tests
+		// (and optional daemon shutdown) can release the Windows file lock.
+		registerFileCloser(lg, fileCloser)
+	}
+	return lg
+}
+
+// CloseFileSink closes any on-disk rotating file associated with lg.
+// Safe if lg has no file sink. Required on Windows before removing
+// the temp log directory in tests.
+func CloseFileSink(lg *slog.Logger) error {
+	return closeFileCloser(lg)
 }
 
 // SetDefault sets the default logger returned by package-level helpers and by slog.
@@ -252,10 +266,10 @@ func toSlogLevel(lvl Level) slog.Level {
 
 func boolPtr(b bool) *bool { return &b }
 
-func openFileOrStderr(cfg Config, fallback io.Writer) io.Writer {
+func openFileOrStderr(cfg Config, fallback io.Writer) (io.Writer, io.Closer) {
 	dir := filepath.Dir(cfg.File)
 	if err := os.MkdirAll(dir, logDirPerm); err != nil {
-		return fallback
+		return fallback, nil
 	}
 
 	maxSize := cfg.MaxSizeMB
@@ -278,11 +292,37 @@ func openFileOrStderr(cfg Config, fallback io.Writer) io.Writer {
 		MaxAgeDays: maxAge,
 	})
 	if err != nil {
-		return fallback
+		return fallback, nil
 	}
 	// Tee to stderr so operators still see live output when a file sink
 	// is configured (daemon journal + on-disk forensics).
-	return io.MultiWriter(os.Stderr, w)
+	return io.MultiWriter(os.Stderr, w), w
+}
+
+// fileClosers tracks open rotating file sinks so CloseFileSink can release
+// OS locks (required on Windows before TempDir cleanup).
+var (
+	fileClosersMu sync.Mutex
+	fileClosers   = map[*slog.Logger]io.Closer{}
+)
+
+func registerFileCloser(lg *slog.Logger, c io.Closer) {
+	fileClosersMu.Lock()
+	fileClosers[lg] = c
+	fileClosersMu.Unlock()
+}
+
+func closeFileCloser(lg *slog.Logger) error {
+	fileClosersMu.Lock()
+	c, ok := fileClosers[lg]
+	if ok {
+		delete(fileClosers, lg)
+	}
+	fileClosersMu.Unlock()
+	if !ok || c == nil {
+		return nil
+	}
+	return c.Close()
 }
 
 // -----------------------------------------------------------------------------

@@ -219,6 +219,9 @@ func TestNew_WithFileRotation(t *testing.T) {
 		MaxAgeDays: 7,
 		Redact:     boolPtr(true),
 	})
+	// Close the rotating file before TempDir cleanup — Windows holds
+	// exclusive locks on open log handles and fails RemoveAll otherwise.
+	t.Cleanup(func() { _ = CloseFileSink(lg) })
 	lg.Info("hello", "k", "v")
 	// File must have been created.
 	if _, err := os.Stat(path); err != nil {
