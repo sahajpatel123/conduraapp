@@ -202,6 +202,72 @@
   </div>
 
   <main class="stage">
+    <div class="stage-frame" aria-hidden="true">
+      <svg viewBox="0 0 400 640" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="mdFrameTop" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--md-cobalt)" stop-opacity="0.15" />
+            <stop offset="18%" stop-color="var(--md-cobalt)" stop-opacity="0.7" />
+            <stop offset="50%" stop-color="var(--md-cobalt)" stop-opacity="1" />
+            <stop offset="82%" stop-color="var(--md-cobalt)" stop-opacity="0.7" />
+            <stop offset="100%" stop-color="var(--md-cobalt)" stop-opacity="0.15" />
+          </linearGradient>
+          <linearGradient id="mdFrameSideL" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="var(--md-cobalt)" stop-opacity="0.55" />
+            <stop offset="35%" stop-color="var(--md-cobalt)" stop-opacity="0.22" />
+            <stop offset="70%" stop-color="var(--md-cobalt)" stop-opacity="0.06" />
+            <stop offset="100%" stop-color="var(--md-cobalt)" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="mdFrameSideR" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="var(--md-cobalt)" stop-opacity="0.55" />
+            <stop offset="35%" stop-color="var(--md-cobalt)" stop-opacity="0.22" />
+            <stop offset="70%" stop-color="var(--md-cobalt)" stop-opacity="0.06" />
+            <stop offset="100%" stop-color="var(--md-cobalt)" stop-opacity="0" />
+          </linearGradient>
+          <filter id="mdFrameGlow" x="-8%" y="-20%" width="116%" height="140%">
+            <feGaussianBlur stdDeviation="1.2" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <!-- Left margin: strong at the top, dissolves downward -->
+        <path
+          class="frame-side"
+          d="M 3 28 L 3 420"
+          fill="none"
+          stroke="url(#mdFrameSideL)"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        />
+        <!-- Top edge: rounded corners + soft center dip -->
+        <path
+          class="frame-top"
+          d="M 3 28
+             C 3 12, 12 3.5, 28 3.5
+             L 155 3.5
+             Q 200 14, 245 3.5
+             L 372 3.5
+             C 388 3.5, 397 12, 397 28"
+          fill="none"
+          stroke="url(#mdFrameTop)"
+          stroke-width="1.9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          filter="url(#mdFrameGlow)"
+        />
+        <!-- Right margin: mirrors the left fade -->
+        <path
+          class="frame-side"
+          d="M 397 28 L 397 420"
+          fill="none"
+          stroke="url(#mdFrameSideR)"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        />
+      </svg>
+    </div>
     {#key route}
       {#if route === 'chat'}
         <MeridianChat />
@@ -424,6 +490,26 @@
     box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
+  }
+  .stage-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+  .stage-frame svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .stage-frame .frame-top {
+    opacity: 0.92;
+  }
+  :global(:root[data-mode='dark']) .stage-frame .frame-top {
+    opacity: 1;
   }
   @keyframes md-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
