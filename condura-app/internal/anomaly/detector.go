@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Detector tracks behavioral anomalies across an agent run.
@@ -74,7 +75,7 @@ func NewDetector(onTrip func(Trip)) *Detector {
 	d.state.startTime = time.Now()
 	d.state.seenHosts = make(map[string]bool)
 
-	go d.loop()
+	safego.Go(func() { d.loop() })
 	return d
 }
 

@@ -32,6 +32,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/storage"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Status is the lifecycle state of a pending action.
@@ -127,7 +128,7 @@ func (s *Store) DB() *storage.DB { return s.db }
 // Start launches the background sweeper that auto-denies stale
 // pending actions. Cancel ctx (or call Stop) to terminate it.
 func (s *Store) Start(ctx context.Context) {
-	go s.sweepLoop(ctx)
+	safego.Go(func() { s.sweepLoop(ctx) })
 }
 
 // Stop terminates the background sweeper.

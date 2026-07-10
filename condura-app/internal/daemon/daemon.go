@@ -35,6 +35,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/lockfile"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/updater"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrAlreadyRunning is returned by Run if another synaptic instance
@@ -202,12 +203,11 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 	startBackgroundServices(ctx, subs, log)
 
 	// Release the lock when ctx is canceled.
-	go func() {
-		defer crash.Recover()
+	safego.Go(func() {
 		<-ctx.Done()
 		log.Info("releasing single-instance lock")
 		_ = lock.Release()
-	}()
+	})
 
 	<-ctx.Done()
 	log.Info("condurad stopped")
@@ -217,11 +217,11 @@ func Run(ctx context.Context, opts Options) (*Subsystems, error) {
 
 func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Logger) {
 	if subs.BackupScheduler != nil {
-		go subs.BackupScheduler.Run(ctx)
+		safego.Go(func() { subs.BackupScheduler.Run(ctx) })
 		log.Info("auto-backup scheduler started")
 	}
 	if subs.Updater != nil {
-		go subs.Updater.RunPoller(ctx)
+		safego.Go(func() { subs.Updater.RunPoller(ctx) })
 		log.Info("auto-update poller started")
 	}
 	// Anomaly-detector idle reset (Phase 16, Rec 6). Periodically
@@ -229,14 +229,14 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 	// idle threshold and resets its counters. Prevents stale
 	// cross-session noise from triggering false positives.
 	if subs.Anomaly != nil {
-		go runAnomalyIdleWatcher(ctx, subs.Anomaly, 30*time.Minute, log)
+		safego.Go(func() { runAnomalyIdleWatcher(ctx, subs.Anomaly, 30*time.Minute, log) })
 	}
 	// Kill-switch Layer 2 (Phase 16, Rec 2). When the watchdog is
 	// armed and the user hasn't verified the agent's actions in
 	// `timeout`, auto-halt the daemon. Runs in its own goroutine
 	// on the daemon's main ctx; the agent cannot disable it.
 	if subs.Watchdog != nil {
-		go subs.Watchdog.Run(ctx)
+		safego.Go(func() { subs.Watchdog.Run(ctx) })
 		log.Info("kill-switch layer 2 (watchdog) started")
 	}
 	// Phase 18 (v0.2.0): sub-agent ActionRequest queue.
@@ -256,7 +256,7 @@ func startBackgroundServices(ctx context.Context, subs *Subsystems, log *slog.Lo
 	if subs.Audit != nil {
 		retention := auditRetention(subs.cfg)
 		if retention > 0 {
-			go runAuditPruner(ctx, subs.Audit, retention, log)
+			safego.Go(func() { runAuditPruner(ctx, subs.Audit, retention, log) })
 			log.Info("audit log pruner started", "retention", retention.String())
 		} else {
 			log.Info("audit log pruner disabled (retention=0)")

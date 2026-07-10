@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Detector polls the OS for presence signals.
@@ -59,7 +60,7 @@ func (d *Detector) Start() {
 	if !atomic.CompareAndSwapInt32(&d.running, 0, 1) {
 		return // Already running
 	}
-	go d.loop()
+	safego.Go(func() { d.loop() })
 }
 
 // Stop ends polling.

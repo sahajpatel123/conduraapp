@@ -18,6 +18,7 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // maxBodySize is the maximum allowed size for an HTTP request body or
@@ -111,7 +112,7 @@ func (t *ServerTransport) Listen(ctx context.Context, addr string) error {
 	t.mu.Lock()
 	t.listeners = append(t.listeners, ln)
 	t.mu.Unlock()
-	go t.serveListener(ln)
+	safego.Go(func() { t.serveListener(ln) })
 	return nil
 }
 
