@@ -38,21 +38,21 @@
       id: 'i',
       roman: 'I',
       title: 'Separate minds',
-      body: 'The Strategist may be any model. The Gatekeeper is deterministic code. They are never the same system — planning and permission stay apart.',
+      body: 'Any model can plan. Only the Gatekeeper — fixed, deterministic code — can permit action. Planning and permission stay in different systems, so a model can never approve itself.',
       cite: 'gatekeeper',
     },
     {
       id: 'ii',
       roman: 'II',
       title: 'One door to action',
-      body: 'No click, type, or shell leaves Condura without Gatekeeper. Model text alone cannot touch your machine.',
+      body: 'Clicks, typing, and shell commands all pass through one door. Model text alone cannot reach your computer. If the Gatekeeper does not open, nothing happens.',
       cite: 'gatekeeper',
     },
     {
       id: 'iii',
       roman: 'III',
       title: 'A human at the keys',
-      body: 'Destructive work waits on a real Allow or Deny. There is no silent escalate path — consent is the lock.',
+      body: 'Destructive work waits for your Allow or Deny. There is no silent escalate path. Consent is the lock — and only you hold the key.',
       cite: 'consent',
       live: () => ({ ok: true, note: 'Consent sheets live in Meridian' }),
     },
@@ -60,7 +60,7 @@
       id: 'iv',
       roman: 'IV',
       title: 'You can always stop',
-      body: 'Hard hotkey. Dock Halt. Watchdog. Network isolation. Four independent ways to cut the line.',
+      body: 'Four independent stops: a hard hotkey, Halt in the dock, a watchdog, and network isolation. Use any one of them to cut the line immediately.',
       cite: 'halt',
       live: () =>
         caps
@@ -76,7 +76,7 @@
       id: 'v',
       roman: 'V',
       title: 'Nothing forgotten',
-      body: 'HMAC-chained, append-only audit. If something goes wrong, the ledger can prove what happened.',
+      body: 'Actions are written to an append-only audit ledger, sealed so the past cannot be quietly rewritten. If something goes wrong, you can still see what happened.',
       cite: 'audit',
       live: () =>
         caps
@@ -92,20 +92,25 @@
       id: 'vi',
       roman: 'VI',
       title: 'Guest, not owner',
-      body: 'Condura asks to enter rooms. You grant or deny. It never escalates privileges on its own.',
+      body: 'Condura asks before it enters a new capability. You grant or deny. It never raises its own privileges, and it never assumes it owns the room.',
       cite: 'permissions',
     },
     {
       id: 'vii',
       roman: 'VII',
       title: 'Your machine decides',
-      body: 'Screen, accessibility, and input access are granted by you in the OS. Condura only asks.',
+      body: 'Screen, accessibility, and input access are granted by your operating system. Condura can only ask — it cannot take those permissions on its own.',
       cite: 'os',
     },
   ]
 
   const activeStation = $derived(STATIONS.find((s) => s.id === active) ?? STATIONS[0]!)
   const activeIndex = $derived(STATIONS.findIndex((s) => s.id === active))
+
+  function citeLabel(cite: string): string {
+    if (cite === 'os') return 'OS'
+    return cite.charAt(0).toUpperCase() + cite.slice(1)
+  }
 
   const gateNote = $derived.by(() => {
     switch (gatePhase) {
@@ -354,13 +359,13 @@
                 {live.note}
               </span>
             {:else}
-              <span class="stage-cite">{activeStation.cite}</span>
+              <span class="stage-cite">{citeLabel(activeStation.cite)}</span>
             {/if}
           </div>
           <h3>{activeStation.title}</h3>
           <p class="stage-body">{activeStation.body}</p>
           {#if activeStation.live}
-            <p class="stage-cite-foot">{activeStation.cite}</p>
+            <p class="stage-cite-foot">{citeLabel(activeStation.cite)}</p>
           {/if}
         </div>
       {/key}
@@ -1094,41 +1099,44 @@
     margin-bottom: 18px;
   }
   .stage-index {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: none;
     color: var(--md-cobalt);
-    font-weight: 600;
+    font-weight: 700;
   }
   .stage-cite,
   .stage-cite-foot {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    color: var(--md-ink-faint);
-    padding: 5px 10px;
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--md-ink-mute);
+    padding: 5px 11px;
     border-radius: 999px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    background: color-mix(in oklab, var(--md-stage) 55%, var(--md-surface));
   }
   .stage-cite-foot {
-    margin: 20px 0 0;
+    margin: 22px 0 0;
     width: fit-content;
   }
   .stage-live {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 5px 10px;
+    font-family: var(--md-font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    padding: 5px 11px;
     border-radius: 999px;
     border: 1px solid var(--md-line);
-    color: var(--md-ink-faint);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    color: var(--md-ink-mute);
+    background: color-mix(in oklab, var(--md-stage) 55%, var(--md-surface));
   }
   .stage-live i {
     width: 6px;
@@ -1147,18 +1155,25 @@
   }
   .stage-copy h3 {
     font-family: var(--md-font-display);
-    font-size: clamp(34px, 6vw, 56px);
-    letter-spacing: -0.055em;
-    line-height: 0.98;
-    margin: 0 0 18px;
-    max-width: 12ch;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
+    margin: 0 0 14px;
+    max-width: 16ch;
+    color: var(--md-ink);
+    text-wrap: balance;
   }
   .stage-body {
     margin: 0;
+    font-family: var(--md-font-sans);
     font-size: 17px;
-    line-height: 1.65;
-    color: var(--md-ink-soft);
-    max-width: 40ch;
+    font-weight: 450;
+    line-height: 1.7;
+    letter-spacing: -0.011em;
+    text-transform: none;
+    color: color-mix(in oklab, var(--md-ink) 72%, var(--md-ink-mute));
+    max-width: 48ch;
   }
 
   .stage-controls {
