@@ -145,6 +145,28 @@ func (t *ServerTransport) serveListener(ln net.Listener) {
 // loopback (or a trusted network); the transport does not enforce
 // that for you. See CLAUDE.md FIX A.
 func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
+	// CORS: the Wails webview loads the GUI at the wails:// scheme
+	// (cross-origin to http://127.0.0.1). Every response gets the
+	// headers needed for the browser to allow the request to
+	// proceed. The Origin echo is deliberate — reflecting the
+	// request's Origin back is safer than "*" because it lets the
+	// browser send credentials (Authorization, Cookie) without
+	// exposing the daemon to any origin. The daemon is bound to
+	// loopback only, so the reflected origin is always a loopback
+	// address anyway. If the request has no Origin (e.g. curl),
+	// skip the header — it's not needed.
+	setCORSHeaders(w, r)
+
+	// CORS preflight: the webview sends OPTIONS before any fetch
+	// with a non-simple Content-Type (application/json) or an
+	// Authorization header. Short-circuit with 204 No Content +
+	// the CORS headers above. We do NOT validate the Origin here;
+	// see setCORSHeaders for the rationale.
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	// Health probes first. No auth, no logging of the request body.
 	if t.Health != nil && (r.URL.Path == "/livez" || r.URL.Path == "/readyz") {
 		t.Health.ServeHTTP(w, r)
@@ -187,6 +209,43 @@ func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.handleJSONRPC(w, r)
+}
+
+// setCORSHeaders writes the cross-origin headers the Wails webview
+// needs to fetch the loopback daemon over plain HTTP. Without these,
+// the browser blocks every fetch with a CORS preflight failure or
+// (when the daemon returns no Access-Control-Allow-Origin header)
+// with a generic TypeError "Load failed" that surfaces in the GUI
+// as the connect-flow error.
+//
+// Origin reflection: instead of `Access-Control-Allow-Origin: *`,
+// we echo the request's Origin back. This is what the Wails runtime
+// expects (its webview sends a real Origin like
+// "wails://wails.localhost") and lets the browser send credentials
+// (Authorization header). For requests with no Origin header
+// (e.g. curl, server-to-server), the header is omitted — there is
+// no browser to do CORS checks anyway.
+//
+// Methods: POST is required for JSON-RPC and the SSE-ticket
+// exchange; GET is required for /events and /livez, /readyz,
+// /healthz; OPTIONS is required for CORS preflight.
+//
+// Headers: Content-Type and Authorization cover every header the
+// GUI sets. Adding more headers is a one-line change if a future
+// call site needs them.
+func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Vary", "Origin")
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	// Expose the headers the browser is allowed to read on the
+	// response (none today beyond the default set, but the field
+	// is documented so a future addition knows where to land).
+	w.Header().Set("Access-Control-Expose-Headers", "")
+	w.Header().Set("Access-Control-Max-Age", "600")
 }
 
 // authorize enforces the bearer-token check, if a token is
