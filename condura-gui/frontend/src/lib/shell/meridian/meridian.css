@@ -81,6 +81,24 @@ img, svg { display: block; max-width: 100%; }
 }
 .md ::selection { background: var(--md-cobalt); color: #fff; }
 
+/* Scroll works; the bar itself never shows — any page, any panel */
+html,
+body,
+.md,
+.md * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.md::-webkit-scrollbar,
+.md *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
 .md-btn {
   appearance: none; border: 0; border-radius: 999px;
   font-family: var(--md-font-sans); font-size: 13px; font-weight: 700;

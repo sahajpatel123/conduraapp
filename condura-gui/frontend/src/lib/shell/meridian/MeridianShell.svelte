@@ -424,21 +424,6 @@
     box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
     /* Keep page content clear of the floating dock */
     padding-bottom: 8px;
-    scrollbar-gutter: stable;
-  }
-  .stage::-webkit-scrollbar {
-    width: 10px;
-  }
-  .stage::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--md-ink) 18%, transparent);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  .stage::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklab, var(--md-ink) 28%, transparent);
-    background-clip: padding-box;
-    border: 2px solid transparent;
   }
   @keyframes md-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
