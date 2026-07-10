@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Meridian About — living instrument colophon.
-   * Signature: a vertical meridian spine with seven lit stations.
+   * Signature: a constellation of seven stations along the meridian.
    * Logic: version · capabilities · ping · clipboard · donate.
    */
   import { onMount } from 'svelte'
@@ -344,91 +344,110 @@
     </div>
   </header>
 
-  <!-- Signature: meridian spine + station detail -->
-  <section class="spine-section" aria-label="Seven promises">
-    <div class="spine-head">
-      <h2>Along the meridian</h2>
-      <p>Seven stations. Order matters. Use ↑↓ or J/K.</p>
+  <!-- Signature: constellation of seven stations -->
+  <section class="meridian" aria-label="Seven promises">
+    <div class="meridian-head">
+      <div class="meridian-titles">
+        <p class="meridian-k">Seven promises</p>
+        <h2>Along the meridian</h2>
+      </div>
+      <div class="meridian-progress" aria-hidden="true">
+        <span class="meridian-frac">
+          <em>{String(activeIndex + 1).padStart(2, '0')}</em>
+          <span>/ {String(STATIONS.length).padStart(2, '0')}</span>
+        </span>
+        <span class="meridian-hint">↑↓ · J/K</span>
+      </div>
     </div>
 
-    <div class="spine-stage">
-      <div class="spine" aria-hidden="true">
-        <svg class="beam" viewBox="0 0 40 560" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="mdAboutBeam" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--md-live)" stop-opacity="0.15" />
-              <stop offset="35%" stop-color="var(--md-cobalt)" stop-opacity="0.95" />
-              <stop offset="100%" stop-color="var(--md-live)" stop-opacity="0.25" />
-            </linearGradient>
-          </defs>
-          <path
-            class="track"
-            d="M20 8 C 20 80, 20 480, 20 552"
-            fill="none"
-            stroke="var(--md-line-strong)"
-            stroke-width="2"
-          />
-          <path
-            class="glow"
-            d="M20 8 C 20 80, 20 480, 20 552"
-            fill="none"
-            stroke="url(#mdAboutBeam)"
-            stroke-width="3"
-            stroke-linecap="round"
-            pathLength="100"
-            style="--progress: {(activeIndex + 1) * (100 / STATIONS.length)}"
-          />
-        </svg>
+    <div class="constellation" role="tablist" aria-label="Stations">
+      <div
+        class="constellation-beam"
+        style="--fill: {((activeIndex + 1) / STATIONS.length) * 100}%"
+        aria-hidden="true"
+      ></div>
+      {#each STATIONS as s, i (s.id)}
+        <button
+          type="button"
+          role="tab"
+          class="star"
+          class:on={active === s.id}
+          class:passed={i < activeIndex}
+          aria-selected={active === s.id}
+          aria-controls="station-panel"
+          id={`station-tab-${s.id}`}
+          aria-label={`Station ${s.roman}: ${s.title}`}
+          onclick={() => (active = s.id)}
+        >
+          <span class="star-core">
+            <span class="star-roman">{s.roman}</span>
+          </span>
+          <span class="star-label">{s.title}</span>
+        </button>
+      {/each}
+    </div>
 
-        <ol class="nodes">
-          {#each STATIONS as s, i (s.id)}
-            <li style="--i:{i}">
-              <button
-                type="button"
-                class="node"
-                class:on={active === s.id}
-                class:passed={i <= activeIndex}
-                aria-current={active === s.id ? 'true' : undefined}
-                aria-label={`Station ${s.roman}: ${s.title}`}
-                onclick={() => (active = s.id)}
-              >
-                <span class="node-dot"></span>
-                <span class="node-roman">{s.roman}</span>
-              </button>
-            </li>
-          {/each}
-        </ol>
-      </div>
+    <div
+      class="stage-plate"
+      id="station-panel"
+      role="tabpanel"
+      aria-labelledby={`station-tab-${active}`}
+    >
+      <div class="stage-wash" aria-hidden="true"></div>
+      <p class="stage-watermark" aria-hidden="true">{activeStation.roman}</p>
 
-      <div class="station">
-        {#key active}
-          <div class="station-inner">
-            <p class="station-roman">{activeStation.roman}</p>
-            <h3>{activeStation.title}</h3>
-            <p class="station-body">{activeStation.body}</p>
-            <div class="station-meta">
-              <span class="cite">{activeStation.cite}</span>
-              {#if activeStation.live}
-                {@const live = activeStation.live()}
-                <span class="live" data-ok={live.ok}>{live.note}</span>
-              {/if}
-            </div>
+      {#key active}
+        <div class="stage-copy">
+          <div class="stage-top">
+            <span class="stage-index">Station {activeStation.roman}</span>
+            {#if activeStation.live}
+              {@const live = activeStation.live()}
+              <span class="stage-live" data-ok={live.ok}>
+                <i></i>
+                {live.note}
+              </span>
+            {:else}
+              <span class="stage-cite">{activeStation.cite}</span>
+            {/if}
           </div>
-        {/key}
-        <div class="station-nav">
-          <button type="button" class="nav-btn" disabled={activeIndex <= 0} onclick={() => step(-1)}>
-            ← Prev
-          </button>
-          <span class="count">{activeIndex + 1} / {STATIONS.length}</span>
-          <button
-            type="button"
-            class="nav-btn"
-            disabled={activeIndex >= STATIONS.length - 1}
-            onclick={() => step(1)}
-          >
-            Next →
-          </button>
+          <h3>{activeStation.title}</h3>
+          <p class="stage-body">{activeStation.body}</p>
+          {#if activeStation.live}
+            <p class="stage-cite-foot">{activeStation.cite}</p>
+          {/if}
         </div>
+      {/key}
+
+      <div class="stage-controls">
+        <button
+          type="button"
+          class="stage-nav"
+          disabled={activeIndex <= 0}
+          onclick={() => step(-1)}
+          aria-label="Previous station"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 6 9 12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="stage-ticks" aria-hidden="true">
+          {#each STATIONS as s, i (s.id)}
+            <span class="tick" class:on={i === activeIndex} class:passed={i < activeIndex}></span>
+          {/each}
+        </div>
+
+        <button
+          type="button"
+          class="stage-nav primary"
+          disabled={activeIndex >= STATIONS.length - 1}
+          onclick={() => step(1)}
+          aria-label="Next station"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
   </section>
@@ -615,7 +634,7 @@
   }
 
   .thesis,
-  .spine-section,
+  .meridian,
   .readout,
   .plate {
     position: relative;
@@ -984,212 +1003,301 @@
     }
   }
 
-  /* —— Meridian spine —— */
-  .spine-section {
-    margin-bottom: 48px;
+  /* —— Meridian constellation —— */
+  .meridian {
+    margin-bottom: 52px;
     opacity: 0;
     transform: translateY(22px);
     transition:
       opacity 800ms var(--about-ease) 140ms,
       transform 800ms var(--about-ease) 140ms;
   }
-  .colophon.in .spine-section {
+  .colophon.in .meridian {
     opacity: 1;
     transform: none;
   }
-  .spine-head {
-    margin-bottom: 22px;
+
+  .meridian-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 28px;
   }
-  .spine-head h2 {
-    font-family: var(--md-font-display);
-    font-size: clamp(26px, 4vw, 34px);
-    letter-spacing: -0.045em;
+  .meridian-k {
     margin: 0 0 8px;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
   }
-  .spine-head p {
+  .meridian-titles h2 {
+    font-family: var(--md-font-display);
+    font-size: clamp(28px, 4.5vw, 40px);
+    letter-spacing: -0.05em;
     margin: 0;
-    font-size: 14px;
-    color: var(--md-ink-mute);
+    line-height: 1;
   }
-
-  .spine-stage {
-    display: grid;
-    grid-template-columns: 88px 1fr;
-    gap: 28px;
-    align-items: stretch;
-    min-height: 420px;
-  }
-
-  .spine {
-    position: relative;
-    min-height: 420px;
-  }
-  .beam {
-    position: absolute;
-    inset: 0;
-    width: 40px;
-    height: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-  .glow {
-    stroke-dasharray: var(--progress, 14) 100;
-    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--md-cobalt) 35%, transparent));
-    transition: stroke-dasharray 480ms var(--about-ease);
-  }
-  .nodes {
-    position: absolute;
-    inset: 0;
+  .meridian-progress {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    list-style: none;
-    margin: 0;
+    align-items: flex-end;
+    gap: 6px;
+    flex: none;
   }
-  .node {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    cursor: pointer;
-    border-radius: 50%;
-    transition: transform 200ms var(--about-spring);
+  .meridian-frac {
+    font-family: var(--md-font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--md-ink-faint);
+    font-variant-numeric: tabular-nums;
   }
-  .node:hover {
-    transform: scale(1.08);
+  .meridian-frac em {
+    font-style: normal;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: var(--md-ink);
+    margin-right: 4px;
   }
-  .node:focus-visible {
-    outline: none;
-    box-shadow: var(--md-focus);
-  }
-  .node-dot {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--md-stage);
-    border: 2px solid var(--md-line-strong);
-    transition:
-      background 220ms var(--about-ease),
-      border-color 220ms var(--about-ease),
-      box-shadow 220ms var(--about-ease),
-      transform 220ms var(--about-spring);
-  }
-  .node.passed .node-dot {
-    background: color-mix(in oklab, var(--md-cobalt) 35%, var(--md-surface));
-    border-color: var(--md-cobalt);
-  }
-  .node.on .node-dot {
-    background: var(--md-cobalt);
-    border-color: var(--md-cobalt);
-    transform: scale(1.35);
-    box-shadow:
-      0 0 0 6px color-mix(in oklab, var(--md-cobalt) 18%, transparent),
-      0 8px 20px -8px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
-  }
-  .node-roman {
-    position: absolute;
-    left: calc(100% + 10px);
+  .meridian-hint {
     font-family: var(--md-font-mono);
     font-size: 10px;
     letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--md-ink-faint);
-    opacity: 0;
-    transform: translateX(-4px);
-    transition:
-      opacity 200ms var(--about-ease),
-      transform 200ms var(--about-ease),
-      color 200ms var(--about-ease);
-  }
-  .node.on .node-roman,
-  .node:hover .node-roman,
-  .node:focus-visible .node-roman {
-    opacity: 1;
-    transform: none;
-    color: var(--md-cobalt);
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
   }
 
-  .station {
+  .constellation {
     position: relative;
-    padding: 28px 32px 24px;
-    border-radius: 28px;
-    background: color-mix(in oklab, var(--md-surface) 82%, transparent);
-    border: 1px solid var(--md-line-strong);
-    box-shadow: var(--md-shadow-lift);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    display: flex;
-    flex-direction: column;
-    min-height: 360px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+    padding: 4px 0 8px;
+  }
+  .constellation-beam {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 22px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--md-line-strong);
+    z-index: 0;
     overflow: hidden;
   }
-  .station::before {
+  .constellation-beam::after {
     content: '';
     position: absolute;
-    left: 0;
-    top: 24px;
-    bottom: 24px;
-    width: 3px;
-    border-radius: 3px;
-    background: linear-gradient(180deg, var(--md-cobalt), var(--md-live));
+    inset: 0 auto 0 0;
+    width: var(--fill, 14%);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--md-live), var(--md-cobalt));
+    box-shadow: 0 0 16px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    transition: width 480ms var(--about-ease);
   }
-  .station-inner {
+
+  .star {
+    appearance: none;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .star-core {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    border: 1px solid var(--md-line-strong);
+    box-shadow: 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+    transition:
+      transform 220ms var(--about-spring),
+      background 220ms var(--about-ease),
+      border-color 220ms var(--about-ease),
+      box-shadow 220ms var(--about-ease),
+      color 220ms var(--about-ease);
+  }
+  .star-roman {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--md-ink-mute);
+    transition: color 220ms var(--about-ease);
+  }
+  .star-label {
+    font-family: var(--md-font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--md-ink-faint);
+    text-align: center;
+    line-height: 1.25;
+    max-width: 9ch;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 220ms var(--about-ease);
+  }
+  .star.passed .star-core {
+    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
+  }
+  .star.passed .star-roman {
+    color: var(--md-cobalt);
+  }
+  .star.on .star-core {
+    background: var(--md-cobalt);
+    border-color: transparent;
+    color: #fff;
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 6px color-mix(in oklab, var(--md-cobalt) 16%, transparent),
+      0 12px 28px -12px color-mix(in oklab, var(--md-cobalt) 65%, transparent);
+  }
+  .star.on .star-roman {
+    color: #fff;
+  }
+  .star.on .star-label {
+    color: var(--md-ink);
+  }
+  .star:hover .star-core {
+    transform: translateY(-2px) scale(1.04);
+    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+  }
+  .star.on:hover .star-core {
+    transform: scale(1.1);
+  }
+  .star:focus-visible .star-core {
+    outline: none;
+    box-shadow: var(--md-focus), 0 12px 28px -12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+  }
+
+  .stage-plate {
+    position: relative;
+    isolation: isolate;
+    min-height: 340px;
+    padding: 36px 36px 22px;
+    border-radius: 28px;
+    border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset,
+      0 28px 60px -36px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+  }
+  .stage-wash {
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 70%;
+    background:
+      radial-gradient(
+        ellipse 55% 70% at 8% 20%,
+        color-mix(in oklab, var(--md-cobalt) 16%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 45% 55% at 92% 10%,
+        color-mix(in oklab, var(--md-live) 10%, transparent),
+        transparent 68%
+      );
+    filter: blur(28px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .stage-watermark {
+    position: absolute;
+    right: -2%;
+    top: -8%;
+    margin: 0;
+    font-family: var(--md-font-display);
+    font-size: clamp(140px, 28vw, 240px);
+    font-weight: 700;
+    letter-spacing: -0.08em;
+    line-height: 0.8;
+    color: var(--md-cobalt);
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
+    transition: opacity 400ms var(--about-ease);
+  }
+
+  .stage-copy {
+    position: relative;
+    z-index: 1;
     flex: 1;
     display: flex;
     flex-direction: column;
-    animation: about-station 420ms var(--about-ease) both;
+    max-width: 34rem;
+    animation: about-station 480ms var(--about-ease) both;
   }
   @keyframes about-station {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(14px);
+      filter: blur(4px);
     }
     to {
       opacity: 1;
       transform: none;
+      filter: blur(0);
     }
   }
-  .station-roman {
-    font-family: var(--md-font-mono);
-    font-size: 12px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--md-cobalt);
-    margin: 0 0 12px;
-  }
-  .station h3 {
-    font-family: var(--md-font-display);
-    font-size: clamp(28px, 4.5vw, 40px);
-    letter-spacing: -0.05em;
-    line-height: 1.05;
-    margin: 0 0 16px;
-    max-width: 14ch;
-  }
-  .station-body {
-    margin: 0;
-    font-size: 16px;
-    line-height: 1.6;
-    color: var(--md-ink-mute);
-    max-width: 42ch;
-    flex: 1;
-  }
-  .station-meta {
+  .stage-top {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
     align-items: center;
-    margin: 22px 0 18px;
+    gap: 10px;
+    margin-bottom: 18px;
   }
-  .cite {
+  .stage-index {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-cobalt);
+    font-weight: 600;
+  }
+  .stage-cite,
+  .stage-cite-foot {
     font-family: var(--md-font-mono);
     font-size: 11px;
     letter-spacing: 0.08em;
     color: var(--md-ink-faint);
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
   }
-  .live {
+  .stage-cite-foot {
+    margin: 20px 0 0;
+    width: fit-content;
+  }
+  .stage-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     font-family: var(--md-font-mono);
     font-size: 10px;
     letter-spacing: 0.08em;
@@ -1198,47 +1306,119 @@
     border-radius: 999px;
     border: 1px solid var(--md-line);
     color: var(--md-ink-faint);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
   }
-  .live[data-ok='true'] {
+  .stage-live i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .stage-live[data-ok='true'] {
     color: var(--md-live);
-    border-color: color-mix(in oklab, var(--md-live) 32%, transparent);
-    background: color-mix(in oklab, var(--md-live) 10%, transparent);
+    border-color: color-mix(in oklab, var(--md-live) 30%, transparent);
+    background: color-mix(in oklab, var(--md-live) 8%, transparent);
   }
-  .station-nav {
+  .stage-live[data-ok='false'] {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 26%, transparent);
+  }
+  .stage-copy h3 {
+    font-family: var(--md-font-display);
+    font-size: clamp(34px, 6vw, 56px);
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+    margin: 0 0 18px;
+    max-width: 12ch;
+  }
+  .stage-body {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--md-ink-soft);
+    max-width: 40ch;
+  }
+
+  .stage-controls {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding-top: 14px;
-    border-top: 1px solid var(--md-line);
+    gap: 16px;
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid color-mix(in oklab, var(--md-ink) 7%, transparent);
   }
-  .nav-btn {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--md-ink-soft);
-    padding: 8px 4px;
+  .stage-nav {
+    appearance: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    color: var(--md-ink);
     cursor: pointer;
-    transition: color 160ms var(--about-ease);
+    box-shadow: 0 8px 22px -16px color-mix(in oklab, var(--md-ink) 40%, transparent);
+    transition:
+      transform 180ms var(--about-spring),
+      background 180ms var(--about-ease),
+      border-color 180ms var(--about-ease),
+      color 180ms var(--about-ease),
+      box-shadow 180ms var(--about-ease);
   }
-  .nav-btn:hover:not(:disabled) {
+  .stage-nav:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
     color: var(--md-cobalt);
   }
-  .nav-btn:disabled {
-    opacity: 0.3;
+  .stage-nav.primary {
+    background: var(--md-cobalt);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 14px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+  }
+  .stage-nav.primary:hover:not(:disabled) {
+    background: var(--md-cobalt-deep);
+    color: #fff;
+    transform: translateY(-1px) scale(1.03);
+  }
+  .stage-nav:disabled {
+    opacity: 0.28;
     cursor: not-allowed;
+    box-shadow: none;
   }
-  .nav-btn:focus-visible {
+  .stage-nav:focus-visible {
     outline: none;
-    color: var(--md-cobalt);
     box-shadow: var(--md-focus);
-    border-radius: 8px;
   }
-  .count {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    color: var(--md-ink-faint);
-    font-variant-numeric: tabular-nums;
+  .stage-ticks {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: center;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+  .tick {
+    height: 4px;
+    flex: 1;
+    border-radius: 999px;
+    background: var(--md-line-strong);
+    transition:
+      background 220ms var(--about-ease),
+      transform 220ms var(--about-spring);
+  }
+  .tick.passed {
+    background: color-mix(in oklab, var(--md-cobalt) 45%, var(--md-line-strong));
+  }
+  .tick.on {
+    background: var(--md-cobalt);
+    transform: scaleY(1.35);
+    box-shadow: 0 0 12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
   }
 
   /* —— Readout —— */
@@ -1437,6 +1617,23 @@
     }
   }
 
+  @media (max-width: 900px) {
+    .star-label {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      margin: 0;
+    }
+    .star.on .star-label {
+      opacity: 1;
+      height: auto;
+      max-width: 11ch;
+    }
+    .constellation {
+      gap: 4px;
+    }
+  }
+
   @media (max-width: 720px) {
     .colophon {
       padding: 24px 16px 120px;
@@ -1455,24 +1652,53 @@
     .id-refresh {
       grid-column: 1 / -1;
     }
-    .spine-stage {
-      grid-template-columns: 56px 1fr;
+    .meridian-head {
+      align-items: flex-start;
+      flex-direction: column;
       gap: 14px;
-      min-height: 0;
     }
-    .spine {
-      min-height: 320px;
+    .meridian-progress {
+      align-items: flex-start;
+      flex-direction: row;
+      gap: 12px;
     }
-    .node-roman {
+    .constellation {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .constellation::-webkit-scrollbar {
       display: none;
     }
-    .station {
-      padding: 22px 18px 18px;
+    .constellation-beam {
+      display: none;
+    }
+    .star {
+      flex: 0 0 auto;
+      width: 72px;
+      scroll-snap-align: center;
+    }
+    .star-label {
+      max-width: 7ch;
+      font-size: 10px;
+    }
+    .stage-plate {
+      padding: 26px 20px 18px;
       min-height: 300px;
       border-radius: 22px;
     }
-    .station h3 {
+    .stage-copy h3 {
       max-width: none;
+      font-size: clamp(30px, 9vw, 42px);
+    }
+    .stage-watermark {
+      font-size: 160px;
+      right: -8%;
+      top: -4%;
     }
     .orbit {
       width: 260px;
@@ -1523,13 +1749,12 @@
 
   .colophon.calm .wash,
   .colophon.calm .thesis,
-  .colophon.calm .spine-section,
+  .colophon.calm .meridian,
   .colophon.calm .readout,
   .colophon.calm .plate,
   .colophon.calm .orbit,
-  .colophon.calm .glow,
-  .colophon.calm .node-dot,
-  .colophon.calm .station-inner,
+  .colophon.calm .stage-copy,
+  .colophon.calm .constellation-beam::after,
   .colophon.calm .meter-led,
   .colophon.calm .id-refresh.spin svg {
     transition: none !important;
@@ -1540,7 +1765,7 @@
   }
   .colophon.calm .wash,
   .colophon.calm .thesis,
-  .colophon.calm .spine-section,
+  .colophon.calm .meridian,
   .colophon.calm .readout,
   .colophon.calm .plate,
   .colophon.calm .orbit {
