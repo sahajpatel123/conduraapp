@@ -214,13 +214,6 @@
 </script>
 
 <article class="colophon" class:in={entered} class:calm={reduceMotion}>
-  <!-- Atmosphere -->
-  <div class="atmosphere" aria-hidden="true">
-    <div class="wash"></div>
-    <div class="grain"></div>
-    <div class="orbit"></div>
-  </div>
-
   <!-- Thesis: brand first -->
   <header class="thesis">
     <h1 class="brand">
@@ -348,7 +341,6 @@
       role="tabpanel"
       aria-labelledby={`station-tab-${active}`}
     >
-      <div class="stage-wash" aria-hidden="true"></div>
       <p class="stage-watermark" aria-hidden="true">{activeStation.roman}</p>
 
       {#key active}
@@ -497,97 +489,6 @@
     isolation: isolate;
   }
 
-  .atmosphere {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-    border-radius: 0;
-    /* Dissolve atmosphere before the spine so nothing reads as a hard band */
-    -webkit-mask-image: linear-gradient(
-      180deg,
-      #000 0%,
-      #000 42%,
-      rgb(0 0 0 / 0.55) 68%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      180deg,
-      #000 0%,
-      #000 42%,
-      rgb(0 0 0 / 0.55) 68%,
-      transparent 100%
-    );
-  }
-  .wash {
-    position: absolute;
-    inset: -28% -18% -8%;
-    background:
-      radial-gradient(
-        ellipse 78% 62% at 14% 6%,
-        color-mix(in oklab, var(--md-cobalt) 22%, transparent) 0%,
-        color-mix(in oklab, var(--md-cobalt) 10%, transparent) 28%,
-        color-mix(in oklab, var(--md-cobalt) 4%, transparent) 52%,
-        transparent 78%
-      ),
-      radial-gradient(
-        ellipse 58% 48% at 88% 4%,
-        color-mix(in oklab, var(--md-live) 14%, transparent) 0%,
-        color-mix(in oklab, var(--md-live) 5%, transparent) 36%,
-        transparent 72%
-      ),
-      radial-gradient(
-        ellipse 42% 34% at 46% 22%,
-        color-mix(in oklab, var(--md-cobalt) 7%, transparent) 0%,
-        transparent 70%
-      );
-    filter: blur(36px);
-    transform: translateZ(0);
-    opacity: 0;
-    transition: opacity 1100ms var(--about-ease);
-  }
-  .colophon.in .wash {
-    opacity: 0.9;
-  }
-  .grain {
-    position: absolute;
-    inset: 0;
-    opacity: 0.028;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    mix-blend-mode: multiply;
-  }
-  :global(:root[data-mode='dark']) .grain {
-    opacity: 0.07;
-    mix-blend-mode: soft-light;
-  }
-  .orbit {
-    position: absolute;
-    width: 420px;
-    height: 420px;
-    right: -120px;
-    top: 40px;
-    border-radius: 50%;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, transparent);
-    opacity: 0;
-    transform: scale(0.92);
-    transition:
-      opacity 1s var(--about-ease) 120ms,
-      transform 1.1s var(--about-spring) 80ms;
-  }
-  .orbit::after {
-    content: '';
-    position: absolute;
-    inset: 28px;
-    border-radius: 50%;
-    border: 1px dashed color-mix(in oklab, var(--md-live) 22%, transparent);
-    animation: about-spin 48s linear infinite;
-  }
-  .colophon.in .orbit {
-    opacity: 1;
-    transform: scale(1);
-  }
-
   .thesis,
   .meridian,
   .readout,
@@ -663,23 +564,8 @@
     padding: 22px 22px 20px;
     border-radius: 26px;
     border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
-    background:
-      radial-gradient(
-        90% 80% at 12% 0%,
-        color-mix(in oklab, var(--md-cobalt) 10%, transparent),
-        transparent 55%
-      ),
-      radial-gradient(
-        70% 70% at 88% 100%,
-        color-mix(in oklab, var(--md-live) 8%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, var(--md-surface) 70%, transparent);
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset,
-      0 24px 50px -34px color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: var(--md-surface);
+    box-shadow: 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
     overflow: hidden;
   }
   .gate-head {
@@ -1156,32 +1042,10 @@
     padding: 36px 36px 22px;
     border-radius: 28px;
     border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
-    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
+    background: var(--md-surface);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset,
-      0 28px 60px -36px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-  }
-  .stage-wash {
-    position: absolute;
-    inset: -20% -10% auto -10%;
-    height: 70%;
-    background:
-      radial-gradient(
-        ellipse 55% 70% at 8% 20%,
-        color-mix(in oklab, var(--md-cobalt) 16%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 45% 55% at 92% 10%,
-        color-mix(in oklab, var(--md-live) 10%, transparent),
-        transparent 68%
-      );
-    filter: blur(28px);
-    pointer-events: none;
-    z-index: 0;
   }
   .stage-watermark {
     position: absolute;
@@ -1666,12 +1530,6 @@
       right: -8%;
       top: -4%;
     }
-    .orbit {
-      width: 260px;
-      height: 260px;
-      right: -80px;
-      top: 20px;
-    }
   }
 
   @media (max-width: 480px) {
@@ -1688,12 +1546,10 @@
     }
   }
 
-  .colophon.calm .wash,
   .colophon.calm .thesis,
   .colophon.calm .meridian,
   .colophon.calm .readout,
   .colophon.calm .plate,
-  .colophon.calm .orbit,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
   .colophon.calm .gate-pulse,
@@ -1701,15 +1557,10 @@
     transition: none !important;
     animation: none !important;
   }
-  .colophon.calm .orbit::after {
-    animation: none !important;
-  }
-  .colophon.calm .wash,
   .colophon.calm .thesis,
   .colophon.calm .meridian,
   .colophon.calm .readout,
-  .colophon.calm .plate,
-  .colophon.calm .orbit {
+  .colophon.calm .plate {
     opacity: 1;
     transform: none;
   }
