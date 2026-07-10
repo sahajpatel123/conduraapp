@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
    * Meridian About — living instrument colophon.
-   * Signature: interactive Gatekeeper demo + constellation of seven stations.
-   * Logic: capabilities · donate · station navigation.
+   * Signature: atlas of ways in + constellation of seven stations.
+   * Logic: capabilities · donate · station navigation · deep links.
    */
   import { onMount } from 'svelte'
   import { ipc } from '../../ipc/client'
@@ -21,17 +21,53 @@
     live?: () => { ok: boolean; note: string }
   }
 
-  type GatePhase = 'idle' | 'sending' | 'held' | 'allowed' | 'denied'
+  type AtlasId = 'audit' | 'promises' | 'independence'
 
   let caps = $state<DaemonCapabilities | null>(null)
   let loading = $state(true)
   let active = $state('i')
   let entered = $state(false)
   let reduceMotion = $state(false)
-  let gatePhase = $state<GatePhase>('idle')
-  let gateTimers: number[] = []
+  let atlasFocus = $state<AtlasId | null>(null)
+  let modLabel = $state('⌘')
 
   const connected = $derived(daemon.connected)
+
+  const ATLAS: {
+    id: AtlasId
+    kicker: string
+    title: string
+    body: string
+    action: string
+    run: () => void
+  }[] = [
+    {
+      id: 'audit',
+      kicker: 'Ledger',
+      title: 'Open the audit',
+      body: 'Every gated action is written to an append-only chain. Read what Condura did — and what it refused.',
+      action: 'Go to Audit',
+      run: () => {
+        window.location.hash = '#/audit'
+      },
+    },
+    {
+      id: 'promises',
+      kicker: 'Contract',
+      title: 'Walk the meridian',
+      body: 'Seven promises, in order. Use the constellation below, or press ↑↓ / J K to move station by station.',
+      action: 'Begin at station one',
+      run: () => goPromises(),
+    },
+    {
+      id: 'independence',
+      kicker: 'Freedom',
+      title: 'Keep it independent',
+      body: 'Condura is free software. If it earns your trust, help keep the work unbound from ads and lock-in.',
+      action: 'Donate',
+      run: () => openDonate(),
+    },
+  ]
 
   const STATIONS: Station[] = [
     {
@@ -112,53 +148,12 @@
     return cite.charAt(0).toUpperCase() + cite.slice(1)
   }
 
-  const gateTitle = $derived.by(() => {
-    switch (gatePhase) {
-      case 'sending':
-        return 'An intent approaches'
-      case 'held':
-        return 'The door is waiting'
-      case 'allowed':
-        return 'You opened the door'
-      case 'denied':
-        return 'You kept it closed'
-      default:
-        return 'Nothing moves without you'
-    }
-  })
-
-  const gateNote = $derived.by(() => {
-    switch (gatePhase) {
-      case 'sending':
-        return 'The model has proposed an action. It has not reached your machine.'
-      case 'held':
-        return 'Gatekeeper holds the line. Allow to proceed, or Deny to end it here.'
-      case 'allowed':
-        return 'Consent granted. The action may continue past the lock.'
-      case 'denied':
-        return 'Denied. The model never touched your machine.'
-      default:
-        return 'Propose an action. Watch it stop at the Gatekeeper until you decide.'
-    }
-  })
-
-  const gateStep = $derived.by(() => {
-    switch (gatePhase) {
-      case 'sending':
-        return 1
-      case 'held':
-        return 2
-      case 'allowed':
-        return 3
-      case 'denied':
-        return 2
-      default:
-        return 0
-    }
-  })
-
   onMount(() => {
     reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+    modLabel =
+      /Mac|iPhone|iPod|iPad/i.test(navigator.platform) || navigator.userAgent.includes('Mac')
+        ? '⌘'
+        : 'Ctrl'
     requestAnimationFrame(() => {
       entered = true
     })
@@ -180,44 +175,18 @@
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      clearGateTimers()
-    }
+    return () => window.removeEventListener('keydown', onKey)
   })
-
-  function clearGateTimers(): void {
-    for (const t of gateTimers) clearTimeout(t)
-    gateTimers = []
-  }
-
-  function proposeAction(): void {
-    if (gatePhase === 'sending' || gatePhase === 'held') return
-    clearGateTimers()
-    gatePhase = 'sending'
-    const delay = reduceMotion ? 80 : 920
-    gateTimers.push(
-      window.setTimeout(() => {
-        gatePhase = 'held'
-      }, delay),
-    )
-  }
-
-  function decide(allow: boolean): void {
-    if (gatePhase !== 'held') return
-    clearGateTimers()
-    gatePhase = allow ? 'allowed' : 'denied'
-    const delay = reduceMotion ? 500 : 1700
-    gateTimers.push(
-      window.setTimeout(() => {
-        gatePhase = 'idle'
-      }, delay),
-    )
-  }
 
   function step(dir: number): void {
     const next = Math.max(0, Math.min(STATIONS.length - 1, activeIndex + dir))
     active = STATIONS[next]!.id
+  }
+
+  function goPromises(): void {
+    active = 'i'
+    const el = document.getElementById('meridian-section')
+    el?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
   }
 
   async function refresh(): Promise<void> {
@@ -261,58 +230,59 @@
       <em>This page is the contract — and the live reading of the machine that keeps it.</em>
     </p>
 
-    <div class="lock" data-phase={gatePhase} aria-live="polite">
-      <div class="lock-copy">
-        <p class="lock-k">Consent</p>
-        <h2 class="lock-title">{gateTitle}</h2>
-        <p class="lock-note">{gateNote}</p>
+    <div class="atlas">
+      <div class="atlas-head">
+        <p class="atlas-k">Ways in</p>
+        <h2 class="atlas-title">Where Condura keeps its word</h2>
+        <p class="atlas-note">
+          Three doors that matter. Each one takes you somewhere real — the ledger, the contract, or the work that keeps Condura free.
+        </p>
       </div>
 
-      <div class="lock-seal" aria-hidden="true">
-        <span class="lock-halo"></span>
-        <span class="lock-mark">
-          {#if gatePhase === 'allowed'}
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M8 11V8a4 4 0 0 1 7.5-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
-              <path d="M12 14v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-          {:else if gatePhase === 'denied'}
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/>
-              <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-          {:else}
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
-              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-              <path d="M12 14v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-          {/if}
-        </span>
+      <div class="atlas-grid">
+        {#each ATLAS as door (door.id)}
+          <button
+            type="button"
+            class="atlas-door"
+            class:focus={atlasFocus === door.id}
+            onmouseenter={() => (atlasFocus = door.id)}
+            onfocus={() => (atlasFocus = door.id)}
+            onmouseleave={() => (atlasFocus = null)}
+            onblur={() => (atlasFocus = null)}
+            onclick={door.run}
+          >
+            <span class="atlas-door-k">{door.kicker}</span>
+            <span class="atlas-door-t">{door.title}</span>
+            <span class="atlas-door-b">{door.body}</span>
+            <span class="atlas-door-a">
+              {door.action}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </button>
+        {/each}
       </div>
 
-      <ol class="lock-steps" aria-hidden="true">
-        <li class:on={gateStep >= 1} class:now={gatePhase === 'sending'}>Model</li>
-        <li class:on={gateStep >= 2} class:now={gatePhase === 'held' || gatePhase === 'denied'}>Gate</li>
-        <li class:on={gateStep >= 3} class:now={gatePhase === 'allowed'}>Machine</li>
-      </ol>
-
-      <div class="lock-actions">
-        {#if gatePhase === 'idle' || gatePhase === 'allowed' || gatePhase === 'denied'}
-          <button type="button" class="lock-btn" onclick={proposeAction}>Propose an action</button>
-        {:else if gatePhase === 'sending'}
-          <p class="lock-wait">Waiting at the door…</p>
-        {:else}
-          <button type="button" class="lock-btn quiet" onclick={() => decide(false)}>Deny</button>
-          <button type="button" class="lock-btn solid" onclick={() => decide(true)}>Allow</button>
-        {/if}
-      </div>
+      <ul class="atlas-keys" aria-label="Useful shortcuts">
+        <li>
+          <kbd>{modLabel}K</kbd>
+          <span>Jump anywhere</span>
+        </li>
+        <li>
+          <kbd>↑↓</kbd>
+          <span>Walk promises</span>
+        </li>
+        <li>
+          <kbd>{modLabel}D</kbd>
+          <span>Donate</span>
+        </li>
+      </ul>
     </div>
   </header>
 
   <!-- Signature: constellation of seven stations -->
-  <section class="meridian" aria-label="Seven promises">
+  <section id="meridian-section" class="meridian" aria-label="Seven promises">
     <div class="meridian-head">
       <div class="meridian-titles">
         <p class="meridian-k">Seven promises</p>
@@ -576,24 +546,15 @@
     font-size: 0.92em;
   }
 
-  /* —— Consent lock —— */
-  .lock {
+  /* —— Atlas: ways in —— */
+  .atlas {
     margin-top: 28px;
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) auto;
-    grid-template-areas:
-      'copy seal'
-      'steps seal'
-      'actions actions';
-    gap: 18px 40px;
-    align-items: center;
-    padding: 8px 0 4px;
   }
-  .lock-copy {
-    grid-area: copy;
-    min-width: 0;
+  .atlas-head {
+    margin-bottom: 22px;
+    max-width: 40rem;
   }
-  .lock-k {
+  .atlas-k {
     margin: 0 0 10px;
     font-family: var(--md-font-sans);
     font-size: 12px;
@@ -601,7 +562,7 @@
     letter-spacing: 0.02em;
     color: var(--md-ink-faint);
   }
-  .lock-title {
+  .atlas-title {
     margin: 0 0 10px;
     font-family: var(--md-font-display);
     font-size: clamp(26px, 4vw, 36px);
@@ -610,234 +571,120 @@
     line-height: 1.08;
     color: var(--md-ink);
     text-wrap: balance;
-    transition: color 280ms var(--about-ease);
   }
-  .lock[data-phase='held'] .lock-title {
-    color: var(--md-cobalt);
-  }
-  .lock[data-phase='allowed'] .lock-title {
-    color: var(--md-live);
-  }
-  .lock[data-phase='denied'] .lock-title {
-    color: var(--md-halt);
-  }
-  .lock-note {
+  .atlas-note {
     margin: 0;
-    max-width: 38ch;
     font-family: var(--md-font-sans);
     font-size: 15px;
     font-weight: 450;
     line-height: 1.65;
     letter-spacing: -0.011em;
     color: color-mix(in oklab, var(--md-ink) 68%, var(--md-ink-mute));
+    max-width: 46ch;
   }
 
-  .lock-seal {
-    grid-area: seal;
-    position: relative;
-    width: 112px;
-    height: 112px;
+  .atlas-grid {
     display: grid;
-    place-items: center;
-    justify-self: end;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
   }
-  .lock-halo {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
-    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
-    transition:
-      border-color 320ms var(--about-ease),
-      background 320ms var(--about-ease),
-      box-shadow 320ms var(--about-ease),
-      transform 420ms var(--about-spring);
-  }
-  .lock-mark {
-    position: relative;
-    z-index: 1;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    color: var(--md-ink-soft);
-    background: var(--md-surface);
-    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
-    transition:
-      color 280ms var(--about-ease),
-      border-color 280ms var(--about-ease),
-      background 280ms var(--about-ease),
-      transform 320ms var(--about-spring);
-  }
-  .lock[data-phase='sending'] .lock-halo {
-    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-    animation: lock-breathe 1.2s ease-in-out infinite;
-  }
-  .lock[data-phase='sending'] .lock-mark {
-    color: var(--md-cobalt);
-    border-color: color-mix(in oklab, var(--md-cobalt) 30%, transparent);
-  }
-  .lock[data-phase='held'] .lock-halo {
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
-    box-shadow: 0 0 0 10px color-mix(in oklab, var(--md-cobalt) 8%, transparent);
-    animation: lock-breathe 1.6s ease-in-out infinite;
-  }
-  .lock[data-phase='held'] .lock-mark {
-    color: #fff;
-    background: var(--md-cobalt);
-    border-color: transparent;
-    transform: scale(1.04);
-  }
-  .lock[data-phase='allowed'] .lock-halo {
-    border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
-    box-shadow: 0 0 0 10px color-mix(in oklab, var(--md-live) 8%, transparent);
-  }
-  .lock[data-phase='allowed'] .lock-mark {
-    color: var(--md-live);
-    border-color: color-mix(in oklab, var(--md-live) 30%, transparent);
-    background: color-mix(in oklab, var(--md-live) 8%, var(--md-surface));
-  }
-  .lock[data-phase='denied'] .lock-halo {
-    border-color: color-mix(in oklab, var(--md-halt) 30%, transparent);
-  }
-  .lock[data-phase='denied'] .lock-mark {
-    color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 28%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 7%, var(--md-surface));
-    animation: lock-deny 420ms var(--about-spring) both;
-  }
-
-  .lock-steps {
-    grid-area: steps;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .lock-steps li {
-    font-family: var(--md-font-sans);
-    font-size: 12px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    color: var(--md-ink-faint);
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    transition:
-      color 240ms var(--about-ease),
-      background 240ms var(--about-ease),
-      border-color 240ms var(--about-ease);
-  }
-  .lock-steps li.on {
-    color: var(--md-ink-soft);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
-    border-color: color-mix(in oklab, var(--md-ink) 8%, transparent);
-  }
-  .lock-steps li.now {
-    color: var(--md-cobalt);
-    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-    background: color-mix(in oklab, var(--md-cobalt) 7%, var(--md-surface));
-  }
-  .lock[data-phase='allowed'] .lock-steps li.now {
-    color: var(--md-live);
-    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
-    background: color-mix(in oklab, var(--md-live) 7%, var(--md-surface));
-  }
-  .lock[data-phase='denied'] .lock-steps li.now {
-    color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 26%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 7%, var(--md-surface));
-  }
-
-  .lock-actions {
-    grid-area: actions;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding-top: 4px;
-  }
-  .lock-wait {
-    margin: 0;
-    font-family: var(--md-font-sans);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--md-ink-mute);
-    letter-spacing: -0.01em;
-  }
-  .lock-btn {
+  .atlas-door {
     appearance: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 220px;
+    padding: 20px 18px 18px;
+    text-align: left;
+    border-radius: 22px;
+    border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
+    background: var(--md-surface);
+    color: inherit;
+    cursor: pointer;
+    transition:
+      transform 220ms var(--about-spring),
+      border-color 220ms var(--about-ease),
+      box-shadow 220ms var(--about-ease),
+      background 220ms var(--about-ease);
+  }
+  .atlas-door:hover,
+  .atlas-door.focus {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--md-cobalt) 32%, transparent);
+    box-shadow: 0 18px 36px -28px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+  }
+  .atlas-door:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+  .atlas-door-k {
+    font-family: var(--md-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--md-cobalt);
+  }
+  .atlas-door-t {
+    font-family: var(--md-font-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    color: var(--md-ink);
+  }
+  .atlas-door-b {
+    flex: 1;
+    font-family: var(--md-font-sans);
+    font-size: 14px;
+    font-weight: 450;
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+    color: color-mix(in oklab, var(--md-ink) 70%, var(--md-ink-mute));
+  }
+  .atlas-door-a {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 42px;
-    padding: 0 18px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 12%, transparent);
-    background: var(--md-surface);
-    color: var(--md-ink);
+    gap: 6px;
+    margin-top: 6px;
     font-family: var(--md-font-sans);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: -0.01em;
-    cursor: pointer;
-    transition:
-      transform 180ms var(--about-spring),
-      background 180ms var(--about-ease),
-      border-color 180ms var(--about-ease),
-      color 180ms var(--about-ease),
-      box-shadow 180ms var(--about-ease);
+    color: var(--md-cobalt);
   }
-  .lock-btn:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-  }
-  .lock-btn:focus-visible {
-    outline: none;
-    box-shadow: var(--md-focus);
-  }
-  .lock-btn.solid {
-    background: var(--md-cobalt);
-    border-color: transparent;
-    color: #fff;
-  }
-  .lock-btn.solid:hover {
-    background: var(--md-cobalt-deep);
-    border-color: transparent;
-  }
-  .lock-btn.quiet {
-    color: var(--md-halt);
-    border-color: color-mix(in oklab, var(--md-halt) 24%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 5%, var(--md-surface));
-  }
-  .lock-btn.quiet:hover {
-    background: color-mix(in oklab, var(--md-halt) 10%, var(--md-surface));
+  .atlas-door:hover .atlas-door-a,
+  .atlas-door.focus .atlas-door-a {
+    gap: 9px;
   }
 
-  @keyframes lock-breathe {
-    0%,
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.04);
-      opacity: 0.92;
-    }
+  .atlas-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
   }
-  @keyframes lock-deny {
-    0% {
-      transform: scale(1);
-    }
-    40% {
-      transform: scale(1.06);
-    }
-    100% {
-      transform: scale(1);
-    }
+  .atlas-keys li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--md-font-sans);
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--md-ink-mute);
+  }
+  .atlas-keys kbd {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklab, var(--md-ink) 10%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
+    color: var(--md-ink-soft);
   }
 
   /* —— Meridian constellation —— */
@@ -1467,26 +1314,11 @@
     .colophon {
       padding: 24px 16px 120px;
     }
-    .lock {
+    .atlas-grid {
       grid-template-columns: 1fr;
-      grid-template-areas:
-        'copy'
-        'seal'
-        'steps'
-        'actions';
-      gap: 16px;
     }
-    .lock-seal {
-      justify-self: start;
-      width: 96px;
-      height: 96px;
-    }
-    .lock-mark {
-      width: 56px;
-      height: 56px;
-    }
-    .lock-note {
-      font-size: 14px;
+    .atlas-door {
+      min-height: 0;
     }
     .meridian-head {
       align-items: flex-start;
@@ -1541,9 +1373,8 @@
   }
 
   @media (max-width: 480px) {
-    .lock-btn {
-      flex: 1;
-      min-width: 120px;
+    .atlas-keys {
+      gap: 10px 14px;
     }
     .word {
       font-size: clamp(44px, 14vw, 64px);
@@ -1560,10 +1391,8 @@
   .colophon.calm .plate,
   .colophon.calm .stage-copy,
   .colophon.calm .constellation-beam::after,
-  .colophon.calm .lock-halo,
-  .colophon.calm .lock-mark {
+  .colophon.calm .atlas-door {
     transition: none !important;
-    animation: none !important;
   }
   .colophon.calm .thesis,
   .colophon.calm .meridian,
