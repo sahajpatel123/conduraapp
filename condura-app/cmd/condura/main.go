@@ -207,7 +207,7 @@ func cmdPing(gf *globalFlags) error {
 
 func cmdVersion(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("version", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Println("usage: synaptic version") }
+	fs.Usage = func() { fmt.Println("usage: condura version") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -313,7 +313,7 @@ func cmdConfig(gf *globalFlags) error {
 
 func cmdLLM(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic llm <chat|providers>`)
+		fmt.Println(`usage: condura llm <chat|providers>`)
 		return nil
 	}
 	sub, rest := args[0], args[1:]
@@ -329,7 +329,7 @@ func cmdLLM(gf *globalFlags, args []string) error {
 
 func cmdLLMProviders(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("llm providers", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Println("usage: synaptic llm providers") }
+	fs.Usage = func() { fmt.Println("usage: condura llm providers") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -370,7 +370,7 @@ func cmdLLMChat(gf *globalFlags, args []string) error {
 	model := fs.String("model", "", "model id (defaults to provider's chat default)")
 	stream := fs.Bool("stream", false, "stream tokens to stdout (best-effort)")
 	fs.Usage = func() {
-		fmt.Println(`usage: synaptic llm chat [flags] <message>
+		fmt.Println(`usage: condura llm chat [flags] <message>
 
 If <message> is "-" or omitted, the prompt is read from stdin.`)
 	}
@@ -448,7 +448,7 @@ If <message> is "-" or omitted, the prompt is read from stdin.`)
 
 func cmdAPIKeys(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic apikeys <list|set|delete> [args]`)
+		fmt.Println(`usage: condura apikeys <list|set|delete> [args]`)
 		return nil
 	}
 	sub, rest := args[0], args[1:]
@@ -504,7 +504,7 @@ func cmdAPIKeysSet(gf *globalFlags, args []string) error {
 	provider := fs.String("provider", "", "provider name (required)")
 	label := fs.String("label", "default", "human-readable label")
 	secretStdin := fs.Bool("stdin", false, "read secret from stdin")
-	fs.Usage = func() { fmt.Println(`usage: synaptic apikeys set --provider <name> [--label L] <secret>`) }
+	fs.Usage = func() { fmt.Println(`usage: condura apikeys set --provider <name> [--label L] <secret>`) }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -552,7 +552,7 @@ func cmdAPIKeysSet(gf *globalFlags, args []string) error {
 
 func cmdAPIKeysDelete(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("apikeys delete", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Println("usage: synaptic apikeys delete <id>") }
+	fs.Usage = func() { fmt.Println("usage: condura apikeys delete <id>") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil

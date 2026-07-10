@@ -274,7 +274,7 @@
   <Stack as="section" gap="5" class="section">
     <header class="section-head">
       <h2 class="display-h2">Legal</h2>
-      <p class="lede">Synaptic Freeware EULA v1 — free personal and commercial, no redistribution, revocable for abuse.</p>
+      <p class="lede">Condura Freeware EULA v1 — free personal and commercial, no redistribution, revocable for abuse.</p>
     </header>
 
     <Inline gap="3" class="legal-links">

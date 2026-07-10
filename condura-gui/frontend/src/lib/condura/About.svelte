@@ -77,7 +77,7 @@
 
   // ── Constants ───────────────────────────────────────────────────────
   const STAGGER_MS = 60; // SCREEN_ABOUT.md §3.1 / §3.4 — stagger; collapses to 0 under reduced-motion
-  const DONATE_URL = 'https://synaptic.app/donate';
+  const DONATE_URL = 'https://condura.app/donate';
 
   // ── Element refs ────────────────────────────────────────────────────
   // Per-row HTMLElement registry, keyed by invariant id. `bind:this`

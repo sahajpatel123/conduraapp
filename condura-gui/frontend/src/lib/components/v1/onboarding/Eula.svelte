@@ -66,7 +66,7 @@
         aria-label="End-user license agreement"
       >
         <article class="license">
-          <h3>Synaptic Freeware License v1</h3>
+          <h3>Condura Freeware License v1</h3>
           <p>This software is free for personal and commercial use. You may install and run it on any computer you own or are authorized to use.</p>
           <p>You may not redistribute the binary, modified or unmodified, without written permission. The source code is proprietary and not redistributable.</p>
           <p>The software is provided "as is", without warranty of any kind. The authors are not liable for any damages arising from use.</p>

@@ -98,7 +98,7 @@ type Config struct {
 type GeneralConfig struct {
 	// InstallID is a stable UUID per install, generated on first run.
 	InstallID string `yaml:"install_id"`
-	// DataDir is the root data directory (~/.synaptic by default).
+	// DataDir is the root data directory (~/.condura by default).
 	DataDir string `yaml:"data_dir"`
 	// CacheDir is for ephemeral caches.
 	CacheDir string `yaml:"cache_dir"`

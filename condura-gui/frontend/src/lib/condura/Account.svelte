@@ -492,7 +492,7 @@
       <section class="block threadlink-block">
         <a
           class="thread-link"
-          href="https://synaptic.app/account"
+          href="https://condura.app/account"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Manage your account on condura.app — opens in browser"

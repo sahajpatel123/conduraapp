@@ -1,9 +1,9 @@
 # Condura
 
-> **Free, local-first, OS-native AI agent.** Conductor of every other AI tool on
-> your computer. Talks to Claude, GPT, Gemini, Ollama, Claude Code, Codex,
-> Antigravity, and any ChatGPT Plus / Claude Pro / Gemini AI Pro subscription.
-> Costs nothing.
+> **Free, local-first, OS-native AI agent.** Conductor for the AI tools on your
+> machine. Works with API-key LLM providers and agent CLIs today (one configured
+> provider per session). Subscription OAuth and multi-provider routing are
+> planned for v0.2.0. The app is free forever — you only pay your own model APIs.
 
 A topic-sliced monorepo. Each top-level folder is one product surface; you can
 navigate the codebase by topic without ever touching code that isn't relevant.
@@ -71,5 +71,5 @@ and TUI binaries (which depend on `condura-app/internal/...`) to live under
 
 ## License
 
-Source-available on request. Binary distributed under the Synaptic Freeware
+Source-available on request. Binary distributed under the Condura Freeware
 EULA v1 — see `condura-mind/EULA.md`.

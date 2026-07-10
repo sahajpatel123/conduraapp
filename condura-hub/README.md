@@ -11,7 +11,7 @@ Not yet implemented. The hub is targeted for **v0.2.0** per
 `condura-mind/docs/roadmap-v0.2.0.md`.
 
 When work begins, this folder will hold the **Next.js** hub application
-(`hub.synaptic.app`), with:
+(`hub.condura.app`), with:
 
 - Skill upload + scan pipeline (promptware detection, secret scanning)
 - Versioned skill registry with semver + signed releases

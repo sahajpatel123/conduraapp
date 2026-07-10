@@ -386,7 +386,7 @@
           <div class="settings-row">
             <div>
               <div class="settings-row-title">Freeware EULA</div>
-              <div class="settings-row-sub">Synaptic Freeware License v1</div>
+              <div class="settings-row-sub">Condura Freeware License v1</div>
             </div>
             <Button variant="secondary" size="sm" onclick={() => { window.location.hash = '#/about' }}>View</Button>
           </div>

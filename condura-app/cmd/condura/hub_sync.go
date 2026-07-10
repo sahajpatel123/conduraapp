@@ -20,7 +20,7 @@ import (
 // cmdHub dispatches the `hub` subcommand.
 func cmdHub(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic hub <search|get|install|publish|serve>
+		fmt.Println(`usage: condura hub <search|get|install|publish|serve>
 
   search QUERY          search the Skills Hub
   get ID                fetch metadata for a skill
@@ -48,7 +48,7 @@ func cmdHub(gf *globalFlags, args []string) error {
 func cmdHubSearch(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("hub search", flag.ContinueOnError)
 	limit := fs.Int("limit", 20, "max results")
-	fs.Usage = func() { fmt.Println("usage: synaptic hub search [--limit N] QUERY") }
+	fs.Usage = func() { fmt.Println("usage: condura hub search [--limit N] QUERY") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -95,7 +95,7 @@ func cmdHubSearch(gf *globalFlags, args []string) error {
 
 func cmdHubGet(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic hub get ID")
+		fmt.Println("usage: condura hub get ID")
 		return nil
 	}
 	id := args[0]
@@ -121,7 +121,7 @@ func cmdHubGet(gf *globalFlags, args []string) error {
 
 func cmdHubInstall(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic hub install ID")
+		fmt.Println("usage: condura hub install ID")
 		return nil
 	}
 	id := args[0]
@@ -151,7 +151,7 @@ func cmdHubInstall(gf *globalFlags, args []string) error {
 //	read from the archive itself; the file is uploaded verbatim.
 func cmdHubPublish(gf *globalFlags, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("usage: synaptic hub publish PATH")
+		fmt.Println("usage: condura hub publish PATH")
 		return nil
 	}
 	path := args[0]
@@ -190,7 +190,7 @@ func cmdHubServe(gf *globalFlags, args []string) error {
 	root := fs.String("root", "./synaptic-hub", "directory to store skills")
 	token := fs.String("token", "", "bearer token (default: open)")
 	fs.Usage = func() {
-		fmt.Println("usage: synaptic hub serve [--addr HOST:PORT] [--root DIR] [--token TOKEN]")
+		fmt.Println("usage: condura hub serve [--addr HOST:PORT] [--root DIR] [--token TOKEN]")
 	}
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -212,7 +212,7 @@ func cmdHubServe(gf *globalFlags, args []string) error {
 // skills). Each subcommand is a thin wrapper around an RPC.
 func cmdSkills(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic skills <list|get|delete>
+		fmt.Println(`usage: condura skills <list|get|delete>
 
   list               list installed skills
   get ID             fetch one skill by ID
@@ -240,7 +240,7 @@ func cmdSkills(gf *globalFlags, args []string) error {
 // cmdI18n dispatches the `i18n` subcommand (Phase 12 locales).
 func cmdI18n(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic i18n <locales|locale>
+		fmt.Println(`usage: condura i18n <locales|locale>
 
   locales            list available locales
   locale CODE        print all translations for a locale`)
@@ -262,7 +262,7 @@ func cmdI18n(gf *globalFlags, args []string) error {
 // cmdSync dispatches the `sync` subcommand.
 func cmdSync(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println(`usage: synaptic sync <status|peers|put|get|start|stop|list-pairs|pair|revoke>
+		fmt.Println(`usage: condura sync <status|peers|put|get|start|stop|list-pairs|pair|revoke>
 
   status            show sync engine status
   peers             list discovered peers on the LAN
@@ -326,7 +326,7 @@ func cmdSyncCall(gf *globalFlags, method string, params map[string]any) error {
 
 func cmdSyncPut(gf *globalFlags, args []string) error {
 	if len(args) < 2 {
-		fmt.Println("usage: synaptic sync put KEY VALUE")
+		fmt.Println("usage: condura sync put KEY VALUE")
 		return nil
 	}
 	key, value := args[0], args[1]
@@ -335,7 +335,7 @@ func cmdSyncPut(gf *globalFlags, args []string) error {
 
 func cmdSyncGet(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic sync get KEY")
+		fmt.Println("usage: condura sync get KEY")
 		return nil
 	}
 	return cmdSyncCall(gf, "sync.get", map[string]any{"key": args[0]})
@@ -379,12 +379,12 @@ func cmdSyncListPairs(gf *globalFlags) error {
 
 func cmdSyncPair(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic sync pair DEVICE_ID [--pin PIN]")
+		fmt.Println("usage: condura sync pair DEVICE_ID [--pin PIN]")
 		return nil
 	}
 	fs := flag.NewFlagSet("sync pair", flag.ContinueOnError)
 	pin := fs.String("pin", "", "PIN to confirm (skip to begin pairing)")
-	fs.Usage = func() { fmt.Println("usage: synaptic sync pair DEVICE_ID [--pin PIN]") }
+	fs.Usage = func() { fmt.Println("usage: condura sync pair DEVICE_ID [--pin PIN]") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -404,7 +404,7 @@ func cmdSyncPair(gf *globalFlags, args []string) error {
 
 func cmdSyncRevoke(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic sync revoke DEVICE_ID")
+		fmt.Println("usage: condura sync revoke DEVICE_ID")
 		return nil
 	}
 	return cmdSyncCall(gf, "sync.revoke", map[string]any{"device_id": args[0]})
@@ -412,7 +412,7 @@ func cmdSyncRevoke(gf *globalFlags, args []string) error {
 
 func cmdSyncWith(gf *globalFlags, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("usage: synaptic sync sync_with DEVICE_ID")
+		fmt.Println("usage: condura sync sync_with DEVICE_ID")
 		return nil
 	}
 	return cmdSyncCall(gf, "sync.sync_with", map[string]any{"device_id": args[0]})

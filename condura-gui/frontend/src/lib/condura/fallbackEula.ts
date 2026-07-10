@@ -6,11 +6,11 @@
 
 export const FALLBACK_EULA_VERSION = 'v1';
 
-export const FALLBACK_EULA_TEXT = `Condura (Synaptic) Freeware EULA v1
+export const FALLBACK_EULA_TEXT = `Condura (Condura) Freeware EULA v1
 
 1. Grant of license. Condura is free for personal and commercial use. You may install and run it on any machine you own or control.
 
-2. No redistribution. You may not redistribute the binary. Share the link to synaptic.app — not the file.
+2. No redistribution. You may not redistribute the binary. Share the link to condura.app — not the file.
 
 3. No tracking. Condura does not collect telemetry. It does not phone home. The only network calls are to the AI providers you configure.
 
