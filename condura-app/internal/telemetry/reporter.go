@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Event is one anonymous event to be sent.

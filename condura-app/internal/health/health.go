@@ -8,10 +8,10 @@ package health
 
 import (
 	"context"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"sort"
 	"sync"
 	"time"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // State is the health state of a single check or the overall system.

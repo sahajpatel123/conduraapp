@@ -10,8 +10,8 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/adaptive"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/memory"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/skills"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/skills"
 )
 
 // PostSessionExtractor runs async memory extraction and skill

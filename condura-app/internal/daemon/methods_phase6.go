@@ -21,9 +21,9 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/audit"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/overlay"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/session"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrNoVoice is returned by voice.* RPCs when voice is disabled

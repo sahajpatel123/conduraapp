@@ -38,8 +38,8 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 )
 
 // Common errors returned by the stream package.

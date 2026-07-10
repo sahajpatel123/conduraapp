@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrSHAMismatch is returned by the Pipeline when the binary or model

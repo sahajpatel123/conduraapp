@@ -33,9 +33,9 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/lockfile"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/updater"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // ErrAlreadyRunning is returned by Run if another synaptic instance

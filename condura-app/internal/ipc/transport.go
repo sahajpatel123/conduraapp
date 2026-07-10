@@ -17,8 +17,8 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/crash"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 )
 
 // maxBodySize is the maximum allowed size for an HTTP request body or

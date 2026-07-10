@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	xhotkey "golang.design/x/hotkey"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	xhotkey "golang.design/x/hotkey"
 )
 
 // Manager wraps a single registered hotkey and the callback fired

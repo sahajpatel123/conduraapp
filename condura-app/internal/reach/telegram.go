@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // telegramChannel implements the Channel interface for Telegram

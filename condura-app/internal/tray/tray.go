@@ -17,8 +17,8 @@ import (
 
 	"github.com/getlantern/systray"
 
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
 )
 
 // Event is a user-driven action from the tray menu.

@@ -2,11 +2,11 @@ package sync
 
 import (
 	"fmt"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"log/slog"
 	"net"
 	"sync"
 	"time"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // Engine orchestrates synchronization between local and remote stores.

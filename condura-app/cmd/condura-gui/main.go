@@ -24,8 +24,8 @@ import (
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/daemon"
-	"github.com/sahajpatel123/conduraapp/condura-gui/frontend/assets"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
+	"github.com/sahajpatel123/conduraapp/condura-gui/frontend/assets"
 )
 
 // embeddedDaemon lets the Wails App struct talk to the in-process

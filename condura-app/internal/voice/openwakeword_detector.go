@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"os/exec"
 	"sync"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // OpenWakeWordDetector implements WakeWordDetector using the openWakeWord library.
