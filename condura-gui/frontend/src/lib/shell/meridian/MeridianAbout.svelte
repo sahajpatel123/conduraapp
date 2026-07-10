@@ -215,7 +215,6 @@
 
   <!-- Thesis: brand first -->
   <header class="thesis">
-    <p class="edition">Instrument desk · colophon</p>
     <h1 class="brand">
       <span class="word">Condura</span>
       <span class="slash" aria-hidden="true">/</span>
@@ -652,15 +651,6 @@
   .colophon.in .thesis {
     opacity: 1;
     transform: none;
-  }
-
-  .edition {
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-    margin: 0 0 18px;
   }
 
   .brand {
