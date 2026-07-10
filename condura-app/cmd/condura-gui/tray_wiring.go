@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/daemon"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/status"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/tray"
-	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
 )
 
 // startTray wires the system tray to the running daemon. Called
@@ -73,8 +73,9 @@ func (a *App) startTray(ctx context.Context, subs *daemon.Subsystems) {
 			case tray.EventQuit:
 				slog.Info("tray: quit requested; daemon will shut down")
 				a.requestQuit()
-			})
-	}() })
+			}
+		})
+	})
 
 	// Drain SSE events and forward to the tray. Runs until ctx
 	// is canceled. Cheap (select on one channel + a ticker).

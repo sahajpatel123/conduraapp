@@ -105,8 +105,10 @@
   }
 </script>
 
+<!-- Must be top-level (not inside {#if}) — Svelte forbids <svelte:window> in blocks. -->
+<svelte:window onkeydown={hasTicket ? onWinKey : undefined} />
+
 {#if hasTicket}
-  <svelte:window onkeydown={onWinKey} />
   <div class="scrim" class:ink={destructive}>
     <div
       class="consent-card"
