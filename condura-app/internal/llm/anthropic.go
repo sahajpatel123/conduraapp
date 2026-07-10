@@ -248,17 +248,33 @@ func (a *Anthropic) Chat(ctx context.Context, req ChatRequest) (ChatResponse, er
 			return ChatResponse{}, err
 		}
 		defer cancel()
-		var last StreamEvent
+		// Drain the stream and accumulate the text deltas. Anthropic's
+		// SSE format emits one Delta per content_block_delta event; each
+		// individual Delta is only the latest fragment, so we must
+		// concatenate them all to recover the full assistant message.
+		var content strings.Builder
+		var finish FinishReason
+		var usage Usage
+		var role Role
 		for ev := range ch {
-			last = ev
 			if ev.Err != nil {
 				return ChatResponse{}, ev.Err
 			}
+			content.WriteString(ev.Delta.Content)
+			if ev.Delta.Role != "" {
+				role = ev.Delta.Role
+			}
+			if ev.FinishReason != "" {
+				finish = ev.FinishReason
+			}
+			if ev.Done {
+				usage = ev.Usage
+			}
 		}
 		return ChatResponse{
-			Message:      last.Delta,
-			FinishReason: last.FinishReason,
-			Usage:        last.Usage,
+			Message:      Message{Role: role, Content: content.String()},
+			FinishReason: finish,
+			Usage:        usage,
 		}, nil
 	}
 	body := a.toRequest(req)

@@ -50,8 +50,16 @@
   $effect(() => {
     if (!detailOpen && !verifyOpen) return
     previousFocus = document.activeElement as HTMLElement | null
-    focusFirst(detailOpen ? detailEl : verifyEl)
+    // Defer focus to the next microtask so the bind:this ref for the
+    // newly-opened modal is set before focusFirst runs. Without the
+    // defer, the effect can fire before Svelte wires the ref and
+    // focusFirst silently no-ops.
+    const target = detailOpen ? detailEl : verifyEl
+    const handle = queueMicrotask(() => {
+      if (detailOpen || verifyOpen) focusFirst(target)
+    })
     return () => {
+      if (handle) clearMicrotask(handle)
       previousFocus?.focus()
     }
   })

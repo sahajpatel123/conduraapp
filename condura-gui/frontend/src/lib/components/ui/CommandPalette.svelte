@@ -68,8 +68,16 @@
 
   $effect(() => {
     if (open) {
-      queueMicrotask(() => inputEl?.focus())
+      // Guard against the palette closing before the microtask runs
+      // (which would steal focus back from the element that received it).
+      let cancelled = false
+      queueMicrotask(() => {
+        if (!cancelled && open) inputEl?.focus()
+      })
       activeIdx = 0
+      return () => {
+        cancelled = true
+      }
     }
   })
 

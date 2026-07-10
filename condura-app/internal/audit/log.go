@@ -105,8 +105,16 @@ type Query struct {
 // before this change remain verifiable.
 type Log struct {
 	db     *sql.DB
-	subkey []byte     // derived audit HMAC subkey (HKDF-SHA-256 output)
+	subkey []byte // derived audit HMAC subkey (HKDF-SHA-256 output)
 	mu     sync.Mutex // serializes Append so the chain is consistent
+	// lastHMACCache caches the most-recently-inserted row's hmac so
+	// Append doesn't have to issue a SELECT before every INSERT.
+	// Empty string + lastHMACValid=false means "load on demand";
+	// after a successful Append we update the cache in-place.
+	// lastHMACValid is reset by Reload since the underlying DB handle
+	// may have changed (e.g. after a backup restore).
+	lastHMACValue string
+	lastHMACValid bool
 }
 
 // New returns a Log wrapping the given database. secret is the
@@ -153,6 +161,10 @@ func (l *Log) Reload(db *sql.DB) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.db = db
+	// Invalidate the cached last-hmac: the new DB handle may be a
+	// restored backup whose chain root differs.
+	l.lastHMACValid = false
+	l.lastHMACValue = ""
 }
 
 // NewWithHexSecret is a convenience for callers that store the secret
@@ -208,14 +220,24 @@ func (l *Log) Append(ctx context.Context, e Event) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Look up the prev_hash: the hmac of the most recent row, or the
-	// genesis hash for the first row.
-	prevHash, err := l.lastHMAC(ctx)
-	if err != nil {
-		return fmt.Errorf("audit: lookup prev_hash: %w", err)
-	}
-	if prevHash == "" {
-		prevHash = genesisHash
+	// Use the cached last-hmac if we have one; otherwise load it from
+	// the DB. After this point we update the cache in-place at the
+	// bottom of Append, so subsequent Appends skip the SELECT entirely.
+	// This eliminates one synchronous DB roundtrip per Append on the
+	// hot path while still being safe under reload (Reload invalidates
+	// the cache) and concurrent calls (l.mu serializes us).
+	prevHash := genesisHash
+	if l.lastHMACValid {
+		prevHash = l.lastHMACValue
+	} else {
+		var err error
+		prevHash, err = l.lastHMAC(ctx)
+		if err != nil {
+			return fmt.Errorf("audit: lookup prev_hash: %w", err)
+		}
+		if prevHash == "" {
+			prevHash = genesisHash
+		}
 	}
 	e.prevHash = prevHash
 
@@ -266,6 +288,9 @@ func (l *Log) Append(ctx context.Context, e Event) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("audit: commit: %w", err)
 	}
+	// Update the cache so the next Append skips the SELECT.
+	l.lastHMACValue = e.hmac
+	l.lastHMACValid = true
 	return nil
 }
 

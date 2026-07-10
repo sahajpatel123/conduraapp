@@ -194,33 +194,6 @@ type Provider interface {
 }
 
 // -----------------------------------------------------------------------------
-// Auth / credentials accessor — supplied by internal/api_key.
-// -----------------------------------------------------------------------------
-
-// Authenticator is the subset of internal/api_key consumed here.
-// We re-declare it to avoid an import cycle.
-type Authenticator interface {
-	GetByLabel(ctx context.Context, provider, label string) (apiKey, error)
-	ListByProvider(ctx context.Context, provider string) ([]apiKey, error)
-	Touch(ctx context.Context, id int64) error
-}
-
-// apiKey is the minimal key shape we need; matches internal/api_key.Key.
-type apiKey struct {
-	ID        int64
-	Provider  string
-	Label     string
-	AuthKind  string
-	Secret    string
-	Refresh   string
-	ExpiresAt string
-}
-
-// Match the shape with internal/api_key.Key via a public adapter.
-// We use a free function to break the import cycle: callers pass an
-// adapter at registry-construction time. See Adapter in adapter.go.
-
-// -----------------------------------------------------------------------------
 // Cost estimation
 // -----------------------------------------------------------------------------
 

@@ -153,9 +153,18 @@ func RequestGuide(k Kind) Guide {
 // Returns the guide (so the UI can still show steps) and whether the
 // OS open command was launched successfully. Callers must never
 // assume the user granted the permission — re-probe after return.
-func OpenSettings(k Kind) (Guide, bool, error) {
+//
+// The ctx parameter is plumbed through to openDeepLink so callers
+// (RPC handlers, the overlay trigger, etc.) can cancel a settings-open
+// launch when the user dismisses the dialog. The command is detached
+// after Start (via Process.Release) so ctx cancellation cannot kill
+// the System Settings window — it just unblocks the caller sooner.
+func OpenSettings(ctx context.Context, k Kind) (Guide, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	g := RequestGuide(k)
-	opened, err := openDeepLink(context.Background(), g.DeepLink, g.HelpURL, runtime.GOOS)
+	opened, err := openDeepLink(ctx, g.DeepLink, g.HelpURL, runtime.GOOS)
 	return g, opened, err
 }
 
@@ -313,24 +322,28 @@ func windowsSteps(k Kind) ([]string, string, string) {
 
 func linuxSteps(k Kind) ([]string, string, string) {
 	// Deep links use xdg-open with settings: or gnome-control-center URIs where possible.
+	// Each panel name is a gnome-control-center subcommand; running
+	// `gnome-control-center` with no args opens the Overview, NOT the
+	// requested pane, so we always pass an explicit subcommand.
 	switch k {
 	case KindAccessibility:
 		return []string{
 			"Install at-spi2-core: sudo apt install at-spi2-core (Debian/Ubuntu) or sudo dnf install at-spi2-core (Fedora)",
 			"GNOME: Settings → Accessibility",
 			"KDE: System Settings → Accessibility",
-		}, "gnome-control-center", "https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/"
+		}, "gnome-control-center accessibility", "https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/"
 	case KindScreenRecording:
 		return []string{
 			"Wayland: install xdg-desktop-portal and a backend (e.g. xdg-desktop-portal-gnome)",
 			"X11: no permission required (any X client can capture the screen)",
-		}, "gnome-control-center", ""
+			"GNOME 45+: Screen recording is granted in Settings → Privacy → Screen Sharing / Screencast",
+		}, "gnome-control-center screen-share", ""
 	case KindMicrophone:
 		return []string{
 			"GNOME: Settings → Privacy → Microphone",
 			"Add your user to the 'audio' group if capture still fails: sudo usermod -aG audio $USER",
 			"PipeWire / PulseAudio: ensure Condura can access the mic source",
-		}, "gnome-control-center privacy", ""
+		}, "gnome-control-center microphone", ""
 	case KindAutomation:
 		return []string{
 			"AT-SPI2 provides accessibility scripting; no separate OS-level grant needed",

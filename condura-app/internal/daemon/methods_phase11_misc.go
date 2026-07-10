@@ -138,12 +138,12 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 
 	// permissions.open_settings: open the OS pane AND return the guide
 	// so the UI can show steps even if the open fails.
-	srv.Register("permissions.open_settings", func(_ context.Context, params json.RawMessage) (any, error) {
+	srv.Register("permissions.open_settings", func(ctx context.Context, params json.RawMessage) (any, error) {
 		k, err := parseKind(params)
 		if err != nil {
 			return nil, err
 		}
-		guide, opened, openErr := permissions.OpenSettings(k)
+		guide, opened, openErr := permissions.OpenSettings(ctx, k)
 		out := map[string]any{
 			"guide":  guide,
 			"opened": opened,
