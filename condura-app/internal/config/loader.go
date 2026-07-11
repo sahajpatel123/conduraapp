@@ -366,7 +366,7 @@ func defaultProviders() map[string]ProviderConfig {
 		ProviderGroq:       mk("llama-4-70b-chat"),
 		ProviderFireworks:  mk("accounts/fireworks/models/llama-v4-70b-chat"),
 		ProviderCustom:     {Enabled: false, BaseURL: "", DefaultModel: "", MaxRetries: 3, TimeoutSec: 60},
-		ProviderOllama:     {Enabled: false, BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "llama4", MaxRetries: 1, TimeoutSec: 120},
+		ProviderOllama:     {Enabled: false, BaseURL: "http://127.0.0.1:11434/v1", DefaultModel: "llama3.3", MaxRetries: 1, TimeoutSec: 120},
 	}
 }
 
