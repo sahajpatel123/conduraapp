@@ -1,16 +1,49 @@
 <script lang="ts">
+  /**
+   * Ask — the conductor’s desk.
+   * Signature: ask atlas (empty) · plan plates with gated steps (thread) · tone-aware composer.
+   */
   import { onMount } from 'svelte'
   import { conversation } from '../../stores/conversation.svelte'
   import { settings } from '../../stores/settings.svelte'
   import { halt } from '../../stores/halt.svelte'
+  import { daemon } from '../../stores/daemon.svelte'
   import { ipc } from '../../ipc/client'
   import type { Message, ProviderInfo, ToolCall } from '../../ipc/types'
 
-  const STARTERS = [
-    { id: 'sum', label: 'Summarize what’s on my screen' },
-    { id: 'fix', label: 'Find and fix the last error I hit' },
-    { id: 'plan', label: 'Plan the next hour of work' },
-    { id: 'safe', label: 'What can you do without asking me?' },
+  const STARTERS: { id: string; kicker: string; label: string; body: string }[] = [
+    {
+      id: 'sum',
+      kicker: 'See',
+      label: 'Summarize what’s on my screen',
+      body: 'Read the visible surface. No clicks until you allow them.',
+    },
+    {
+      id: 'fix',
+      kicker: 'Repair',
+      label: 'Find and fix the last error I hit',
+      body: 'Diagnose first. Propose a fix. Wait for the gate.',
+    },
+    {
+      id: 'plan',
+      kicker: 'Chart',
+      label: 'Plan the next hour of work',
+      body: 'A plan you can edit — not a silent sprint.',
+    },
+    {
+      id: 'safe',
+      kicker: 'Contract',
+      label: 'What can you do without asking me?',
+      body: 'Name the safe band. Everything else stays locked.',
+    },
+  ]
+
+  const PIPE = [
+    { n: '01', t: 'Ask' },
+    { n: '02', t: 'Plan' },
+    { n: '03', t: 'Consent' },
+    { n: '04', t: 'Act' },
+    { n: '05', t: 'Audit' },
   ]
 
   let draft = $state('')
@@ -19,6 +52,9 @@
   let scrollEl = $state<HTMLDivElement | null>(null)
   let selectedModel = $state('')
   let providers = $state<ProviderInfo[]>([])
+  let atlasFocus = $state<string | null>(null)
+  let copied = $state(false)
+  let reduceMotion = $state(false)
 
   const modelOptions = $derived(
     providers.flatMap((p) =>
@@ -31,11 +67,20 @@
 
   const hasMessages = $derived(conversation.messages.length > 0 || conversation.isStreaming)
   const halted = $derived(halt.state.halted)
+  const connected = $derived(daemon.connected)
   const canSend = $derived(
     !!draft.trim() && !conversation.isStreaming && !halted && selectedModel.includes(':')
   )
-  const tone = $derived<'halted' | 'thinking' | 'ready' | 'idle'>(
-    halted ? 'halted' : conversation.isStreaming ? 'thinking' : canSend ? 'ready' : 'idle'
+  const tone = $derived<'halted' | 'thinking' | 'ready' | 'offline' | 'idle'>(
+    halted
+      ? 'halted'
+      : conversation.isStreaming
+        ? 'thinking'
+        : !connected && !selectedModel
+          ? 'offline'
+          : canSend
+            ? 'ready'
+            : 'idle'
   )
   const toneLabel = $derived(
     tone === 'halted'
@@ -44,10 +89,24 @@
         ? 'Thinking · watch the plan'
         : tone === 'ready'
           ? 'Ready to send'
-          : 'Waiting for a line'
+          : tone === 'offline'
+            ? 'Daemon offline · model optional in preview'
+            : 'Waiting for a line'
   )
+  const liveNote = $derived(
+    halted
+      ? 'Halt is armed — nothing leaves this desk until you resume.'
+      : connected
+        ? selectedModel
+          ? `Live · ${selectedModel.replace(':', ' · ')}`
+          : 'Connected · choose a model below'
+        : 'Offline · connect the daemon to stream'
+  )
+  const recent = $derived(conversation.conversations.slice(0, 5))
 
   onMount(() => {
+    reduceMotion =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
     void (async () => {
       await settings.refresh().catch(() => {})
       await conversation.refreshList().catch(() => {})
@@ -154,96 +213,209 @@
       conversation.messages = []
     })
   }
+
+  async function openThread(id: number): Promise<void> {
+    await conversation.open(id).catch(() => {})
+  }
+
+  function goAudit(): void {
+    window.location.hash = '#/audit'
+  }
+
+  async function copyLast(): Promise<void> {
+    const last = [...conversation.messages].reverse().find((m) => m.role === 'assistant' && m.content)
+    if (!last?.content) return
+    try {
+      await navigator.clipboard.writeText(last.content)
+      copied = true
+      setTimeout(() => (copied = false), 1600)
+    } catch {
+      /* ignore */
+    }
+  }
 </script>
 
 <section class="chat">
   <div class="feed" bind:this={scrollEl}>
     {#if !hasMessages}
-      <div class="hero">
-        <div class="orb" aria-hidden="true"></div>
-        <p class="kicker">Local conductor · on this machine</p>
-        <h1>Ask once.<br /><span>Watch the plan.</span></h1>
-        <p class="sub">
-          Condura shows what it will do before it does it. Start a line below, or choose a starter.
-        </p>
-        <div class="starters md-stagger">
-          {#each STARTERS as s (s.id)}
-            <button type="button" class="starter" onclick={() => pickStarter(s.label)}>
-              <span class="starter-dot" aria-hidden="true"></span>
-              <span>{s.label}</span>
-            </button>
+      <div class="hero" class:calm={reduceMotion}>
+        <header class="thesis">
+          <p class="brand-line">
+            <span class="word">Condura</span>
+            <span class="slash" aria-hidden="true">/</span>
+            <span class="edition">Ask</span>
+          </p>
+          <h1>Ask once.<br /><span>Watch the plan.</span></h1>
+          <p class="sub">
+            Free. Local. Consent before action. Condura shows what it will do — then waits for you.
+          </p>
+          <p class="live" class:hot={connected && !halted} class:bad={halted}>
+            <span class="live-dot" aria-hidden="true"></span>
+            {liveNote}
+          </p>
+        </header>
+
+        <ol class="pipe" aria-label="How an ask becomes an act">
+          {#each PIPE as p (p.n)}
+            <li>
+              <span class="n">{p.n}</span>
+              <span class="t">{p.t}</span>
+            </li>
           {/each}
+        </ol>
+
+        <div class="atlas">
+          <div class="atlas-head">
+            <p class="cite">Ways to begin</p>
+            <h2>Four doors into the desk</h2>
+            <p class="atlas-note">Each starter is a real ask. Pick one, or write your own below.</p>
+          </div>
+          <div class="atlas-grid md-stagger">
+            {#each STARTERS as s (s.id)}
+              <button
+                type="button"
+                class="door"
+                class:focus={atlasFocus === s.id}
+                disabled={halted}
+                onmouseenter={() => (atlasFocus = s.id)}
+                onfocus={() => (atlasFocus = s.id)}
+                onmouseleave={() => (atlasFocus = null)}
+                onblur={() => (atlasFocus = null)}
+                onclick={() => pickStarter(s.label)}
+              >
+                <span class="door-k">{s.kicker}</span>
+                <span class="door-t">{s.label}</span>
+                <span class="door-b">{s.body}</span>
+                <span class="door-a">
+                  Begin
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            {/each}
+          </div>
         </div>
+
+        {#if recent.length}
+          <div class="recent">
+            <p class="cite">Recent threads</p>
+            <div class="recent-row">
+              {#each recent as c (c.id)}
+                <button type="button" class="recent-chip" onclick={() => void openThread(c.id)}>
+                  {c.title || `Thread ${c.id}`}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     {:else}
-      <div class="thread-bar">
-        <p class="cite">thread · gated</p>
-        <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void clearThread()}>
-          New ask
-        </button>
-      </div>
-      <div class="messages">
-        {#each conversation.messages as msg, i (i)}
-          <article class="msg" data-role={msg.role}>
-            <header>
-              <span>{msg.role === 'user' ? 'You' : 'Condura'}</span>
-              {#if msg.role === 'assistant'}
-                <span class="cite">
-                  {stepsFor(msg).length ? `${stepsFor(msg).length} gated step${stepsFor(msg).length === 1 ? '' : 's'}` : 'plan · gated'}
-                </span>
+      <div class="thread">
+        <div class="thread-bar">
+          <div>
+            <p class="cite">thread · gated</p>
+            <h2 class="thread-title">{conversation.currentTitle || 'Ask'}</h2>
+          </div>
+          <div class="thread-actions">
+            <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void copyLast()} disabled={!conversation.messages.some((m) => m.role === 'assistant' && m.content)}>
+              {copied ? 'Copied' : 'Copy last'}
+            </button>
+            <button type="button" class="md-btn md-btn-ghost tiny" onclick={goAudit}>Open audit</button>
+            <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void clearThread()}>
+              New ask
+            </button>
+          </div>
+        </div>
+
+        {#if recent.length > 1}
+          <div class="rail" aria-label="Recent threads">
+            {#each recent as c (c.id)}
+              <button
+                type="button"
+                class="rail-item"
+                class:on={c.id === conversation.currentID}
+                onclick={() => void openThread(c.id)}
+              >
+                {c.title || `Thread ${c.id}`}
+              </button>
+            {/each}
+          </div>
+        {/if}
+
+        <div class="messages">
+          {#each conversation.messages as msg, i (i)}
+            <article class="msg" data-role={msg.role}>
+              <header>
+                <span>{msg.role === 'user' ? 'You' : 'Condura'}</span>
+                {#if msg.role === 'assistant'}
+                  <span class="cite">
+                    {stepsFor(msg).length
+                      ? `${stepsFor(msg).length} gated step${stepsFor(msg).length === 1 ? '' : 's'}`
+                      : 'plan · gated'}
+                  </span>
+                {/if}
+              </header>
+              {#if msg.content}
+                <div class="bubble">{msg.content}</div>
               {/if}
-            </header>
-            {#if msg.content}
-              <div class="bubble">{msg.content}</div>
-            {/if}
-            {#if stepsFor(msg).length}
-              <ol class="steps">
-                {#each stepsFor(msg) as tc (tc.id)}
-                  <li>
-                    <span class="step-dot" aria-hidden="true"></span>
-                    <div>
-                      <strong>{toolLabel(tc)}</strong>
-                      {#if toolArgs(tc)}
-                        <span class="args">{toolArgs(tc)}</span>
-                      {/if}
-                    </div>
-                  </li>
-                {/each}
-              </ol>
-            {/if}
-          </article>
-        {/each}
-        {#if conversation.isStreaming}
-          <article class="msg" data-role="assistant">
-            <header>
-              <span>Condura</span>
-              <span class="cite live">thinking</span>
-            </header>
-            {#if conversation.streamingDelta}
-              <div class="bubble streaming">{conversation.streamingDelta}</div>
-            {:else}
-              <div class="bubble streaming muted">Reading the room…</div>
-            {/if}
-            {#if conversation.streamingToolCalls.length}
-              <ol class="steps live">
-                {#each conversation.streamingToolCalls as tc (tc.id)}
-                  <li>
-                    <span class="step-dot" aria-hidden="true"></span>
-                    <div>
-                      <strong>{toolLabel(tc)}</strong>
-                      {#if toolArgs(tc)}
-                        <span class="args">{toolArgs(tc)}</span>
-                      {/if}
-                    </div>
-                  </li>
-                {/each}
-              </ol>
-            {/if}
-          </article>
-        {/if}
-        {#if conversation.streamingError}
-          <p class="err">{conversation.streamingError}</p>
-        {/if}
+              {#if stepsFor(msg).length}
+                <ol class="steps">
+                  {#each stepsFor(msg) as tc, si (tc.id)}
+                    <li>
+                      <span class="step-n" aria-hidden="true">{String(si + 1).padStart(2, '0')}</span>
+                      <div>
+                        <strong>{toolLabel(tc)}</strong>
+                        {#if toolArgs(tc)}
+                          <span class="args">{toolArgs(tc)}</span>
+                        {/if}
+                        <span class="gate">awaits consent before action</span>
+                      </div>
+                    </li>
+                  {/each}
+                </ol>
+              {/if}
+            </article>
+          {/each}
+          {#if conversation.isStreaming}
+            <article class="msg" data-role="assistant">
+              <header>
+                <span>Condura</span>
+                <span class="cite live">thinking</span>
+              </header>
+              {#if conversation.streamingDelta}
+                <div class="bubble streaming">{conversation.streamingDelta}</div>
+              {:else}
+                <div class="bubble streaming muted">Reading the room…</div>
+              {/if}
+              {#if conversation.streamingToolCalls.length}
+                <ol class="steps live">
+                  {#each conversation.streamingToolCalls as tc, si (tc.id)}
+                    <li>
+                      <span class="step-n" aria-hidden="true">{String(si + 1).padStart(2, '0')}</span>
+                      <div>
+                        <strong>{toolLabel(tc)}</strong>
+                        {#if toolArgs(tc)}
+                          <span class="args">{toolArgs(tc)}</span>
+                        {/if}
+                        <span class="gate">proposed · not yet allowed</span>
+                      </div>
+                    </li>
+                  {/each}
+                </ol>
+              {/if}
+            </article>
+          {/if}
+          {#if conversation.streamingError}
+            <p class="err">{conversation.streamingError}</p>
+          {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -258,7 +430,11 @@
       bind:value={draft}
       class="input"
       rows="1"
-      placeholder={halted ? 'Halted — resume to ask' : conversation.isStreaming ? 'Thinking…' : 'Ask Condura…'}
+      placeholder={halted
+        ? 'Halted — resume to ask'
+        : conversation.isStreaming
+          ? 'Thinking…'
+          : 'Ask Condura…'}
       disabled={halted || conversation.isStreaming}
       onfocus={() => (focused = true)}
       onblur={() => (focused = false)}
@@ -281,12 +457,16 @@
             </select>
           </label>
         {:else}
-          <span class="offline" class:warn={!selectedModel} title={selectedModel || 'No model · connect daemon'}>
+          <span
+            class="offline"
+            class:warn={!selectedModel}
+            title={selectedModel || 'No model · connect daemon'}
+          >
             <span class="full">{selectedModel || 'No model · connect daemon'}</span>
             <span class="short">{selectedModel ? selectedModel.split(':').pop() : 'No model'}</span>
           </span>
         {/if}
-        <span class="hint">Enter to send · Esc to stop</span>
+        <span class="hint">Enter to send · Esc to stop · Shift+Enter for line</span>
       </div>
       <div class="actions">
         {#if conversation.isStreaming}
@@ -321,30 +501,36 @@
     padding: 28px 28px 16px;
     scroll-behavior: smooth;
   }
+
+  /* —— Empty desk —— */
   .hero {
-    max-width: 640px;
-    margin: min(10vh, 72px) auto 0;
-    position: relative;
+    max-width: 760px;
+    margin: min(6vh, 48px) auto 0;
   }
-  .orb {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 20px;
-    border-radius: 50%;
-    background: conic-gradient(from 200deg, var(--md-cobalt), var(--md-live), transparent 70%, var(--md-cobalt));
-    mask: radial-gradient(circle at 50% 50%, transparent 42%, #000 44%);
-    -webkit-mask: radial-gradient(circle at 50% 50%, transparent 42%, #000 44%);
-    animation: md-rise 520ms var(--md-spring) both, md-orb-spin 10s linear 520ms infinite;
-    filter: drop-shadow(0 8px 24px color-mix(in oklab, var(--md-cobalt) 28%, transparent));
+  .brand-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 18px;
+    animation: md-rise 420ms var(--md-ease) both;
   }
-  .kicker {
+  .word {
+    font-family: var(--md-font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--md-ink);
+  }
+  .slash {
+    color: var(--md-ink-faint);
+    font-weight: 400;
+  }
+  .edition {
     font-family: var(--md-font-mono);
     font-size: 11px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    margin: 0 0 16px;
-    animation: md-rise 500ms var(--md-ease) both;
   }
   h1 {
     font-family: var(--md-font-display);
@@ -353,88 +539,276 @@
     letter-spacing: -0.055em;
     line-height: 0.98;
     margin: 0 0 16px;
-    animation: md-rise 560ms var(--md-ease) 60ms both;
+    animation: md-rise 520ms var(--md-ease) 40ms both;
   }
   h1 span {
-    background: linear-gradient(105deg, var(--md-cobalt), var(--md-live) 55%, var(--md-cobalt));
-    background-size: 200% 100%;
+    color: var(--md-cobalt);
+    background: linear-gradient(105deg, var(--md-cobalt), var(--md-live));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: md-shimmer 5s linear infinite;
+  }
+  .hero.calm h1 span {
+    color: var(--md-cobalt);
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
   }
   .sub {
+    margin: 0 0 14px;
+    max-width: 42ch;
     font-size: 16px;
     line-height: 1.55;
     color: var(--md-ink-mute);
-    max-width: 42ch;
-    margin: 0 0 28px;
-    animation: md-rise 560ms var(--md-ease) 120ms both;
+    animation: md-rise 520ms var(--md-ease) 80ms both;
   }
-  .starters {
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 28px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--md-ink-faint);
+    animation: md-rise 520ms var(--md-ease) 100ms both;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .live.hot {
+    color: var(--md-live);
+  }
+  .live.hot .live-dot {
+    background: var(--md-live);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 18%, transparent);
+  }
+  .live.bad {
+    color: var(--md-halt);
+  }
+  .live.bad .live-dot {
+    background: var(--md-halt);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 18%, transparent);
+  }
+
+  .pipe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+    margin: 0 0 32px;
+    padding: 0;
+    list-style: none;
+    animation: md-rise 520ms var(--md-ease) 120ms both;
+  }
+  .pipe li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+  }
+  .pipe .n {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    color: var(--md-cobalt);
+    letter-spacing: 0.08em;
+  }
+  .pipe .t {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--md-ink-soft);
+  }
+
+  .atlas-head {
+    margin-bottom: 14px;
+  }
+  .cite {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 8px;
+  }
+  .atlas h2 {
+    font-family: var(--md-font-display);
+    font-size: 22px;
+    letter-spacing: -0.04em;
+    margin: 0 0 6px;
+  }
+  .atlas-note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+    max-width: 46ch;
+  }
+  .atlas-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
-  @media (max-width: 640px) {
-    .starters {
-      grid-template-columns: 1fr;
-    }
-    .feed {
-      padding: 20px 16px 12px;
-    }
-  }
-  .starter {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
+  .door {
     text-align: left;
-    padding: 15px 16px;
+    display: grid;
+    gap: 6px;
+    padding: 16px 16px 14px;
     border-radius: 18px;
     border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 82%, transparent);
-    color: var(--md-ink-soft);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.4;
-    cursor: pointer;
-    backdrop-filter: blur(8px);
-    transition:
-      transform 220ms var(--md-spring),
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease),
-      background var(--md-dur) var(--md-ease);
-  }
-  .starter-dot {
-    width: 8px;
-    height: 8px;
-    margin-top: 4px;
-    border-radius: 50%;
-    flex: none;
-    background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 18%, transparent);
-    transition: transform 220ms var(--md-spring);
-  }
-  .starter:hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, var(--md-line-strong));
-    box-shadow: var(--md-shadow);
     background: var(--md-surface);
+    cursor: pointer;
+    color: inherit;
+    transition:
+      border-color 180ms var(--md-ease),
+      transform 180ms var(--md-spring),
+      box-shadow 180ms var(--md-ease);
   }
-  .starter:hover .starter-dot {
-    transform: scale(1.25);
+  .door:hover,
+  .door.focus {
+    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    transform: translateY(-2px);
+    box-shadow: var(--md-shadow);
   }
-  .starter:active {
-    transform: scale(0.98);
-  }
-  .starter:focus-visible {
+  .door:focus-visible {
     outline: none;
-    border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
   }
-  .messages {
-    max-width: 720px;
+  .door:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .door-k {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-cobalt);
+  }
+  .door-t {
+    font-family: var(--md-font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+  .door-b {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+  }
+  .door-a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--md-cobalt);
+    font-weight: 600;
+  }
+
+  .recent {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--md-line);
+  }
+  .recent-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .recent-chip {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-stage);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--md-ink-mute);
+    cursor: pointer;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .recent-chip:hover {
+    border-color: var(--md-cobalt);
+    color: var(--md-ink);
+  }
+  .recent-chip:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+
+  /* —— Thread —— */
+  .thread {
+    max-width: 760px;
     margin: 0 auto;
+  }
+  .thread-bar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--md-line);
+  }
+  .thread-title {
+    font-family: var(--md-font-display);
+    font-size: 22px;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+  .thread-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  :global(.md-btn.tiny) {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  .rail {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+    padding-bottom: 2px;
+  }
+  .rail-item {
+    flex: none;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--md-ink-faint);
+    cursor: pointer;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail-item.on {
+    color: #fff;
+    background: var(--md-cobalt);
+    border-color: var(--md-cobalt);
+  }
+  .rail-item:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+
+  .messages {
     display: flex;
     flex-direction: column;
     gap: 18px;
@@ -444,7 +818,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-width: min(100%, 560px);
+    max-width: min(100%, 580px);
     animation: md-rise 360ms var(--md-ease) both;
   }
   .msg[data-role='user'] {
@@ -467,6 +841,7 @@
     gap: 10px;
   }
   .msg header .cite {
+    margin: 0;
     letter-spacing: 0.1em;
     color: var(--md-cobalt);
     opacity: 0.85;
@@ -492,39 +867,27 @@
     background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-surface));
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line-strong));
     border-bottom-right-radius: 6px;
-    color: var(--md-ink);
   }
   .msg[data-role='assistant'] .bubble {
     background: var(--md-surface);
     border: 1px solid var(--md-line-strong);
     border-bottom-left-radius: 6px;
     box-shadow: var(--md-shadow);
-    color: var(--md-ink);
   }
   .bubble.muted {
     color: var(--md-ink-mute);
     font-style: italic;
   }
-  .thread-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    max-width: 720px;
-    margin: 0 auto 12px;
-    padding: 0 4px;
-  }
-  .thread-bar .cite {
-    margin: 0;
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-  }
-  :global(.md-btn.tiny) {
-    padding: 7px 12px;
-    font-size: 12px;
+  .bubble.streaming::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 1.1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--md-live);
+    border-radius: 2px;
+    animation: md-caret 1s steps(1) infinite;
   }
   .steps {
     margin: 0;
@@ -533,32 +896,29 @@
     display: grid;
     gap: 8px;
     width: 100%;
-    max-width: min(100%, 560px);
   }
   .steps li {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 10px;
+    gap: 12px;
     align-items: start;
-    padding: 10px 12px;
-    border-radius: 14px;
+    padding: 12px 14px;
+    border-radius: 16px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-stage) 70%, var(--md-surface));
+    background: color-mix(in oklab, var(--md-stage) 65%, var(--md-surface));
   }
   .steps.live li {
     border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
   }
-  .step-dot {
-    width: 8px;
-    height: 8px;
-    margin-top: 5px;
-    border-radius: 50%;
-    background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
+  .step-n {
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--md-cobalt);
+    margin-top: 2px;
   }
-  .steps.live .step-dot {
-    background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+  .steps.live .step-n {
+    color: var(--md-live);
   }
   .steps strong {
     display: block;
@@ -574,22 +934,22 @@
     color: var(--md-ink-faint);
     word-break: break-word;
   }
-  .bubble.streaming::after {
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 1.1em;
-    margin-left: 2px;
-    vertical-align: text-bottom;
-    background: var(--md-live);
-    border-radius: 2px;
-    animation: md-caret 1s steps(1) infinite;
+  .gate {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--md-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
   }
   .err {
     color: var(--md-halt);
     font-size: 13px;
     align-self: flex-start;
   }
+
+  /* —— Composer —— */
   .composer {
     margin: 0 auto 88px;
     max-width: 760px;
@@ -601,7 +961,8 @@
     padding: 10px 12px 12px;
     transition:
       border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease);
+      box-shadow var(--md-dur) var(--md-ease),
+      transform 240ms var(--md-spring);
   }
   .composer .tone {
     display: inline-flex;
@@ -648,27 +1009,15 @@
   .composer[data-tone='halted'] .tone-dot {
     background: var(--md-halt);
   }
-  .composer.focused,
-  .composer.ready.focused {
-    max-width: 760px;
-    width: calc(100% - 56px);
-    align-self: center;
-    background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-radius: 24px;
-    padding: 14px 16px 12px;
-    box-shadow: var(--md-shadow-lift);
-    transition:
-      box-shadow 280ms var(--md-ease),
-      transform 240ms var(--md-spring),
-      border-color 240ms var(--md-ease);
-    animation: md-dock-up 620ms var(--md-ease) 160ms both;
+  .composer[data-tone='offline'] .tone {
+    color: var(--md-ink-mute);
   }
   .composer.focused,
   .composer.ready.focused {
     transform: translateY(-2px);
     border-color: color-mix(in oklab, var(--md-cobalt) 50%, var(--md-line-strong));
     box-shadow: var(--md-focus), var(--md-shadow-lift);
+    background: var(--md-surface);
   }
   .input {
     width: 100%;
@@ -727,54 +1076,25 @@
     border: 1px solid var(--md-line);
     background: var(--md-stage)
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7A90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
-      no-repeat right 8px center;
-    color: var(--md-ink-soft);
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.02em;
-    padding: 5px 26px 5px 10px;
+      no-repeat right 10px center;
+    padding: 6px 28px 6px 10px;
     border-radius: 999px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    color: var(--md-ink-soft);
     outline: none;
-    cursor: pointer;
-    transition:
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease);
-  }
-  .model select:hover {
-    border-color: color-mix(in oklab, var(--md-cobalt) 35%, var(--md-line));
   }
   .model select:focus-visible {
     border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
   }
-  .model select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .offline {
-    display: inline-flex;
-    align-items: center;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px dashed var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-stage) 80%, transparent);
+  .offline.warn {
+    color: var(--md-halt);
   }
   .offline .short {
     display: none;
   }
-  .offline.warn {
-    border-color: color-mix(in oklab, var(--md-halt) 28%, var(--md-line-strong));
-    color: var(--md-ink-mute);
-  }
   .hint {
-    font-family: var(--md-font-sans);
-    font-size: 11px;
-    letter-spacing: 0;
-    color: var(--md-ink-faint);
     opacity: 0.85;
   }
   .actions {
@@ -782,17 +1102,15 @@
     gap: 8px;
     flex: none;
   }
-  @keyframes md-orb-spin {
+
+  @keyframes md-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
     to {
-      transform: rotate(360deg);
-    }
-  }
-  @keyframes md-shimmer {
-    0% {
-      background-position: 100% 0;
-    }
-    100% {
-      background-position: -100% 0;
+      opacity: 1;
+      transform: translateY(0);
     }
   }
   @keyframes md-caret {
@@ -811,89 +1129,47 @@
       opacity: 0.65;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .orb,
-    h1 span,
-    .msg,
-    .composer,
-    .bubble.streaming::after,
-    .tone-dot {
-      animation: none !important;
-    }
-    h1 span {
-      color: var(--md-cobalt);
-      background: none;
-      -webkit-background-clip: unset;
-      background-clip: unset;
-    }
-    .feed {
-      scroll-behavior: auto;
-    }
-  }
+
   @media (max-width: 720px) {
+    .feed {
+      padding: 20px 14px 12px;
+    }
+    .atlas-grid {
+      grid-template-columns: 1fr;
+    }
     .composer {
-      margin: 0 12px 78px;
-      width: calc(100% - 24px);
-      border-radius: 20px;
-      padding: 12px 14px 10px;
+      width: calc(100% - 28px);
+      margin-bottom: 96px;
     }
-    .composer.focused,
-    .composer.ready.focused {
-      transform: none;
+    .thread-bar {
+      flex-direction: column;
+      align-items: stretch;
     }
-    .bar {
-      margin-top: 8px;
-      padding-top: 8px;
-      gap: 8px;
-    }
-    .hint {
-      display: none;
-    }
-    .offline {
-      max-width: min(220px, 48vw);
-      font-size: 9px;
-      padding: 3px 8px;
-    }
-    .model select {
-      max-width: min(180px, 42vw);
-      font-size: 9px;
-      padding: 4px 22px 4px 8px;
-    }
-    .hero {
-      margin: min(4vh, 28px) auto 0;
-    }
-    h1 {
-      font-size: clamp(32px, 9vw, 44px);
-    }
-    .sub {
-      font-size: 14px;
-      margin-bottom: 20px;
-    }
-    .orb {
-      width: 52px;
-      height: 52px;
-      margin-bottom: 14px;
+    .pipe li {
+      padding: 6px 10px;
     }
   }
   @media (max-width: 420px) {
-    .composer {
-      margin: 0 8px 72px;
-      width: calc(100% - 16px);
-      border-radius: 18px;
-      padding: 10px 12px 9px;
-    }
-    .feed {
-      padding: 16px 12px 8px;
-    }
-    .actions :global(.md-btn) {
-      padding: 8px 14px;
-      font-size: 12px;
+    h1 {
+      font-size: clamp(32px, 11vw, 40px);
     }
     .offline .full {
       display: none;
     }
     .offline .short {
       display: inline;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero *,
+    .msg,
+    .composer,
+    .bubble.streaming::after,
+    .tone-dot {
+      animation: none !important;
+    }
+    .feed {
+      scroll-behavior: auto;
     }
   }
 </style>
