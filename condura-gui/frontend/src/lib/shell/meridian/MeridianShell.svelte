@@ -274,11 +274,12 @@
   .top {
     position: relative;
     z-index: 2;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
-    padding: 14px 22px 0;
-    min-height: 52px;
+    padding: 14px 22px;
+    min-height: 56px;
     animation: md-fade 400ms var(--md-ease) both;
   }
   .brand {
@@ -287,6 +288,8 @@
     gap: 10px;
     flex: none;
     z-index: 1;
+    justify-self: start;
+    grid-column: 1;
   }
   .word {
     font-family: var(--md-font-display);
@@ -302,11 +305,10 @@
     color: var(--md-ink-faint);
   }
   .jump {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(420px, calc(100% - 360px));
+    position: relative;
+    grid-column: 2;
+    justify-self: center;
+    width: min(420px, 42vw);
     max-width: 420px;
     z-index: 1;
     display: flex;
@@ -327,7 +329,7 @@
   .jump:hover {
     border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
     color: var(--md-ink);
-    transform: translate(-50%, calc(-50% - 1px));
+    transform: translateY(-1px);
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
   }
   .jump kbd {
@@ -344,8 +346,9 @@
     justify-content: flex-end;
     gap: 10px;
     flex: none;
-    margin-left: auto;
     z-index: 1;
+    justify-self: end;
+    grid-column: 3;
   }
   .status {
     display: inline-flex;
@@ -440,7 +443,7 @@
       display: none;
     }
     .top {
-      padding: 12px 14px 0;
+      padding: 12px 14px;
       gap: 10px;
       min-height: 48px;
     }
@@ -464,9 +467,6 @@
       width: 34px;
       height: 34px;
       border-radius: 10px;
-    }
-    .jump {
-      width: min(420px, calc(100% - 200px));
     }
   }
   @media (prefers-reduced-motion: reduce) {
