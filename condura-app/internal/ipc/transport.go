@@ -144,6 +144,16 @@ func (t *ServerTransport) serveListener(ln net.Listener) {
 // token. The caller is responsible for keeping the listen addr on
 // loopback (or a trusted network); the transport does not enforce
 // that for you. See CLAUDE.md FIX A.
+//
+// ServeHTTP exposes the transport as an http.Handler so it can be
+// mounted in an httptest.Server (or any other http.Handler chain)
+// in integration tests. Production code uses Listen() to bind a
+// real net.Listener; this entry point exists for the test suite
+// only.
+func (t *ServerTransport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t.handleHTTP(w, r)
+}
+
 func (t *ServerTransport) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	// CORS: the Wails webview loads the GUI at the wails:// scheme
 	// (cross-origin to http://127.0.0.1). Every response gets the
@@ -398,6 +408,12 @@ func (t *ServerTransport) handleJSONRPC(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	//nolint:gosec // G705: this is the JSON-RPC response body, served
+	// as application/json. The browser parses it as JSON, not HTML,
+	// so XSS via taint does not apply. The output is produced by
+	// the registered method handler (typed return value) or the
+	// JSON-RPC marshaller (typed error code), both of which are
+	// already JSON-safe by construction.
 	_, _ = w.Write(out)
 }
 

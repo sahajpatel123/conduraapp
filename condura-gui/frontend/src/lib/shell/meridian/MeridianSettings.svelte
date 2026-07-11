@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Settings — instrument desk for lighting, spend, and gate defaults.
-   * Signature: autonomy tone plate + spend gauge + shortcut atlas.
+   * Signature: live contract + autonomy tone plate + spend gauge + shortcut atlas.
    */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
@@ -19,10 +19,23 @@
   let saving = $state(false)
   let note = $state('')
   let modLabel = $state('⌘')
+  let noteTimer: ReturnType<typeof setTimeout> | null = null
 
   const spend = $derived(Number(settings.config?.security?.spend_limit_usd_per_day ?? 0))
   const autonomy = $derived((settings.config?.autonomy?.default_level ?? 'ask') as Autonomy)
   const spendPct = $derived(Math.min(100, Math.round((spend / 50) * 100)))
+  const offline = $derived(!settings.config)
+  const liveNote = $derived(
+    saving
+      ? 'Writing defaults to the daemon…'
+      : note.includes('offline')
+        ? note
+        : note === 'Saved'
+          ? 'Defaults saved — Gatekeeper still holds the door'
+          : offline
+            ? 'Daemon offline — lighting still works; spend and autonomy need a connection'
+            : `Autonomy · ${autonomy} · spend cap $${spend}/day`
+  )
 
   const AUTONOMY: {
     id: Autonomy
@@ -64,15 +77,22 @@
       theme = resolved
     })
     void settings.refresh()
-    return off
+    return () => {
+      off()
+      if (noteTimer) clearTimeout(noteTimer)
+    }
   })
 
   async function savePatch(patch: Record<string, unknown>): Promise<void> {
     saving = true
     note = ''
+    if (noteTimer) clearTimeout(noteTimer)
     try {
       await settings.save(patch as never)
       note = 'Saved'
+      noteTimer = setTimeout(() => {
+        if (note === 'Saved') note = ''
+      }, 2200)
     } catch (e) {
       const s = String(e)
       note = /IPC client not started|not connected|Failed to fetch/i.test(s)
@@ -96,20 +116,36 @@
       },
     })
   }
+
+  function go(hash: string): void {
+    window.location.hash = hash
+  }
 </script>
 
 <MeridianPage
-  kicker="Desk"
+  kicker="Desk · instruments"
   title="Settings"
   lead="Lighting, spend, and the defaults Condura uses when you ask — instruments, not a form dump."
 >
   <div class="desk md-stagger">
+    <p class="contract" class:hot={note === 'Saved'} class:off={offline || note.includes('offline')}>
+      <span class="live-dot" aria-hidden="true"></span>
+      {liveNote}.
+    </p>
+
+    <ol class="pipe" aria-label="Instrument map">
+      <li><span class="n">01</span><span class="t">Lighting</span></li>
+      <li><span class="n">02</span><span class="t">Autonomy</span></li>
+      <li><span class="n">03</span><span class="t">Spend</span></li>
+      <li><span class="n">04</span><span class="t">Keys</span></li>
+    </ol>
+
     <!-- Appearance -->
     <section class="plate lighting" data-mode={theme}>
       <header class="plate-head">
-        <p class="cite">appearance</p>
+        <p class="cite">01 · appearance</p>
         <h2>Desk lighting</h2>
-        <p class="hint">Shift+T toggles anytime. The mist follows.</p>
+        <p class="hint">Shift+T toggles anytime. The mist follows — no daemon required.</p>
       </header>
       <div class="seg" role="group" aria-label="Theme">
         <button type="button" class:on={theme === 'light'} onclick={() => setTheme('light')}>
@@ -130,7 +166,7 @@
     <!-- Gate defaults -->
     <section class="plate gate">
       <header class="plate-head">
-        <p class="cite">gate defaults</p>
+        <p class="cite">02–03 · gate defaults</p>
         <h2>How Condura asks</h2>
         <p class="hint">Autonomy never bypasses the Gatekeeper. It only changes how often you are asked.</p>
       </header>
@@ -147,6 +183,7 @@
               data-tone={a.tone}
               role="radio"
               aria-checked={autonomy === a.id}
+              disabled={saving}
               onclick={() => setAutonomy(a.id)}
             >
               <span class="auto-dot" aria-hidden="true"></span>
@@ -173,6 +210,7 @@
                 min="0"
                 step="1"
                 value={spend}
+                disabled={saving}
                 onchange={(e) =>
                   void savePatch({
                     security: {
@@ -186,7 +224,7 @@
           </div>
         </div>
 
-        {#if note}
+        {#if note && note !== 'Saved'}
           <p class="note" class:saving class:warn={note.includes('offline') || note.includes('Error')}>
             {saving ? 'Saving…' : note}
           </p>
@@ -197,7 +235,7 @@
     <!-- Shortcuts -->
     <section class="plate keys">
       <header class="plate-head">
-        <p class="cite">atlas · keys</p>
+        <p class="cite">04 · atlas · keys</p>
         <h2>Always within reach</h2>
         <p class="hint">The same map About teaches — wired into the shell.</p>
       </header>
@@ -210,6 +248,24 @@
         {/each}
       </ul>
     </section>
+
+    <div class="doors">
+      <button type="button" class="door" onclick={() => go('#/account')}>
+        <span class="door-k">passport</span>
+        <strong>Account</strong>
+        <span>Optional cloud doors — Hub publish and donate</span>
+      </button>
+      <button type="button" class="door" onclick={() => go('#/about')}>
+        <span class="door-k">colophon</span>
+        <strong>About</strong>
+        <span>Seven stations and the Gatekeeper contract</span>
+      </button>
+      <button type="button" class="door" onclick={() => go('#/audit')}>
+        <span class="door-k">ledger</span>
+        <strong>Audit</strong>
+        <span>Read what Condura did — and refused</span>
+      </button>
+    </div>
   </div>
 </MeridianPage>
 
@@ -217,6 +273,65 @@
   .desk {
     display: grid;
     gap: 16px;
+  }
+  .contract {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+  }
+  .contract.hot {
+    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
+    background: color-mix(in oklab, var(--md-live) 6%, var(--md-surface));
+  }
+  .contract.off {
+    border-color: color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .contract.hot .live-dot {
+    background: var(--md-live);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+  }
+  .pipe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pipe li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+  }
+  .pipe .n {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    color: var(--md-cobalt);
+  }
+  .pipe .t {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--md-ink-soft);
   }
   .plate {
     border-radius: 22px;
@@ -312,11 +427,16 @@
     cursor: pointer;
     display: grid;
     gap: 6px;
+    color: inherit;
     transition:
       border-color 180ms var(--md-ease),
       transform 180ms var(--md-spring),
       box-shadow 180ms var(--md-ease),
       background 180ms var(--md-ease);
+  }
+  .auto-card:disabled {
+    opacity: 0.7;
+    cursor: wait;
   }
   .auto-card strong {
     font-family: var(--md-font-display);
@@ -353,7 +473,7 @@
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 12%, transparent);
   }
   .auto-card[data-tone='caution'].on .auto-dot { background: var(--md-halt); }
-  .auto-card:hover:not(.on) {
+  .auto-card:hover:not(.on):not(:disabled) {
     border-color: var(--md-cobalt);
     transform: translateY(-1px);
   }
@@ -415,6 +535,9 @@
     border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
   }
+  .spend-row input:disabled {
+    opacity: 0.6;
+  }
 
   .key-list {
     display: grid;
@@ -446,6 +569,55 @@
     color: var(--md-ink-mute);
   }
 
+  .doors {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .door {
+    appearance: none;
+    text-align: left;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-stage);
+    border-radius: 18px;
+    padding: 14px 14px 16px;
+    cursor: pointer;
+    display: grid;
+    gap: 6px;
+    color: inherit;
+    transition:
+      border-color 180ms var(--md-ease),
+      transform 180ms var(--md-spring),
+      box-shadow 180ms var(--md-ease);
+  }
+  .door-k {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+  }
+  .door strong {
+    font-family: var(--md-font-display);
+    font-size: 16px;
+    letter-spacing: -0.03em;
+  }
+  .door > span:not(.door-k) {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--md-ink-mute);
+  }
+  .door:hover {
+    border-color: var(--md-cobalt);
+    transform: translateY(-2px);
+    box-shadow: var(--md-shadow);
+  }
+  .door:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+    border-color: var(--md-cobalt);
+  }
+
   .muted {
     color: var(--md-ink-mute);
     font-size: 14px;
@@ -463,7 +635,8 @@
   .note.warn { color: var(--md-halt); }
 
   @media (max-width: 720px) {
-    .autonomy { grid-template-columns: 1fr; }
+    .autonomy,
+    .doors { grid-template-columns: 1fr; }
     .spend { grid-template-columns: 1fr; gap: 14px; }
   }
   @media (max-width: 420px) {

@@ -248,10 +248,30 @@ jobs:
           chmod +x condura-ops/scripts/build-gui.sh
           cd condura-app/cmd/condura-gui
           (cd ../../../condura-gui/frontend && npm ci && npm run build)
-          if ! grep -q 'lp-nav-row' ../../../condura-gui/frontend/assets/dist/assets/*.js; then
-            echo "::error::frontend bundle missing lp-nav-row — stale build" >&2
+          # Verify the frontend bundle is fresh: it exists, is
+          # non-empty, and is newer than HEAD. This catches the
+          # same "stale build" race (npm cache + git checkout
+          # ordering) that the previous lp-nav-row class-grep
+          # tried to catch, without coupling the guardrail to a
+          # specific class name in the bundle. The class-grep
+          # broke whenever the GUI was redesigned (the lp-nav-row
+          # class was removed by the style(about) sweep); this
+          # version is purely about file recency.
+          BUNDLE=$(ls -t ../../../condura-gui/frontend/assets/dist/assets/*.js 2>/dev/null | head -1)
+          if [ -z "$BUNDLE" ] || [ ! -s "$BUNDLE" ]; then
+            echo "::error::frontend bundle missing or empty — npm run build did not produce output" >&2
             exit 1
           fi
+          COMMIT_MTIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+          BUNDLE_MTIME=$(stat -c %Y "$BUNDLE" 2>/dev/null || stat -f %m "$BUNDLE" 2>/dev/null || echo 0)
+          if [ -n "$COMMIT_MTIME" ] && [ "$COMMIT_MTIME" -gt 0 ] && [ "$BUNDLE_MTIME" -lt "$COMMIT_MTIME" ]; then
+            echo "::error::frontend bundle is older than HEAD — npm run build is stale" >&2
+            echo "::error::  bundle mtime:  $(date -d @$BUNDLE_MTIME 2>/dev/null || date -r $BUNDLE_MTIME 2>/dev/null)" >&2
+            echo "::error::  commit mtime: $(date -d @$COMMIT_MTIME 2>/dev/null || date -r $COMMIT_MTIME 2>/dev/null)" >&2
+            exit 1
+          fi
+          BUNDLE_SIZE=$(wc -c < "$BUNDLE" 2>/dev/null | tr -d ' ')
+          echo "frontend bundle OK: $(basename "$BUNDLE") (${BUNDLE_SIZE} bytes)"
           GOTOOLCHAIN=local wails build -clean -trimpath -s -platform darwin/arm64 \
             -ldflags "-s -w -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Version=${VERSION} -X github.com/sahajpatel123/conduraapp/condura-app/internal/version.Commit=${COMMIT}" || {
               echo "::warning::wails CLI not installed; falling back to plain Go build"

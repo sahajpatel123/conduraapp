@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/safego"
@@ -20,17 +21,42 @@ import (
 // transport. In production it is a *http.Client with a 60s timeout,
 // which is comfortably larger than Telegram's long-poll window
 // (30s by default — see the timeout param on getUpdates below).
+//
+// baseURL is the Bot API origin. Production sets it to
+// "https://api.telegram.org" (see apiCall). Tests override it via
+// setBaseURL to point at an httptest.NewServer so the channel can
+// be exercised end-to-end without hitting api.telegram.org.
+//
+// mu protects the chatID and connected fields. The receive
+// goroutine (started by Manager.startReceive) writes chatID when
+// the first inbound message arrives; the main goroutine reads it
+// from Send / Status. Without the mutex these unsynchronized
+// accesses race and -race catches them. Read paths (Send, Status)
+// use the helpers below rather than touching the fields directly.
 type telegramChannel struct {
 	token      string
 	chatID     string
 	connected  bool
 	httpClient *http.Client
+	baseURL    string
+	mu         sync.Mutex
 }
 
 func newTelegramChannel() *telegramChannel {
 	return &telegramChannel{
 		httpClient: &http.Client{Timeout: 60 * time.Second},
+		baseURL:    "https://api.telegram.org",
 	}
+}
+
+// setBaseURL overrides the Bot API origin. Pass the empty string
+// to reset to the default. Production code should not call this;
+// the integration test suite is the only intended caller.
+func (t *telegramChannel) setBaseURL(s string) {
+	if s == "" {
+		s = "https://api.telegram.org"
+	}
+	t.baseURL = s
 }
 
 // setHTTPClient replaces the HTTP client used for Telegram API
@@ -51,10 +77,14 @@ func (t *telegramChannel) Connect(ctx context.Context, token string) error {
 	// t.token to build the bot URL. If validation fails we
 	// roll back below so an invalid token never leaves a
 	// half-configured channel behind.
+	t.mu.Lock()
 	t.token = token
+	t.mu.Unlock()
 	resp, err := t.apiCall(ctx, "getMe", nil)
 	if err != nil {
+		t.mu.Lock()
 		t.token = ""
+		t.mu.Unlock()
 		return fmt.Errorf("reach: telegram connect: %w", err)
 	}
 	var me struct {
@@ -64,18 +94,40 @@ func (t *telegramChannel) Connect(ctx context.Context, token string) error {
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(resp, &me); err != nil || !me.OK {
+		t.mu.Lock()
 		t.token = ""
+		t.mu.Unlock()
 		return fmt.Errorf("reach: invalid telegram token")
 	}
+	t.mu.Lock()
 	t.connected = true
+	t.mu.Unlock()
 	return nil
 }
 
 func (t *telegramChannel) Disconnect(_ context.Context) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.token = ""
 	t.chatID = ""
 	t.connected = false
 	return nil
+}
+
+// setChatID stores the captured chat id under the channel's mutex.
+// Called from Manager.startReceive after the first inbound message
+// is observed, so subsequent Send("") calls route correctly.
+func (t *telegramChannel) setChatID(id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.chatID = id
+}
+
+// getChatID returns the current chat id under the channel's mutex.
+func (t *telegramChannel) getChatID() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.chatID
 }
 
 func (t *telegramChannel) Send(ctx context.Context, chatID, text string) error {
@@ -83,7 +135,7 @@ func (t *telegramChannel) Send(ctx context.Context, chatID, text string) error {
 		return fmt.Errorf("reach: telegram not connected")
 	}
 	if chatID == "" {
-		chatID = t.chatID
+		chatID = t.getChatID()
 	}
 	if chatID == "" {
 		return fmt.Errorf("reach: telegram chat_id unknown — message the bot once to establish")
@@ -105,6 +157,8 @@ func (t *telegramChannel) Receive(ctx context.Context) (<-chan Message, error) {
 }
 
 func (t *telegramChannel) Status(_ context.Context) (ChannelStatus, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return ChannelStatus{
 		Name:      "telegram",
 		Connected: t.connected,
@@ -183,7 +237,7 @@ func (t *telegramChannel) apiCall(ctx context.Context, method string, params url
 	if t.token == "" {
 		return nil, fmt.Errorf("reach: telegram token not set")
 	}
-	u := fmt.Sprintf("https://api.telegram.org/bot%s/%s", t.token, method)
+	u := fmt.Sprintf("%s/bot%s/%s", t.baseURL, t.token, method)
 	var req *http.Request
 	var err error
 	if params != nil {

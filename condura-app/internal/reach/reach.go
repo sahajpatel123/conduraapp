@@ -61,10 +61,11 @@ type ChannelStatus struct {
 
 // Manager orchestrates messaging channels.
 type Manager struct {
-	channels map[string]Channel
-	store    *Store
-	cipher   Cipher
-	broker   EventBroker
+	channels   map[string]Channel
+	store      *Store
+	cipher     Cipher
+	broker     EventBroker
+	botBaseURL string // overrides the Bot API origin for channels that use one; empty = production default
 }
 
 // NewManager returns a Manager with the given store. cipher may be
@@ -87,6 +88,27 @@ func NewManager(store *Store, cipher Cipher, broker EventBroker) *Manager {
 // subsystems.Broker is created mid-initSubsystems).
 func (m *Manager) SetBroker(broker EventBroker) {
 	m.broker = broker
+}
+
+// SetBotBaseURL overrides the Bot API origin for telegramChannel
+// (and any future channel that consumes a Bot-style base URL). Pass
+// the empty string to reset to the production default
+// (https://api.telegram.org). Existing channels are updated in
+// place; channels created after the call inherit the new URL.
+//
+// The primary caller is the integration test suite (see
+// condura-app/test/integration), which uses an httptest.NewServer
+// to fake the Telegram Bot API without hitting api.telegram.org.
+// Production code should not call this; it is exported only
+// because test packages in a different module cannot reach
+// unexported methods on reach.Manager.
+func (m *Manager) SetBotBaseURL(url string) {
+	m.botBaseURL = url
+	for _, ch := range m.channels {
+		if tc, ok := ch.(*telegramChannel); ok {
+			tc.setBaseURL(url)
+		}
+	}
 }
 
 // Store returns the underlying channel store.
@@ -163,6 +185,20 @@ func (m *Manager) Status(ctx context.Context, name string) (ChannelStatus, error
 	return ch.Status(ctx)
 }
 
+// Send dispatches a message to a connected channel. If chatID is
+// empty the channel's stored chat_id is used (the value captured
+// from the first inbound update via the receive loop). Send is
+// the public counterpart to Channel.Send — the Manager-level
+// helper exists so callers don't need to fish the channel out
+// of the channels map themselves.
+func (m *Manager) Send(ctx context.Context, name, chatID, text string) error {
+	ch, err := m.getOrCreateChannel(name)
+	if err != nil {
+		return err
+	}
+	return ch.Send(ctx, chatID, text)
+}
+
 // Restore re-establishes channels that were connected at the last
 // daemon shutdown. Called from buildReach on boot. Channels without
 // a stored token, or whose decryption fails, are silently skipped
@@ -198,10 +234,12 @@ func (m *Manager) Restore(ctx context.Context) error {
 		// Pre-populate the channel's in-memory chat_id from the
 		// stored value so the first Send can route correctly
 		// without waiting for an inbound message. Receive will
-		// overwrite this on the next inbound update.
+		// overwrite this on the next inbound update. setChatID
+		// takes the channel's mutex so this write is race-free
+		// with the receive goroutine.
 		if s.ChatID != "" {
 			if tc, ok := ch.(*telegramChannel); ok {
-				tc.chatID = s.ChatID
+				tc.setChatID(s.ChatID)
 			}
 		}
 		m.startReceive(s.Name, ch)
@@ -226,6 +264,17 @@ func (m *Manager) startReceive(name string, ch Channel) {
 			if !captured && msg.ChatID != "" {
 				captured = true
 				_ = m.store.UpdateChatID(context.Background(), name, msg.ChatID)
+				// Also keep the in-memory channel state in sync
+				// so Send("") routes to the captured chat_id
+				// without going back to the store on every call.
+				// The type assertion is safe — channels that
+				// don't carry a chat_id (iMessage, the stubs)
+				// simply don't get the field updated. setChatID
+				// takes the channel's mutex so the receive
+				// goroutine and the Send caller don't race.
+				if tc, ok := ch.(*telegramChannel); ok {
+					tc.setChatID(msg.ChatID)
+				}
 			}
 			if m.broker != nil {
 				m.broker.PublishJSON("channel.message", map[string]any{
@@ -247,6 +296,9 @@ func (m *Manager) getOrCreateChannel(name string) (Channel, error) {
 	switch name {
 	case "telegram":
 		ch := newTelegramChannel()
+		if m.botBaseURL != "" {
+			ch.setBaseURL(m.botBaseURL)
+		}
 		m.channels[name] = ch
 		return ch, nil
 	case "whatsapp":

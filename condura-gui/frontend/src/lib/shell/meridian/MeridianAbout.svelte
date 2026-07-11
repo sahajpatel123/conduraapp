@@ -203,6 +203,14 @@
   function goAudit(): void {
     window.location.hash = '#/audit'
   }
+
+  function goSettings(): void {
+    window.location.hash = '#/settings'
+  }
+
+  function goAsk(): void {
+    window.location.hash = '#/'
+  }
 </script>
 
 <article class="colophon" class:in={entered} class:calm={reduceMotion}>
@@ -380,10 +388,20 @@
     <div class="close-mark" aria-hidden="true"></div>
     <p class="close-line">If Condura earns your trust, help keep it independent.</p>
     <nav class="close-index" aria-label="Continue from About">
+      <button type="button" class="close-row" onclick={goAsk}>
+        <span class="close-name">Ask</span>
+        <span class="close-lead" aria-hidden="true"></span>
+        <span class="close-meta">back to the desk</span>
+      </button>
       <button type="button" class="close-row" onclick={goAudit}>
         <span class="close-name">Audit</span>
         <span class="close-lead" aria-hidden="true"></span>
         <span class="close-meta">the ledger</span>
+      </button>
+      <button type="button" class="close-row" onclick={goSettings}>
+        <span class="close-name">Settings</span>
+        <span class="close-lead" aria-hidden="true"></span>
+        <span class="close-meta">lighting · spend · autonomy</span>
       </button>
       <button type="button" class="close-row" onclick={openSite}>
         <span class="close-name">Site</span>
