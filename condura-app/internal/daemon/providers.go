@@ -327,7 +327,7 @@ var allModels = []struct {
 	{config.ProviderFireworks, "accounts/fireworks/models/deepseek-v4-instruct"},
 
 	// Ollama / LocalAI / LM Studio / vLLM (local; user picks actual model)
-	{config.ProviderOllama, "llama3.2"},
+	{config.ProviderOllama, "llama3.3"},
 	{config.ProviderLocalAI, "llama-3.1-8b-instruct"},
 	{config.ProviderLMStudio, "qwen2.5-7b-instruct"},
 	{config.ProviderVLLM, "meta-llama/Llama-3.1-8B-Instruct"},
