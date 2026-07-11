@@ -178,12 +178,30 @@
   const live = $derived(channels.filter((c) => !isSoon(c)))
   const soon = $derived(channels.filter((c) => isSoon(c)))
   const telegram = $derived(live.find((c) => c.id === 'telegram') ?? live[0] ?? null)
+  const liveNote = $derived(
+    telegram && isConnected(telegram)
+      ? 'Telegram live · messages still Gatekeeper-gated'
+      : openInput === 'telegram'
+        ? 'Paste the BotFather token to seal Reach'
+        : 'Reach is opt-in · revoke anytime'
+  )
+
+  function beginToken(id: string): void {
+    if (id !== 'telegram') return
+    openInput = id
+    inputToken = ''
+    submitError = null
+  }
+
+  function goAudit(): void {
+    window.location.hash = '#/audit'
+  }
 </script>
 
 <MeridianPage
-  kicker="Reach"
+  kicker="Reach · on your terms"
   title="Channels"
-  lead="Talk to Condura from elsewhere. Telegram is live today — every connection is gated and revocable."
+  lead="Talk to Condura from elsewhere. Telegram is live today — every connection is gated, local, and revocable."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void load()}>Refresh</button>
@@ -195,8 +213,20 @@
     <div class="md-empty">{error}</div>
   {:else}
     <div class="reach md-stagger">
+      <p class="contract" class:hot={!!telegram && isConnected(telegram)}>
+        <span class="live-dot" aria-hidden="true"></span>
+        {liveNote}. Remote text never bypasses consent.
+      </p>
+
+      <ol class="pipe" aria-label="How Reach connects">
+        <li><span class="n">01</span><span class="t">Mint bot</span></li>
+        <li><span class="n">02</span><span class="t">Paste token</span></li>
+        <li><span class="n">03</span><span class="t">Gatekeeper</span></li>
+        <li><span class="n">04</span><span class="t">Revoke anytime</span></li>
+      </ol>
+
       {#if telegram}
-        <section class="instrument" class:live={isConnected(telegram)}>
+        <section class="instrument" class:live={isConnected(telegram)} class:degraded={telegram.state === 'degraded'}>
           <p class="cite">instrument · telegram</p>
           <div class="inst-head">
             <div class="node" class:on={isConnected(telegram)} aria-hidden="true">T</div>
@@ -205,8 +235,10 @@
               <p class="hint">
                 {#if isConnected(telegram)}
                   Live node. Messages still pass the Gatekeeper before any action.
+                {:else if telegram.state === 'degraded'}
+                  Connection degraded — refresh or revoke and reconnect with a fresh token.
                 {:else}
-                  Mint a bot with BotFather, then paste the token. Condura never stores your personal Telegram password.
+                  Mint a bot with BotFather, then paste the token. Condura never sees your personal Telegram password.
                 {/if}
               </p>
             </div>
@@ -222,21 +254,29 @@
                 <dt>Chat</dt>
                 <dd>{telegram.chatId || 'linked'}</dd>
               </div>
+              <div class="wide">
+                <dt>Contract</dt>
+                <dd>remote ask → plan → consent → audit</dd>
+              </div>
             </dl>
-            <button
-              type="button"
-              class="md-btn md-btn-danger"
-              disabled={busy === telegram.id}
-              onclick={() => void disconnect(telegram.id)}
-            >
-              {busy === telegram.id ? 'Disconnecting…' : 'Revoke channel'}
-            </button>
+            <div class="actions-row">
+              <button type="button" class="md-btn md-btn-ghost" onclick={goAudit}>Open Audit</button>
+              <button
+                type="button"
+                class="md-btn md-btn-danger"
+                disabled={busy === telegram.id}
+                onclick={() => void disconnect(telegram.id)}
+              >
+                {busy === telegram.id ? 'Disconnecting…' : 'Revoke channel'}
+              </button>
+            </div>
           {:else if openInput === telegram.id}
+            <p class="step-note">Step 02 — paste the token BotFather gave you.</p>
             <div class="token-form" role="group" aria-label="Telegram bot token">
               <input
                 type="password"
                 class="token-input"
-                placeholder="bot token from BotFather"
+                placeholder="123456:ABC… bot token"
                 bind:value={inputToken}
                 onkeydown={(e) => {
                   if (e.key === 'Enter') void submitToken(telegram.id)
@@ -250,7 +290,7 @@
                 disabled={busy === telegram.id || !inputToken.trim()}
                 onclick={() => void submitToken(telegram.id)}
               >
-                {busy === telegram.id ? 'Connecting…' : 'Connect'}
+                {busy === telegram.id ? 'Connecting…' : 'Seal Reach'}
               </button>
               <button type="button" class="md-btn md-btn-ghost" disabled={busy === telegram.id} onclick={cancelInput}>
                 Cancel
@@ -264,6 +304,9 @@
               <button type="button" class="md-btn md-btn-primary" onclick={() => connect(telegram.id)}>
                 Connect with BotFather
               </button>
+              <button type="button" class="md-btn md-btn-ghost" onclick={() => beginToken(telegram.id)}>
+                I have a token
+              </button>
               <button type="button" class="md-btn md-btn-ghost" onclick={openBotFather}>Open BotFather</button>
             </div>
           {/if}
@@ -273,6 +316,7 @@
       {#if soon.length}
         <section class="horizon">
           <p class="cite">coming along the meridian · v0.2.0</p>
+          <p class="horizon-note">Honestly not wired yet — no fake Connect buttons.</p>
           <div class="soon-strip">
             {#each soon as ch (ch.id)}
               <span>{ch.name}</span>
@@ -298,6 +342,62 @@
     gap: 16px;
     max-width: 640px;
   }
+  .contract {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+  }
+  .contract.hot {
+    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
+    background: color-mix(in oklab, var(--md-live) 6%, var(--md-surface));
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .contract.hot .live-dot {
+    background: var(--md-live);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+  }
+  .pipe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pipe li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+  }
+  .pipe .n {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    color: var(--md-cobalt);
+  }
+  .pipe .t {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--md-ink-soft);
+  }
   .instrument {
     border-radius: 22px;
     border: 1px solid var(--md-line-strong);
@@ -307,6 +407,9 @@
   }
   .instrument.live {
     border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
+  }
+  .instrument.degraded {
+    border-color: color-mix(in oklab, var(--md-halt) 30%, transparent);
   }
   .inst-head {
     display: grid;
@@ -345,6 +448,13 @@
     line-height: 1.5;
     color: var(--md-ink-mute);
   }
+  .step-note {
+    margin: 0 0 10px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--md-cobalt);
+  }
   .facts {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -353,6 +463,9 @@
     padding: 14px 0;
     border-top: 1px solid var(--md-line);
     border-bottom: 1px solid var(--md-line);
+  }
+  .facts .wide {
+    grid-column: 1 / -1;
   }
   .facts dt {
     font-family: var(--md-font-mono);
@@ -406,6 +519,11 @@
     border-radius: 18px;
     border: 1px dashed var(--md-line-strong);
     background: color-mix(in oklab, var(--md-stage) 60%, transparent);
+  }
+  .horizon-note {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--md-ink-mute);
   }
   .soon-strip {
     display: flex;
