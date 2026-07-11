@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Agents — consent control room for pending sub-agent actions.
+   * Agents — consent control room.
    * Signature: live queue pulse + consent sheets (Approve / Run / Deny).
    */
   import { onMount } from 'svelte'
@@ -16,6 +16,9 @@
     stopPolling,
   } from '../../stores/pending.svelte'
 
+  let busyId = $state<string | null>(null)
+  let busyKind = $state<'approve' | 'run' | 'deny' | null>(null)
+
   onMount(() => {
     void refreshPendingActions()
     startPolling(4000)
@@ -25,7 +28,7 @@
   const rows = $derived($pendingActions)
   const count = $derived($pendingCount)
   const waiting = $derived(rows.filter((r) => r.status === 'pending'))
-  const settled = $derived(rows.filter((r) => r.status !== 'pending').slice(0, 6))
+  const settled = $derived(rows.filter((r) => r.status !== 'pending').slice(0, 8))
 
   function initial(name: string): string {
     const t = name.trim()
@@ -34,6 +37,37 @@
 
   function goAsk(): void {
     window.location.hash = '#/'
+  }
+
+  function goAudit(): void {
+    window.location.hash = '#/audit'
+  }
+
+  function formatWhen(v?: string): string {
+    if (!v) return ''
+    try {
+      const d = new Date(v)
+      return Number.isNaN(d.getTime()) ? v : d.toLocaleString()
+    } catch {
+      return v
+    }
+  }
+
+  async function act(
+    id: string,
+    kind: 'approve' | 'run' | 'deny'
+  ): Promise<void> {
+    if (busyId) return
+    busyId = id
+    busyKind = kind
+    try {
+      if (kind === 'approve') await approvePending(id)
+      else if (kind === 'run') await executePending(id)
+      else await denyPending(id)
+    } finally {
+      busyId = null
+      busyKind = null
+    }
   }
 </script>
 
@@ -46,9 +80,19 @@
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void refreshPendingActions()}>
       Refresh
     </button>
+    <button type="button" class="md-btn md-btn-ghost" onclick={goAudit}>Open Audit</button>
   {/snippet}
 
   <div class="board md-stagger">
+    <p class="contract" class:hot={count > 0}>
+      <span class="live-dot" aria-hidden="true"></span>
+      {#if count > 0}
+        {count} sheet{count === 1 ? '' : 's'} awaiting you — polling every few seconds.
+      {:else}
+        Queue quiet. Polling stays on so a waiting agent lights this room immediately.
+      {/if}
+    </p>
+
     <section class="pulse" class:hot={count > 0} aria-live="polite">
       <div class="pulse-ring" aria-hidden="true">
         <span class="pulse-core">{count}</span>
@@ -58,11 +102,16 @@
         <h2>{count > 0 ? `${count} pending consent` : 'Nothing in flight'}</h2>
         <p>
           {#if count > 0}
-            Each sheet below is a gated action. Approve opens the door; Deny seals it; Run executes an approved row.
+            Each sheet is a gated action. Approve opens the door; Deny seals it; Run executes an approved row.
           {:else}
             When a sub-agent needs you, this room lights up. Until then, the meridian stays calm.
           {/if}
         </p>
+        <ol class="legend" aria-label="Decision meanings">
+          <li><span class="lg allow">Approve</span> open the door</li>
+          <li><span class="lg run">Run</span> execute approved</li>
+          <li><span class="lg deny">Deny</span> seal shut</li>
+        </ol>
         {#if count === 0}
           <button type="button" class="md-btn md-btn-primary" onclick={goAsk}>Ask Condura</button>
         {/if}
@@ -71,7 +120,7 @@
 
     {#if waiting.length > 0}
       <section class="queue">
-        <p class="cite">consent sheets</p>
+        <p class="cite">consent sheets · {waiting.length}</p>
         <div class="list">
           {#each waiting as row (row.id)}
             <article class="sheet">
@@ -79,10 +128,16 @@
                 <div class="mono" aria-hidden="true">{initial(row.agent_name || row.kind || row.id)}</div>
                 <div class="copy">
                   <strong>{row.agent_name || row.kind || row.id}</strong>
-                  <span class="meta">{row.kind || 'action'} · {row.status}</span>
+                  <span class="meta">
+                    {row.kind || 'action'} · {row.status}
+                    {#if row.expires_at} · expires {formatWhen(row.expires_at)}{/if}
+                  </span>
                 </div>
               </header>
               <p class="reason">{row.gate_reason || 'Gatekeeper requires your decision.'}</p>
+              {#if row.gate_decision}
+                <p class="gate-chip">gate · {row.gate_decision}</p>
+              {/if}
               {#if row.payload?.command || row.payload?.path || row.payload?.target}
                 <p class="payload">
                   <span>cite</span>
@@ -90,14 +145,29 @@
                 </p>
               {/if}
               <footer>
-                <button type="button" class="md-btn md-btn-primary" onclick={() => void approvePending(row.id)}>
-                  Approve
+                <button
+                  type="button"
+                  class="md-btn md-btn-primary"
+                  disabled={busyId === row.id}
+                  onclick={() => void act(row.id, 'approve')}
+                >
+                  {busyId === row.id && busyKind === 'approve' ? 'Approving…' : 'Approve'}
                 </button>
-                <button type="button" class="md-btn md-btn-ghost" onclick={() => void executePending(row.id)}>
-                  Run
+                <button
+                  type="button"
+                  class="md-btn md-btn-ghost"
+                  disabled={busyId === row.id}
+                  onclick={() => void act(row.id, 'run')}
+                >
+                  {busyId === row.id && busyKind === 'run' ? 'Running…' : 'Run'}
                 </button>
-                <button type="button" class="md-btn md-btn-danger" onclick={() => void denyPending(row.id)}>
-                  Deny
+                <button
+                  type="button"
+                  class="md-btn md-btn-danger"
+                  disabled={busyId === row.id}
+                  onclick={() => void act(row.id, 'deny')}
+                >
+                  {busyId === row.id && busyKind === 'deny' ? 'Denying…' : 'Deny'}
                 </button>
               </footer>
             </article>
@@ -126,7 +196,36 @@
 <style>
   .board {
     display: grid;
-    gap: 20px;
+    gap: 18px;
+  }
+  .contract {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+  }
+  .contract.hot {
+    border-color: color-mix(in oklab, var(--md-cobalt) 32%, transparent);
+    background: color-mix(in oklab, var(--md-cobalt) 6%, var(--md-surface));
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .contract.hot .live-dot {
+    background: var(--md-cobalt);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -158,7 +257,6 @@
     place-items: center;
     border: 2px solid var(--md-line-strong);
     background: var(--md-stage);
-    position: relative;
   }
   .pulse.hot .pulse-ring {
     border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
@@ -181,11 +279,37 @@
     margin: 0 0 8px;
   }
   .pulse-copy p {
-    margin: 0 0 14px;
+    margin: 0 0 12px;
     font-size: 14px;
     line-height: 1.5;
     color: var(--md-ink-mute);
     max-width: 48ch;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--md-ink-faint);
+  }
+  .lg {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .lg.allow {
+    color: var(--md-cobalt);
+  }
+  .lg.run {
+    color: var(--md-live);
+  }
+  .lg.deny {
+    color: var(--md-halt);
   }
 
   .list {
@@ -238,10 +362,18 @@
     color: var(--md-ink-faint);
   }
   .reason {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
     font-size: 14px;
     line-height: 1.5;
     color: var(--md-ink-soft);
+  }
+  .gate-chip {
+    margin: 0 0 10px;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--md-cobalt);
   }
   .payload {
     margin: 0 0 16px;
