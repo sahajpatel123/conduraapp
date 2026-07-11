@@ -1,11 +1,13 @@
 <script lang="ts">
   /**
-   * Account — optional passport for Hub / donate; local work needs none.
-   * Signature: two atlas doors + OAuth passport strip.
+   * Account — optional passport. Local work needs none.
+   * Signature: local vs cloud atlas doors + OAuth passport strip.
    */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { account } from '../../stores/account.svelte'
+
+  let signing = $state<string | null>(null)
 
   onMount(() => {
     void account.checkStatus()
@@ -14,6 +16,13 @@
   const signedIn = $derived(!!account.status?.signed_in)
   const offlineError = $derived(
     !!account.error && /IPC client not started|not connected|Failed to fetch|daemon/i.test(account.error)
+  )
+  const liveNote = $derived(
+    signedIn
+      ? `Signed in as ${account.status?.display_name || account.status?.email || 'you'}`
+      : offlineError
+        ? 'Daemon offline — OAuth still opens in the browser'
+        : 'No account required for Ask, Audit, Halt, or consent'
   )
 
   const PROVIDERS = [
@@ -44,93 +53,193 @@
   function openDonate(): void {
     window.open('https://condura.app/donate', '_blank', 'noopener,noreferrer')
   }
+
+  async function signIn(id: string, run: () => Promise<unknown> | unknown): Promise<void> {
+    if (signing) return
+    signing = id
+    try {
+      await run()
+    } finally {
+      signing = null
+    }
+  }
 </script>
 
 <MeridianPage
-  kicker="Passport"
+  kicker="Passport · optional"
   title="Account"
   lead="Local agent work never needs an account. Sign in only when you want Hub publishing, donations, or support."
 >
-  {#if account.loading && !account.status}
-    <div class="md-empty">Checking session…</div>
-  {:else if account.error && !offlineError}
-    <div class="md-empty">{account.error}</div>
-  {:else if signedIn}
-    <section class="session plate">
-      <p class="cite">signed in</p>
-      <div class="who">
-        <div class="avatar" aria-hidden="true">
-          {(account.status?.display_name || account.status?.email || '?').slice(0, 1).toUpperCase()}
-        </div>
-        <div>
-          <h2>{account.status?.display_name || account.status?.email || 'You'}</h2>
-          <p class="meta">{account.status?.email}</p>
-        </div>
-      </div>
-      <p class="unlock">This identity unlocks cloud doors — Hub publish and donate stay optional.</p>
-      <div class="doors">
-        <button type="button" class="door" onclick={() => go('#/hub')}>
-          <span class="door-k">shelf</span>
-          <strong>Open Hub</strong>
-          <span>Browse and install skills locally</span>
-        </button>
-        <button type="button" class="door" onclick={openDonate}>
-          <span class="door-k">freedom</span>
-          <strong>Donate</strong>
-          <span>Keep Condura unbound</span>
-        </button>
-      </div>
-      <button type="button" class="md-btn md-btn-danger signout" onclick={() => void account.signOut()}>
-        Sign out
-      </button>
-    </section>
-  {:else}
-    {#if offlineError}
-      <p class="offline">Daemon offline — sign-in still opens in the browser once Condura reconnects.</p>
-    {/if}
+  <div class="desk md-stagger">
+    <p class="contract" class:hot={signedIn} class:off={offlineError && !signedIn}>
+      <span class="live-dot" aria-hidden="true"></span>
+      {liveNote}.
+    </p>
 
-    <div class="atlas md-stagger">
-      <button type="button" class="door primary" onclick={() => go('#/')}>
-        <span class="door-k">local</span>
-        <strong>Stay local</strong>
-        <span>Chat, audit, halt, and consent work with no account. Your machine stays the source of truth.</span>
-        <span class="cta">Go to Ask →</span>
-      </button>
-      <div class="door secondary">
-        <span class="door-k">cloud · optional</span>
-        <strong>Carry a passport</strong>
-        <span>OAuth opens in your browser. Condura never sees your password. Use it for Hub publish and support.</span>
-        <div class="passport" role="group" aria-label="Sign in providers">
-          {#each PROVIDERS as p (p.id)}
-            <button type="button" class="provider" data-id={p.id} onclick={() => void p.run()}>
-              <span class="mark" aria-hidden="true">
-                {#if p.id === 'apple'}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
-                    ><path
-                      d="M16.4 12.3c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.7-2.8-.7-1.4 0-2.8.9-3.5 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.1-2.4-.1 0-2.2-.8-2.2-3.3zM14.5 5.8c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.6.7-1.1 1.7-.9 2.7 1 .1 1.9-.5 2.5-1.3z"
-                    /></svg
-                  >
-                {:else}
-                  {p.mark}
-                {/if}
-              </span>
-              {p.label}
-            </button>
-          {/each}
+    {#if account.loading && !account.status}
+      <div class="md-empty">Checking session…</div>
+    {:else if account.error && !offlineError}
+      <div class="md-empty">{account.error}</div>
+    {:else if signedIn}
+      <section class="session plate">
+        <p class="cite">signed in · cloud doors open</p>
+        <div class="who">
+          <div class="avatar" aria-hidden="true">
+            {(account.status?.display_name || account.status?.email || '?').slice(0, 1).toUpperCase()}
+          </div>
+          <div>
+            <h2>{account.status?.display_name || account.status?.email || 'You'}</h2>
+            <p class="meta">{account.status?.email}</p>
+          </div>
         </div>
-        <p class="note">OAuth · browser · optional</p>
+        <p class="unlock">
+          This identity unlocks optional cloud doors. Local Ask, Audit, and Halt still work the same.
+        </p>
+        <div class="doors">
+          <button type="button" class="door" onclick={() => go('#/hub')}>
+            <span class="door-k">shelf</span>
+            <strong>Open Hub</strong>
+            <span>Browse and install skills locally</span>
+          </button>
+          <button type="button" class="door" onclick={openDonate}>
+            <span class="door-k">freedom</span>
+            <strong>Donate</strong>
+            <span>Keep Condura unbound</span>
+          </button>
+          <button type="button" class="door" onclick={() => go('#/settings')}>
+            <span class="door-k">desk</span>
+            <strong>Settings</strong>
+            <span>Lighting, spend, autonomy</span>
+          </button>
+          <button type="button" class="door" onclick={() => go('#/')}>
+            <span class="door-k">ask</span>
+            <strong>Back to Ask</strong>
+            <span>Your machine stays the source of truth</span>
+          </button>
+        </div>
+        <button type="button" class="md-btn md-btn-danger signout" onclick={() => void account.signOut()}>
+          Sign out
+        </button>
+      </section>
+    {:else}
+      <ol class="pipe" aria-label="What needs an account">
+        <li><span class="n">01</span><span class="t">Local · no account</span></li>
+        <li><span class="n">02</span><span class="t">Hub publish · optional</span></li>
+        <li><span class="n">03</span><span class="t">Donate · optional</span></li>
+      </ol>
+
+      <div class="atlas">
+        <button type="button" class="door primary" onclick={() => go('#/')}>
+          <span class="door-k">local</span>
+          <strong>Stay local</strong>
+          <span>Chat, audit, halt, and consent work with no account. Your machine stays the source of truth.</span>
+          <span class="cta">Go to Ask →</span>
+        </button>
+        <div class="door secondary">
+          <span class="door-k">cloud · optional</span>
+          <strong>Carry a passport</strong>
+          <span>OAuth opens in your browser. Condura never sees your password.</span>
+          <div class="passport" role="group" aria-label="Sign in providers">
+            {#each PROVIDERS as p (p.id)}
+              <button
+                type="button"
+                class="provider"
+                data-id={p.id}
+                disabled={signing === p.id}
+                onclick={() => void signIn(p.id, p.run)}
+              >
+                <span class="mark" aria-hidden="true">
+                  {#if p.id === 'apple'}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                      ><path
+                        d="M16.4 12.3c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.7-2.8-.7-1.4 0-2.8.9-3.5 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.1-2.4-.1 0-2.2-.8-2.2-3.3zM14.5 5.8c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.6.7-1.1 1.7-.9 2.7 1 .1 1.9-.5 2.5-1.3z"
+                      /></svg
+                    >
+                  {:else}
+                    {p.mark}
+                  {/if}
+                </span>
+                {signing === p.id ? 'Opening…' : p.label}
+              </button>
+            {/each}
+          </div>
+          <p class="note">OAuth · browser · optional</p>
+        </div>
       </div>
-    </div>
-  {/if}
+    {/if}
+  </div>
 </MeridianPage>
 
 <style>
+  .desk {
+    display: grid;
+    gap: 16px;
+  }
+  .contract {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+  }
+  .contract.hot {
+    border-color: color-mix(in oklab, var(--md-live) 28%, transparent);
+    background: color-mix(in oklab, var(--md-live) 6%, var(--md-surface));
+  }
+  .contract.off {
+    border-color: color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .contract.hot .live-dot {
+    background: var(--md-live);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+  }
+  .pipe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pipe li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+  }
+  .pipe .n {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    color: var(--md-cobalt);
+  }
+  .pipe .t {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--md-ink-soft);
+  }
   .plate {
     border-radius: 22px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-surface) 88%, transparent);
     padding: 24px;
-    max-width: 560px;
+    max-width: 640px;
   }
   .cite,
   .door-k {
@@ -177,7 +286,7 @@
     font-size: 14px;
     line-height: 1.5;
     color: var(--md-ink-mute);
-    max-width: 42ch;
+    max-width: 48ch;
   }
   .doors {
     display: grid;
@@ -236,14 +345,6 @@
   .signout {
     width: fit-content;
   }
-
-  .offline {
-    margin: 0 0 14px;
-    font-size: 13px;
-    line-height: 1.45;
-    color: var(--md-ink-mute);
-    max-width: 48ch;
-  }
   .atlas {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -282,10 +383,14 @@
       transform 160ms var(--md-spring),
       box-shadow 180ms var(--md-ease);
   }
-  .provider:hover {
+  .provider:hover:not(:disabled) {
     border-color: var(--md-cobalt);
     transform: translateY(-1px);
     box-shadow: var(--md-shadow);
+  }
+  .provider:disabled {
+    opacity: 0.6;
+    cursor: wait;
   }
   .provider:focus-visible {
     outline: none;
