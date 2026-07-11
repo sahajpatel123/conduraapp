@@ -447,7 +447,21 @@ var models = []ModelInfo{
 	// user has pulled (`ollama list`). These are common defaults.
 	// -------------------------------------------------------------------------
 	{
+		ID: "llama3.3", DisplayName: "Llama 3.3 (local, default)",
+		ContextWindow:     128_000,
+		InputCostPerMTok:  0.0,
+		OutputCostPerMTok: 0.0,
+		SupportsTools:     true, SupportsVision: false, SupportsStream: true,
+	},
+	{
 		ID: "llama3.2", DisplayName: "Llama 3.2 (local)",
+		ContextWindow:     128_000,
+		InputCostPerMTok:  0.0,
+		OutputCostPerMTok: 0.0,
+		SupportsTools:     true, SupportsVision: false, SupportsStream: true,
+	},
+	{
+		ID: "llama3.1", DisplayName: "Llama 3.1 (local)",
 		ContextWindow:     128_000,
 		InputCostPerMTok:  0.0,
 		OutputCostPerMTok: 0.0,
