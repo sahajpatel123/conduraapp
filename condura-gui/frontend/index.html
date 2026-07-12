@@ -7,9 +7,50 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
     <title>Condura</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #0b1220; color: #e8eefc; font-family: Figtree, system-ui, sans-serif; }
+      #boot-fail {
+        display: none; position: fixed; inset: 0; place-items: center; text-align: center; padding: 32px;
+      }
+      #boot-fail.show { display: grid; gap: 12px; }
+      #boot-fail h1 { font-family: Sora, sans-serif; font-size: 20px; margin: 0; font-weight: 600; }
+      #boot-fail p { margin: 0; opacity: 0.72; font-size: 14px; max-width: 42ch; line-height: 1.45; }
+      #boot-fail pre {
+        text-align: left; max-width: min(640px, 92vw); max-height: 40vh; overflow: auto;
+        padding: 12px 14px; border-radius: 12px; background: #121a2b; border: 1px solid #243049;
+        font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; white-space: pre-wrap;
+      }
+      #boot-fail button {
+        justify-self: center; margin-top: 4px; padding: 10px 18px; border-radius: 999px;
+        border: 1px solid #2F5BFF; background: #2F5BFF; color: #fff; font-weight: 700; cursor: pointer;
+      }
+    </style>
 </head>
 <body>
 <div id="app"></div>
-<script src="./src/main.ts" type="module"></script>
+<div id="boot-fail" role="alert">
+  <h1>Failed to load Condura</h1>
+  <p>The Meridian shell did not mount. Reload, or open the Vite URL in a system browser.</p>
+  <pre id="boot-fail-detail"></pre>
+  <button type="button" onclick="location.reload()">Reload</button>
+</div>
+<script>
+  window.addEventListener('error', function (e) {
+    var el = document.getElementById('boot-fail')
+    var detail = document.getElementById('boot-fail-detail')
+    if (!el || document.getElementById('app')?.childElementCount) return
+    el.classList.add('show')
+    if (detail) detail.textContent = (e && e.message) ? String(e.message) : 'Unknown boot error'
+  })
+  window.addEventListener('unhandledrejection', function (e) {
+    var el = document.getElementById('boot-fail')
+    var detail = document.getElementById('boot-fail-detail')
+    if (!el || document.getElementById('app')?.childElementCount) return
+    el.classList.add('show')
+    var r = e && e.reason
+    if (detail) detail.textContent = r instanceof Error ? r.message : String(r || 'Unhandled rejection')
+  })
+</script>
+<script src="/src/main.ts" type="module"></script>
 </body>
 </html>

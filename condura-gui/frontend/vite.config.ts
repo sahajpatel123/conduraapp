@@ -15,8 +15,11 @@ import path from 'node:path'
 // Path aliases: $tokens and $components. Both resolve under src/lib/*
 // so the literal reading of "$tokens/primitives.css" is "the primitives
 // file in the tokens folder under src/lib".
-export default defineConfig({
-  base: './',
+export default defineConfig(({ command }) => ({
+  // Absolute base in `vite`/`serve` so Cursor Simple Browser / localhost
+  // previews never resolve `./src/main.ts` against a bad path. Keep
+  // relative `./` for Wails production embeds (asset server quirk).
+  base: command === 'serve' ? '/' : './',
   plugins: [svelte()],
   resolve: {
     alias: {
@@ -24,6 +27,11 @@ export default defineConfig({
       $components: path.resolve(__dirname, 'src/lib/components'),
       $lib: path.resolve(__dirname, 'src/lib'),
     },
+  },
+  server: {
+    host: true, // 0.0.0.0 + localhost (::1) — Cursor browser often uses localhost
+    port: 5173,
+    strictPort: true,
   },
   build: {
     target: 'esnext',
@@ -40,5 +48,5 @@ export default defineConfig({
     // and ignores outDir.
     outDir: 'assets/dist',
     emptyOutDir: true,
-  }
-})
+  },
+}))

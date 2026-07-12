@@ -6,22 +6,37 @@ import { MeridianShell } from './lib/shell/meridian'
 // Meridian only — Inkboard / Living Paper / Lumen are not mounted.
 initTheme()
 
+function showBootFail(err: unknown): void {
+  const panel = document.getElementById('boot-fail')
+  const detail = document.getElementById('boot-fail-detail')
+  const name = err instanceof Error ? err.name : 'Error'
+  const message = err instanceof Error ? err.message : String(err)
+  const stack = err instanceof Error ? err.stack || '' : ''
+  if (panel) panel.classList.add('show')
+  if (detail) detail.textContent = `${name}: ${message}\n\n${stack}`
+  else {
+    document.body.innerHTML =
+      '<pre style="color:#2F5BFF;padding:24px;font-family:monospace;white-space:pre-wrap;">' +
+      name +
+      ': ' +
+      message +
+      '\n\n' +
+      stack +
+      '</pre>'
+  }
+}
+
 function bootstrap(): void {
   const target = document.getElementById('app')
   if (!target) {
-    document.body.innerHTML =
-      '<pre style="color:#2F5BFF;padding:24px;font-family:monospace">#app missing</pre>'
+    showBootFail(new Error('#app missing'))
     return
   }
   try {
     mount(MeridianShell, { target })
+    document.getElementById('boot-fail')?.remove()
   } catch (e) {
-    const name = e instanceof Error ? e.name : 'Error'
-    const message = e instanceof Error ? e.message : String(e)
-    const stack = e instanceof Error ? e.stack || '' : ''
-    document.body.innerHTML =
-      '<pre style="color:#2F5BFF;padding:24px;font-family:monospace;white-space:pre-wrap;">' +
-      name + ': ' + message + '\n\n' + stack + '</pre>'
+    showBootFail(e)
   }
 }
 

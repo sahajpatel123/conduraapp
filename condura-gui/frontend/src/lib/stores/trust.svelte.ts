@@ -29,8 +29,8 @@ class TrustStore {
     return r.path
   }
 
-  async refreshPermissions(): Promise<void> {
-    this.loadingPermissions = true
+  async refreshPermissions(opts?: { quiet?: boolean }): Promise<void> {
+    if (!opts?.quiet) this.loadingPermissions = true
     this.lastError = ''
     try {
       this.permissions = await ipc.permissionsStatus()
@@ -38,7 +38,7 @@ class TrustStore {
       this.lastError = String(err)
       this.permissions = []
     } finally {
-      this.loadingPermissions = false
+      if (!opts?.quiet) this.loadingPermissions = false
     }
   }
 

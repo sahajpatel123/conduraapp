@@ -6,12 +6,17 @@
    */
   import { onMount } from 'svelte'
   import './meridian.css'
+  import './onboarding-meridian.css'
   import { initStores } from '../../stores/init'
   import { consent } from '../../stores/consent.svelte'
   import { halt } from '../../stores/halt.svelte'
   import { overlay } from '../../stores/overlay.svelte'
   import { conversation } from '../../stores/conversation.svelte'
   import { daemon } from '../../stores/daemon.svelte'
+  import { onboarding } from '../../stores/onboarding.svelte'
+  import { account } from '../../stores/account.svelte'
+  import { ipc } from '../../ipc/client'
+  import OnboardingWizard from '../../components/OnboardingWizard.svelte'
   import {
     getResolvedTheme,
     onThemeChange,
@@ -37,7 +42,11 @@
   import MeridianPalette from './MeridianPalette.svelte'
   import MeridianConsent from './MeridianConsent.svelte'
   import MeridianHalt from './MeridianHalt.svelte'
+  import MeridianToasts from './MeridianToasts.svelte'
 
+  /** First-run wizard — was only on dead App.svelte; Meridian is the sole mount. */
+  let showOnboarding = $state(false)
+  let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
   let currentHash = $state(
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
@@ -54,13 +63,15 @@
           ? 'Awaiting consent'
           : daemon.connected
             ? 'Ready'
-            : 'Offline'
+            : daemon.reconnectAttempt > 0
+              ? `Reconnecting · ${daemon.reconnectAttempt}`
+              : 'Offline'
   )
 
   let statusTone = $derived<'ok' | 'live' | 'bad'>(
     halt.state.halted || !daemon.connected
       ? 'bad'
-      : conversation.isStreaming || consent.ticket
+      : conversation.isStreaming || consent.ticket || daemon.reconnectAttempt > 0
         ? 'live'
         : 'ok'
   )
@@ -78,7 +89,12 @@
       theme = resolved
     })
 
-    void initStores().catch((e) => console.warn('initStores failed', e))
+    void initStores()
+      .then(() => checkOnboarding())
+      .catch((e) => {
+        console.warn('initStores failed', e)
+        void checkOnboarding()
+      })
 
     try {
       halt.startPolling()
@@ -96,14 +112,49 @@
       /* ignore */
     }
 
+    // OAuth deep-link return: Go emits after ExchangeCode succeeds.
+    let offOAuth: (() => void) | undefined
+    try {
+      const eventsOn = window.runtime?.EventsOn
+      if (eventsOn) {
+        offOAuth = eventsOn('condura:oauth-callback', () => {
+          void account.checkStatus()
+        })
+      }
+    } catch {
+      /* not in Wails */
+    }
+
     const onHash = () => {
       currentHash = window.location.hash || '#/'
     }
     window.addEventListener('hashchange', onHash)
 
+    const onShowOnboarding = (): void => {
+      // Settings re-run already calls onboarding.reset(); belt-and-suspenders
+      // so any other dispatcher still walks EULA → perms → hotkey.
+      void onboarding
+        .reset()
+        .catch(() => {})
+        .finally(() => {
+          showOnboarding = true
+          window.location.hash = '#/'
+        })
+    }
+    window.addEventListener('condura:show-onboarding', onShowOnboarding)
+
     const onKey = (e: KeyboardEvent) => {
+      if (showOnboarding) return
       const mod = e.metaKey || e.ctrlKey
       const k = e.key.toLowerCase()
+      // Never steal keys while the user is typing (Ask composer, search, token fields).
+      const t = e.target as HTMLElement | null
+      const typing =
+        !!t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable)
       if (mod && e.shiftKey && k === 'escape') {
         e.preventDefault()
         void halt.halt('hard_hotkey')
@@ -124,7 +175,8 @@
         navigate('settings')
         return
       }
-      if (e.shiftKey && !mod && k === 't') {
+      // Theme: Shift+T only outside editable fields so capital "T" works in Ask.
+      if (!typing && e.shiftKey && !mod && k === 't') {
         e.preventDefault()
         theme = toggleLightDark()
       }
@@ -133,8 +185,14 @@
 
     return () => {
       offTheme()
+      try {
+        offOAuth?.()
+      } catch {
+        /* ignore */
+      }
       window.removeEventListener('hashchange', onHash)
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('condura:show-onboarding', onShowOnboarding)
       try {
         consent.stop()
       } catch {
@@ -153,91 +211,178 @@
     }
   })
 
+  async function checkOnboarding(): Promise<void> {
+    try {
+      const [fr, onboardComplete] = await Promise.all([
+        ipc.firstRunStatus().catch(() => ({ complete: false as boolean })),
+        ipc.onboardingIsComplete().catch(() => true),
+      ])
+      // Daemon onboarding.is_complete is authoritative; first-run marker is
+      // also written by onboarding.finish. Show wizard if either says first-run.
+      const finished = !!onboardComplete || !!fr.complete
+      showOnboarding = !finished
+    } catch {
+      // Fail open to main UI rather than trapping users offline.
+      showOnboarding = false
+    } finally {
+      onboardingChecked = true
+    }
+  }
+
+  function completeOnboarding(routeHash?: string): void {
+    showOnboarding = false
+    // finish() already writes first-run-complete; belt-and-suspenders marker.
+    void ipc.firstRunComplete().catch(() => {})
+    if (routeHash) window.location.hash = routeHash
+  }
+
   function navigate(r: RouteId): void {
     window.location.hash = ROUTE_HASH[r]
   }
 </script>
 
-<div class="md root">
-  <div class="wash" aria-hidden="true"></div>
-
-  <header class="top">
-    <div class="brand">
-      <span class="word">Condura</span>
-      <span class="edition">Meridian</span>
-    </div>
-
-    <button type="button" class="jump" onclick={() => (paletteOpen = true)} aria-label="Search (⌘K)">
-      <span>Jump anywhere…</span>
-      <kbd>⌘K</kbd>
-    </button>
-
-    <div class="right">
-      <div class="status" data-tone={statusTone}>
-        <span class="dot"></span>
-        {statusLabel}
-      </div>
-      <button
-        type="button"
-        class="icon"
-        onclick={() => setResolvedTheme(theme === 'light' ? 'dark' : 'light')}
-        aria-label="Toggle theme"
-      >
-        {#if theme === 'light'}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-          </svg>
-        {:else}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="5" />
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
-        {/if}
-      </button>
-    </div>
-  </header>
-
-  <div class="arc-wrap">
-    <MeridianArc tone={statusTone} />
+{#if showOnboarding}
+  <div class="md onboarding-layer" role="dialog" aria-modal="true" aria-label="Welcome to Condura">
+    <div class="onboarding-wash" aria-hidden="true"></div>
+    <OnboardingWizard onComplete={completeOnboarding} />
   </div>
+{:else if !onboardingChecked}
+  <div class="md boot" aria-busy="true" aria-label="Starting Condura">
+    <p class="boot-mark">Condura</p>
+    <p class="boot-sub">Starting…</p>
+  </div>
+{:else}
+  <div class="md root">
+    <div class="wash" aria-hidden="true"></div>
 
-  <main class="stage">
-    {#key route}
-      {#if route === 'chat'}
-        <MeridianChat />
-      {:else if route === 'hub'}
-        <MeridianHub />
-      {:else if route === 'skills'}
-        <MeridianSkills />
-      {:else if route === 'sync'}
-        <MeridianSync />
-      {:else if route === 'audit'}
-        <MeridianAudit />
-      {:else if route === 'replay'}
-        <MeridianReplay />
-      {:else if route === 'channels'}
-        <MeridianChannels />
-      {:else if route === 'delegation'}
-        <MeridianDelegation />
-      {:else if route === 'account'}
-        <MeridianAccount />
-      {:else if route === 'settings'}
-        <MeridianSettings />
-      {:else if route === 'about'}
-        <MeridianAbout />
-      {/if}
-    {/key}
-  </main>
+    <header class="top">
+      <div class="brand">
+        <span class="word">Condura</span>
+        <span class="edition">Meridian</span>
+      </div>
 
-  <MeridianDock route={route} onnavigate={navigate} />
-  <MeridianPalette open={paletteOpen} onclose={() => (paletteOpen = false)} onnavigate={navigate} />
-  <MeridianConsent />
-  {#if halt.state.halted}
-    <MeridianHalt onresume={() => halt.resume()} />
-  {/if}
-</div>
+      <button type="button" class="jump" onclick={() => (paletteOpen = true)} aria-label="Search (⌘K)">
+        <span>Jump anywhere…</span>
+        <kbd>⌘K</kbd>
+      </button>
+
+      <div class="right">
+        <div class="status" data-tone={statusTone}>
+          <span class="dot"></span>
+          {statusLabel}
+        </div>
+        <button
+          type="button"
+          class="icon"
+          onclick={() => setResolvedTheme(theme === 'light' ? 'dark' : 'light')}
+          aria-label="Toggle theme"
+        >
+          {#if theme === 'light'}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+            </svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="5" />
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+          {/if}
+        </button>
+      </div>
+    </header>
+
+    <div class="arc-wrap">
+      <MeridianArc tone={statusTone} />
+    </div>
+
+    <main class="stage">
+      {#key route}
+        {#if route === 'chat'}
+          <MeridianChat />
+        {:else if route === 'hub'}
+          <MeridianHub />
+        {:else if route === 'skills'}
+          <MeridianSkills />
+        {:else if route === 'sync'}
+          <MeridianSync />
+        {:else if route === 'audit'}
+          <MeridianAudit />
+        {:else if route === 'replay'}
+          <MeridianReplay />
+        {:else if route === 'channels'}
+          <MeridianChannels />
+        {:else if route === 'delegation'}
+          <MeridianDelegation />
+        {:else if route === 'account'}
+          <MeridianAccount />
+        {:else if route === 'settings'}
+          <MeridianSettings />
+        {:else if route === 'about'}
+          <MeridianAbout />
+        {/if}
+      {/key}
+    </main>
+
+    <MeridianDock route={route} onnavigate={navigate} />
+    <MeridianPalette
+      open={paletteOpen}
+      route={route}
+      onclose={() => (paletteOpen = false)}
+      onnavigate={navigate}
+    />
+    <MeridianConsent />
+    <MeridianToasts />
+    {#if halt.state.halted}
+      <MeridianHalt />
+    {/if}
+  </div>
+{/if}
 
 <style>
+  .onboarding-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow: auto;
+    background: var(--md-mist);
+  }
+  .onboarding-wash {
+    position: fixed;
+    inset: -10% -6%;
+    background: var(--md-wash);
+    filter: blur(32px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .onboarding-layer :global(.wizard-container) {
+    position: relative;
+    z-index: 1;
+    min-height: 100dvh;
+  }
+  .boot {
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    background: var(--md-mist);
+    text-align: center;
+  }
+  .boot-mark {
+    font-family: var(--md-font-display);
+    font-size: 28px;
+    letter-spacing: -0.04em;
+    margin: 0;
+    color: var(--md-ink);
+  }
+  .boot-sub {
+    margin: 0;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+  }
   .root {
     height: 100vh;
     height: 100dvh;
