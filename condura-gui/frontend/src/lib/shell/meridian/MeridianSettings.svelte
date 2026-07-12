@@ -1602,10 +1602,10 @@
     padding: 8px 0; border-bottom: 1px solid var(--md-line);
   }
   .matrix-label { font-size: 13px; font-weight: 600; }
-  .dial { display: inline-flex; gap: 3px; padding: 3px; border-radius: 999px; background: var(--md-stage); border: 1px solid var(--md-line); }
+  .dial { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--md-stage); border: 1px solid var(--md-line); }
   .dial button {
-    padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
-    color: var(--md-ink-faint); cursor: pointer;
+    padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 550;
+    color: var(--md-ink-faint); cursor: pointer; border: 0; background: transparent;
   }
   .dial button.on[data-l='auto'] { background: var(--md-live); color: #fff; }
   .dial button.on[data-l='warn'] { background: var(--md-cobalt); color: #fff; }
@@ -1615,14 +1615,14 @@
     display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end;
     padding-bottom: 12px; margin-bottom: 4px;
   }
-  .spend.hot .gauge-fill { background: linear-gradient(90deg, var(--md-ember, #c4892a), var(--md-halt)); }
+  .spend.hot .gauge-fill { background: var(--md-halt); }
   .gauge {
-    height: 6px; border-radius: 999px; background: var(--md-stage);
+    height: 4px; border-radius: 2px; background: var(--md-stage);
     border: 1px solid var(--md-line); overflow: hidden; margin-bottom: 10px;
   }
   .gauge-fill {
     height: 100%; border-radius: inherit;
-    background: linear-gradient(90deg, var(--md-live), var(--md-cobalt));
+    background: var(--md-cobalt);
     transition: width 280ms var(--md-ease);
   }
   .spend-row { display: flex; align-items: center; gap: 8px; }

@@ -642,7 +642,7 @@
     min-height: 0;
     overflow: auto;
     background: var(--md-stage);
-    border-radius: 26px 26px 0 0;
+    border-radius: 16px 16px 0 0;
     margin: 0 12px;
     border: 1px solid color-mix(in oklab, var(--md-line-strong) 80%, transparent);
     border-bottom: 0;

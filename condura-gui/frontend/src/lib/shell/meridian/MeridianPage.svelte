@@ -29,12 +29,12 @@
     margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--md-line); position: relative;
   }
   .head::after {
-    content: ''; position: absolute; left: 0; bottom: -1px; width: 88px; height: 3px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--md-halt), var(--md-ember, var(--md-halt)));
+    content: ''; position: absolute; left: 0; bottom: -1px; width: 48px; height: 2px;
+    border-radius: 1px;
+    background: var(--md-cobalt);
     transform-origin: left;
     animation: md-underline 560ms var(--md-ease) 80ms both;
-    box-shadow: 0 0 16px color-mix(in oklab, var(--md-halt) 35%, transparent);
+    box-shadow: none;
   }
   .kicker {
     font-family: var(--md-font-mono); font-size: 11px; letter-spacing: 0.16em;
@@ -44,9 +44,9 @@
   }
   .kicker::before {
     content: '';
-    width: 6px; height: 6px; border-radius: 2px;
-    background: linear-gradient(135deg, var(--md-cobalt), var(--md-live));
-    box-shadow: 0 0 10px color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    width: 5px; height: 5px; border-radius: 1px;
+    background: var(--md-cobalt);
+    box-shadow: none;
   }
   h1 {
     font-family: var(--md-font-display); font-size: clamp(34px, 5vw, 52px); font-weight: 700;

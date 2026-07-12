@@ -342,13 +342,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid var(--md-line-strong);
+    border: 1px solid var(--md-line);
     background: var(--md-surface);
-    border-radius: 999px;
-    padding: 0 6px 0 16px;
-    transition:
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease);
+    border-radius: 9px;
+    padding: 0 6px 0 14px;
+    transition: border-color 140ms var(--md-ease), box-shadow 140ms var(--md-ease);
   }
   .field:focus-within {
     border-color: var(--md-cobalt);
@@ -362,7 +360,7 @@
     flex: 1;
     border: 0;
     background: transparent;
-    padding: 12px 0;
+    padding: 11px 0;
     outline: none;
     color: var(--md-ink);
     min-width: 0;
@@ -370,12 +368,12 @@
   .clear {
     flex: none;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 650;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    padding: 8px 12px;
-    border-radius: 999px;
+    padding: 7px 10px;
+    border-radius: 7px;
     cursor: pointer;
   }
   .clear:hover {
@@ -385,12 +383,12 @@
   .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .filters button {
-    padding: 7px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
     font-family: var(--md-font-mono);
     font-size: 10px;
@@ -464,26 +462,14 @@
   .feature {
     position: relative;
     overflow: hidden;
-    background:
-      linear-gradient(145deg, color-mix(in oklab, var(--md-cobalt) 8%, transparent) 0%, transparent 42%),
-      var(--md-surface);
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 30%, var(--md-line-strong));
-    border-radius: 22px;
-    padding: 24px;
-    box-shadow:
-      var(--md-shadow-lift),
-      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: none;
   }
   .feature::after {
-    content: '';
-    position: absolute;
-    right: -8%;
-    top: -20%;
-    width: 42%;
-    height: 70%;
-    pointer-events: none;
-    z-index: 0;
-    background: radial-gradient(circle, color-mix(in oklab, var(--md-live) 12%, transparent), transparent 68%);
+    display: none;
   }
   .feature > * {
     position: relative;
@@ -496,25 +482,25 @@
     margin-bottom: 12px;
   }
   .mono {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
     display: grid;
     place-items: center;
     font-family: var(--md-font-display);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.04em;
     color: #fff;
-    background: linear-gradient(145deg, var(--md-cobalt), var(--md-cobalt-deep));
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 40%, transparent);
-    box-shadow: 0 8px 18px -10px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+    background: var(--md-cobalt);
+    border: 0;
+    box-shadow: none;
   }
   .mono.lg {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    font-size: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 11px;
+    font-size: 20px;
   }
   .tags {
     display: flex;
@@ -527,8 +513,8 @@
     font-size: 9px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 4px 8px;
-    border-radius: 999px;
+    padding: 3px 7px;
+    border-radius: 5px;
     background: var(--md-stage);
     color: var(--md-ink-mute);
     border: 1px solid var(--md-line);

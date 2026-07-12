@@ -45,15 +45,15 @@
   .toast {
     pointer-events: auto;
     display: grid;
-    grid-template-columns: 4px 1fr auto;
+    grid-template-columns: 3px 1fr auto;
     gap: 12px;
     align-items: start;
-    padding: 12px 12px 12px 0;
-    border-radius: 16px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 94%, transparent);
-    box-shadow: var(--md-shadow-lift);
-    animation: toast-in 280ms var(--md-spring) both;
+    padding: 10px 10px 10px 0;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    box-shadow: var(--md-shadow);
+    animation: toast-in 220ms var(--md-ease) both;
   }
   .mark {
     width: 4px;
@@ -88,9 +88,9 @@
     color: var(--md-ink-mute);
   }
   .x {
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
     font-size: 16px;
     line-height: 1;
     color: var(--md-ink-faint);
