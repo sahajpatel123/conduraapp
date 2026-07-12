@@ -263,7 +263,19 @@ func pendingDecide(ctx context.Context, subs *Subsystems, params json.RawMessage
 	}
 	auditPendingDecision(ctx, subs, p.DecidedBy, row)
 	publishPendingEvent(subs, row)
-	if p.AutoRun && row.Status == pending.StatusApproved && subs.Executor != nil {
+	// §1.1 fix (2026-07-12 audit): subs.Executor is now always
+	// non-nil when the gatekeeper is wired (see subsystems.go:
+	// the executor.New call no longer requires cuComps). The
+	// old `subs.Executor != nil` guard hid the no-LLM-provider
+	// crash; now AutoRun always works in shell-only mode.
+	if p.AutoRun && row.Status == pending.StatusApproved {
+		if subs.Executor == nil {
+			// Should never happen post-§1.1, but kept as a
+			// fail-safe: surface a clear error rather than
+			// nil-panic if some future init path forgets the
+			// executor.
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "executor not configured"}
+		}
 		return executeAndRecord(ctx, subs, row)
 	}
 	return row, nil
