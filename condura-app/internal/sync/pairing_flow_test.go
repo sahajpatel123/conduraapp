@@ -114,7 +114,7 @@ func TestPairing_TokenExpires(t *testing.T) {
 	eng.mu.Lock()
 	eng.pendingPairings[peer.DeviceID] = pendingPairing{
 		token:     eng.pendingPairings[peer.DeviceID].token,
-		createdAt: time.Now().Add(-2 * pendingPairingTTL),
+		createdAt: time.Now().Add(-2 * PendingPairingTTL),
 	}
 	eng.mu.Unlock()
 	err := eng.ConfirmPairing(peer, pin)

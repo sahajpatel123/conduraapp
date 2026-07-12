@@ -8,42 +8,49 @@
   import { settings } from '../../stores/settings.svelte'
   import { halt } from '../../stores/halt.svelte'
   import { daemon } from '../../stores/daemon.svelte'
+  import { spend } from '../../stores/spend.svelte'
   import { ipc } from '../../ipc/client'
-  import type { Message, ProviderInfo, ToolCall } from '../../ipc/types'
+  import { renderSafeMarkdown } from '../../markdown'
+  import type { InstalledSkill, Message, ProviderInfo, ToolCall } from '../../ipc/types'
+  import {
+    buildSkillSystemPrompt,
+    filterSlashSuggestions,
+    parseAskSlash,
+  } from '../../skill-slash'
 
   const STARTERS: { id: string; kicker: string; label: string; body: string }[] = [
     {
       id: 'sum',
       kicker: 'See',
-      label: 'Summarize what’s on my screen',
-      body: 'Read the visible surface. No clicks until you allow them.',
+      label: 'What’s on my screen?',
+      body: 'Describe what’s visible. No clicks until you allow them.',
     },
     {
       id: 'fix',
-      kicker: 'Repair',
-      label: 'Find and fix the last error I hit',
-      body: 'Diagnose first. Propose a fix. Wait for the gate.',
+      kicker: 'Fix',
+      label: 'Help with the last error I hit',
+      body: 'Diagnose first. Propose a fix. Wait for your OK.',
     },
     {
       id: 'plan',
-      kicker: 'Chart',
+      kicker: 'Plan',
       label: 'Plan the next hour of work',
-      body: 'A plan you can edit — not a silent sprint.',
+      body: 'A short plan you can edit — not a silent sprint.',
     },
     {
       id: 'safe',
-      kicker: 'Contract',
-      label: 'What can you do without asking me?',
+      kicker: 'Trust',
+      label: 'What can you do without asking?',
       body: 'Name the safe band. Everything else stays locked.',
     },
   ]
 
   const PIPE = [
-    { n: '01', t: 'Ask' },
-    { n: '02', t: 'Plan' },
-    { n: '03', t: 'Consent' },
-    { n: '04', t: 'Act' },
-    { n: '05', t: 'Audit' },
+    { n: '1', t: 'Ask' },
+    { n: '2', t: 'Plan' },
+    { n: '3', t: 'You OK' },
+    { n: '4', t: 'Act' },
+    { n: '5', t: 'Audit' },
   ]
 
   let draft = $state('')
@@ -52,9 +59,13 @@
   let scrollEl = $state<HTMLDivElement | null>(null)
   let selectedModel = $state('')
   let providers = $state<ProviderInfo[]>([])
+  let skills = $state<InstalledSkill[]>([])
   let atlasFocus = $state<string | null>(null)
   let copied = $state(false)
   let reduceMotion = $state(false)
+  let slashIndex = $state(0)
+  let modelPersistError = $state('')
+  let slashNotice = $state('')
 
   const modelOptions = $derived(
     providers.flatMap((p) =>
@@ -65,44 +76,100 @@
     )
   )
 
+  const slashSuggestions = $derived(filterSlashSuggestions(draft, skills))
+  const showSlash = $derived(
+    draft.startsWith('/') && !draft.includes('\n') && slashSuggestions.length > 0 && !conversation.isStreaming
+  )
+
   const hasMessages = $derived(conversation.messages.length > 0 || conversation.isStreaming)
   const halted = $derived(halt.state.halted)
   const connected = $derived(daemon.connected)
-  const canSend = $derived(
-    !!draft.trim() && !conversation.isStreaming && !halted && selectedModel.includes(':')
+  /** Selected provider must appear in the live catalog (keyed / local). */
+  const selectedProviderLive = $derived(
+    !!selectedModel.includes(':') &&
+      providers.some((p) => selectedModel.startsWith(`${p.name}:`))
   )
-  const tone = $derived<'halted' | 'thinking' | 'ready' | 'offline' | 'idle'>(
+  /** Connected but no usable provider:model — Settings must enable a key / Ollama. */
+  const setupNeeded = $derived(connected && !halted && !selectedProviderLive)
+  /** Backend refuses llm.stream when daily cap is hit; gate the composer too. */
+  const capReached = $derived(spend.cap > 0 && spend.pct >= 100)
+  const spendHot = $derived(spend.cap > 0 && spend.pct >= 80 && !capReached)
+  const deskBlocked = $derived(setupNeeded || capReached || halted || !connected)
+  const canSend = $derived(
+    !!draft.trim() &&
+      !conversation.isStreaming &&
+      !halted &&
+      connected &&
+      selectedProviderLive &&
+      !capReached
+  )
+  /** Why Send is disabled when the user already typed — reduces “broken button” frustration. */
+  const sendBlocker = $derived.by(() => {
+    const hasDraft = !!draft.trim()
+    if (!hasDraft || canSend || conversation.isStreaming) return ''
+    if (halted) return 'Halt is on — resume before sending.'
+    if (!connected) return 'Daemon offline — Condura can’t send until it’s connected.'
+    if (setupNeeded) return 'No model ready — open Settings → Models first.'
+    if (capReached) return 'Daily spend cap reached — raise it in Settings to send.'
+    if (!selectedProviderLive) return 'Choose a live model below, then send.'
+    return ''
+  })
+  const tone = $derived<
+    'halted' | 'thinking' | 'ready' | 'offline' | 'setup' | 'capped' | 'idle'
+  >(
     halted
       ? 'halted'
       : conversation.isStreaming
         ? 'thinking'
-        : !connected && !selectedModel
+        : !connected
           ? 'offline'
-          : canSend
-            ? 'ready'
-            : 'idle'
+          : setupNeeded
+            ? 'setup'
+            : capReached
+              ? 'capped'
+              : canSend
+                ? 'ready'
+                : 'idle'
   )
   const toneLabel = $derived(
     tone === 'halted'
-      ? 'Halted — line cut'
+      ? 'Halted — nothing runs'
       : tone === 'thinking'
-        ? 'Thinking · watch the plan'
+        ? 'Working · watch the plan'
         : tone === 'ready'
-          ? 'Ready to send'
+          ? 'Ready — press Enter'
           : tone === 'offline'
-            ? 'Daemon offline · model optional in preview'
-            : 'Waiting for a line'
+            ? 'Offline'
+            : tone === 'setup'
+              ? 'Needs a model'
+              : tone === 'capped'
+                ? 'Spend cap hit'
+                : 'Type below to ask'
   )
   const liveNote = $derived(
     halted
-      ? 'Halt is armed — nothing leaves this desk until you resume.'
-      : connected
-        ? selectedModel
-          ? `Live · ${selectedModel.replace(':', ' · ')}`
-          : 'Connected · choose a model below'
-        : 'Offline · connect the daemon to stream'
+      ? 'Halt is on — resume to use Ask again.'
+      : !connected
+        ? 'Offline · start the Condura daemon to chat'
+        : setupNeeded
+          ? 'Connected · pick a model in Settings to unlock Ask'
+          : capReached
+            ? `Spend cap · $${spend.spent.toFixed(2)} / $${spend.cap.toFixed(2)} — raise it in Settings`
+            : selectedProviderLive
+              ? `Ready · ${selectedModel.replace(':', ' · ')}${spend.cap > 0 ? ` · $${spend.spent.toFixed(2)}/$${spend.cap.toFixed(2)}` : ''}`
+              : 'Connected · choose a model below'
   )
-  const recent = $derived(conversation.conversations.slice(0, 5))
+  const spendError = $derived(
+    !!conversation.streamingError &&
+      /spend cap|daily spend/i.test(conversation.streamingError)
+  )
+  /** Enough for daily multi-thread use without a full sidebar. */
+  const recent = $derived((conversation.conversations ?? []).slice(0, 12))
+  let confirmDeleteId = $state<number | null>(null)
+  let deleting = $state(false)
+  let renaming = $state(false)
+  let renameDraft = $state('')
+  let renameBusy = $state(false)
 
   onMount(() => {
     reduceMotion =
@@ -112,18 +179,57 @@
       await conversation.refreshList().catch(() => {})
       try {
         const list = await ipc.providersList()
-        providers = list ?? []
-        if (settings.config?.llm?.providers) {
-          const enabled = Object.entries(settings.config.llm.providers).find(([, p]) => p.enabled)
-          if (enabled?.[1]?.default_model) selectedModel = `${enabled[0]}:${enabled[1].default_model}`
+        // Normalize models (daemon now embeds catalog; tolerate legacy name-only).
+        providers = (list ?? []).map((p) => ({
+          name: p.name,
+          models: (p.models ?? [])
+            .map((m) => ({ id: m?.id ?? '' }))
+            .filter((m) => !!m.id),
+          available: p.available,
+        }))
+        // Ask only offers providers that can actually stream (keyed / local).
+        providers = providers.filter((p) => p.available !== false && p.models.length > 0)
+        // If a provider still has no models, fetch via providers.models.
+        await Promise.all(
+          providers.map(async (p, i) => {
+            if (p.models.length > 0) return
+            try {
+              const ms = await ipc.providersModels(p.name)
+              providers[i] = {
+                ...p,
+                models: (ms ?? []).map((m) => ({ id: m.id })).filter((m) => !!m.id),
+              }
+            } catch {
+              /* leave empty */
+            }
+          })
+        )
+        providers = [...providers]
+        const cfgProviders = settings.config?.llm?.providers
+        if (cfgProviders) {
+          const enabled = Object.entries(cfgProviders).find(
+            ([name, pr]) =>
+              pr.enabled &&
+              pr.default_model &&
+              providers.some((p) => p.name === name)
+          )
+          if (enabled?.[1]?.default_model) {
+            selectedModel = `${enabled[0]}:${enabled[1].default_model}`
+          }
         }
-        if (!selectedModel && list?.[0]) {
-          const p = list[0]
-          const mid = p.models?.[0]?.id || ''
-          if (mid) selectedModel = `${p.name}:${mid}`
+        if (!selectedModel || !providers.some((p) => selectedModel.startsWith(`${p.name}:`))) {
+          const withModels = providers.find((p) => p.models.length > 0)
+          selectedModel = withModels
+            ? `${withModels.name}:${withModels.models[0]!.id}`
+            : ''
         }
       } catch {
         /* preview */
+      }
+      try {
+        skills = (await ipc.skillsList(100)) ?? []
+      } catch {
+        skills = []
       }
       try {
         const seeded = sessionStorage.getItem('md-ask-starter')
@@ -140,6 +246,12 @@
   })
 
   $effect(() => {
+    // Keep highlight in range when the suggestion list shrinks.
+    draft
+    if (slashIndex >= slashSuggestions.length) slashIndex = 0
+  })
+
+  $effect(() => {
     conversation.messages.length
     conversation.streamingDelta
     conversation.streamingToolCalls.length
@@ -153,23 +265,159 @@
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
   }
 
+  async function persistSelectedModel(): Promise<void> {
+    modelPersistError = ''
+    if (!selectedModel.includes(':')) return
+    if (!settings.config) {
+      modelPersistError = 'Couldn’t save model — Condura is offline.'
+      return
+    }
+    const [provider, model] = selectedModel.split(':')
+    if (!provider || !model) return
+    const providersCfg = { ...(settings.config.llm?.providers ?? {}) }
+    const cur = providersCfg[provider] ?? {
+      enabled: false,
+      api_key: '',
+      base_url: '',
+      default_model: '',
+    }
+    providersCfg[provider] = { ...cur, enabled: true, default_model: model }
+    try {
+      await settings.save({
+        llm: { ...settings.config.llm, providers: providersCfg },
+      })
+    } catch (e) {
+      modelPersistError = `Couldn’t save model: ${String(e)}`
+    }
+  }
+
   async function send(text = draft): Promise<void> {
     const trimmed = text.trim()
     if (!trimmed || conversation.isStreaming || halted) return
+    slashNotice = ''
+    if (capReached) {
+      draft = trimmed
+      goSettingsSpend()
+      return
+    }
+    if (setupNeeded || !selectedModel.includes(':')) {
+      draft = trimmed
+      goSettingsModels()
+      return
+    }
     const [provider, model] = selectedModel.split(':')
     if (!provider || !model) {
       draft = trimmed
+      goSettingsModels()
       return
     }
+
+    const slash = parseAskSlash(trimmed, skills)
+    if (slash.kind === 'builtin') {
+      draft = ''
+      queueMicrotask(resize)
+      if (slash.token === 'clear') return
+      if (slash.token === 'model') {
+        goSettingsModels()
+        return
+      }
+      if (slash.token === 'help' || slash.token === 'about') {
+        slashNotice =
+          'Slash tips: /SkillName runs a skill · /model opens Models · /clear clears the box. Add skills under Skills.'
+        return
+      }
+      if (slash.token === 'compact') {
+        slashNotice = '/compact isn’t available in Ask yet.'
+        return
+      }
+      return
+    }
+
+    // Unknown /Token — fail loudly instead of sending garbage to the model.
+    const leading = trimmed.match(/^\/([A-Za-z0-9._-]+)(?:\s|$)/)
+    if (slash.kind === 'none' && leading) {
+      slashNotice = `Unknown command /${leading[1]}. Try /help, or pick a skill from the / menu.`
+      return
+    }
+
+    let userText = trimmed
+    let skillSystem: string | undefined
+    if (slash.kind === 'skill') {
+      skillSystem = buildSkillSystemPrompt(slash.skill)
+      userText = slash.rest
+        ? `${primaryDisplay(slash.skill)} ${slash.rest}`
+        : `${primaryDisplay(slash.skill)} — follow the skill procedure.`
+      // Refresh skill steps if list metadata was shallow.
+      if (!(slash.skill.steps?.length) && slash.skill.id) {
+        try {
+          const full = await ipc.skillsGet(slash.skill.id)
+          skillSystem = buildSkillSystemPrompt(full)
+        } catch {
+          /* use list metadata */
+        }
+      }
+    }
+
     draft = ''
     queueMicrotask(resize)
-    await conversation.send(provider, model, trimmed)
+    await conversation.send(provider, model, userText, { skillSystem })
+  }
+
+  function primaryDisplay(s: InstalledSkill): string {
+    const t = (s.trigger_pattern || '').trim()
+    if (t.startsWith('/')) return t
+    return `/${s.name.replace(/\s+/g, '') || s.id}`
+  }
+
+  function applySlashSuggestion(insert: string): void {
+    draft = insert
+    slashIndex = 0
+    queueMicrotask(() => {
+      resize()
+      ta?.focus()
+    })
   }
 
   function onKey(e: KeyboardEvent): void {
+    if (showSlash && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault()
+      const n = slashSuggestions.length
+      if (!n) return
+      slashIndex =
+        e.key === 'ArrowDown' ? (slashIndex + 1) % n : (slashIndex - 1 + n) % n
+      return
+    }
+    if (showSlash && e.key === 'Tab') {
+      e.preventDefault()
+      const hit = slashSuggestions[slashIndex] ?? slashSuggestions[0]
+      if (hit) applySlashSuggestion(hit.insert)
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (showSlash && slashSuggestions[slashIndex] && !draft.includes(' ')) {
+        e.preventDefault()
+        applySlashSuggestion(slashSuggestions[slashIndex]!.insert)
+        return
+      }
       e.preventDefault()
       void send()
+    }
+    if (e.key === 'Escape' && showSlash) {
+      e.preventDefault()
+      draft = ''
+      slashNotice = ''
+      queueMicrotask(resize)
+      return
+    }
+    if (e.key === 'Escape' && renaming) {
+      e.preventDefault()
+      cancelRename()
+      return
+    }
+    if (e.key === 'Escape' && confirmDeleteId) {
+      e.preventDefault()
+      cancelDelete()
+      return
     }
     if (e.key === 'Escape' && conversation.isStreaming) void conversation.cancel()
   }
@@ -179,8 +427,23 @@
   }
 
   function pickStarter(label: string): void {
+    if (setupNeeded || halted || capReached) {
+      if (capReached) goSettingsSpend()
+      else if (setupNeeded) goSettingsModels()
+      return
+    }
     draft = label
     void send(label)
+  }
+
+  function goSettingsModels(): void {
+    // Fragment path: hashToRoute treats any #/settings* as settings; Settings
+    // scrolls the providers plate into view.
+    window.location.hash = '#/settings/models'
+  }
+
+  function goSettingsSpend(): void {
+    window.location.hash = '#/settings/spend'
   }
 
   function toolLabel(tc: ToolCall): string {
@@ -215,11 +478,73 @@
   }
 
   async function openThread(id: number): Promise<void> {
+    confirmDeleteId = null
+    renaming = false
     await conversation.open(id).catch(() => {})
+  }
+
+  function beginRename(): void {
+    if (!conversation.currentID) return
+    confirmDeleteId = null
+    renameDraft = conversation.currentTitle || ''
+    renaming = true
+  }
+
+  function cancelRename(): void {
+    if (renameBusy) return
+    renaming = false
+    renameDraft = ''
+  }
+
+  async function commitRename(): Promise<void> {
+    if (!conversation.currentID || renameBusy) return
+    const next = renameDraft.trim()
+    if (!next) {
+      cancelRename()
+      return
+    }
+    renameBusy = true
+    try {
+      await conversation.rename(conversation.currentID, next)
+      renaming = false
+      renameDraft = ''
+    } catch {
+      /* keep editor open; user can retry */
+    } finally {
+      renameBusy = false
+    }
+  }
+
+  function requestDelete(id: number): void {
+    confirmDeleteId = id
+  }
+
+  function cancelDelete(): void {
+    if (deleting) return
+    confirmDeleteId = null
+  }
+
+  async function confirmDelete(): Promise<void> {
+    const id = confirmDeleteId
+    if (!id || deleting) return
+    deleting = true
+    try {
+      await conversation.deleteById(id)
+      confirmDeleteId = null
+      await conversation.refreshList().catch(() => {})
+    } finally {
+      deleting = false
+    }
   }
 
   function goAudit(): void {
     window.location.hash = '#/audit'
+  }
+
+  function threadLabel(c: { id: number; title?: string }): string {
+    const t = (c.title || '').trim()
+    if (t && t !== 'New conversation') return t
+    return `Thread ${c.id}`
   }
 
   async function copyLast(): Promise<void> {
@@ -245,71 +570,124 @@
             <span class="slash" aria-hidden="true">/</span>
             <span class="edition">Ask</span>
           </p>
-          <h1>Ask once.<br /><span>Watch the plan.</span></h1>
+          <h1>What do you need?</h1>
           <p class="sub">
-            Free. Local. Consent before action. Condura shows what it will do — then waits for you.
+            Condura plans first, then waits for your OK before acting. Local by default.
           </p>
-          <p class="live" class:hot={connected && !halted} class:bad={halted}>
+          <p
+            class="live"
+            class:hot={connected && !halted && !setupNeeded && !capReached}
+            class:bad={halted || capReached}
+            class:setup={setupNeeded}
+          >
             <span class="live-dot" aria-hidden="true"></span>
             {liveNote}
           </p>
         </header>
 
-        <ol class="pipe" aria-label="How an ask becomes an act">
-          {#each PIPE as p (p.n)}
-            <li>
-              <span class="n">{p.n}</span>
-              <span class="t">{p.t}</span>
-            </li>
-          {/each}
-        </ol>
-
-        <div class="atlas">
-          <div class="atlas-head">
-            <p class="cite">Ways to begin</p>
-            <h2>Four doors into the desk</h2>
-            <p class="atlas-note">Each starter is a real ask. Pick one, or write your own below.</p>
+        {#if setupNeeded}
+          <div class="setup-plate" role="status">
+            <p class="cite">One step left</p>
+            <h2>Choose a model to unlock Ask</h2>
+            <p>
+              Condura is connected. Turn on Ollama or paste a cloud API key, pick the Ask model,
+              then come back here.
+            </p>
+            <button type="button" class="md-btn md-btn-primary" onclick={goSettingsModels}>
+              Open Models settings
+            </button>
           </div>
-          <div class="atlas-grid md-stagger">
-            {#each STARTERS as s (s.id)}
-              <button
-                type="button"
-                class="door"
-                class:focus={atlasFocus === s.id}
-                disabled={halted}
-                onmouseenter={() => (atlasFocus = s.id)}
-                onfocus={() => (atlasFocus = s.id)}
-                onmouseleave={() => (atlasFocus = null)}
-                onblur={() => (atlasFocus = null)}
-                onclick={() => pickStarter(s.label)}
-              >
-                <span class="door-k">{s.kicker}</span>
-                <span class="door-t">{s.label}</span>
-                <span class="door-b">{s.body}</span>
-                <span class="door-a">
-                  Begin
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d="M5 12h14M13 6l6 6-6 6"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-              </button>
+        {:else if capReached}
+          <div class="setup-plate cap-plate" role="status">
+            <p class="cite">Spend limit</p>
+            <h2>Today’s cloud spend hit the cap</h2>
+            <p>
+              ${spend.spent.toFixed(2)} of ${spend.cap.toFixed(2)} used. Raise the cap in Settings,
+              or wait until tomorrow. Gatekeeper still holds every action.
+            </p>
+            <button type="button" class="md-btn md-btn-primary" onclick={goSettingsSpend}>
+              Raise spend cap
+            </button>
+          </div>
+        {:else if !connected}
+          <div class="setup-plate" role="status">
+            <p class="cite">Connection</p>
+            <h2>Daemon is offline</h2>
+            <p>Start Condura’s background service, then this desk will light up.</p>
+          </div>
+        {:else if halted}
+          <div class="setup-plate cap-plate" role="status">
+            <p class="cite">Halt</p>
+            <h2>Everything is stopped</h2>
+            <p>Resume from the Halt page (or CLI) when you’re ready to ask again.</p>
+            <button type="button" class="md-btn md-btn-primary" onclick={() => (window.location.hash = '#/halt')}>
+              Open Halt
+            </button>
+          </div>
+        {:else}
+          <ol class="pipe" aria-label="How an ask becomes an act">
+            {#each PIPE as p (p.n)}
+              <li>
+                <span class="n">{p.n}</span>
+                <span class="t">{p.t}</span>
+              </li>
             {/each}
-          </div>
-        </div>
+          </ol>
 
-        {#if recent.length}
+          <div class="atlas">
+            <div class="atlas-head">
+              <p class="cite">Quick starts</p>
+              <h2>Try an example</h2>
+              <p class="atlas-note">
+                Tap one to fill the box — edit it, or write your own below.
+              </p>
+            </div>
+            <div class="atlas-grid md-stagger">
+              {#each STARTERS as s (s.id)}
+                <button
+                  type="button"
+                  class="door"
+                  class:focus={atlasFocus === s.id}
+                  disabled={halted}
+                  onmouseenter={() => (atlasFocus = s.id)}
+                  onfocus={() => (atlasFocus = s.id)}
+                  onmouseleave={() => (atlasFocus = null)}
+                  onblur={() => (atlasFocus = null)}
+                  onclick={() => pickStarter(s.label)}
+                >
+                  <span class="door-k">{s.kicker}</span>
+                  <span class="door-t">{s.label}</span>
+                  <span class="door-b">{s.body}</span>
+                  <span class="door-a">
+                    Use this
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M5 12h14M13 6l6 6-6 6"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if recent.length && !deskBlocked}
           <div class="recent">
-            <p class="cite">Recent threads</p>
+            <p class="cite">Continue</p>
             <div class="recent-row">
               {#each recent as c (c.id)}
-                <button type="button" class="recent-chip" onclick={() => void openThread(c.id)}>
-                  {c.title || `Thread ${c.id}`}
+                <button
+                  type="button"
+                  class="recent-chip"
+                  class:on={c.id === conversation.currentID}
+                  onclick={() => void openThread(c.id)}
+                >
+                  {threadLabel(c)}
                 </button>
               {/each}
             </div>
@@ -319,9 +697,42 @@
     {:else}
       <div class="thread">
         <div class="thread-bar">
-          <div>
+          <div class="thread-head">
             <p class="cite">thread · gated</p>
-            <h2 class="thread-title">{conversation.currentTitle || 'Ask'}</h2>
+            {#if renaming}
+              <form
+                class="rename-form"
+                onsubmit={(e) => {
+                  e.preventDefault()
+                  void commitRename()
+                }}
+              >
+                <input
+                  class="rename-input"
+                  bind:value={renameDraft}
+                  maxlength="120"
+                  aria-label="Thread title"
+                  disabled={renameBusy}
+                  onkeydown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      cancelRename()
+                    }
+                  }}
+                />
+                <button type="submit" class="md-btn md-btn-primary tiny" disabled={renameBusy || !renameDraft.trim()}>
+                  {renameBusy ? 'Saving…' : 'Save'}
+                </button>
+                <button type="button" class="md-btn md-btn-ghost tiny" disabled={renameBusy} onclick={cancelRename}>
+                  Cancel
+                </button>
+              </form>
+            {:else}
+              <button type="button" class="thread-title-btn" onclick={beginRename} title="Rename thread">
+                <h2 class="thread-title">{conversation.currentTitle || 'Ask'}</h2>
+                <span class="rename-hint">rename</span>
+              </button>
+            {/if}
           </div>
           <div class="thread-actions">
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void copyLast()} disabled={!conversation.messages.some((m) => m.role === 'assistant' && m.content)}>
@@ -331,21 +742,87 @@
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void clearThread()}>
               New ask
             </button>
+            {#if conversation.currentID}
+              <button
+                type="button"
+                class="md-btn md-btn-ghost tiny danger"
+                disabled={deleting || renaming}
+                onclick={() => requestDelete(conversation.currentID)}
+              >
+                Remove
+              </button>
+            {/if}
           </div>
         </div>
 
-        {#if recent.length > 1}
-          <div class="rail" aria-label="Recent threads">
-            {#each recent as c (c.id)}
+        {#if confirmDeleteId === conversation.currentID}
+          <div class="delete-plate" role="alertdialog" aria-labelledby="thread-delete-title">
+            <p class="cite">remove thread</p>
+            <h3 id="thread-delete-title">Delete this conversation?</h3>
+            <p class="delete-lead">
+              Removes the local thread and cancels any in-flight stream. Audit stays intact.
+            </p>
+            <div class="delete-actions">
               <button
                 type="button"
-                class="rail-item"
-                class:on={c.id === conversation.currentID}
-                onclick={() => void openThread(c.id)}
+                class="md-btn md-btn-danger"
+                disabled={deleting}
+                onclick={() => void confirmDelete()}
               >
-                {c.title || `Thread ${c.id}`}
+                {deleting ? 'Removing…' : 'Delete thread'}
               </button>
+              <button type="button" class="md-btn md-btn-ghost" disabled={deleting} onclick={cancelDelete}>
+                Keep
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        {#if recent.length > 0}
+          <div class="rail" aria-label="Recent threads">
+            {#each recent as c (c.id)}
+              <div class="rail-row" class:on={c.id === conversation.currentID}>
+                <button
+                  type="button"
+                  class="rail-item"
+                  class:on={c.id === conversation.currentID}
+                  onclick={() => void openThread(c.id)}
+                >
+                  {threadLabel(c)}
+                </button>
+                <button
+                  type="button"
+                  class="rail-x"
+                  aria-label={`Delete ${threadLabel(c)}`}
+                  disabled={deleting}
+                  onclick={() => requestDelete(c.id)}
+                >
+                  ×
+                </button>
+              </div>
             {/each}
+          </div>
+        {/if}
+
+        {#if confirmDeleteId && confirmDeleteId !== conversation.currentID}
+          <div class="delete-plate slim" role="alertdialog" aria-label="Confirm delete">
+            <p class="delete-lead tight">
+              Delete
+              <strong>{threadLabel(recent.find((c) => c.id === confirmDeleteId) ?? { id: confirmDeleteId })}</strong>?
+            </p>
+            <div class="delete-actions">
+              <button
+                type="button"
+                class="md-btn md-btn-danger"
+                disabled={deleting}
+                onclick={() => void confirmDelete()}
+              >
+                {deleting ? 'Removing…' : 'Delete'}
+              </button>
+              <button type="button" class="md-btn md-btn-ghost" disabled={deleting} onclick={cancelDelete}>
+                Keep
+              </button>
+            </div>
           </div>
         {/if}
 
@@ -363,7 +840,11 @@
                 {/if}
               </header>
               {#if msg.content}
-                <div class="bubble">{msg.content}</div>
+                {#if msg.role === 'assistant'}
+                  <div class="bubble md">{@html renderSafeMarkdown(msg.content)}</div>
+                {:else}
+                  <div class="bubble plain">{msg.content}</div>
+                {/if}
               {/if}
               {#if stepsFor(msg).length}
                 <ol class="steps">
@@ -390,7 +871,7 @@
                 <span class="cite live">thinking</span>
               </header>
               {#if conversation.streamingDelta}
-                <div class="bubble streaming">{conversation.streamingDelta}</div>
+                <div class="bubble md streaming">{@html renderSafeMarkdown(conversation.streamingDelta)}</div>
               {:else}
                 <div class="bubble streaming muted">Reading the room…</div>
               {/if}
@@ -413,7 +894,20 @@
             </article>
           {/if}
           {#if conversation.streamingError}
-            <p class="err">{conversation.streamingError}</p>
+            <div class="err-plate" class:cap={spendError} role="alert">
+              <p class="err">
+                {#if spendError}
+                  Daily spend cap blocked this ask.
+                {:else}
+                  {conversation.streamingError}
+                {/if}
+              </p>
+              {#if spendError}
+                <button type="button" class="md-btn md-btn-ghost" onclick={goSettingsSpend}>
+                  Raise cap →
+                </button>
+              {/if}
+            </div>
           {/if}
         </div>
       </div>
@@ -425,21 +919,60 @@
       <span class="tone-dot" aria-hidden="true"></span>
       {toneLabel}
     </div>
+    {#if showSlash}
+      <div class="slash-wrap">
+        <ul class="slash-menu" role="listbox" aria-label="Slash commands">
+          {#each slashSuggestions as item, i (item.label)}
+            <li role="option" aria-selected={i === slashIndex}>
+              <button
+                type="button"
+                class="slash-item"
+                class:on={i === slashIndex}
+                onmousedown={(e) => {
+                  e.preventDefault()
+                  applySlashSuggestion(item.insert)
+                }}
+              >
+                <code>{item.label}</code>
+                <span>{item.hint}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+        <p class="slash-foot">↑↓ move · Tab or Enter to use · Esc clears</p>
+      </div>
+    {/if}
+    {#if slashNotice}
+      <p class="composer-note" role="status">{slashNotice}</p>
+    {/if}
+    {#if modelPersistError}
+      <p class="composer-note warn" role="alert">{modelPersistError}</p>
+    {/if}
+    {#if sendBlocker}
+      <p class="composer-note warn" role="status">{sendBlocker}</p>
+    {/if}
     <textarea
       bind:this={ta}
       bind:value={draft}
       class="input"
       rows="1"
       placeholder={halted
-        ? 'Halted — resume to ask'
-        : conversation.isStreaming
-          ? 'Thinking…'
-          : 'Ask Condura…'}
-      disabled={halted || conversation.isStreaming}
+        ? 'Halted — resume to ask…'
+        : setupNeeded
+          ? 'Add a model in Settings first…'
+          : capReached
+            ? 'Spend cap reached — raise it in Settings…'
+            : conversation.isStreaming
+              ? 'Working…'
+              : 'Ask anything…  type / for skills'}
+      disabled={halted || conversation.isStreaming || setupNeeded || capReached}
       onfocus={() => (focused = true)}
       onblur={() => (focused = false)}
       onkeydown={onKey}
-      oninput={onInput}
+      oninput={() => {
+        slashNotice = ''
+        onInput()
+      }}
     ></textarea>
     <div class="bar">
       <div class="meta">
@@ -449,24 +982,61 @@
             <select
               bind:value={selectedModel}
               aria-label="Model"
-              disabled={halted || conversation.isStreaming}
+              disabled={halted || conversation.isStreaming || capReached}
+              onchange={() => void persistSelectedModel()}
             >
               {#each modelOptions as opt (opt.value)}
                 <option value={opt.value}>{opt.label}</option>
               {/each}
             </select>
           </label>
+        {:else if setupNeeded}
+          <button type="button" class="setup-chip" onclick={goSettingsModels}>
+            Configure model →
+          </button>
+        {:else if !connected}
+          <span class="offline warn" title="Daemon offline">
+            <span class="full">Daemon offline</span>
+            <span class="short">Offline</span>
+          </span>
         {:else}
           <span
             class="offline"
             class:warn={!selectedModel}
-            title={selectedModel || 'No model · connect daemon'}
+            title={selectedModel || 'No model'}
           >
-            <span class="full">{selectedModel || 'No model · connect daemon'}</span>
+            <span class="full">{selectedModel || 'No model'}</span>
             <span class="short">{selectedModel ? selectedModel.split(':').pop() : 'No model'}</span>
           </span>
         {/if}
-        <span class="hint">Enter to send · Esc to stop · Shift+Enter for line</span>
+        {#if spend.cap > 0}
+          <button
+            type="button"
+            class="spend-chip"
+            class:hot={spendHot}
+            class:cap={capReached}
+            title="Daily spend"
+            onclick={goSettingsSpend}
+          >
+            ${spend.spent.toFixed(2)} / ${spend.cap.toFixed(2)}
+            {#if capReached}
+              · cap
+            {:else if spendHot}
+              · {spend.pct}%
+            {/if}
+          </button>
+        {/if}
+        <span class="hint">
+          {#if setupNeeded}
+            Settings · Models
+          {:else if capReached}
+            Settings · Spend
+          {:else if sendBlocker}
+            Fix above to send
+          {:else}
+            Enter · Esc stops · Shift+Enter for line
+          {/if}
+        </span>
       </div>
       <div class="actions">
         {#if conversation.isStreaming}
@@ -474,14 +1044,24 @@
             Stop
           </button>
         {/if}
-        <button
-          type="button"
-          class="md-btn md-btn-primary"
-          disabled={!canSend}
-          onclick={() => void send()}
-        >
-          Send
-        </button>
+        {#if setupNeeded}
+          <button type="button" class="md-btn md-btn-primary" onclick={goSettingsModels}>
+            Models
+          </button>
+        {:else if capReached}
+          <button type="button" class="md-btn md-btn-primary" onclick={goSettingsSpend}>
+            Raise cap
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="md-btn md-btn-primary"
+            disabled={!canSend}
+            onclick={() => void send()}
+          >
+            Send
+          </button>
+        {/if}
       </div>
     </div>
   </div>
@@ -504,8 +1084,84 @@
 
   /* —— Empty desk —— */
   .hero {
+    position: relative;
     max-width: 760px;
-    margin: min(6vh, 48px) auto 0;
+    margin: min(5vh, 40px) auto 0;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    left: -12%;
+    top: -8%;
+    width: 58%;
+    height: 42%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, color-mix(in oklab, var(--md-cobalt) 16%, transparent), transparent 70%);
+    filter: blur(8px);
+    z-index: 0;
+  }
+  .hero > * {
+    position: relative;
+    z-index: 1;
+  }
+  .live.setup {
+    color: var(--md-cobalt);
+  }
+  .live.setup .live-dot {
+    background: var(--md-cobalt);
+  }
+  .setup-plate {
+    margin: 22px 0 8px;
+    padding: 20px 22px;
+    border-radius: 18px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background:
+      linear-gradient(135deg, color-mix(in oklab, var(--md-cobalt) 8%, transparent), transparent 55%),
+      color-mix(in oklab, var(--md-cobalt) 5%, var(--md-surface));
+    box-shadow: var(--md-shadow);
+  }
+  .setup-plate .cite {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 8px;
+  }
+  .setup-plate h2 {
+    font-family: var(--md-font-display);
+    font-size: 22px;
+    letter-spacing: -0.04em;
+    margin: 0 0 8px;
+  }
+  .setup-plate p {
+    margin: 0 0 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--md-ink-mute);
+    max-width: 42ch;
+  }
+  .atlas.dim {
+    opacity: 0.55;
+  }
+  .setup-chip {
+    appearance: none;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
+    color: var(--md-cobalt);
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 5px 9px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  .setup-chip:hover {
+    background: color-mix(in oklab, var(--md-cobalt) 16%, var(--md-surface));
+  }
+  .setup-chip:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
   }
   .brand-line {
     display: flex;
@@ -534,30 +1190,21 @@
   }
   h1 {
     font-family: var(--md-font-display);
-    font-size: clamp(40px, 7vw, 64px);
+    font-size: clamp(36px, 6.2vw, 56px);
     font-weight: 700;
     letter-spacing: -0.055em;
-    line-height: 0.98;
-    margin: 0 0 16px;
+    line-height: 1.05;
+    margin: 0 0 12px;
     animation: md-rise 520ms var(--md-ease) 40ms both;
+    color: var(--md-ink);
   }
-  h1 span {
-    color: var(--md-cobalt);
-    background: linear-gradient(105deg, var(--md-cobalt), var(--md-live));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .hero.calm h1 span {
-    color: var(--md-cobalt);
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
+  .hero.calm h1 {
+    color: var(--md-ink);
   }
   .sub {
     margin: 0 0 14px;
-    max-width: 42ch;
-    font-size: 16px;
+    max-width: 40ch;
+    font-size: 15px;
     line-height: 1.55;
     color: var(--md-ink-mute);
     animation: md-rise 520ms var(--md-ease) 80ms both;
@@ -607,10 +1254,12 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 8px 13px;
     border-radius: 999px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 78%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 1px 0 color-mix(in oklab, #fff 40%, transparent) inset;
   }
   .pipe .n {
     font-family: var(--md-font-mono);
@@ -654,25 +1303,40 @@
     gap: 10px;
   }
   .door {
+    position: relative;
     text-align: left;
     display: grid;
     gap: 6px;
-    padding: 16px 16px 14px;
-    border-radius: 18px;
-    border: 1px solid var(--md-line-strong);
+    padding: 14px 14px 12px 16px;
+    border-radius: 11px;
+    border: 1px solid var(--md-line);
     background: var(--md-surface);
     cursor: pointer;
     color: inherit;
+    overflow: hidden;
     transition:
-      border-color 180ms var(--md-ease),
-      transform 180ms var(--md-spring),
-      box-shadow 180ms var(--md-ease);
+      border-color 140ms var(--md-ease),
+      background 140ms var(--md-ease);
+  }
+  .door::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    transition: background 140ms var(--md-ease);
   }
   .door:hover,
   .door.focus {
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
-    transform: translateY(-2px);
-    box-shadow: var(--md-shadow);
+    border-color: var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-stage) 40%, var(--md-surface));
+  }
+  .door:hover::before,
+  .door.focus::before {
+    background: var(--md-cobalt);
   }
   .door:focus-visible {
     outline: none;
@@ -738,9 +1402,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .recent-chip.on {
+    color: #fff;
+    background: var(--md-cobalt);
+    border-color: var(--md-cobalt);
+  }
   .recent-chip:hover {
     border-color: var(--md-cobalt);
     color: var(--md-ink);
+  }
+  .recent-chip.on:hover {
+    color: #fff;
   }
   .recent-chip:focus-visible {
     outline: none;
@@ -761,11 +1433,72 @@
     padding-bottom: 14px;
     border-bottom: 1px solid var(--md-line);
   }
+  .thread-head {
+    min-width: 0;
+    flex: 1;
+  }
   .thread-title {
     font-family: var(--md-font-display);
     font-size: 22px;
     letter-spacing: -0.04em;
     margin: 0;
+  }
+  .thread-title-btn {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    max-width: 100%;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+  .thread-title-btn .thread-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rename-hint {
+    font-family: var(--md-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    flex: none;
+  }
+  .thread-title-btn:hover .rename-hint {
+    color: var(--md-cobalt);
+  }
+  .thread-title-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+    border-radius: 8px;
+  }
+  .rename-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .rename-input {
+    min-width: min(280px, 100%);
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-surface);
+    font-family: var(--md-font-display);
+    font-size: 18px;
+    letter-spacing: -0.03em;
+    color: var(--md-ink);
+  }
+  .rename-input:focus {
+    outline: none;
+    border-color: var(--md-cobalt);
+    box-shadow: var(--md-focus);
   }
   .thread-actions {
     display: flex;
@@ -776,6 +1509,47 @@
     padding: 7px 12px;
     font-size: 12px;
   }
+  :global(.md-btn.tiny.danger) {
+    color: var(--md-halt);
+  }
+  .delete-plate {
+    margin: 0 0 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 6%, var(--md-surface));
+  }
+  .delete-plate.slim {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .delete-plate h3 {
+    font-family: var(--md-font-display);
+    font-size: 16px;
+    letter-spacing: -0.03em;
+    margin: 0 0 6px;
+  }
+  .delete-lead {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+    max-width: 48ch;
+  }
+  .delete-lead.tight {
+    margin: 0;
+  }
+  .delete-lead strong {
+    color: var(--md-ink);
+  }
+  .delete-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   .rail {
     display: flex;
     gap: 6px;
@@ -783,27 +1557,52 @@
     margin-bottom: 16px;
     padding-bottom: 2px;
   }
-  .rail-item {
+  .rail-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     flex: none;
-    padding: 7px 12px;
     border-radius: 999px;
     border: 1px solid var(--md-line);
+    background: transparent;
+  }
+  .rail-row.on {
+    border-color: var(--md-cobalt);
+    background: color-mix(in oklab, var(--md-cobalt) 10%, transparent);
+  }
+  .rail-item {
+    flex: none;
+    padding: 7px 10px 7px 12px;
+    border: 0;
     background: transparent;
     font-size: 12px;
     font-weight: 600;
     color: var(--md-ink-faint);
     cursor: pointer;
-    max-width: 160px;
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .rail-item.on {
-    color: #fff;
-    background: var(--md-cobalt);
-    border-color: var(--md-cobalt);
+    color: var(--md-cobalt);
   }
-  .rail-item:focus-visible {
+  .rail-x {
+    width: 26px;
+    height: 26px;
+    margin-right: 4px;
+    border-radius: 999px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--md-ink-faint);
+    cursor: pointer;
+  }
+  .rail-x:hover {
+    color: var(--md-halt);
+    background: color-mix(in oklab, var(--md-halt) 10%, transparent);
+  }
+  .rail-item:focus-visible,
+  .rail-x:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
   }
@@ -856,23 +1655,77 @@
     color: var(--md-live);
   }
   .bubble {
-    font-size: 15.5px;
+    font-size: 15px;
     line-height: 1.55;
-    white-space: pre-wrap;
     word-break: break-word;
-    padding: 12px 16px;
-    border-radius: 18px;
+    padding: 11px 14px;
+    border-radius: 12px;
+  }
+  .bubble.plain {
+    white-space: pre-wrap;
+  }
+  .bubble.md {
+    white-space: normal;
+  }
+  .bubble.md :global(p) {
+    margin: 0.45em 0;
+  }
+  .bubble.md :global(p:first-child) {
+    margin-top: 0;
+  }
+  .bubble.md :global(p:last-child) {
+    margin-bottom: 0;
+  }
+  .bubble.md :global(ul),
+  .bubble.md :global(ol) {
+    margin: 0.45em 0;
+    padding-left: 1.35em;
+  }
+  .bubble.md :global(li) {
+    margin: 0.2em 0;
+  }
+  .bubble.md :global(code) {
+    font-family: var(--md-font-mono);
+    font-size: 0.88em;
+    background: color-mix(in oklab, var(--md-stage) 88%, transparent);
+    border: 1px solid var(--md-line);
+    padding: 1px 6px;
+    border-radius: 6px;
+  }
+  .bubble.md :global(pre) {
+    margin: 0.65em 0;
+    padding: 12px 14px;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--md-line);
+    background: var(--md-stage);
+  }
+  .bubble.md :global(pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12.5px;
+  }
+  .bubble.md :global(blockquote) {
+    margin: 0.55em 0;
+    padding-left: 12px;
+    border-left: 2px solid color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    color: var(--md-ink-mute);
+  }
+  .bubble.md :global(a) {
+    color: var(--md-cobalt);
   }
   .msg[data-role='user'] .bubble {
-    background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-surface));
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line-strong));
-    border-bottom-right-radius: 6px;
+    background: color-mix(in oklab, var(--md-cobalt) 9%, var(--md-surface));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+    border-bottom-right-radius: 4px;
+    box-shadow: none;
   }
   .msg[data-role='assistant'] .bubble {
     background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-bottom-left-radius: 6px;
-    box-shadow: var(--md-shadow);
+    border: 1px solid var(--md-line);
+    border-bottom-left-radius: 4px;
+    box-shadow: none;
   }
   .bubble.muted {
     color: var(--md-ink-mute);
@@ -946,23 +1799,130 @@
   .err {
     color: var(--md-halt);
     font-size: 13px;
+    margin: 0;
+  }
+  .err-plate {
     align-self: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 6%, var(--md-surface));
+  }
+  .err-plate.cap {
+    border-color: color-mix(in oklab, var(--md-halt) 40%, transparent);
+  }
+  .spend-chip {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: var(--md-stage);
+    color: var(--md-ink-mute);
+    cursor: pointer;
+  }
+  .spend-chip.hot {
+    color: #c4892a;
+    border-color: color-mix(in oklab, #c4892a 35%, var(--md-line));
+  }
+  .spend-chip.cap {
+    color: var(--md-halt);
+    border-color: color-mix(in oklab, var(--md-halt) 35%, var(--md-line));
+  }
+  .cap-plate {
+    border-color: color-mix(in oklab, var(--md-halt) 30%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 5%, var(--md-surface));
   }
 
   /* —— Composer —— */
   .composer {
+    position: relative;
     margin: 0 auto 88px;
     max-width: 760px;
     width: calc(100% - 56px);
-    border-radius: 22px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    box-shadow: var(--md-shadow);
+    border-radius: 12px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
     padding: 10px 12px 12px;
-    transition:
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease),
-      transform 240ms var(--md-spring);
+    transition: border-color 140ms var(--md-ease);
+  }
+  .slash-wrap {
+    margin: 0 0 8px;
+  }
+  .slash-menu {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    box-shadow: var(--md-shadow);
+    display: grid;
+    gap: 1px;
+    max-height: 220px;
+    overflow: auto;
+  }
+  .slash-foot {
+    margin: 4px 2px 0;
+    padding: 2px 6px 0;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--md-ink-faint);
+  }
+  .composer-note {
+    margin: 0 2px 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 7%, var(--md-surface));
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--md-ink-mute);
+  }
+  .composer-note.warn {
+    border-color: color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 8%, var(--md-surface));
+    color: var(--md-halt);
+  }
+  .slash-item {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--md-ink);
+    cursor: pointer;
+    font: inherit;
+  }
+  .slash-item.on,
+  .slash-item:hover {
+    background: color-mix(in oklab, var(--md-cobalt) 10%, var(--md-stage));
+  }
+  .slash-item code {
+    font-family: var(--md-font-mono);
+    font-size: 12px;
+    color: var(--md-cobalt);
+  }
+  .slash-item span {
+    font-size: 12px;
+    color: var(--md-ink-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .composer .tone {
     display: inline-flex;
@@ -1012,12 +1972,34 @@
   .composer[data-tone='offline'] .tone {
     color: var(--md-ink-mute);
   }
+  .composer[data-tone='setup'] {
+    border-color: color-mix(in oklab, var(--md-cobalt) 32%, transparent);
+  }
+  .composer[data-tone='setup'] .tone {
+    color: var(--md-cobalt);
+  }
+  .composer[data-tone='setup'] .tone-dot {
+    background: var(--md-cobalt);
+  }
+  .composer[data-tone='capped'] {
+    border-color: color-mix(in oklab, var(--md-halt) 40%, transparent);
+  }
+  .composer[data-tone='capped'] .tone {
+    color: var(--md-halt);
+  }
+  .composer[data-tone='capped'] .tone-dot {
+    background: var(--md-halt);
+  }
   .composer.focused,
   .composer.ready.focused {
-    transform: translateY(-2px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 50%, var(--md-line-strong));
-    box-shadow: var(--md-focus), var(--md-shadow-lift);
+    transform: none;
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line));
+    box-shadow: var(--md-focus);
     background: var(--md-surface);
+  }
+  .composer[data-tone='ready']:not(.focused) {
+    box-shadow: none;
+    border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
   }
   .input {
     width: 100%;
@@ -1078,7 +2060,7 @@
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7A90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
       no-repeat right 10px center;
     padding: 6px 28px 6px 10px;
-    border-radius: 999px;
+    border-radius: 8px;
     font-family: var(--md-font-mono);
     font-size: 11px;
     color: var(--md-ink-soft);
@@ -1165,7 +2147,8 @@
     .msg,
     .composer,
     .bubble.streaming::after,
-    .tone-dot {
+    .tone-dot,
+    h1 span {
       animation: none !important;
     }
     .feed {

@@ -29,7 +29,7 @@ type Engine struct {
 	syncListener  net.Listener
 	// pendingPairings maps peer device_id -> (token, createdAt).
 	// The token is set by PairWith and consumed by ConfirmPairing.
-	// Entries expire after pendingPairingTTL so stale tokens don't
+	// Entries expire after PendingPairingTTL so stale tokens don't
 	// accumulate.
 	pendingPairings map[string]pendingPairing
 }
@@ -39,7 +39,10 @@ type pendingPairing struct {
 	createdAt time.Time
 }
 
-const pendingPairingTTL = 5 * time.Minute
+// PendingPairingTTL is how long a PIN ceremony remains valid.
+// IPC pair_begin surfaces this as expires_in (seconds) so the GUI
+// countdown matches the engine.
+const PendingPairingTTL = 5 * time.Minute
 
 // NewEngine creates a sync engine. If paired is nil, the engine
 // accepts ANY authenticated device (insecure default; only used in
@@ -216,11 +219,11 @@ func (e *Engine) PendingPairing(peerDeviceID string) *PendingPairing {
 	if !ok {
 		return nil
 	}
-	if time.Since(pp.createdAt) > pendingPairingTTL {
+	if time.Since(pp.createdAt) > PendingPairingTTL {
 		delete(e.pendingPairings, peerDeviceID)
 		return nil
 	}
-	expiresAt := pp.createdAt.Add(pendingPairingTTL)
+	expiresAt := pp.createdAt.Add(PendingPairingTTL)
 	var peerName, peerPub string
 	if e.discovery != nil {
 		for _, peer := range e.discovery.Peers() {
@@ -273,7 +276,7 @@ func (e *Engine) ConfirmPairing(peer *Peer, userPIN string) error {
 		e.mu.Unlock()
 		return fmt.Errorf("sync: no pending pairing for device %s — run 'synaptic sync pair %s' first", peer.DeviceID, peer.DeviceID)
 	}
-	if time.Since(pp.createdAt) > pendingPairingTTL {
+	if time.Since(pp.createdAt) > PendingPairingTTL {
 		delete(e.pendingPairings, peer.DeviceID)
 		e.mu.Unlock()
 		return fmt.Errorf("sync: pairing for device %s expired — re-run 'synaptic sync pair %s'", peer.DeviceID, peer.DeviceID)

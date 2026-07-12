@@ -6,38 +6,94 @@
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { audit } from '../../stores/audit.svelte'
+  import { daemon } from '../../stores/daemon.svelte'
   import type { AuditEvent } from '../../ipc/types'
+  import type { VerdictFilter, WhenPreset } from '../../stores/audit.svelte'
 
   let selectedId = $state<number | null>(null)
-  let filter = $state<'all' | 'allow' | 'block' | 'prompt'>('all')
+  /** Tick so “last live” age stays honest without thrashing. */
+  let nowTick = $state(Date.now())
+
+  const FILTERS = ['all', 'allow', 'block', 'prompt'] as const
+  const WHEN: { id: WhenPreset; label: string }[] = [
+    { id: '1h', label: '1h' },
+    { id: '24h', label: '24h' },
+    { id: '7d', label: '7d' },
+    { id: '30d', label: '30d' },
+    { id: 'all', label: 'all time' },
+  ]
+
+  const whenLabel = $derived(
+    WHEN.find((w) => w.id === audit.filters.whenPreset)?.label ?? audit.filters.whenPreset
+  )
 
   onMount(() => {
+    // Ensure 24h window + server-backed list (not client-only page slice).
     void audit.refresh()
     void audit.verifyIntegrity()
     audit.startLive()
-    return () => audit.stopLive()
+    const tick = setInterval(() => {
+      nowTick = Date.now()
+    }, 5000)
+    return () => {
+      clearInterval(tick)
+      audit.stopLive()
+    }
   })
 
-  const filtered = $derived(
-    filter === 'all' ? audit.events : audit.events.filter((e) => e.result === filter)
-  )
-  const selected = $derived(filtered.find((e) => e.id === selectedId) ?? filtered[0] ?? null)
-  const counts = $derived({
-    all: audit.events.length,
-    allow: audit.events.filter((e) => e.result === 'allow').length,
-    block: audit.events.filter((e) => e.result === 'block').length,
-    prompt: audit.events.filter((e) => e.result === 'prompt').length,
+  const liveNote = $derived.by(() => {
+    if (!daemon.connected) return 'Daemon offline — ledger updates when Condura reconnects'
+    if (!audit.liveSubscribed) return 'Live feed not subscribed — use Refresh for new verdicts'
+    if (audit.lastLiveAt > 0) {
+      const sec = Math.max(0, Math.floor((nowTick - audit.lastLiveAt) / 1000))
+      if (sec < 5) return 'Live · new verdict just arrived'
+      if (sec < 60) return `Live · last event ${sec}s ago`
+      return `Live · last event ${Math.floor(sec / 60)}m ago`
+    }
+    return 'Live stream listening — new verdicts append here without refresh'
+  })
+
+  /** Server already filters by verdict; list is the chain for this filter. */
+  const rows = $derived(audit.events)
+  const filter = $derived(audit.filters.verdict)
+  const selected = $derived(rows.find((e) => e.id === selectedId) ?? rows[0] ?? null)
+
+  /** Chip badges prefer server facetCounts over the loaded page. */
+  const counts = $derived.by(() => {
+    const f = audit.facetCounts
+    if (f) {
+      return {
+        all: f.total,
+        allow: f.verdicts.allow ?? 0,
+        block: f.verdicts.block ?? 0,
+        prompt: f.verdicts.prompt ?? 0,
+      }
+    }
+    return {
+      all: audit.events.length,
+      allow: audit.events.filter((e) => e.result === 'allow').length,
+      block: audit.events.filter((e) => e.result === 'block').length,
+      prompt: audit.events.filter((e) => e.result === 'prompt').length,
+    }
   })
 
   $effect(() => {
-    if (!filtered.length) {
+    if (!rows.length) {
       selectedId = null
       return
     }
-    if (selectedId === null || !filtered.some((e) => e.id === selectedId)) {
-      selectedId = filtered[0]!.id
+    if (selectedId === null || !rows.some((e) => e.id === selectedId)) {
+      selectedId = rows[0]!.id
     }
   })
+
+  function setFilter(v: (typeof FILTERS)[number]): void {
+    audit.setVerdict(v as VerdictFilter)
+  }
+
+  function setWhen(w: WhenPreset): void {
+    audit.setWhenPreset(w)
+  }
 
   function formatWhen(v: unknown): string {
     if (!v) return '—'
@@ -68,16 +124,23 @@
   }
 
   function onKey(e: KeyboardEvent): void {
-    if (!filtered.length) return
-    const i = filtered.findIndex((e) => e.id === selectedId)
+    if (!rows.length) return
+    const t = e.target as HTMLElement | null
+    if (
+      t &&
+      (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+    ) {
+      return
+    }
+    const i = rows.findIndex((row) => row.id === selectedId)
     if (e.key === 'ArrowDown' || e.key === 'j' || e.key === 'J') {
       e.preventDefault()
-      const next = filtered[Math.min(filtered.length - 1, Math.max(0, i) + 1)]
+      const next = rows[Math.min(rows.length - 1, Math.max(0, i) + 1)]
       if (next) selectedId = next.id
     }
     if (e.key === 'ArrowUp' || e.key === 'k' || e.key === 'K') {
       e.preventDefault()
-      const prev = filtered[Math.max(0, (i < 0 ? 0 : i) - 1)]
+      const prev = rows[Math.max(0, (i < 0 ? 0 : i) - 1)]
       if (prev) selectedId = prev.id
     }
   }
@@ -94,6 +157,14 @@
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void audit.refresh()}>Refresh</button>
     <button
       type="button"
+      class="md-btn md-btn-ghost"
+      disabled={audit.exportInFlight}
+      onclick={() => void audit.exportChain()}
+    >
+      {audit.exportInFlight ? 'Exporting…' : 'Export JSONL'}
+    </button>
+    <button
+      type="button"
       class="md-btn md-btn-primary"
       disabled={audit.integrityLoading}
       onclick={() => void audit.verifyIntegrity()}
@@ -103,9 +174,13 @@
   {/snippet}
 
   <div class="desk md-stagger">
-    <p class="contract">
+    <p
+      class="contract"
+      class:hot={daemon.connected && audit.liveSubscribed}
+      class:off={!daemon.connected}
+    >
       <span class="live-dot" aria-hidden="true"></span>
-      Live stream is on. New verdicts append here — the past cannot be quietly rewritten.
+      {liveNote}. The past cannot be quietly rewritten.
     </p>
 
     {#if audit.integrity}
@@ -116,26 +191,83 @@
           <strong>Chain {audit.integrity.ok ? 'intact' : 'broken'}</strong>
           {#if audit.integrity.reason}
             <p class="reason">{audit.integrity.reason}</p>
+          {:else if audit.integrity.ok}
+            <p class="reason">
+              {audit.integrity.rows_verified} row{audit.integrity.rows_verified === 1 ? '' : 's'} verified
+              {#if audit.integrity.duration_ms}
+                · {audit.integrity.duration_ms}ms
+              {/if}
+            </p>
+          {/if}
+          {#if !audit.integrity.ok && audit.integrity.broken_at_id}
+            <p class="reason">First break at id {audit.integrity.broken_at_id}</p>
           {/if}
         </div>
         <button type="button" class="md-btn md-btn-ghost tiny" onclick={goReplay}>Open Replay</button>
       </div>
+    {:else if audit.integrityError}
+      <div class="seal bad">
+        <span class="seal-mark" aria-hidden="true"></span>
+        <div>
+          <p class="cite">chain seal</p>
+          <strong>Verify failed</strong>
+          <p class="reason">{audit.integrityError}</p>
+        </div>
+        <button
+          type="button"
+          class="md-btn md-btn-ghost tiny"
+          disabled={audit.integrityLoading}
+          onclick={() => void audit.verifyIntegrity()}
+        >
+          Retry
+        </button>
+      </div>
     {/if}
 
-    <div class="filters" role="group" aria-label="Filter by verdict">
-      {#each (['all', 'allow', 'block', 'prompt'] as const) as f}
-        <button type="button" class:on={filter === f} data-f={f} onclick={() => (filter = f)}>
-          {f}
-          <em>{counts[f]}</em>
-        </button>
-      {/each}
+    {#if audit.exportResult}
+      <p class="export-note ok">
+        Exported {audit.exportResult.count} row{audit.exportResult.count === 1 ? '' : 's'} ·
+        {audit.exportResult.path}
+      </p>
+    {:else if audit.exportError}
+      <p class="export-note bad">{audit.exportError}</p>
+    {/if}
+
+    <div class="filter-desk">
+      <div class="filters when" role="group" aria-label="Time window">
+        {#each WHEN as w (w.id)}
+          <button
+            type="button"
+            class:on={audit.filters.whenPreset === w.id}
+            data-w={w.id}
+            disabled={audit.loading}
+            onclick={() => setWhen(w.id)}
+          >
+            {w.label}
+          </button>
+        {/each}
+      </div>
+      <div class="filters" role="group" aria-label="Filter by verdict">
+        {#each FILTERS as f (f)}
+          <button
+            type="button"
+            class:on={filter === f}
+            data-f={f}
+            disabled={audit.loading}
+            onclick={() => setFilter(f)}
+          >
+            {f}
+            <em>{counts[f]}</em>
+          </button>
+        {/each}
+      </div>
     </div>
 
-    {#if audit.loading && audit.events.length === 0}
+    {#if audit.loading && rows.length === 0}
       <div class="md-empty">Loading ledger…</div>
     {:else if showError}
       <div class="md-empty">{audit.error}</div>
-    {:else if audit.events.length === 0}
+    {:else if rows.length === 0 && filter === 'all' && audit.filters.whenPreset === 'all'}
       <div class="empty-atlas">
         <p class="cite">{isOffline(audit.error) ? 'ledger offline' : 'quiet chain'}</p>
         <h2>{isOffline(audit.error) ? 'Ledger unread' : 'No events yet'}</h2>
@@ -151,17 +283,45 @@
           <button type="button" class="md-btn md-btn-ghost" onclick={() => void audit.refresh()}>Refresh</button>
         </div>
       </div>
-    {:else if filtered.length === 0}
+    {:else if rows.length === 0}
       <div class="md-empty empty">
-        <p class="empty-title">No {filter} events</p>
-        <p class="empty-lead">Try another verdict filter.</p>
-        <button type="button" class="md-btn md-btn-ghost" onclick={() => (filter = 'all')}>Show all</button>
+        <p class="empty-title">
+          {#if filter !== 'all'}
+            No {filter} events
+          {:else}
+            Nothing in this window
+          {/if}
+        </p>
+        <p class="empty-lead">
+          Server filter · try another verdict or widen the time window
+          (now: {whenLabel}).
+        </p>
+        <div class="empty-actions">
+          {#if filter !== 'all'}
+            <button type="button" class="md-btn md-btn-ghost" onclick={() => setFilter('all')}>
+              All verdicts
+            </button>
+          {/if}
+          {#if audit.filters.whenPreset !== 'all'}
+            <button type="button" class="md-btn md-btn-ghost" onclick={() => setWhen('all')}>
+              All time
+            </button>
+          {/if}
+          {#if audit.filters.whenPreset !== '7d' && audit.filters.whenPreset !== 'all'}
+            <button type="button" class="md-btn md-btn-ghost" onclick={() => setWhen('7d')}>
+              Last 7 days
+            </button>
+          {/if}
+        </div>
       </div>
     {:else}
       <div class="layout">
         <div class="chain">
-          <p class="cite">↑↓ / J K · {filtered.length} links</p>
-          {#each filtered as ev (ev.id)}
+          <p class="cite">
+            ↑↓ / J K · {rows.length} links · {whenLabel}
+            {#if filter !== 'all'} · {filter}{/if}
+          </p>
+          {#each rows as ev (ev.id)}
             <button
               type="button"
               class="link"
@@ -254,11 +414,18 @@
     margin: 0;
     padding: 12px 14px;
     border-radius: 14px;
-    border: 1px solid color-mix(in oklab, var(--md-live) 22%, var(--md-line));
-    background: color-mix(in oklab, var(--md-live) 6%, var(--md-surface));
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 80%, transparent);
     font-size: 13px;
     line-height: 1.45;
     color: var(--md-ink-mute);
+  }
+  .contract.hot {
+    border-color: color-mix(in oklab, var(--md-live) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-live) 6%, var(--md-surface));
+  }
+  .contract.off {
+    border-color: color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
   }
   .live-dot {
     width: 8px;
@@ -266,6 +433,9 @@
     margin-top: 5px;
     flex: none;
     border-radius: 50%;
+    background: var(--md-ink-faint);
+  }
+  .contract.hot .live-dot {
     background: var(--md-live);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
   }
@@ -325,18 +495,36 @@
     font-size: 12px;
     flex: none;
   }
+  .export-note {
+    margin: 0;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    line-height: 1.45;
+    word-break: break-all;
+  }
+  .export-note.ok {
+    color: var(--md-live);
+  }
+  .export-note.bad {
+    color: var(--md-halt);
+  }
+  .filter-desk {
+    display: grid;
+    gap: 10px;
+  }
   .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .filters button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
     font-family: var(--md-font-mono);
     font-size: 10px;
@@ -345,9 +533,18 @@
     color: var(--md-ink-mute);
     cursor: pointer;
   }
+  .filters button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
   .filters button em {
     font-style: normal;
     opacity: 0.7;
+  }
+  .filters.when button.on {
+    background: color-mix(in oklab, var(--md-cobalt) 14%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    color: var(--md-cobalt);
   }
   .filters button.on[data-f='all'] {
     background: var(--md-cobalt);
@@ -398,6 +595,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    justify-content: center;
   }
   .empty-title {
     margin: 0;
@@ -479,8 +677,8 @@
     font-size: 9px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 4px 8px;
-    border-radius: 999px;
+    padding: 3px 7px;
+    border-radius: 5px;
     border: 1px solid var(--md-line);
     color: var(--md-ink-mute);
   }

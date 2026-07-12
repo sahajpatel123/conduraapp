@@ -151,3 +151,137 @@ describe('ipc.llmStream contract', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('ipc safety.consent.request remap', () => {
+  it('exposes consent on EventMap (compile-time shape)', () => {
+    // Runtime EventSource remaps safety.consent.request → consent;
+    // ensure the typed emitter accepts the handler shape.
+    const off = ipc.on('consent', (t) => {
+      expect(t.nonce).toBeDefined()
+    })
+    off()
+  })
+})
+
+describe('ipc.presenceState contract', () => {
+  beforeEach(() => {
+    ;(ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0'
+    ;(ipc as unknown as { authToken: string }).authToken = ''
+  })
+
+  it('calls presence.state and returns { state }', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ jsonrpc: '2.0', result: { state: 'hidden' }, id: 1 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await ipc.presenceState()
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body))
+    expect(body.method).toBe('presence.state')
+    expect(res.state).toBe('hidden')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('ipc.delegateListSpawns contract', () => {
+  beforeEach(() => {
+    ;(ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0'
+    ;(ipc as unknown as { authToken: string }).authToken = ''
+  })
+
+  it('calls delegate.list_spawns', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ jsonrpc: '2.0', result: { running: [] }, id: 1 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await ipc.delegateListSpawns()
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body))
+    expect(body.method).toBe('delegate.list_spawns')
+    expect(res.running).toEqual([])
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('ipc.delegatePending* contract', () => {
+  beforeEach(() => {
+    ;(ipc as unknown as { baseURL: string }).baseURL = 'http://127.0.0.1:0'
+    ;(ipc as unknown as { authToken: string }).authToken = ''
+  })
+
+  function mockRPC(result: unknown) {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ jsonrpc: '2.0', result, id: 1 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function lastBody(fetchMock: ReturnType<typeof vi.fn>): { method: string; params: unknown } {
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    return JSON.parse(String(init.body)) as { method: string; params: unknown }
+  }
+
+  it('lists via delegate.pending.list', async () => {
+    const row = {
+      id: 'pa-1',
+      spawn_id: 'sp-1',
+      agent_name: 'claude',
+      kind: 'shell.exec',
+      payload: { command: 'echo hi' },
+      gate_decision: 'require_consent',
+      gate_reason: 'shell',
+      status: 'pending',
+      created_at: '2026-07-11T00:00:00Z',
+      expires_at: '2026-07-11T01:00:00Z',
+      exit_code: 0,
+      result: '',
+      duration_ms: 0,
+    }
+    const fetchMock = mockRPC({ actions: [row] })
+    const res = await ipc.delegatePendingList('pending')
+    const body = lastBody(fetchMock)
+    expect(body.method).toBe('delegate.pending.list')
+    expect(body.params).toEqual({ status: 'pending', limit: 50 })
+    expect(res.actions).toHaveLength(1)
+    expect(res.actions[0].id).toBe('pa-1')
+    vi.unstubAllGlobals()
+  })
+
+  it('decides via delegate.pending.decide', async () => {
+    const fetchMock = mockRPC({ id: 'pa-1', status: 'approved' })
+    const res = await ipc.delegatePendingDecide({
+      id: 'pa-1',
+      decision: 'approve',
+      decided_by: 'user:anonymous',
+      note: '',
+      auto_run: true,
+    })
+    const body = lastBody(fetchMock)
+    expect(body.method).toBe('delegate.pending.decide')
+    expect(body.params).toMatchObject({
+      id: 'pa-1',
+      decision: 'approve',
+      auto_run: true,
+    })
+    expect(res.status).toBe('approved')
+    vi.unstubAllGlobals()
+  })
+
+  it('executes via delegate.pending.execute', async () => {
+    const fetchMock = mockRPC({ id: 'pa-1', status: 'executed', exit_code: 0 })
+    const res = await ipc.delegatePendingExecute({ id: 'pa-1' })
+    const body = lastBody(fetchMock)
+    expect(body.method).toBe('delegate.pending.execute')
+    expect(body.params).toEqual({ id: 'pa-1' })
+    expect(res.status).toBe('executed')
+    vi.unstubAllGlobals()
+  })
+})

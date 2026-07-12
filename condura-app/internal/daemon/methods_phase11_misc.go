@@ -274,16 +274,20 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "EULA must be accepted before finish"}
 		}
 
-		// 2. Validate hotkey is non-empty and parses.
-		if p.Hotkey == "" {
+		// 2. Hotkey: required unless the hotkey step was explicitly
+		// skipped ("Set later"). Empty + skipped is intentional —
+		// Settings can bind a combo after first run. Empty without
+		// skip is a client bug and stays invalid.
+		hotkeySkipped := s.Steps[onboarding.StepHotkey].Status == onboarding.StatusSkipped
+		if p.Hotkey == "" && !hotkeySkipped {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "hotkey is required"}
 		}
 
 		// 3. Probe power for the Ready screen response.
 		power := onboarding.ProbePowerWithTimeout(ctx)
 
-		// 5. Apply hotkey to in-memory config.
-		if subs.cfg != nil {
+		// 5. Apply hotkey to in-memory config when provided.
+		if subs.cfg != nil && p.Hotkey != "" {
 			subs.cfg.Hotkey.Overlay = p.Hotkey
 		}
 

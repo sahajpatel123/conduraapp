@@ -52,6 +52,11 @@
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
   let route = $derived(hashToRoute(currentHash))
+  let rootEl = $state<HTMLDivElement | null>(null)
+
+  function pinShellFloor(): void {
+    if (rootEl && rootEl.scrollTop !== 0) rootEl.scrollTop = 0
+  }
   let theme = $state<ResolvedTheme>(getResolvedTheme())
 
   let statusLabel = $derived(
@@ -90,27 +95,21 @@
     })
 
     void initStores()
-      .then(() => checkOnboarding())
+      .then(() => {
+        try {
+          consent.start()
+        } catch {
+          /* ignore */
+        }
+        return checkOnboarding()
+      })
       .catch((e) => {
         console.warn('initStores failed', e)
         void checkOnboarding()
       })
 
-    try {
-      halt.startPolling()
-    } catch {
-      /* ignore */
-    }
-    try {
-      overlay.start()
-    } catch {
-      /* ignore */
-    }
-    try {
-      consent.start()
-    } catch {
-      /* ignore */
-    }
+    // halt/overlay polling start inside initStores after ipc.start —
+    // do not race them here (empty same-origin baseURL used to skip start).
 
     // OAuth deep-link return: Go emits after ExchangeCode succeeds.
     let offOAuth: (() => void) | undefined
@@ -127,19 +126,24 @@
 
     const onHash = () => {
       currentHash = window.location.hash || '#/'
+      // Deep links (#/settings/models) must not scroll the shell — only .stage.
+      queueMicrotask(pinShellFloor)
     }
     window.addEventListener('hashchange', onHash)
+    pinShellFloor()
 
     const onShowOnboarding = (): void => {
-      // Settings re-run already calls onboarding.reset(); belt-and-suspenders
-      // so any other dispatcher still walks EULA → perms → hotkey.
-      void onboarding
-        .reset()
-        .catch(() => {})
-        .finally(() => {
-          showOnboarding = true
-          window.location.hash = '#/'
-        })
+      // Settings re-run opens the wizard. reset() needs the daemon and
+      // swallows RPC failures into onboarding.error — clear transport
+      // failures so offline Vite preview can show the bundled EULA.
+      void onboarding.reset().finally(() => {
+        const err = onboarding.error || ''
+        if (/Load failed|Failed to fetch|NetworkError|ECONNREFUSED|not connected|IPC client not started/i.test(err)) {
+          onboarding.error = null
+        }
+        showOnboarding = true
+        window.location.hash = '#/'
+      })
     }
     window.addEventListener('condura:show-onboarding', onShowOnboarding)
 
@@ -236,6 +240,12 @@
     if (routeHash) window.location.hash = routeHash
   }
 
+  $effect(() => {
+    route
+    currentHash
+    queueMicrotask(pinShellFloor)
+  })
+
   function navigate(r: RouteId): void {
     window.location.hash = ROUTE_HASH[r]
   }
@@ -248,15 +258,18 @@
   </div>
 {:else if !onboardingChecked}
   <div class="md boot" aria-busy="true" aria-label="Starting Condura">
+    <div class="boot-gem" aria-hidden="true"></div>
     <p class="boot-mark">Condura</p>
     <p class="boot-sub">Starting…</p>
   </div>
 {:else}
-  <div class="md root">
+  <div class="md root" bind:this={rootEl}>
     <div class="wash" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
 
     <header class="top">
       <div class="brand">
+        <span class="gem" aria-hidden="true"></span>
         <span class="word">Condura</span>
         <span class="edition">Meridian</span>
       </div>
@@ -364,14 +377,26 @@
     height: 100dvh;
     display: grid;
     place-content: center;
-    gap: 8px;
+    justify-items: center;
+    gap: 10px;
     background: var(--md-mist);
+    background-image: var(--md-wash);
     text-align: center;
+  }
+  .boot-gem {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, var(--md-cobalt), var(--md-live));
+    box-shadow: 0 0 24px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+    animation: md-breathe 2.4s var(--md-ease) infinite;
+    margin-bottom: 4px;
   }
   .boot-mark {
     font-family: var(--md-font-display);
-    font-size: 28px;
-    letter-spacing: -0.04em;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.05em;
     margin: 0;
     color: var(--md-ink);
   }
@@ -379,30 +404,47 @@
     margin: 0;
     font-family: var(--md-font-mono);
     font-size: 11px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
   }
   .root {
     height: 100vh;
     height: 100dvh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
     position: relative;
-    overflow: hidden;
+    /* clip — not hidden — so deep-link scrollIntoView cannot shift the shell
+       and leave a mist shelf under the stage. Only .stage scrolls. */
+    overflow: clip;
+    overscroll-behavior: none;
     background: var(--md-mist);
   }
   .wash {
     position: absolute;
     inset: -8% -4% -4%;
     background: var(--md-wash);
-    filter: blur(28px);
+    filter: blur(32px);
     transform: translateZ(0);
     pointer-events: none;
     z-index: 0;
   }
+  .grain {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image: var(--md-grain);
+    background-repeat: repeat;
+    background-size: 180px 180px;
+    mix-blend-mode: multiply;
+  }
+  :root[data-mode='dark'] .grain {
+    opacity: 0.07;
+    mix-blend-mode: soft-light;
+  }
   .root::before {
-    /* Soft veil so mist never meets the stage as a hard band */
     content: '';
     position: absolute;
     inset: 0;
@@ -412,77 +454,98 @@
       linear-gradient(
         180deg,
         color-mix(in oklab, var(--md-mist) 0%, transparent) 0%,
-        color-mix(in oklab, var(--md-stage) 28%, transparent) 42%,
-        color-mix(in oklab, var(--md-stage) 55%, transparent) 100%
+        color-mix(in oklab, var(--md-stage) 18%, transparent) 45%,
+        color-mix(in oklab, var(--md-stage) 28%, transparent) 100%
       );
   }
   .top {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
-    padding: 14px 22px;
-    min-height: 56px;
+    padding: 14px 22px 6px;
+    min-height: 58px;
     animation: md-fade 400ms var(--md-ease) both;
   }
   .brand {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     flex: none;
     z-index: 1;
     justify-self: start;
     grid-column: 1;
   }
+  .gem {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex: none;
+    background: linear-gradient(135deg, var(--md-cobalt) 0%, color-mix(in oklab, var(--md-live) 70%, var(--md-cobalt)) 100%);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--md-cobalt) 35%, transparent),
+      0 0 16px color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+  }
   .word {
     font-family: var(--md-font-display);
     font-size: 22px;
     font-weight: 700;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.055em;
   }
   .edition {
     font-family: var(--md-font-mono);
     font-size: 10px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 40%, transparent);
   }
   .jump {
     position: relative;
     grid-column: 2;
     justify-self: center;
-    width: min(420px, 42vw);
-    max-width: 420px;
-    z-index: 1;
+    width: min(400px, 42vw);
+    max-width: 400px;
+    z-index: 4;
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
     color: var(--md-ink-mute);
     font-size: 13px;
     font-weight: 500;
+    letter-spacing: -0.01em;
     cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: border-color var(--md-dur) var(--md-ease), transform 200ms var(--md-spring), box-shadow 200ms var(--md-ease);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: none;
+    transition:
+      border-color 140ms var(--md-ease),
+      color 140ms var(--md-ease),
+      background 140ms var(--md-ease);
   }
   .jump:hover {
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    border-color: var(--md-line-strong);
     color: var(--md-ink);
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+    background: var(--md-surface);
   }
   .jump kbd {
     font-family: var(--md-font-mono);
     font-size: 10px;
     padding: 3px 7px;
     border-radius: 6px;
-    background: var(--md-stage);
+    background: color-mix(in oklab, var(--md-stage) 70%, var(--md-surface));
+    border: 1px solid var(--md-line);
     color: var(--md-ink-faint);
   }
   .right {
@@ -504,47 +567,53 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--md-ink-mute);
-    padding: 7px 11px;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
+    padding: 6px 10px;
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
     border: 1px solid var(--md-line);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: none;
   }
   .dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--md-ink-faint);
   }
   .status[data-tone='ok'] .dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 22%, transparent);
+    box-shadow: none;
   }
   .status[data-tone='live'] .dot {
     background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+    box-shadow: none;
     animation: md-pulse 1.2s var(--md-ease) infinite;
   }
   .status[data-tone='bad'] .dot {
     background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 20%, transparent);
+    box-shadow: none;
   }
   .icon {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 65%, transparent);
+    border-radius: 9px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
     color: var(--md-ink-mute);
     cursor: pointer;
-    transition: transform 180ms var(--md-spring), border-color var(--md-dur) var(--md-ease), color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: none;
+    transition: border-color 140ms var(--md-ease), color 140ms var(--md-ease), background 140ms var(--md-ease);
   }
   .icon:hover {
-    transform: scale(1.04);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    border-color: var(--md-line-strong);
     color: var(--md-ink);
+    background: var(--md-surface);
   }
   .icon:focus-visible {
     outline: none;
@@ -554,29 +623,35 @@
   .jump:focus-visible {
     outline: none;
     border-color: var(--md-cobalt);
-    box-shadow: var(--md-focus);
     color: var(--md-ink);
+    box-shadow: var(--md-focus);
   }
   .arc-wrap {
     position: relative;
     z-index: 1;
-    padding: 0 12px;
-    margin-top: -4px;
+    padding: 10px 16px 4px;
+    /* Clear breathing room under Jump / header — never kiss the chrome */
+    margin-top: 8px;
+    margin-bottom: 0;
+    pointer-events: none;
+    overflow: visible;
   }
   .stage {
     position: relative;
     z-index: 1;
-    flex: 1;
     min-height: 0;
     overflow: auto;
-    background: color-mix(in oklab, var(--md-stage) 62%, transparent);
-    border-radius: 28px 28px 0 0;
+    background: var(--md-stage);
+    border-radius: 16px 16px 0 0;
     margin: 0 12px;
-    border: 1px solid var(--md-line);
+    border: 1px solid color-mix(in oklab, var(--md-line-strong) 80%, transparent);
     border-bottom: 0;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
-    /* Keep page content clear of the floating dock */
-    padding-bottom: 8px;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent);
+    /* Dock floats over the stage — keep scroll content clear of it. */
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+  .stage :global(> *) {
+    animation: md-rise 420ms var(--md-ease) both;
   }
   @keyframes md-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
@@ -603,7 +678,11 @@
       padding: 6px 9px;
       font-size: 9px;
     }
-    .stage { margin: 0 8px; border-radius: 22px 22px 0 0; }
+    .stage {
+      margin: 0 8px;
+      border-radius: 14px 14px 0 0;
+      padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
   }
   @media (max-width: 420px) {
     .word { font-size: 18px; }
@@ -615,6 +694,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .top, .status .dot { animation: none !important; }
+    .top, .status .dot, .boot-gem, .stage :global(> *) { animation: none !important; }
   }
 </style>

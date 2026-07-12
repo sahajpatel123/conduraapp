@@ -124,6 +124,20 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 		return map[string]any{"agents": agents}, nil
 	})
 
+	// Running spawn IDs for the Agents panel "in flight" list.
+	// Spawns are short-lived; empty is the common case.
+	srv.Register("delegate.list_spawns", func(_ context.Context, _ json.RawMessage) (any, error) {
+		ids := subs.Delegation.ListActive()
+		running := make([]map[string]any, 0, len(ids))
+		for _, id := range ids {
+			running = append(running, map[string]any{
+				"spawn_id": id,
+				"state":    "running",
+			})
+		}
+		return map[string]any{"running": running}, nil
+	})
+
 	srv.Register("delegate.cancel", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			SpawnID string `json:"spawn_id"`
@@ -188,6 +202,11 @@ func pendingList(subs *Subsystems, params json.RawMessage) (any, error) {
 	if err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 	}
+	// Never JSON-encode a nil slice as "actions":null — GUI clients treat
+	// null as a hard empty, but a stable [] keeps contract tests simple.
+	if rows == nil {
+		rows = []*pending.Action{}
+	}
 	return map[string]any{"actions": rows}, nil
 }
 
@@ -244,7 +263,19 @@ func pendingDecide(ctx context.Context, subs *Subsystems, params json.RawMessage
 	}
 	auditPendingDecision(ctx, subs, p.DecidedBy, row)
 	publishPendingEvent(subs, row)
-	if p.AutoRun && row.Status == pending.StatusApproved && subs.Executor != nil {
+	// §1.1 fix (2026-07-12 audit): subs.Executor is now always
+	// non-nil when the gatekeeper is wired (see subsystems.go:
+	// the executor.New call no longer requires cuComps). The
+	// old `subs.Executor != nil` guard hid the no-LLM-provider
+	// crash; now AutoRun always works in shell-only mode.
+	if p.AutoRun && row.Status == pending.StatusApproved {
+		if subs.Executor == nil {
+			// Should never happen post-§1.1, but kept as a
+			// fail-safe: surface a clear error rather than
+			// nil-panic if some future init path forgets the
+			// executor.
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "executor not configured"}
+		}
 		return executeAndRecord(ctx, subs, row)
 	}
 	return row, nil

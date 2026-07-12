@@ -1,4 +1,8 @@
 <script lang="ts">
+  /**
+   * Gatekeeper consent sheet — minimal, never blank.
+   * Backend fills actor/detail; we still humanize empty/legacy tickets.
+   */
   import { consent } from '../../stores/consent.svelte'
 
   const ticket = $derived(consent.ticket)
@@ -6,10 +10,44 @@
   let allowBtn = $state<HTMLButtonElement | null>(null)
   let denyBtn = $state<HTMLButtonElement | null>(null)
 
+  const kindLabel = $derived(humanKind(ticket?.action_kind))
+  const title = $derived(
+    (ticket?.detail && ticket.detail.trim()) || kindLabel || 'Condura wants to act'
+  )
+  const actor = $derived(
+    (ticket?.actor && ticket.actor.trim()) || 'Condura agent'
+  )
+  const blast = $derived(blastHint(ticket?.action_kind))
+
   $effect(() => {
     if (!ticket) return
     queueMicrotask(() => allowBtn?.focus())
   })
+
+  function humanKind(kind?: string): string {
+    if (!kind?.trim()) return 'Action'
+    const k = kind.trim()
+    const map: Record<string, string> = {
+      'shell.exec': 'Shell command',
+      'file.write': 'Write file',
+      'file.read': 'Read file',
+      'computeruse.click': 'Click',
+      'computeruse.type': 'Type',
+      'computeruse.scroll': 'Scroll',
+      'computeruse.launch': 'Launch app',
+      'delegation.spawn': 'Spawn sub-agent',
+      chat: 'Chat',
+    }
+    return map[k] || k.replace(/\./g, ' · ')
+  }
+
+  function blastHint(kind?: string): string {
+    if (!kind) return ''
+    if (kind.startsWith('shell') || kind.includes('delete')) return 'High impact'
+    if (kind.includes('network') || kind.includes('send')) return 'Leaves this machine'
+    if (kind.startsWith('file') || kind.startsWith('computeruse')) return 'Changes your system'
+    return ''
+  }
 
   function onKey(e: KeyboardEvent): void {
     if (!ticket) return
@@ -41,10 +79,21 @@
     aria-label="Consent required"
     aria-describedby="md-consent-detail"
   >
-    <p class="kicker">Consent · {ticket.action_kind}</p>
-    <h2>{ticket.detail || 'Condura wants to act'}</h2>
+    <p class="kicker">
+      Consent
+      {#if kindLabel}
+        <span class="sep" aria-hidden="true">·</span>
+        {kindLabel}
+      {/if}
+      {#if blast}
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="blast">{blast}</span>
+      {/if}
+    </p>
+    <h2>{title}</h2>
     <p class="detail" id="md-consent-detail">
-      Actor: {ticket.actor}. Allow only if you understand the action.
+      <span class="actor">{actor}</span>
+      is requesting this. Allow only if you understand what will run.
     </p>
     <div class="actions">
       <button
@@ -64,6 +113,9 @@
         Allow
       </button>
     </div>
+    {#if consent.error}
+      <p class="err" role="alert">{consent.error}</p>
+    {/if}
     <p class="esc">Esc denies</p>
   </div>
 {/if}
@@ -83,13 +135,16 @@
     left: 50%;
     top: 50%;
     width: min(440px, calc(100vw - 32px));
+    transform: translate(-50%, -50%);
     background: var(--md-surface);
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line-strong));
-    border-radius: 24px;
-    padding: 28px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
+    border-radius: 12px;
+    padding: 22px;
     z-index: 91;
-    box-shadow: var(--md-shadow-lift), 0 0 0 1px color-mix(in oklab, var(--md-cobalt) 8%, transparent);
-    animation: md-pop 360ms var(--md-spring) both;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--md-shadow);
+    animation: md-pop 280ms var(--md-ease) both;
   }
   .kicker {
     font-family: var(--md-font-mono);
@@ -99,18 +154,30 @@
     color: var(--md-cobalt);
     margin: 0 0 10px;
   }
+  .sep {
+    margin: 0 0.35em;
+    opacity: 0.55;
+  }
+  .blast {
+    color: var(--md-halt);
+  }
   h2 {
     font-family: var(--md-font-display);
-    font-size: 26px;
+    font-size: 24px;
     letter-spacing: -0.04em;
     margin: 0 0 12px;
-    line-height: 1.15;
+    line-height: 1.2;
+    word-break: break-word;
   }
   .detail {
     margin: 0 0 22px;
     font-size: 14px;
     color: var(--md-ink-mute);
     line-height: 1.55;
+  }
+  .actor {
+    font-weight: 600;
+    color: var(--md-ink);
   }
   .actions {
     display: flex;
@@ -126,13 +193,23 @@
     text-transform: uppercase;
     color: var(--md-ink-faint);
   }
+  .err {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 35%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 10%, transparent);
+    color: var(--md-halt);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
   @media (max-width: 420px) {
     .sheet {
       padding: 22px 18px;
       border-radius: 20px;
     }
     h2 {
-      font-size: 22px;
+      font-size: 20px;
     }
     .actions {
       flex-direction: column-reverse;

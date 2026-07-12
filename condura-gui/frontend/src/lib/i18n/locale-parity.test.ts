@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const localesDir = resolve(__dirname, '../../../static/locales')
+// Canonical catalogs live next to the i18n module (bundled at build time).
+const localesDir = resolve(__dirname, 'locales')
 
 function load(name: string): Record<string, string> {
   return JSON.parse(readFileSync(resolve(localesDir, name), 'utf8'))

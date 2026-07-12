@@ -514,13 +514,42 @@ func TestManager_RequestIDsAreUnique(t *testing.T) {
 	}
 }
 
+// TestManager_CloseCancelsActiveStreams verifies graceful shutdown
+// aborts provider pumps (CancelAll + root cancel).
+func TestManager_CloseCancelsActiveStreams(t *testing.T) {
+	p := &fakeProvider{
+		name:   "fake",
+		models: []llm.ModelInfo{{ID: "fake-1"}},
+	}
+	m, _ := newTestManager(t, p)
+	_, err := m.Start(context.Background(), Request{
+		ConversationID: 1,
+		ProviderName:   "fake",
+		Chat: llm.ChatRequest{
+			Model:    "fake-1",
+			Messages: []llm.Message{{Role: llm.RoleUser, Content: "x"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Close()
+	if got := m.Count(); got != 0 {
+		t.Fatalf("Count after Close = %d, want 0", got)
+	}
+	if got := p.cancelCalls.Load(); got < 1 {
+		t.Fatalf("provider cancelCalls = %d, want >= 1", got)
+	}
+}
+
 // TestManager_CancelByConversationCancelsAll verifies that all
-// streams for a conversation are canceled.
+// streams for a conversation are canceled and the provider cancel
+// hooks actually fire (not just map entries removed).
 func TestManager_CancelByConversationCancelsAll(t *testing.T) {
 	p := &fakeProvider{
 		name:   "fake",
 		models: []llm.ModelInfo{{ID: "fake-1"}},
-		// no events; streams block
+		// no events; streams block until cancel
 	}
 	m, _ := newTestManager(t, p)
 	ctx := context.Background()
@@ -546,6 +575,11 @@ func TestManager_CancelByConversationCancelsAll(t *testing.T) {
 	}
 	if got := m.Count(); got != 0 {
 		t.Fatalf("Count after cancel = %d, want 0", got)
+	}
+	// Regression: pre-delete of active map made Cancel return
+	// ErrNotFound without calling s.cancel() — provider pumps leaked.
+	if got := p.cancelCalls.Load(); got != 3 {
+		t.Fatalf("provider cancelCalls = %d, want 3 (provider HTTP abort must run)", got)
 	}
 }
 
@@ -591,4 +625,25 @@ func waitFor(t *testing.T, fn func() bool, timeout time.Duration) bool {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return false
+}
+
+func TestManager_SpendCapRefusesStart(t *testing.T) {
+	broker := sse.NewBroker()
+	reg := llm.NewRegistry()
+	fp := &fakeProvider{name: "p", events: []llm.StreamEvent{{Done: true}}}
+	reg.Register(fp)
+	m := NewManager(broker, reg)
+	m.SetSpendCheck(func(model string) error {
+		return ErrSpendCap
+	})
+	_, err := m.Start(context.Background(), Request{
+		ProviderName: "p",
+		Chat: llm.ChatRequest{
+			Model:    "m",
+			Messages: []llm.Message{{Role: "user", Content: "hi"}},
+		},
+	})
+	if !errors.Is(err, ErrSpendCap) {
+		t.Fatalf("err = %v, want ErrSpendCap", err)
+	}
 }

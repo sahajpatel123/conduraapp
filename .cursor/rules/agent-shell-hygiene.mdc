@@ -1,0 +1,43 @@
+---
+description: Prevent hung servers and infinite waits from agents/subagents
+alwaysApply: true
+---
+
+# Agent & subagent shell hygiene
+
+## Never wait for infinite processes
+
+These commands **do not finish**. Do not `AwaitShell` them to completion, do not block the turn on their exit, and do not ask the user to “wait for the server”:
+
+- `vite` / `npm run dev` / `next dev` / `wails dev`
+- `condurad` / any long-lived daemon
+- `docker compose up` (without `--abort-on-container-exit`)
+- `playwright install` that has already run >2 minutes with no new output
+
+Start them with `block_until_ms: 0` (or a short startup wait only), confirm they are healthy **once**, then continue the real task.
+
+## Reuse before spawn
+
+Before starting Vite or `condurad`:
+
+1. Check existing terminals / `lsof` for `:5173` and `:7666` (or the ports you need).
+2. If a healthy process is already listening, **reuse it** — do not start a second copy.
+3. Prefer one Vite + one daemon for the session.
+
+## Subagent prompts (Task tool)
+
+When launching `shell`, `explore`, or any background Task:
+
+- Tell the subagent explicitly: **do not start persistent servers unless this task cannot proceed without them**.
+- If a server is required: **reuse existing**, start at most one, verify readiness with a single probe, then do the work — **never wait for the server process to exit**.
+- Prefer `readonly: true` + `explore` for codebase questions; do not use shell agents just to “keep a server warm”.
+- Cap fan-out: for routine UI/debug work, **0–2** subagents. Do not spawn swarm-style dozens of agents.
+- Subagents must not leave orphan `npx install`, `gh run watch`, or `sleep N && …` loops running after they finish.
+
+## Hung job cleanup
+
+If a background command is silent for a long time and is an installer/watch/sleep loop (not the intentional Vite/daemon pair), **kill it** and switch approach (e.g. browser MCP screenshot instead of Playwright install).
+
+## What “done” means
+
+A task is done when the code/UI change is verified — **not** when a forever-server exits. Report status and move on.

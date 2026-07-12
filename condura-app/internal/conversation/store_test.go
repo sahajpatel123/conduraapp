@@ -142,3 +142,26 @@ func TestStore_Append_ToolCalls(t *testing.T) {
 		t.Fatal("tool_calls should be preserved")
 	}
 }
+
+func TestStore_Rename(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+	m, err := s.Create(ctx, "Old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Rename(ctx, m.ID, "  New title  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "New title" {
+		t.Fatalf("title = %q, want New title", got.Title)
+	}
+	list, err := s.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Title != "New title" {
+		t.Fatalf("list = %+v", list)
+	}
+}

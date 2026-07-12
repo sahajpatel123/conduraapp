@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -265,15 +266,8 @@ func (e *Engine) evaluateConsent(ctx context.Context, a blastradius.Action, v Ve
 		return Deny, "consent required but no provider available"
 	}
 
-	// Create consent ticket.
-	ticket := &ConsentTicket{
-		ActionKind: a.Kind,
-		Verdict:    v,
-		CreatedAt:  time.Now(),
-		ExpiresAt:  time.Now().Add(time.Duration(v.TimeoutSecs) * time.Second),
-		Nonce:      generateNonce(),
-		Result:     make(chan bool, 1),
-	}
+	// Create consent ticket with human-readable actor/detail for Meridian.
+	ticket := newConsentTicket(a, v)
 
 	// Track pending ticket for GUI enumeration.
 	e.pendingMu.Lock()
@@ -494,6 +488,58 @@ type ConsentTicket struct {
 	Nonce      string    `json:"nonce"`
 	Approved   bool      `json:"approved"`
 	Result     chan bool `json:"-"`
+}
+
+// newConsentTicket fills actor/detail so the GUI never shows blank labels.
+func newConsentTicket(a blastradius.Action, v Verdict) *ConsentTicket {
+	timeout := v.TimeoutSecs
+	if timeout <= 0 {
+		timeout = 300
+	}
+	return &ConsentTicket{
+		ActionKind: a.Kind,
+		Actor:      consentActor(a),
+		Detail:     consentDetail(a),
+		Verdict:    v,
+		CreatedAt:  time.Now(),
+		ExpiresAt:  time.Now().Add(time.Duration(timeout) * time.Second),
+		Nonce:      generateNonce(),
+		Result:     make(chan bool, 1),
+	}
+}
+
+func consentActor(a blastradius.Action) string {
+	if s := strings.TrimSpace(a.TargetApp); s != "" {
+		return s
+	}
+	return "Condura agent"
+}
+
+// consentDetail is a one-line human summary for MeridianConsent.
+// Prefer concrete payload over bare kind; truncate for the sheet.
+func consentDetail(a blastradius.Action) string {
+	const max = 220
+	trim := func(s string) string {
+		s = strings.TrimSpace(s)
+		if len(s) <= max {
+			return s
+		}
+		return s[:max-1] + "…"
+	}
+	switch {
+	case strings.TrimSpace(a.Command) != "":
+		return trim("Run command: " + a.Command)
+	case strings.TrimSpace(a.Path) != "":
+		return trim("Touch file: " + a.Path)
+	case strings.TrimSpace(a.TargetURL) != "":
+		return trim("Open URL: " + a.TargetURL)
+	case strings.TrimSpace(a.Body) != "":
+		return trim(a.Body)
+	case strings.TrimSpace(a.Kind) != "":
+		return "Action: " + a.Kind
+	default:
+		return "Condura needs your approval to act"
+	}
 }
 
 func removeTicket(tickets []*ConsentTicket, target *ConsentTicket) []*ConsentTicket {

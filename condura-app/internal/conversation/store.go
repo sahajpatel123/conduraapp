@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -141,6 +142,9 @@ func (s *Store) List(ctx context.Context) ([]Meta, error) {
 		m.UpdatedAt, _ = time.Parse(time.RFC3339, updated)
 		out = append(out, m)
 	}
+	if out == nil {
+		out = []Meta{}
+	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
@@ -158,6 +162,54 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// Rename updates the conversation title and bumps updated_at.
+// Empty title becomes "New conversation". Returns the refreshed Meta.
+func (s *Store) Rename(ctx context.Context, id int64, title string) (Meta, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "New conversation"
+	}
+	// Cap length so a pasted essay can't blow up the sidebar.
+	if len(title) > 120 {
+		title = title[:120]
+	}
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`,
+		title, now.Format(time.RFC3339), id,
+	)
+	if err != nil {
+		return Meta{}, fmt.Errorf("rename conversation: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return Meta{}, ErrNotFound
+	}
+	// Read-back message_count for the list row.
+	var count int
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = ?`, id,
+	).Scan(&count)
+	var created string
+	var updated string
+	var storedTitle string
+	row := s.db.QueryRowContext(ctx,
+		`SELECT title, created_at, updated_at FROM conversations WHERE id = ?`, id,
+	)
+	if err := row.Scan(&storedTitle, &created, &updated); err != nil {
+		return Meta{}, fmt.Errorf("rename readback: %w", err)
+	}
+	createdAt, _ := time.Parse(time.RFC3339, created)
+	updatedAt, _ := time.Parse(time.RFC3339, updated)
+	return Meta{
+		ID:           id,
+		Title:        storedTitle,
+		CreatedAt:    createdAt,
+		UpdatedAt:    updatedAt,
+		MessageCount: count,
+	}, nil
 }
 
 // Append appends a message to the conversation and bumps updated_at.

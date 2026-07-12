@@ -41,7 +41,10 @@ class ConversationStore {
 
   async refreshList(): Promise<void> {
     try {
-      this.conversations = await ipc.conversationsList()
+      const list = await ipc.conversationsList()
+      // Daemon may return null for an empty list — never leave the store null
+      // (MeridianChat does conversations.slice on every render).
+      this.conversations = Array.isArray(list) ? list : []
     } catch (err) {
       // ignore — daemon might not be up yet
       // eslint-disable-next-line no-console
@@ -73,27 +76,39 @@ class ConversationStore {
     return c
   }
 
+  /**
+   * Deletes the open conversation, cancels its stream, then opens
+   * the next recent thread (or clears to a blank desk).
+   */
   async deleteCurrent(): Promise<void> {
     if (!this.currentID) {
       return
     }
-    await ipc.conversationsDelete(this.currentID)
-    this.conversations = this.conversations.filter((c) => c.id !== this.currentID)
+    await this.cancelActive()
+    const id = this.currentID
+    await ipc.conversationsDelete(id)
+    this.conversations = this.conversations.filter((c) => c.id !== id)
+    if (this.conversations.length > 0) {
+      await this.open(this.conversations[0]!.id)
+      return
+    }
     this.currentID = 0
     this.currentTitle = 'New conversation'
     this.messages = []
+    this.clearStreamingState()
   }
 
   /**
-   * deleteById removes the conversation with the given id WITHOUT
-   * touching the currently-open conversation. Used by the Sidebar
-   * undo-delete flow: the timer must delete the conversation the user
-   * actually clicked on, not whatever conversation is current when
-   * the timer fires (which could be a different one the user opened
-   * in the undo window).
+   * deleteById removes a conversation by id. If it is the open
+   * thread, behaves like deleteCurrent (cancel + open next).
+   * Daemon cancel-by-conversation still runs on conversations.delete.
    */
   async deleteById(id: number): Promise<void> {
     if (!id) {
+      return
+    }
+    if (id === this.currentID) {
+      await this.deleteCurrent()
       return
     }
     await ipc.conversationsDelete(id)
@@ -101,11 +116,31 @@ class ConversationStore {
   }
 
   /**
+   * Renames a conversation. Updates the open title when id is current
+   * and reorders the sidebar list by updated_at (server returns meta).
+   */
+  async rename(id: number, title: string): Promise<void> {
+    if (!id) return
+    const trimmed = title.trim()
+    const meta = await ipc.conversationsRename(id, trimmed)
+    if (id === this.currentID) {
+      this.currentTitle = meta.title
+    }
+    const rest = this.conversations.filter((c) => c.id !== id)
+    this.conversations = [meta, ...rest]
+  }
+
+  /**
    * Send a user message; start streaming the assistant reply.
    * Subscribes to SSE stream events; on Done, persists the
    * assistant's full reply via conversations.append.
    */
-  async send(provider: string, model: string, userText: string): Promise<void> {
+  async send(
+    provider: string,
+    model: string,
+    userText: string,
+    opts?: { skillSystem?: string }
+  ): Promise<void> {
     if (!this.currentID) {
       await this.createNew('New conversation')
     }
@@ -121,13 +156,23 @@ class ConversationStore {
     this.currentRequestId = ''
     this.armStreamWatchdog()
 
+    // Skill context is request-only (not persisted as a chat turn) so the
+    // transcript stays human-readable while the model sees the procedure.
+    const requestMessages: Message[] = opts?.skillSystem
+      ? [
+          ...this.messages.slice(0, -1),
+          { role: 'system', content: opts.skillSystem },
+          userMsg,
+        ]
+      : this.messages
+
     try {
       const res = await ipc.llmStream({
         conversation_id: this.currentID,
         provider,
         request: {
           model,
-          messages: this.messages,
+          messages: requestMessages,
           stream: true
         }
       })
@@ -150,7 +195,31 @@ class ConversationStore {
     this.currentRequestId = ''
   }
 
+  /**
+   * After SSE reconnect: pull sidebar + open thread from the daemon.
+   * Does not cancel server-side streams; clears local streaming chrome
+   * so a completed reply that finished while we were offline appears.
+   * Critical for 24/7 Meridian use across Wi‑Fi blips / daemon restarts.
+   */
+  async resyncFromDaemon(): Promise<void> {
+    await this.refreshList()
+    if (!this.currentID) {
+      return
+    }
+    try {
+      const c = await ipc.conversationsGet(this.currentID)
+      this.currentTitle = c.title
+      this.messages = c.messages ?? []
+      // Local stream state is stale after reconnect (deltas were lost).
+      this.clearStreamingState()
+    } catch {
+      // Conversation may have been deleted server-side.
+    }
+  }
+
   startListening(): void {
+    // Idempotent: Meridian init + any legacy route may both call this.
+    if (this.cleanups.length > 0) return
     this.cleanups.push(
       ipc.on('stream', (ev: StreamEvent) => {
         if (ev.conversation_id !== this.currentID) {

@@ -501,3 +501,81 @@ func TestExecutor_ShellExec_OutputCapped(t *testing.T) {
 		t.Fatalf("maxShellOutputBytes should be <= 128 MiB, got %d", maxShellOutputBytes)
 	}
 }
+
+// TestExecutor_New_NilCU_ShellOnlyDispatch is the regression test for
+// the 2026-07-12 audit finding #1.1: daemon init constructed
+// subs.Executor = nil whenever the LLM provider catalog was empty,
+// causing delegate.spawn with a shell.exec ActionRequest to crash on
+// subs.Executor.Execute. The fix (subsystems.go) is to always
+// construct an Executor with a nil CU when the gatekeeper is wired —
+// the executor only touches e.CU on computeruse.* kinds (which
+// execCU already nil-guards). This test pins that contract from the
+// executor package side: New(nil-gate, nil-CU) must produce an
+// Executor that successfully runs shell.exec and returns a clean
+// error for computeruse.* kinds.
+func TestExecutor_New_NilCU_ShellOnlyDispatch(t *testing.T) {
+	e := New(alwaysAllowGate{}, nil)
+	if e == nil {
+		t.Fatal("New must not return nil")
+	}
+	if e.CU != nil {
+		t.Fatal("e.CU must be nil to model shell-only init path")
+	}
+	if e.ShellSanitizer == nil {
+		t.Fatal("ShellSanitizer must be auto-seeded even with nil CU")
+	}
+
+	// Build an in-memory approved shell.exec row. We don't go
+	// through pending.Store here because Execute only reads
+	// fields off the *pending.Action — the store is for
+	// persistence, not dispatch. Keeping the test pure makes the
+	// regression intent (Execute dispatch path, not store IO)
+	// clearer.
+	row := &pending.Action{
+		ID:           "test-shell-only-1",
+		AgentName:    "claude",
+		Kind:         "shell.exec",
+		Status:       pending.StatusApproved,
+		GateDecision: "allow",
+		Payload:      pending.Payload{Command: "echo shell-only-works"},
+	}
+
+	// Execute should succeed (returns Result, nil error).
+	result, err := e.Execute(context.Background(), row)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v (Result=%+v)", err, result)
+	}
+	if result == nil {
+		t.Fatal("Execute must return a Result")
+	}
+	if result.Error != nil {
+		t.Fatalf("shell.exec returned an error: %v", result.Error)
+	}
+	if !strings.Contains(result.Result, "shell-only-works") {
+		t.Fatalf("expected stdout to contain 'shell-only-works', got %q", result.Result)
+	}
+
+	// Now build a computeruse.* row and verify it returns a clean
+	// "not configured" error rather than nil-panicking.
+	cuRow := &pending.Action{
+		ID:           "test-shell-only-2",
+		AgentName:    "claude",
+		Kind:         "computeruse.click",
+		Status:       pending.StatusApproved,
+		GateDecision: "allow",
+		Payload:      pending.Payload{Command: "click 100 100"},
+	}
+	cuResult, err := e.Execute(context.Background(), cuRow)
+	if err != nil {
+		t.Fatalf("Execute returned non-nil error for computeruse.* with nil CU (should be Result.Error): %v", err)
+	}
+	if cuResult == nil {
+		t.Fatal("Execute must return a Result even when CU is unconfigured")
+	}
+	if cuResult.Error == nil {
+		t.Fatal("computeruse.* must surface an error when CU is nil")
+	}
+	if !strings.Contains(cuResult.Error.Error(), "computer-use resolver not configured") {
+		t.Fatalf("expected clean 'not configured' error, got: %v", cuResult.Error)
+	}
+}

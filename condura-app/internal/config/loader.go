@@ -548,7 +548,17 @@ func applyEnvOverrides(cfg *Config, prefix string) error {
 		}
 		// Strip prefix, lowercase, and convert __ to . (hierarchy separator).
 		// Single underscores within a field name are preserved.
-		key := strings.ToLower(strings.TrimPrefix(name, prefix))
+		//
+		// Vars without "__" are intentionally ignored: they are not config
+		// overrides (e.g. CONDURA_RESUME_SECRET is consumed by the resume
+		// CLI / ResumeSecretManager, not by YAML paths). Requiring "__"
+		// matches the documented CONDURA_<SECTION>__<FIELD> convention and
+		// prevents a set resume secret from refusing daemon boot.
+		rest := strings.TrimPrefix(name, prefix)
+		if !strings.Contains(rest, "__") {
+			continue
+		}
+		key := strings.ToLower(rest)
 		key = strings.ReplaceAll(key, "__", ".")
 		if err := setByYAMLKey(cfg, key, val); err != nil {
 			return fmt.Errorf("env %s: %w", name, err)

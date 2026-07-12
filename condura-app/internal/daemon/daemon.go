@@ -330,6 +330,16 @@ func runAnomalyIdleWatcher(ctx context.Context, det *anomaly.Detector, idle time
 }
 
 func shutdownDaemon(subs *Subsystems) {
+	// Cancel in-flight LLM streams first so provider HTTP pumps do not
+	// race process exit (spend/log noise, leaked goroutines on slow close).
+	if subs != nil && subs.Streams != nil {
+		n := subs.Streams.CancelAll()
+		subs.Streams.Close()
+		if n > 0 {
+			// Logger may already be torn down; best-effort silence is fine.
+			_ = n
+		}
+	}
 	if subs.BackupScheduler != nil {
 		subs.BackupScheduler.Stop()
 	}

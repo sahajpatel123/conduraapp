@@ -157,14 +157,14 @@ type StreamEvent struct {
 
 // ModelInfo describes a model the provider offers.
 type ModelInfo struct {
-	ID                string
-	DisplayName       string
-	ContextWindow     int
-	InputCostPerMTok  float64 // USD per 1M input tokens
-	OutputCostPerMTok float64
-	SupportsTools     bool
-	SupportsVision    bool
-	SupportsStream    bool
+	ID                string  `json:"id"`
+	DisplayName       string  `json:"display_name,omitempty"`
+	ContextWindow     int     `json:"context_window,omitempty"`
+	InputCostPerMTok  float64 `json:"input_cost_per_mtok,omitempty"` // USD per 1M input tokens
+	OutputCostPerMTok float64 `json:"output_cost_per_mtok,omitempty"`
+	SupportsTools     bool    `json:"supports_tools,omitempty"`
+	SupportsVision    bool    `json:"supports_vision,omitempty"`
+	SupportsStream    bool    `json:"supports_stream,omitempty"`
 }
 
 // Common errors.

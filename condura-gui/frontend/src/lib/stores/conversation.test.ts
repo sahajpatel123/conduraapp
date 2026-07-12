@@ -16,6 +16,13 @@ const ipcMock = {
     updated_at: new Date().toISOString(),
   }),
   conversationsDelete: vi.fn().mockResolvedValue(undefined),
+  conversationsRename: vi.fn().mockImplementation(async (id: number, title: string) => ({
+    id,
+    title,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    message_count: 0,
+  })),
   conversationsAppend: vi.fn().mockResolvedValue(undefined),
   llmStream: vi.fn().mockResolvedValue({ request_id: 'req-1', conversation_id: 1 }),
   llmCancel: vi.fn().mockResolvedValue(undefined),
@@ -63,6 +70,81 @@ describe('ConversationStore streaming', () => {
   afterEach(() => {
     conversation.stopListening()
     vi.useRealTimers()
+  })
+
+  it('deleteCurrent cancels stream, deletes, and opens next thread', async () => {
+    conversation.currentID = 1
+    conversation.isStreaming = true
+    conversation.currentRequestId = 'req-1'
+    conversation.conversations = [
+      { id: 1, title: 'A', created_at: '', updated_at: '', message_count: 1 },
+      { id: 2, title: 'B', created_at: '', updated_at: '', message_count: 0 },
+    ]
+    ipcMock.conversationsGet.mockResolvedValueOnce({
+      id: 2,
+      title: 'B',
+      messages: [{ role: 'user', content: 'hi from b' }],
+    })
+    await conversation.deleteCurrent()
+    expect(ipcMock.llmCancel).toHaveBeenCalled()
+    expect(ipcMock.conversationsDelete).toHaveBeenCalledWith(1)
+    expect(conversation.currentID).toBe(2)
+    expect(conversation.messages[0]?.content).toBe('hi from b')
+    expect(conversation.isStreaming).toBe(false)
+  })
+
+  it('deleteById on non-current only removes from list', async () => {
+    conversation.currentID = 1
+    conversation.conversations = [
+      { id: 1, title: 'A', created_at: '', updated_at: '', message_count: 1 },
+      { id: 2, title: 'B', created_at: '', updated_at: '', message_count: 0 },
+    ]
+    await conversation.deleteById(2)
+    expect(ipcMock.conversationsDelete).toHaveBeenCalledWith(2)
+    expect(conversation.currentID).toBe(1)
+    expect(conversation.conversations.map((c) => c.id)).toEqual([1])
+  })
+
+  it('rename updates current title and list head', async () => {
+    conversation.currentID = 1
+    conversation.currentTitle = 'Old'
+    conversation.conversations = [
+      { id: 1, title: 'Old', created_at: '', updated_at: '', message_count: 1 },
+      { id: 2, title: 'Other', created_at: '', updated_at: '', message_count: 0 },
+    ]
+    await conversation.rename(1, '  Renamed  ')
+    expect(ipcMock.conversationsRename).toHaveBeenCalledWith(1, 'Renamed')
+    expect(conversation.currentTitle).toBe('Renamed')
+    expect(conversation.conversations[0]?.title).toBe('Renamed')
+    expect(conversation.conversations[0]?.id).toBe(1)
+  })
+
+  it('resyncFromDaemon reloads messages and clears stale streaming chrome', async () => {
+    conversation.isStreaming = true
+    conversation.streamingDelta = 'partial…'
+    conversation.streamingError = 'Connection lost during stream'
+    conversation.currentRequestId = 'req-stale'
+    ipcMock.conversationsList.mockResolvedValueOnce([
+      { id: 1, title: 'Test', created_at: '', updated_at: '' },
+    ])
+    ipcMock.conversationsGet.mockResolvedValueOnce({
+      id: 1,
+      title: 'Test',
+      messages: [
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: 'full reply from daemon' },
+      ],
+    })
+
+    await conversation.resyncFromDaemon()
+
+    expect(ipcMock.conversationsGet).toHaveBeenCalledWith(1)
+    expect(conversation.messages).toHaveLength(2)
+    expect(conversation.messages[1].content).toBe('full reply from daemon')
+    expect(conversation.isStreaming).toBe(false)
+    expect(conversation.streamingDelta).toBe('')
+    expect(conversation.streamingError).toBe('')
+    expect(conversation.currentRequestId).toBe('')
   })
 
   it('captures request_id from llmStream and filters foreign streams', async () => {

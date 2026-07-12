@@ -159,6 +159,16 @@
     void refresh()
 
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (
+        el &&
+        (el.tagName === 'INPUT' ||
+          el.tagName === 'TEXTAREA' ||
+          el.tagName === 'SELECT' ||
+          el.isContentEditable)
+      ) {
+        return
+      }
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault()

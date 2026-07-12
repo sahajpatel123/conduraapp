@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
+	"gopkg.in/yaml.v3"
 )
 
 // daemonStart is the wall-clock time the daemon became ready to
@@ -78,16 +81,59 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		}, nil
 	})
 	srv.Register("config.get", func(_ context.Context, _ json.RawMessage) (any, error) {
-		return cfg, nil
+		// Return a snake_case map matching YAML keys so the Meridian
+		// GUI (AppConfig TS types) can read autonomy/hotkey/llm/…
+		// encoding/json alone would emit PascalCase Go field names
+		// because Config only carries yaml tags.
+		return publicConfigView(cfg)
 	})
 	srv.Register("health.snapshot", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return subs.Health.Snapshot(ctx), nil
 	})
+	// providers.list returns the full known catalog (for Settings) with
+	// models + available=true when the provider is registered for live calls.
 	srv.Register("providers.list", func(_ context.Context, _ json.RawMessage) (any, error) {
-		list := subs.LLM.List()
-		out := make([]map[string]string, 0, len(list))
-		for _, p := range list {
-			out = append(out, map[string]string{"name": p.Name()})
+		registered := map[string]llm.Provider{}
+		for _, p := range subs.LLM.List() {
+			registered[p.Name()] = p
+		}
+		names := make([]string, 0, 16)
+		seen := map[string]bool{}
+		add := func(n string) {
+			n = strings.TrimSpace(n)
+			if n == "" || seen[n] {
+				return
+			}
+			seen[n] = true
+			names = append(names, n)
+		}
+		for _, n := range knownProviders() {
+			add(n)
+		}
+		if cfg != nil && cfg.LLM.Providers != nil {
+			for n := range cfg.LLM.Providers {
+				add(n)
+			}
+		}
+		sort.Strings(names)
+		out := make([]map[string]any, 0, len(names))
+		for _, name := range names {
+			models := modelsForProvider(name)
+			available := false
+			if p, ok := registered[name]; ok {
+				available = true
+				if m := p.Models(); len(m) > 0 {
+					models = m
+				}
+			}
+			if models == nil {
+				models = []llm.ModelInfo{}
+			}
+			out = append(out, map[string]any{
+				"name":      name,
+				"models":    models,
+				"available": available,
+			})
 		}
 		return out, nil
 	})
@@ -98,11 +144,19 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
-		prov, ok := subs.LLM.Get(p.Provider)
-		if !ok {
+		if prov, ok := subs.LLM.Get(p.Provider); ok {
+			models := prov.Models()
+			if models == nil {
+				models = []llm.ModelInfo{}
+			}
+			return models, nil
+		}
+		// Catalog fallback so Settings can browse models before a key is saved.
+		models := modelsForProvider(p.Provider)
+		if len(models) == 0 {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "unknown provider: " + p.Provider}
 		}
-		return prov.Models(), nil
+		return models, nil
 	})
 
 	registerAPIKeyMethods(srv, subs)
@@ -110,7 +164,7 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	registerSpendMethods(srv, subs.Spend)
 	registerConversationMethods(srv, subs.Conversations, subs.Audit, subs.Halt, subs.Streams, subs.LLM, subs.Anomaly, subs.Watchdog)
 	registerAuditMethods(srv, subs.Audit)
-	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams, subs.NetGuard, subs.ResumeTickets, subs.ResumeSecret)
+	registerHaltMethods(srv, subs.Halt, subs.Audit, subs.Streams, subs.NetGuard, subs.ResumeTickets, subs.ResumeSecret, subs.Broker)
 	registerControlMethods(srv, cfg, subs)
 	registerFirstRunMethods(srv, subs.Audit)
 	registerUpdateMethods(srv, subs.Updater, subs.Audit)
@@ -295,7 +349,9 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 			breakers.For(p.Provider).RecordSuccess()
 		}
 		cost := llm.EstimateCost(p.Request.Model, resp.Usage)
-		mon.Record(cost)
+		if mon != nil {
+			mon.Record(cost)
+		}
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorGUI, Action: "llm.chat", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
@@ -319,4 +375,44 @@ func registerSpendMethods(srv *ipc.Server, mon *failover.SpendMonitor) {
 			"remaining": mon.Remaining(),
 		}, nil
 	})
+}
+
+// publicConfigView returns cfg as a snake_case map suitable for the
+// GUI. Uses YAML tags (Config's only tags) then strips secret fields
+// so API keys never leave the daemon via config.get.
+func publicConfigView(cfg *config.Config) (map[string]any, error) {
+	if cfg == nil {
+		return map[string]any{}, nil
+	}
+	// Deep-copy via YAML so we can redact without mutating runtime cfg.
+	raw, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "encode config: " + err.Error()}
+	}
+	var out map[string]any
+	if err := yaml.Unmarshal(raw, &out); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "decode config view: " + err.Error()}
+	}
+	redactConfigSecrets(out)
+	return out, nil
+}
+
+// redactConfigSecrets clears yaml-key secrets in the public config map.
+func redactConfigSecrets(m map[string]any) {
+	llm, _ := m["llm"].(map[string]any)
+	if llm == nil {
+		return
+	}
+	providers, _ := llm["providers"].(map[string]any)
+	for name, v := range providers {
+		p, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		if s, _ := p["api_key"].(string); s != "" {
+			p["api_key"] = ""
+			p["has_api_key"] = true
+		}
+		providers[name] = p
+	}
 }

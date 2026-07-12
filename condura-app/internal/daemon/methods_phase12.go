@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
@@ -21,6 +22,8 @@ const (
 	errSyncNotEnabled     = "sync not enabled"
 	errSyncNotConfigured  = "sync not configured"
 	errHubNotConfigured   = "hub not configured"
+	errHubUnreachable     = "community hub unreachable"
+	errHubSignInRequired  = "hub sign-in required"
 	errSkillStoreNotAvail = "skill store not available"
 )
 
@@ -115,6 +118,110 @@ func registerSkillsMethods(srv *ipc.Server, p12 *Phase12Components) {
 		}
 		return auditOK(), nil
 	})
+
+	// skills.create: author a local skill on this machine (Ask can invoke via /Name).
+	srv.Register("skills.create", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if p12.SkillStore == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSkillStoreNotAvail}
+		}
+		var p struct {
+			ID          string   `json:"id"`
+			Name        string   `json:"name"`
+			Description string   `json:"description"`
+			Version     string   `json:"version"`
+			Steps       []string `json:"steps"`
+			Trigger     string   `json:"trigger_pattern"`
+		}
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
+		name := strings.TrimSpace(p.Name)
+		if name == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "name required"}
+		}
+		id := strings.TrimSpace(p.ID)
+		if id == "" {
+			id = skillSlug(name)
+		}
+		if id == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "could not derive skill id"}
+		}
+		if existing, err := p12.SkillStore.Get(ctx, id); err == nil && existing != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "skill id already exists: " + id}
+		}
+		version := strings.TrimSpace(p.Version)
+		if version == "" {
+			version = "1.0.0"
+		}
+		steps := make([]string, 0, len(p.Steps))
+		for _, s := range p.Steps {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				steps = append(steps, s)
+			}
+		}
+		trigger := strings.TrimSpace(p.Trigger)
+		if trigger == "" {
+			// Prefer clean /Name when the display name is a single token.
+			if isSkillSlashToken(name) {
+				trigger = "/" + name
+			} else {
+				trigger = "/" + skillSlug(name)
+			}
+		}
+		now := time.Now().UTC()
+		sk := &skills.Skill{
+			ID:             id,
+			Name:           name,
+			Description:    strings.TrimSpace(p.Description),
+			Version:        version,
+			Trust:          skills.TrustExperimental,
+			TriggerPattern: trigger,
+			Steps:          steps,
+			Source:         "local",
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		if err := p12.SkillStore.Create(ctx, sk); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "skill create failed"}
+		}
+		return sk, nil
+	})
+}
+
+// skillSlug turns a human skill name into a stable local id.
+func skillSlug(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range s {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			lastDash = false
+		default:
+			if !lastDash && b.Len() > 0 {
+				b.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	return out
+}
+
+func isSkillSlashToken(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // registerI18nMethods adds i18n.locale and i18n.locales RPC methods.
@@ -165,6 +272,26 @@ func hubClient(p12 *Phase12Components) (*hub.Client, error) {
 	return p12.HubClient, nil
 }
 
+// hubRPCError maps hub.Client failures to stable, redaction-safe IPC
+// messages. Raw network/path errors must never reach JSON-RPC clients.
+func hubRPCError(err error) *ipc.Error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "authentication required"):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: errHubSignInRequired}
+	case strings.Contains(lower, "not found"):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: msg}
+	case strings.Contains(lower, "status "):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: errHubUnreachable}
+	default:
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: errHubUnreachable}
+	}
+}
+
 func hubSearchHandler(p12 *Phase12Components) ipc.HandlerFunc {
 	return func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
@@ -181,7 +308,11 @@ func hubSearchHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err != nil {
 			return nil, err
 		}
-		return client.Search(p.Query, p.Limit)
+		result, err := client.Search(p.Query, p.Limit)
+		if err != nil {
+			return nil, hubRPCError(err)
+		}
+		return result, nil
 	}
 }
 
@@ -197,7 +328,11 @@ func hubGetHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err != nil {
 			return nil, err
 		}
-		return client.Get(p.ID)
+		meta, err := client.Get(p.ID)
+		if err != nil {
+			return nil, hubRPCError(err)
+		}
+		return meta, nil
 	}
 }
 
@@ -456,15 +591,28 @@ func syncStopHandler(p12 *Phase12Components) ipc.HandlerFunc {
 }
 
 // findPeer looks up a peer by DeviceID in the engine's discovered
-// list. Returns nil if the peer is unknown. The error is a JSON-RPC
-// error suitable for direct return.
+// list. Dial addresses only live in discovery (paired records have
+// no host:port). The error is a JSON-RPC error suitable for direct return.
 func findPeer(eng *sync.Engine, deviceID string) (*sync.Peer, error) {
 	for _, peer := range eng.DiscoveredPeers() {
 		if peer.DeviceID == deviceID {
 			return peer, nil
 		}
 	}
-	return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "peer not found in discovery"}
+	return nil, &ipc.Error{
+		Code:    ipc.CodeInvalidParams,
+		Message: "device not currently discoverable on LAN — is the other Condura online?",
+	}
+}
+
+// isPaired reports whether deviceID is in the sealed paired set.
+func isPaired(eng *sync.Engine, deviceID string) bool {
+	for _, d := range eng.PairedDevices() {
+		if d != nil && d.DeviceID == deviceID {
+			return true
+		}
+	}
+	return false
 }
 
 func syncWithHandler(p12 *Phase12Components) ipc.HandlerFunc {
@@ -477,6 +625,16 @@ func syncWithHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		}
 		if p12.SyncEngine == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errSyncNotEnabled}
+		}
+		if p.DeviceID == "" {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "device_id required"}
+		}
+		// Require a sealed pair before merge — discovery alone is not enough.
+		if !isPaired(p12.SyncEngine, p.DeviceID) {
+			return nil, &ipc.Error{
+				Code:    ipc.CodeInvalidParams,
+				Message: "device is not paired — complete the PIN ceremony first",
+			}
 		}
 		target, err := findPeer(p12.SyncEngine, p.DeviceID)
 		if err != nil {
@@ -523,7 +681,22 @@ func syncPairBeginHandler(p12 *Phase12Components) ipc.HandlerFunc {
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		return map[string]any{"ok": true, "pin": pin, syncPeerKey: p.DeviceID}, nil
+		// Match engine PendingPairingTTL so Meridian countdown is honest.
+		expiresIn := int(sync.PendingPairingTTL.Seconds())
+		if pp := p12.SyncEngine.PendingPairing(p.DeviceID); pp != nil {
+			sec := int(time.Until(pp.ExpiresAt).Seconds())
+			if sec >= 0 {
+				expiresIn = sec
+			} else {
+				expiresIn = 0
+			}
+		}
+		return map[string]any{
+			"ok":         true,
+			"pin":        pin,
+			syncPeerKey:  p.DeviceID,
+			"expires_in": expiresIn,
+		}, nil
 	}
 }
 

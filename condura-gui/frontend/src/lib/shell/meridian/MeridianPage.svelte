@@ -26,21 +26,31 @@
   .page { max-width: 980px; margin: 0 auto; padding: 28px 28px 120px; min-height: 100%; }
   .head {
     display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
-    margin-bottom: 32px; padding-bottom: 22px; border-bottom: 1px solid var(--md-line); position: relative;
+    margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--md-line); position: relative;
   }
   .head::after {
-    content: ''; position: absolute; left: 0; bottom: -1px; width: 72px; height: 3px;
-    border-radius: 3px; background: var(--md-cobalt); transform-origin: left;
-    animation: md-underline 520ms var(--md-ease) 80ms both;
+    content: ''; position: absolute; left: 0; bottom: -1px; width: 48px; height: 2px;
+    border-radius: 1px;
+    background: var(--md-cobalt);
+    transform-origin: left;
+    animation: md-underline 560ms var(--md-ease) 80ms both;
+    box-shadow: none;
   }
   .kicker {
     font-family: var(--md-font-mono); font-size: 11px; letter-spacing: 0.16em;
     text-transform: uppercase; color: var(--md-ink-faint); margin: 0 0 10px;
+    display: inline-flex; align-items: center; gap: 8px;
     animation: md-rise 420ms var(--md-ease) both;
+  }
+  .kicker::before {
+    content: '';
+    width: 5px; height: 5px; border-radius: 1px;
+    background: var(--md-cobalt);
+    box-shadow: none;
   }
   h1 {
     font-family: var(--md-font-display); font-size: clamp(34px, 5vw, 52px); font-weight: 700;
-    letter-spacing: -0.05em; line-height: 0.98; margin: 0 0 10px;
+    letter-spacing: -0.055em; line-height: 0.96; margin: 0 0 10px;
     animation: md-rise 480ms var(--md-ease) 40ms both;
   }
   .lead {
@@ -56,7 +66,7 @@
       flex-direction: column; align-items: stretch; gap: 14px;
       margin-bottom: 24px; padding-bottom: 18px;
     }
-    .head::after { width: 56px; height: 2.5px; }
+    .head::after { width: 64px; height: 2.5px; }
     h1 { font-size: clamp(30px, 9vw, 40px); margin-bottom: 8px; }
     .lead { font-size: 14px; max-width: none; }
     .actions { width: 100%; }

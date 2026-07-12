@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	syncstd "sync"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/account"
@@ -212,6 +213,22 @@ type Subsystems struct {
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
+	// closeOnce guards Close() so that double-signal shutdown
+	// (Ctrl-C twice in quick succession, SIGINT during a
+	// graceful shutdown, or any panic-during-close path) cannot
+	// double-close the underlying *sql.DB and friends. Pre-§1.6,
+	// a second Close() call would re-iterate closers and panic
+	// on the closed SQLite handle. sync.Once also serializes
+	// CloseDatabases() — backup.restore may race the SIGINT
+	// shutdown goroutine; previously both could attempt the
+	// same close simultaneously.
+	closeOnce syncstd.Once
+	// closeDatabasesOnce guards CloseDatabases() separately from
+	// Close() so a backup.restore call doesn't permanently lock
+	// out a later full shutdown. The two guards are independent
+	// because the methods do different things (CloseDatabases
+	// re-opens via Storage.Reload; Close is terminal).
+	closeDatabasesOnce syncstd.Once
 }
 
 // replaceMemoryCloser swaps the memory SQLite store in closers.
@@ -243,22 +260,29 @@ func (s *Subsystems) replaceCloserByType(match func(io.Closer) bool, newCloser i
 	s.closers = append(s.closers, newCloser)
 }
 
-// Close releases all resources held by subsystems.
+// Close releases all resources held by subsystems. Idempotent:
+// a second call returns nil without re-iterating closers.
+// Pre-§1.6, a panic-during-close or double-signal path could
+// hit a closed *sql.DB and panic again — surfacing a stack
+// trace at exit and obscuring the real shutdown failure.
 func (s *Subsystems) Close() error {
-	var errs []error
-	// N1: stop the presence detector's poll goroutine on shutdown.
-	if s.Safety != nil && s.Safety.Presence != nil {
-		s.Safety.Presence.Stop()
-	}
-	for _, c := range s.closers {
-		if err := c.Close(); err != nil {
-			errs = append(errs, err)
+	var closeErr error
+	s.closeOnce.Do(func() {
+		var errs []error
+		// N1: stop the presence detector's poll goroutine on shutdown.
+		if s.Safety != nil && s.Safety.Presence != nil {
+			s.Safety.Presence.Stop()
 		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("subsystems close: %v", errs)
-	}
-	return nil
+		for _, c := range s.closers {
+			if err := c.Close(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			closeErr = fmt.Errorf("subsystems close: %v", errs)
+		}
+	})
+	return closeErr
 }
 
 // CloseDatabases closes only the database connections (main DB,
@@ -266,19 +290,24 @@ func (s *Subsystems) Close() error {
 // long-lived resources. Used by backup.restore to release Windows
 // file locks before the atomic directory swap. The caller must
 // call Storage.Reload() after the swap to reopen the main DB.
+// Idempotent: a second call is a no-op (won't re-close DBs that
+// the prior call already closed). Independent from Close() —
+// Close() remains callable after CloseDatabases() and vice versa.
 func (s *Subsystems) CloseDatabases() {
-	// Close in reverse order: skills, memory, main.
-	if s.Phase12 != nil && s.Phase12.SkillStore != nil {
-		_ = s.Phase12.SkillStore.Close()
-	}
-	// memStore is not directly accessible; it's in the closers list.
-	// Close all closers except the last one (extractor).
-	// The closers order is: db, memStore, extractor, skillStore.
-	for i := len(s.closers) - 1; i >= 0; i-- {
-		// Skip the extractor (index 2 in the original list).
-		// We close everything else.
-		_ = s.closers[i].Close()
-	}
+	s.closeDatabasesOnce.Do(func() {
+		// Close in reverse order: skills, memory, main.
+		if s.Phase12 != nil && s.Phase12.SkillStore != nil {
+			_ = s.Phase12.SkillStore.Close()
+		}
+		// memStore is not directly accessible; it's in the closers list.
+		// Close all closers except the last one (extractor).
+		// The closers order is: db, memStore, extractor, skillStore.
+		for i := len(s.closers) - 1; i >= 0; i-- {
+			// Skip the extractor (index 2 in the original list).
+			// We close everything else.
+			_ = s.closers[i].Close()
+		}
+	})
 }
 
 // ReloadAuxiliaryDatabases recreates the memory and skills stores
@@ -528,6 +557,11 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	log.Info("llm registry ready", "registered_providers", registered)
 
 	mon := failover.NewSpendMonitor(failover.SpendCap{USDPerDay: cfg.Security.SpendLimitUSDPerDay})
+	// Hydrate today's spend from durable rollup so restarts don't reset the cap.
+	if seeded := loadSpendToday(db.SQL()); seeded > 0 {
+		mon.Seed(seeded)
+		log.Info("spend monitor seeded from spend_daily", "spent_usd", seeded)
+	}
 	breakers := failover.NewBreakerRegistry(3, 30*time.Second)
 	failoverProviders := buildFailoverProviders(registry, breakers)
 	fo := failover.New(failoverProviders, mon)
@@ -559,6 +593,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// when Halt is called, all outbound HTTP is denied except to
 	// allow-listed providers. See internal/halt/network.go.
 	netGuard := halt.NewInProcessGuard()
+	// Survival Rule / 24/7: halt flag is sticky on disk (Refresh above).
+	// The guard is in-process only — re-arm when we boot already halted.
+	rearmNetGuardIfHalted(haltFlag, netGuard, log)
 	// T3b sticky-resume: ticket store + human-only secret manager.
 	// The ticket store lives in-memory (no persistence: a restart
 	// while halted is an acceptable fail-closed outcome — the user
@@ -584,6 +621,14 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// owns the lifecycle of in-flight LLM streams and bridges them
 	// to the broker.
 	broker := sse.NewBroker()
+	// Live audit ledger: every successful Append fans out on SSE
+	// event "audit" so Meridian can prepend rows without Refresh.
+	// PublishJSON is non-blocking (drops on full buffer).
+	if auditLog != nil {
+		auditLog.SetOnAppend(func(e audit.Event) {
+			broker.PublishJSON("audit", e)
+		})
+	}
 	streamMgr := stream.NewManager(broker, registry)
 	streamMgr.SetHaltChecker(haltFlag.IsHalted)
 	// Wire the circuit breaker into the streaming path so a
@@ -598,6 +643,34 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 			b.RecordSuccess()
 		} else {
 			b.RecordFailure()
+		}
+	})
+	// Daily spend cap on Meridian Ask (llm.stream) — was only on llm.chat.
+	streamMgr.SetSpendCheck(func(model string) error {
+		if mon == nil {
+			return nil
+		}
+		est := llm.EstimateCost(model, llm.Usage{})
+		if !mon.Allow(est) {
+			return stream.ErrSpendCap
+		}
+		return nil
+	})
+	streamMgr.SetSpendRecord(func(provider, model string, usage llm.Usage) {
+		if mon == nil {
+			return
+		}
+		cost := llm.EstimateCost(model, usage)
+		mon.Record(cost)
+		persistSpend(db.SQL(), provider, model, usage, cost, log)
+		// Soft warning at 80% of daily cap (GUI may poll spend.today too).
+		cap := mon.Cap().USDPerDay
+		if cap > 0 && mon.Spent() >= cap*0.8 {
+			broker.PublishJSON("spend_warning", map[string]any{
+				"spent":     mon.Spent(),
+				"cap":       cap,
+				"remaining": mon.Remaining(),
+			})
 		}
 	})
 
@@ -621,7 +694,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		}
 	}
 
-	safety := buildSafetyLayer(haltFlag, broker, trustStore, cfg, log)
+	safety := buildSafetyLayerWithGuard(haltFlag, netGuard, broker, trustStore, cfg, log)
 	gate := safety.Engine
 	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 
@@ -865,7 +938,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		wdog = watchdog.New(
 			cfg.Daemon.Watchdog.Timeout,
 			cfg.Daemon.Watchdog.CheckInterval,
-			guardAwareHaltFlag{flag: haltFlag, guard: netGuard},
+			guardAwareHaltFlag{flag: haltFlag, guard: netGuard, broker: broker},
 			watchdogAuditAdapter{log: auditLog, appName: appCondurad},
 			log,
 		)
@@ -936,12 +1009,32 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// rows; cuComps.resolver satisfies executor.Resolver via
 	// its *agent.Action-shaped Execute method.
 	subs.Pending = pending.New(db)
-	if cuComps != nil {
-		subs.Executor = executor.New(gate, cuComps.resolver)
+	// §1.1 fix (2026-07-12 audit): always construct the Executor
+	// when the gatekeeper is wired, even if cuComps is nil. The
+	// Executor dispatches shell.* kinds via its own
+	// exec.CommandContext path (no resolver dependency) and only
+	// touches e.CU for computeruse.* kinds — which already nil-guard
+	// themselves in execCU. Before this fix, a daemon booted
+	// without an LLM provider had subs.Executor == nil, so any
+	// delegate.spawn that produced a shell.exec ActionRequest
+	// (via pending.decide with AutoRun, or pending.execute) crashed
+	// with a nil-pointer dereference at the first executor call.
+	// Now: shell-only flows work in no-LLM mode; computeruse flows
+	// still return a clean "computer-use resolver not configured"
+	// error (which the gate would have denied anyway, but
+	// defense-in-depth).
+	if gate != nil {
+		var cu executor.Resolver
+		if cuComps != nil {
+			cu = cuComps.resolver
+		}
+		subs.Executor = executor.New(gate, cu)
 	}
 	// N2: wire the executor into the session factory so chat tool_use
-	// blocks dispatch through the gated executor (act mode). nil if
-	// cuComps is nil (chat stays talk-only via the streaming path).
+	// blocks dispatch through the gated executor (act mode).
+	// Always non-nil now (since §1.1); the session factory's
+	// chat-only streaming path was unaffected by the original
+	// nil-Executor fallback because SetExecutor is nil-safe.
 	sessionFactory.SetExecutor(subs.Executor)
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.
@@ -1701,3 +1794,42 @@ func perceptionEnergyMode(cfg *config.Config) perception.EnergyMode {
 		return perception.EnergyAuto
 	}
 }
+
+// loadSpendToday returns SUM(cost_usd) for the local calendar day from spend_daily.
+func loadSpendToday(db *sql.DB) float64 {
+	if db == nil {
+		return 0
+	}
+	day := time.Now().Format("2006-01-02")
+	var sum float64
+	err := db.QueryRow(`SELECT COALESCE(SUM(cost_usd), 0) FROM spend_daily WHERE day = ?`, day).Scan(&sum)
+	if err != nil {
+		return 0
+	}
+	return sum
+}
+
+// persistSpend writes one llm_calls row and upserts spend_daily for durable caps across restarts.
+func persistSpend(db *sql.DB, provider, model string, usage llm.Usage, cost float64, log *slog.Logger) {
+	if db == nil {
+		return
+	}
+	day := time.Now().Format("2006-01-02")
+	_, err := db.Exec(
+		`INSERT INTO llm_calls (provider, model, task, input_tokens, output_tokens, cost_usd, success)
+		 VALUES (?, ?, 'chat', ?, ?, ?, 1)`,
+		provider, model, usage.InputTokens, usage.OutputTokens, cost,
+	)
+	if err != nil && log != nil {
+		log.Warn("spend: llm_calls insert failed", "err", err)
+	}
+	_, err = db.Exec(
+		`INSERT INTO spend_daily (day, provider, cost_usd) VALUES (?, ?, ?)
+		 ON CONFLICT(day, provider) DO UPDATE SET cost_usd = cost_usd + excluded.cost_usd`,
+		day, provider, cost,
+	)
+	if err != nil && log != nil {
+		log.Warn("spend: spend_daily upsert failed", "err", err)
+	}
+}
+

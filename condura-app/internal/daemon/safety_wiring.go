@@ -40,9 +40,28 @@ type SafetyComponents struct {
 // hardcoded default (research / image_generation / code_review are
 // autonomous; everything else warns) so a fresh install still works.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
+	return buildSafetyLayerWithGuard(haltFlag, nil, broker, trustStore, cfg, log)
+}
+
+// buildSafetyLayerWithGuard is the full constructor. netGuard should be
+// the same Layer-3 guard used by watchdog/RPC halts so anomaly trips
+// isolate network and publish SSE (not just flip the sticky flag).
+func buildSafetyLayerWithGuard(haltFlag *halt.Flag, netGuard halt.NetworkGuard, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
-	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(nonce string, a any) {
-		broker.PublishJSON("safety.consent.request", map[string]any{"nonce": nonce, "action": a})
+	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(t *gatekeeper.ConsentTicket) {
+		// Full ticket fields so MeridianConsent can open without waiting on poll.
+		if t == nil || broker == nil {
+			return
+		}
+		broker.PublishJSON("safety.consent.request", map[string]any{
+			"nonce":       t.Nonce,
+			"action_kind": t.ActionKind,
+			"actor":       t.Actor,
+			"detail":      t.Detail,
+			"created_at":  t.CreatedAt.UTC().Format(time.RFC3339),
+			"expires_at":  t.ExpiresAt.UTC().Format(time.RFC3339),
+			"approved":    t.Approved,
+		})
 	}}
 	// 2026-06-29 audit P1-1: the test-only autoApproveConsentProvider
 	// and its env-var check have been moved into
@@ -63,13 +82,23 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 	// fires, the agent hard pauses and pings the user." The previous
 	// code only halted on TripLoop/TripFailures and merely warned on
 	// TripRate/TripDuration — a spec/code mismatch. The fix: every
-	// trip type now hard-pauses via haltFlag.Halt. The auto-recovery
+	// trip type now hard-pauses via Halt. The auto-recovery
 	// path (resume via halt.confirm_resume with a CLI ticket) is the
 	// only sanctioned way out, per the Tier-3 sticky-halt design
 	// shipped in commit 74b9640.
+	//
+	// N3 completeness: route through guardAwareHaltFlag so anomaly
+	// trips also isolate Layer-3 network egress and publish SSE —
+	// matching watchdog + daemon.halt. Raw haltFlag.Halt left the
+	// overlay lagging on poll and outbound LLM still reachable.
+	haltAll := guardAwareHaltFlag{flag: haltFlag, guard: netGuard, broker: broker}
 	detector := anomaly.NewDetector(func(t anomaly.Trip) {
 		reason := "anomaly: " + string(t.Type) + " — " + t.Reason
-		if _, err := haltFlag.Halt(context.Background(), reason); err != nil {
+		if haltFlag == nil {
+			log.Error("anomaly halt skipped: no halt flag", "type", t.Type, "reason", t.Reason)
+			return
+		}
+		if _, err := haltAll.Halt(context.Background(), reason); err != nil {
 			log.Error("anomaly halt failed", "type", t.Type, "reason", t.Reason, "err", err)
 		}
 		log.Warn("anomaly halt triggered", "type", t.Type, "reason", t.Reason)
@@ -253,18 +282,20 @@ var autonomyActionKinds = []string{
 	"file.write",
 }
 
-// parseAutonomyLevel parses a level string ("block", "warn", "ask",
-// "autonomous") into an autonomy.Level, returning the fallback on
-// empty or unrecognized input.
+// parseAutonomyLevel parses a level string into an autonomy.Level,
+// returning the fallback on empty or unrecognized input.
+//
+// Config/YAML + Meridian Settings use supervised | warn | autonomous | block.
+// "supervised" and "ask" both mean human-in-the-loop before acting.
 func parseAutonomyLevel(s string, fallback autonomy.Level) autonomy.Level {
 	switch s {
 	case "block", "0":
 		return autonomy.Block
-	case "warn", "1":
+	case "warn", "1", "suggest":
 		return autonomy.Warn
-	case "ask", "2":
+	case "ask", "2", "supervised":
 		return autonomy.Ask
-	case "autonomous", "3":
+	case "autonomous", "3", "auto":
 		return autonomy.Autonomous
 	case "":
 		return fallback
@@ -273,10 +304,24 @@ func parseAutonomyLevel(s string, fallback autonomy.Level) autonomy.Level {
 	}
 }
 
+// rewireAutonomy rebuilds the live Gatekeeper autonomy hook from cfg.
+// Called after config.update patches autonomy so Settings changes take
+// effect without a daemon restart.
+func rewireAutonomy(subs *Subsystems, cfg *config.Config) {
+	if subs == nil || subs.Safety == nil || subs.Safety.Engine == nil || cfg == nil {
+		return
+	}
+	matrix := buildAutonomyMatrix(cfg)
+	subs.Safety.Autonomy = matrix
+	subs.Safety.Engine.AutonomyHook = func(taskType, app string) int {
+		return int(matrix.Evaluate(taskType, app))
+	}
+}
+
 // rpcConsentProvider publishes consent requests on SSE for GUI display.
 type rpcConsentProvider struct {
 	log     *slog.Logger
-	publish func(nonce string, action any)
+	publish func(ticket *gatekeeper.ConsentTicket)
 }
 
 func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.ConsentTicket) (bool, error) {
@@ -284,7 +329,7 @@ func (p *rpcConsentProvider) Show(ctx context.Context, ticket *gatekeeper.Consen
 	if p.publish == nil {
 		return false, nil
 	}
-	p.publish(ticket.Nonce, ticket.ActionKind)
+	p.publish(ticket)
 
 	timer := time.NewTimer(time.Until(ticket.ExpiresAt))
 	defer timer.Stop()

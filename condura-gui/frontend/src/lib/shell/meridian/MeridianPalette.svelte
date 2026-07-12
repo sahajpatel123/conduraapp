@@ -46,7 +46,7 @@
     { route: 'channels', label: 'Channels', hint: 'Telegram & more' },
     { route: 'delegation', label: 'Agents', hint: 'Pending actions' },
     { route: 'account', label: 'Account', hint: 'Sign in' },
-    { route: 'settings', label: 'Settings', hint: 'Defaults' },
+    { route: 'settings', label: 'Settings', hint: 'Theme, models, spend limit' },
     { route: 'about', label: 'About', hint: 'Build · promises · safety' },
   ]
 
@@ -102,7 +102,9 @@
         kbd: 'Halt',
         danger: true,
         run: () => {
-          void halt.halt('palette').catch(() => {})
+          // Halt failures toast via halt store — never empty-catch the kill-switch.
+          void halt.halt('palette')
+          onclose()
         },
       },
     ]
@@ -226,13 +228,15 @@
     left: 50%;
     width: min(520px, calc(100vw - 32px));
     background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-radius: 22px;
+    border: 1px solid var(--md-line);
+    border-radius: 12px;
     z-index: 81;
     overflow: hidden;
-    box-shadow: var(--md-shadow-lift);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--md-shadow);
     transform: translateX(-50%);
-    animation: md-palette 320ms var(--md-spring) both;
+    animation: md-palette 280ms var(--md-ease) both;
   }
   .jump-cite {
     margin: 0;
@@ -305,7 +309,7 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     padding: 2px 6px;
-    border-radius: 999px;
+    border-radius: 5px;
     border: 1px solid var(--md-line);
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 8%, transparent);

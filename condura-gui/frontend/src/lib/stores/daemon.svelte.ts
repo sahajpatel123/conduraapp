@@ -13,13 +13,19 @@ class DaemonStore {
 
   private cleanups: Array<() => void> = []
 
+  /** True after configure(); empty baseURL is valid (same-origin Vite proxy). */
+  private addressConfigured = false
+
   configure(opts: { baseURL: string; authToken: string }): void {
     this.baseURL = opts.baseURL
     this.authToken = opts.authToken
+    this.addressConfigured = true
   }
 
   start(): void {
-    if (!this.baseURL) {
+    // baseURL "" is intentional in Vite DEV: /api + /events are same-origin
+    // and proxied to the daemon. Do not treat empty as "unconfigured".
+    if (!this.addressConfigured) {
       this.lastError = 'no daemon address configured'
       return
     }

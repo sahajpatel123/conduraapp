@@ -6,11 +6,15 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/audit"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/failover"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/halt"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/overlay"
@@ -25,26 +29,82 @@ const (
 )
 
 // registerControlMethods wires config.update + telemetry.setEnabled.
-// Phase 2: config.update accepts partial patches for the telemetry,
-// hotkey, and window sections only.
+// config.update accepts partial patches for the sections the Meridian
+// Settings desk actually edits: telemetry, hotkey, window, autonomy,
+// security (spend/PII), llm provider toggles, and voice.wake.
 func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystems) {
 	srv.Register("config.update", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var patch map[string]json.RawMessage
 		if err := json.Unmarshal(params, &patch); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 		}
+		// Fail closed on unsupported sections — silent ignore looked like a
+		// successful save (e.g. legacy delegation patches never persisted).
+		supported := map[string]struct{}{
+			"telemetry": {},
+			"hotkey":    {},
+			"window":    {},
+			"autonomy":  {},
+			"security":  {},
+			"llm":       {},
+			"voice":     {},
+		}
+		var unknown []string
+		for k := range patch {
+			if _, ok := supported[k]; !ok {
+				unknown = append(unknown, k)
+			}
+		}
+		if len(unknown) > 0 {
+			sort.Strings(unknown)
+			return nil, &ipc.Error{
+				Code:    ipc.CodeInvalidParams,
+				Message: "unsupported config.update keys: " + strings.Join(unknown, ","),
+			}
+		}
+		keys := make([]string, 0, len(patch))
 		if telRaw, ok := patch["telemetry"]; ok {
 			applyTelemetryPatch(cfg, subs, telRaw)
+			keys = append(keys, "telemetry")
 		}
 		if hkRaw, ok := patch["hotkey"]; ok {
 			applyHotkeyPatch(cfg, hkRaw)
+			keys = append(keys, "hotkey")
 		}
 		if wRaw, ok := patch["window"]; ok {
 			applyWindowPatch(cfg, wRaw)
+			keys = append(keys, "window")
 		}
-		// Persist the patched config so changes survive a daemon
-		// restart. Without this, hotkey/window/telemetry changes
-		// are lost on the next boot.
+		if aRaw, ok := patch["autonomy"]; ok {
+			if err := applyAutonomyPatch(cfg, aRaw); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+			}
+			rewireAutonomy(subs, cfg)
+			keys = append(keys, "autonomy")
+		}
+		if sRaw, ok := patch["security"]; ok {
+			if err := applySecurityPatch(cfg, subs, sRaw); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+			}
+			keys = append(keys, "security")
+		}
+		if lRaw, ok := patch["llm"]; ok {
+			if err := applyLLMPatch(cfg, lRaw); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+			}
+			// Live registry must match Settings toggles without restart.
+			if subs != nil {
+				subs.RebuildProviders()
+			}
+			keys = append(keys, "llm")
+		}
+		if vRaw, ok := patch["voice"]; ok {
+			if err := applyVoicePatch(cfg, vRaw); err != nil {
+				return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+			}
+			keys = append(keys, "voice")
+		}
+		// Persist so Settings survive restart.
 		if subs.Loader != nil {
 			if err := subs.Loader.Save(cfg); err != nil {
 				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "persist config failed: " + err.Error()}
@@ -54,7 +114,7 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 			_ = subs.Audit.Append(ctx, audit.Event{
 				Actor: actorGUI, Action: "config.update", App: appConduraG,
 				Level: auditLevelInfo, Result: auditResultAllow,
-				Message: "patched keys",
+				Message: "patched keys=" + strings.Join(keys, ","),
 			})
 		}
 		return auditOK(), nil
@@ -156,6 +216,169 @@ func applyWindowPatch(cfg *config.Config, raw json.RawMessage) {
 	if w.LastConversationID != 0 {
 		cfg.Window.LastConversationID = w.LastConversationID
 	}
+}
+
+// validAutonomyLevel accepts the four config levels (+ legacy aliases).
+func validAutonomyLevel(level string) bool {
+	switch level {
+	case config.AutonomySupervised, config.AutonomyWarn, config.AutonomyAutonomous, config.AutonomyBlock,
+		"ask", "auto", "suggest":
+		return true
+	default:
+		return false
+	}
+}
+
+// normalizeAutonomyLevel maps legacy GUI aliases to canonical config values.
+func normalizeAutonomyLevel(level string) string {
+	switch level {
+	case "ask":
+		return config.AutonomySupervised
+	case "auto":
+		return config.AutonomyAutonomous
+	case "suggest":
+		return config.AutonomyWarn
+	default:
+		return level
+	}
+}
+
+// applyAutonomyPatch updates cfg.Autonomy from Meridian Settings.
+// Invalid levels fail the whole config.update (no silent drop).
+func applyAutonomyPatch(cfg *config.Config, raw json.RawMessage) error {
+	var a struct {
+		DefaultLevel                      string            `json:"default_level"`
+		PerApp                            map[string]string `json:"per_app"`
+		PerTask                           map[string]string `json:"per_task"`
+		ShowWarningsForRead               *bool             `json:"show_warnings_for_read"`
+		MaxConsecutiveWarnsBeforeAskingAnyway *int          `json:"max_consecutive_warns"`
+	}
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return fmt.Errorf("autonomy: %w", err)
+	}
+	if a.DefaultLevel != "" {
+		if !validAutonomyLevel(a.DefaultLevel) {
+			return fmt.Errorf("autonomy.default_level %q is invalid", a.DefaultLevel)
+		}
+		cfg.Autonomy.DefaultLevel = normalizeAutonomyLevel(a.DefaultLevel)
+		// Keep daemon.default_autonomy aligned when present.
+		cfg.Daemon.DefaultAutonomy = cfg.Autonomy.DefaultLevel
+	}
+	if a.PerTask != nil {
+		next := make(map[string]string, len(a.PerTask))
+		for task, lvl := range a.PerTask {
+			if !validAutonomyLevel(lvl) {
+				return fmt.Errorf("autonomy.per_task[%s] = %q is invalid", task, lvl)
+			}
+			next[task] = normalizeAutonomyLevel(lvl)
+		}
+		cfg.Autonomy.PerTask = next
+	}
+	if a.PerApp != nil {
+		next := make(map[string]string, len(a.PerApp))
+		for app, lvl := range a.PerApp {
+			if !validAutonomyLevel(lvl) {
+				return fmt.Errorf("autonomy.per_app[%s] = %q is invalid", app, lvl)
+			}
+			next[app] = normalizeAutonomyLevel(lvl)
+		}
+		cfg.Autonomy.PerApp = next
+	}
+	if a.ShowWarningsForRead != nil {
+		cfg.Autonomy.ShowWarningsForRead = *a.ShowWarningsForRead
+	}
+	if a.MaxConsecutiveWarnsBeforeAskingAnyway != nil {
+		cfg.Autonomy.MaxConsecutiveWarnsBeforeAskingAnyway = *a.MaxConsecutiveWarnsBeforeAskingAnyway
+	}
+	return nil
+}
+
+// applySecurityPatch updates spend cap / PII flags and rewires the live
+// SpendMonitor so the cap applies to the next LLM call.
+func applySecurityPatch(cfg *config.Config, subs *Subsystems, raw json.RawMessage) error {
+	var s struct {
+		SpendLimitUSDPerDay *float64 `json:"spend_limit_usd_per_day"`
+		PIIRedaction        *bool    `json:"pii_redaction"`
+		AuditRetentionDays  *int     `json:"audit_retention_days"`
+	}
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return fmt.Errorf("security: %w", err)
+	}
+	if s.SpendLimitUSDPerDay != nil {
+		if *s.SpendLimitUSDPerDay < 0 {
+			return fmt.Errorf("security.spend_limit_usd_per_day must be >= 0")
+		}
+		cfg.Security.SpendLimitUSDPerDay = *s.SpendLimitUSDPerDay
+		if subs != nil && subs.Spend != nil {
+			subs.Spend.SetCap(failover.SpendCap{USDPerDay: *s.SpendLimitUSDPerDay})
+		}
+	}
+	if s.PIIRedaction != nil {
+		cfg.Security.PIIRedaction = *s.PIIRedaction
+	}
+	if s.AuditRetentionDays != nil {
+		if *s.AuditRetentionDays < 0 {
+			return fmt.Errorf("security.audit_retention_days must be >= 0")
+		}
+		cfg.Security.AuditRetentionDays = *s.AuditRetentionDays
+	}
+	return nil
+}
+
+// applyLLMPatch merges provider toggles/default models without accepting
+// api_key values (secrets stay on apikeys.set / keyring).
+func applyLLMPatch(cfg *config.Config, raw json.RawMessage) error {
+	var p struct {
+		Providers map[string]struct {
+			Enabled      *bool  `json:"enabled"`
+			DefaultModel string `json:"default_model"`
+			BaseURL      string `json:"base_url"`
+		} `json:"providers"`
+	}
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return fmt.Errorf("llm: %w", err)
+	}
+	if p.Providers == nil {
+		return nil
+	}
+	if cfg.LLM.Providers == nil {
+		cfg.LLM.Providers = map[string]config.ProviderConfig{}
+	}
+	for name, patch := range p.Providers {
+		cur := cfg.LLM.Providers[name]
+		if patch.Enabled != nil {
+			cur.Enabled = *patch.Enabled
+		}
+		if patch.DefaultModel != "" {
+			cur.DefaultModel = patch.DefaultModel
+		}
+		if patch.BaseURL != "" {
+			cur.BaseURL = patch.BaseURL
+		}
+		// Never copy APIKey from a GUI patch.
+		cfg.LLM.Providers[name] = cur
+	}
+	return nil
+}
+
+// applyVoicePatch updates voice.wake.enabled (and related flags) for Settings.
+func applyVoicePatch(cfg *config.Config, raw json.RawMessage) error {
+	var v struct {
+		Enabled *bool `json:"enabled"`
+		Wake    *struct {
+			Enabled *bool `json:"enabled"`
+		} `json:"wake"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return err
+	}
+	if v.Enabled != nil {
+		cfg.Voice.Enabled = *v.Enabled
+	}
+	if v.Wake != nil && v.Wake.Enabled != nil {
+		cfg.Voice.Wake.Enabled = *v.Wake.Enabled
+	}
+	return nil
 }
 
 // registerFirstRunMethods wires firstRun.status + firstRun.complete.

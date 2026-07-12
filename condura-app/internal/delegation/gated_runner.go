@@ -319,6 +319,21 @@ func (g *GatedRunner) Cancel(spawnID string) bool {
 	return false
 }
 
+// ListActive returns spawn IDs that still have a live cancel handle
+// (in-flight sub-agent processes). Used by delegate.list_spawns.
+func (g *GatedRunner) ListActive() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.active) == 0 {
+		return []string{}
+	}
+	ids := make([]string, 0, len(g.active))
+	for id := range g.active {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 // maxActionRequestFieldBytes caps each string field on a
 // sub-agent-decoded ActionRequest. The audit (2026-06-29 P1-5)
 // found that sub-agent JSON fields (Command, Body, Path) were

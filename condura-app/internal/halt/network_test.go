@@ -68,6 +68,118 @@ func TestInProcessGuard_RuntimeAllowHost(t *testing.T) {
 	}
 }
 
+// TestInProcessGuard_ResumePreservesRuntimeAllowHost is the regression
+// test for the 2026-07-12 audit finding #1.3: previously, Resume
+// re-initialized the allow-list from DefaultProviderAllowList, silently
+// dropping any runtime AllowHost() the user had configured between
+// daemon startup and Halt. Now Halt snapshots the live allow-list and
+// Resume restores it verbatim, so user runtime config survives the
+// halt/resume cycle.
+func TestInProcessGuard_ResumePreservesRuntimeAllowHost(t *testing.T) {
+	g := NewInProcessGuard()
+
+	// User adds a custom host at runtime.
+	g.AllowHost("my-proxy.local")
+	g.AllowHost("internal.corp.example")
+
+	// Halt — must snapshot the runtime additions.
+	if err := g.Halt("user pressed kill switch"); err != nil {
+		t.Fatalf("Halt: %v", err)
+	}
+
+	// During halt, Allow returns false for everything (including
+	// the user's additions). AllowHost during halt is a no-op
+	// observation-wise but we still record it so the post-Resume
+	// allowList reflects the latest intent.
+	if g.Allow("my-proxy.local") {
+		t.Error("during halt, even runtime-added hosts must be denied")
+	}
+
+	// Resume — must restore runtime additions, not revert to
+	// DefaultProviderAllowList seed.
+	if err := g.Resume(); err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	if !g.Allow("my-proxy.local") {
+		t.Error("after Resume, runtime-added host my-proxy.local should still be allowed")
+	}
+	if !g.Allow("internal.corp.example") {
+		t.Error("after Resume, runtime-added host internal.corp.example should still be allowed")
+	}
+	if !g.Allow("api.openai.com") {
+		t.Error("after Resume, default-allowed host api.openai.com should still be allowed")
+	}
+}
+
+// TestInProcessGuard_ResumePreservesRuntimeDeny verifies the symmetric
+// case: a host explicitly denied at runtime (via DenyHost) is NOT
+// reintroduced by Resume.
+func TestInProcessGuard_ResumePreservesRuntimeDeny(t *testing.T) {
+	g := NewInProcessGuard()
+
+	// User removes a default-allowed host at runtime.
+	g.DenyHost("api.openai.com")
+	if g.Allow("api.openai.com") {
+		t.Fatal("setup: DenyHost should remove default-allowed host")
+	}
+
+	// Halt then Resume.
+	_ = g.Halt("test")
+	_ = g.Resume()
+
+	// The runtime deny must survive the cycle.
+	if g.Allow("api.openai.com") {
+		t.Error("after Resume, runtime-denied host api.openai.com should still be denied")
+	}
+}
+
+// TestInProcessGuard_DoubleHaltDoesNotOverwriteSnapshot verifies that
+// calling Halt twice keeps the original snapshot intact. The first
+// Halt captures the user's pre-halt config; if the second Halt
+// (while still halted) ran AllowHost/DenyHost on the live list and
+// then re-snapshotted, the user's original intent would be lost on
+// the subsequent Resume.
+func TestInProcessGuard_DoubleHaltDoesNotOverwriteSnapshot(t *testing.T) {
+	g := NewInProcessGuard()
+	g.AllowHost("user-intent-1.example")
+	_ = g.Halt("first halt")
+
+	// During halt, user (or some tool) adds another host. This
+	// mutates the live allowList but the snapshot must remain the
+	// pre-first-Halt state.
+	g.AllowHost("during-halt.example")
+
+	_ = g.Halt("second halt (still halted)")
+
+	// Resume must restore the FIRST snapshot (the one with
+	// user-intent-1 but without during-halt).
+	_ = g.Resume()
+
+	if !g.Allow("user-intent-1.example") {
+		t.Error("user-intent-1 should survive double-halt (was in first snapshot)")
+	}
+	if g.Allow("during-halt.example") {
+		t.Error("during-halt should NOT survive double-halt (added after first snapshot)")
+	}
+}
+
+// TestInProcessGuard_ResumeWithoutHaltIsNoOp verifies that Resume
+// without a prior Halt doesn't reset the allow-list to defaults.
+// Previously this case also overwrote runtime additions — caught
+// by the same audit finding.
+func TestInProcessGuard_ResumeWithoutHaltIsNoOp(t *testing.T) {
+	g := NewInProcessGuard()
+	g.AllowHost("no-prior-halt.example")
+
+	// Resume without Halt — should be a no-op aside from clearing
+	// stale halted/since/reason (which were never set).
+	_ = g.Resume()
+
+	if !g.Allow("no-prior-halt.example") {
+		t.Error("Resume without prior Halt should preserve runtime allow-list additions")
+	}
+}
+
 func TestInProcessGuard_WrapTransport(t *testing.T) {
 	g := NewInProcessGuard()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

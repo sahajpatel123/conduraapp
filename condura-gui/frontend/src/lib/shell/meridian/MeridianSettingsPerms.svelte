@@ -32,35 +32,35 @@
     accessibility: {
       mark: 'AX',
       name: 'Accessibility',
-      body: 'Read structured UI — named buttons, fields, and window titles.',
-      need: 'Required for computer-use',
+      body: 'Lets Condura see buttons and windows so it can help on your Mac.',
+      need: 'Needed for computer control',
       weight: 'required',
     },
     screen_recording: {
       mark: 'SCR',
       name: 'Screen Recording',
-      body: 'Sample the screen when vision is needed. Never continuous capture.',
-      need: 'Optional — vision actions only',
+      body: 'Lets Condura look at the screen only when a task needs it.',
+      need: 'Optional',
       weight: 'optional',
     },
     microphone: {
       mark: 'MIC',
       name: 'Microphone',
-      body: 'Voice input and the wake word, when you enable them.',
+      body: 'For voice input and “hey Condura,” if you turn those on.',
       need: 'Optional',
       weight: 'optional',
     },
     automation: {
       mark: 'AUTO',
       name: 'Automation',
-      body: 'Control other apps via AppleEvents / System Events where the OS allows.',
-      need: 'Required for cross-app automation',
+      body: 'Lets Condura control other apps when you allow it.',
+      need: 'Needed for cross-app tasks',
       weight: 'required',
     },
     notifications: {
       mark: 'NTF',
       name: 'Notifications',
-      body: 'Task completion and important alerts on this machine.',
+      body: 'Alerts when a task finishes or needs you.',
       need: 'Optional',
       weight: 'optional',
     },
@@ -100,9 +100,9 @@
   })
 
   function statusLabel(state: string): string {
-    if (state === 'granted') return 'granted'
-    if (state === 'denied') return 'denied'
-    return 'unknown'
+    if (state === 'granted') return 'On'
+    if (state === 'denied') return 'Off'
+    return 'Unknown'
   }
 
   async function ensureGuide(kind: PermKind): Promise<PermissionGuide | null> {
@@ -141,11 +141,11 @@
       if (res.opened) {
         permActionNote =
           intent === 'grant'
-            ? `System Settings opened for ${PERM_META[kind].name}. Toggle it on, then return — this desk rechecks live.`
-            : `System Settings opened for ${PERM_META[kind].name}. Toggle it off to revoke, then return — this desk rechecks live.`
+            ? `Opened System Settings for ${PERM_META[kind].name}. Turn it on, then come back — we’ll recheck automatically.`
+            : `Opened System Settings for ${PERM_META[kind].name}. Turn it off to revoke, then come back.`
       } else {
         permActionNote =
-          res.error || 'Could not open System Settings. Use the steps below, then Recheck.'
+          res.error || 'Could not open System Settings. Use the steps below, then tap Recheck.'
       }
     } catch (e) {
       permActionNote = String(e)
@@ -160,7 +160,7 @@
     await trust.refreshPermissions()
     if (!trust.lastError) {
       const n = trust.permissions.filter((p) => p.status === 'granted').length
-      permActionNote = `Rechecked — ${n} of ${PERM_KINDS.length} granted.`
+      permActionNote = `Checked — ${n} of ${PERM_KINDS.length} on.`
     }
   }
 </script>
@@ -168,11 +168,9 @@
 <section class="plate perms" aria-labelledby="perms-title">
   <header class="plate-head perms-head">
     <div>
-      <p class="cite">02 · os · live</p>
-      <h2 id="perms-title">Permissions</h2>
+      <h2 id="perms-title">Mac permissions</h2>
       <p class="hint">
-        Condura can only ask. Your operating system grants or denies. Toggle in System Settings —
-        this desk probes live every few seconds.
+        Condura asks; your Mac decides. Grant what you need, then return here.
       </p>
     </div>
     <button
@@ -181,7 +179,7 @@
       disabled={trust.loadingPermissions && trust.permissions.length === 0}
       onclick={() => void recheckPermissions()}
     >
-      {trust.loadingPermissions && trust.permissions.length === 0 ? 'Probing…' : 'Recheck'}
+      {trust.loadingPermissions && trust.permissions.length === 0 ? 'Checking…' : 'Recheck'}
     </button>
   </header>
 
@@ -189,15 +187,15 @@
     <span class="perm-count">{grantedCount} / {PERM_KINDS.length}</span>
     <span class="perm-sum-copy">
       {#if permOffline}
-        Daemon offline — cannot probe OS grants
+        Offline — can’t check permissions right now
       {:else if trust.loadingPermissions && trust.permissions.length === 0}
-        Checking permission state…
+        Checking…
       {:else if allGranted}
-        All permissions granted
+        All set
       {:else if requiredMissing > 0}
-        {requiredMissing} required grant{requiredMissing === 1 ? '' : 's'} still missing
+        {requiredMissing} still needed for full computer control
       {:else}
-        Optional grants open — core computer-use may still run
+        Optional ones left — core features can still work
       {/if}
     </span>
   </div>
@@ -235,7 +233,7 @@
               disabled={permBusy === perm.kind}
               onclick={() => void openOSPermission(perm.kind, 'revoke')}
             >
-              {permBusy === perm.kind ? 'Opening…' : 'Revoke in System Settings'}
+              {permBusy === perm.kind ? 'Opening…' : 'Turn off in Settings'}
             </button>
           {:else}
             <button
@@ -244,7 +242,7 @@
               disabled={permBusy === perm.kind}
               onclick={() => void openOSPermission(perm.kind, 'grant')}
             >
-              {permBusy === perm.kind ? 'Opening…' : 'Grant in System Settings'}
+              {permBusy === perm.kind ? 'Opening…' : 'Turn on in Settings'}
             </button>
           {/if}
           <button
@@ -253,7 +251,7 @@
             aria-expanded={expandedGuide === perm.kind}
             onclick={() => void toggleGuide(perm.kind)}
           >
-            {expandedGuide === perm.kind ? 'Hide steps' : 'Show steps'}
+            {expandedGuide === perm.kind ? 'Hide how-to' : 'How to'}
           </button>
         </div>
 
@@ -291,27 +289,19 @@
     padding: 22px 24px 24px;
     box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
   }
-  .plate-head { margin-bottom: 18px; }
+  .plate-head { margin-bottom: 14px; }
   .perms-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
   }
-  .recheck { flex: none; margin-top: 4px; }
-  .cite {
-    font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--md-ink-faint);
-    margin: 0 0 8px;
-  }
+  .recheck { flex: none; margin-top: 2px; }
   h2 {
     font-family: var(--md-font-display);
-    font-size: 22px;
-    letter-spacing: -0.04em;
-    margin: 0 0 6px;
+    font-size: 18px;
+    letter-spacing: -0.03em;
+    margin: 0 0 4px;
   }
   .hint {
     margin: 0;

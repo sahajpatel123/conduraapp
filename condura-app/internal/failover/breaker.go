@@ -281,6 +281,21 @@ func NewSpendMonitor(spendCap SpendCap) *SpendMonitor {
 	return &SpendMonitor{cap: spendCap, nowFn: time.Now}
 }
 
+// Seed sets today's spend from durable storage (e.g. spend_daily).
+// Call once at boot after NewSpendMonitor so restarts do not reset the cap.
+func (m *SpendMonitor) Seed(spent float64) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.day = m.nowFn().Format("2006-01-02")
+	if spent < 0 {
+		spent = 0
+	}
+	m.spent = spent
+}
+
 // SetCap updates the cap at runtime.
 func (m *SpendMonitor) SetCap(spendCap SpendCap) {
 	m.mu.Lock()

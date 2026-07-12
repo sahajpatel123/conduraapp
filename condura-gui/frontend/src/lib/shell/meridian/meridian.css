@@ -1,12 +1,13 @@
-/* MERIDIAN — Condura product shell
-   Apple-level craft: quiet surfaces, precise type, intentional motion. */
+/* MERIDIAN — Condura instrument desk
+   Optical glass · cool mist · living cobalt beam.
+   Quiet surfaces, precise type, intentional motion. */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  background: #C9D4E3;
-  color: #0B1526;
-  font-family: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  background: #C4CEDC;
+  color: #0F1724;
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -18,58 +19,60 @@ img, svg { display: block; max-width: 100%; }
 
 :root[data-mode='light'],
 :root:not([data-mode]) {
-  --md-mist: #C9D4E3;
+  --md-mist: #C4CEDC;
   --md-stage: #EEF2F7;
   --md-surface: #FFFFFF;
-  --md-ink: #0B1526;
-  --md-ink-soft: #3A4A63;
-  --md-ink-mute: #6B7A90;
-  --md-ink-faint: #8A97AB;
-  --md-line: rgba(11, 21, 38, 0.08);
-  --md-line-strong: rgba(11, 21, 38, 0.14);
-  --md-cobalt: #2F5BFF;
-  --md-cobalt-deep: #1E3FCC;
-  --md-live: #0F9F8A;
-  --md-halt: #D61F69;
-  --md-shadow: 0 18px 40px -28px rgba(11, 21, 38, 0.32);
-  --md-shadow-lift: 0 24px 52px -26px rgba(11, 21, 38, 0.4);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
-  --md-scrim: color-mix(in oklab, #0B1526 52%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #0B1526 68%, transparent);
-  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(47, 91, 255, 0.14) 0%, rgba(47, 91, 255, 0.06) 32%, transparent 68%),
-             radial-gradient(110% 80% at 8% 108%, rgba(15, 159, 138, 0.08) 0%, rgba(15, 159, 138, 0.03) 40%, transparent 72%),
-             radial-gradient(90% 70% at 40% 40%, rgba(201, 212, 227, 0.55) 0%, transparent 70%),
+  --md-ink: #0F1724;
+  --md-ink-soft: #334155;
+  --md-ink-mute: #64748B;
+  --md-ink-faint: #94A3B8;
+  --md-line: rgba(15, 23, 36, 0.08);
+  --md-line-strong: rgba(15, 23, 36, 0.14);
+  --md-cobalt: #1F4FE0;
+  --md-cobalt-deep: #1639B0;
+  --md-live: #0F8A78;
+  --md-halt: #C9184A;
+  --md-ember: #B86B1E;
+  --md-shadow: 0 1px 2px rgba(15, 23, 36, 0.04), 0 8px 24px -16px rgba(15, 23, 36, 0.18);
+  --md-shadow-lift: 0 1px 2px rgba(15, 23, 36, 0.05), 0 12px 28px -14px rgba(15, 23, 36, 0.22);
+  --md-focus: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+  --md-scrim: color-mix(in oklab, #0F1724 48%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #0F1724 64%, transparent);
+  --md-wash: radial-gradient(120% 80% at 80% -8%, rgba(31, 79, 224, 0.1) 0%, transparent 55%),
+             radial-gradient(90% 70% at 8% 100%, rgba(15, 138, 120, 0.06) 0%, transparent 50%),
              var(--md-mist);
+  --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.07 0 0 0 0 0.12 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 :root[data-mode='dark'] {
-  --md-mist: #070A10;
-  --md-stage: #0E131C;
-  --md-surface: #161D2A;
-  --md-ink: #E8EEF7;
-  --md-ink-soft: #C2CBD9;
-  --md-ink-mute: #8B97AB;
-  --md-ink-faint: #5F6B7E;
-  --md-line: rgba(232, 238, 247, 0.08);
-  --md-line-strong: rgba(232, 238, 247, 0.14);
-  --md-cobalt: #6B8CFF;
-  --md-cobalt-deep: #4A6EF5;
+  --md-mist: #06080E;
+  --md-stage: #0C111A;
+  --md-surface: #141B28;
+  --md-ink: #E6EDF8;
+  --md-ink-soft: #B8C4D6;
+  --md-ink-mute: #8491A6;
+  --md-ink-faint: #586478;
+  --md-line: rgba(230, 237, 248, 0.07);
+  --md-line-strong: rgba(230, 237, 248, 0.13);
+  --md-cobalt: #6B8FFF;
+  --md-cobalt-deep: #4A6FF0;
   --md-live: #2DD4BF;
   --md-halt: #FF4D8D;
-  --md-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.55);
-  --md-shadow-lift: 0 28px 60px -24px rgba(0, 0, 0, 0.65);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-  --md-scrim: color-mix(in oklab, #000 62%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #000 78%, transparent);
-  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(107, 140, 255, 0.18) 0%, rgba(107, 140, 255, 0.07) 32%, transparent 68%),
-             radial-gradient(110% 80% at 8% 108%, rgba(45, 212, 191, 0.07) 0%, rgba(45, 212, 191, 0.025) 40%, transparent 72%),
-             radial-gradient(90% 70% at 40% 40%, rgba(7, 10, 16, 0.4) 0%, transparent 70%),
+  --md-ember: #E0A04A;
+  --md-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -16px rgba(0, 0, 0, 0.55);
+  --md-shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 32px -14px rgba(0, 0, 0, 0.65);
+  --md-focus: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+  --md-scrim: color-mix(in oklab, #000 58%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #000 74%, transparent);
+  --md-wash: radial-gradient(120% 80% at 80% -8%, rgba(107, 143, 255, 0.14) 0%, transparent 55%),
+             radial-gradient(90% 70% at 8% 100%, rgba(45, 212, 191, 0.06) 0%, transparent 50%),
              var(--md-mist);
+  --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.92 0 0 0 0 0.98 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .md {
-  --md-font-display: 'Sora', 'Avenir Next', system-ui, sans-serif;
-  --md-font-sans: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --md-font-display: 'Space Grotesk', 'Avenir Next', system-ui, sans-serif;
+  --md-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --md-font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
   --md-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --md-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -100,88 +103,93 @@ body::-webkit-scrollbar,
 }
 
 .md-btn {
-  appearance: none; border: 0; border-radius: 999px;
-  font-family: var(--md-font-sans); font-size: 13px; font-weight: 700;
+  appearance: none; border: 0; border-radius: 10px;
+  font-family: var(--md-font-sans); font-size: 13px; font-weight: 600;
   letter-spacing: -0.01em;
-  padding: 10px 18px; cursor: pointer;
+  padding: 9px 16px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition:
-    transform 180ms var(--md-spring),
-    box-shadow 220ms var(--md-ease),
-    background 180ms var(--md-ease),
-    border-color 180ms var(--md-ease),
-    opacity 180ms var(--md-ease);
+    background 160ms var(--md-ease),
+    border-color 160ms var(--md-ease),
+    color 160ms var(--md-ease),
+    box-shadow 160ms var(--md-ease),
+    opacity 160ms var(--md-ease);
 }
-.md-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.md-btn:not(:disabled:active) { transform: scale(0.97); }
+.md-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.md-btn:not(:disabled):active { opacity: 0.92; }
 .md-btn:focus-visible {
   outline: none;
-  box-shadow: var(--md-focus), 0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+  box-shadow: var(--md-focus);
 }
 .md-btn-primary {
-  background: var(--md-cobalt); color: #fff;
-  box-shadow: 0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+  background: var(--md-cobalt);
+  color: #fff;
+  box-shadow: none;
 }
-.md-btn-primary:not(:disabled:hover) {
-  transform: translateY(-1px); background: var(--md-cobalt-deep);
-  box-shadow: 0 16px 36px -14px color-mix(in oklab, var(--md-cobalt) 80%, transparent);
+.md-btn-primary:not(:disabled):hover {
+  background: var(--md-cobalt-deep);
 }
 .md-btn-ghost {
-  background: color-mix(in oklab, var(--md-surface) 78%, transparent);
-  color: var(--md-ink); border: 1px solid var(--md-line-strong);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  color: var(--md-ink);
+  border: 1px solid var(--md-line-strong);
 }
-.md-btn-ghost:not(:disabled:hover) {
-  transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line-strong));
-  background: var(--md-surface);
+.md-btn-ghost:not(:disabled):hover {
+  border-color: color-mix(in oklab, var(--md-ink) 22%, var(--md-line-strong));
+  background: color-mix(in oklab, var(--md-ink) 3%, var(--md-surface));
 }
 .md-btn-danger {
-  background: color-mix(in oklab, var(--md-halt) 10%, transparent);
-  color: var(--md-halt); border: 1px solid color-mix(in oklab, var(--md-halt) 32%, transparent);
+  background: transparent;
+  color: var(--md-halt);
+  border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line-strong));
 }
-.md-btn-danger:not(:disabled:hover) {
-  background: color-mix(in oklab, var(--md-halt) 16%, transparent);
+.md-btn-danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--md-halt) 8%, transparent);
+  border-color: color-mix(in oklab, var(--md-halt) 42%, var(--md-line-strong));
 }
 .md-panel {
-  background: var(--md-surface); border: 1px solid var(--md-line-strong);
-  border-radius: 22px; padding: 20px 22px;
-  box-shadow: var(--md-shadow);
-  transition: transform 220ms var(--md-ease), box-shadow 220ms var(--md-ease), border-color 220ms var(--md-ease);
+  background: var(--md-surface);
+  border: 1px solid var(--md-line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: none;
+  transition: border-color 160ms var(--md-ease);
+}
+:root[data-mode='dark'] .md-panel {
+  box-shadow: none;
 }
 .md-panel:hover {
-  border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line-strong));
-  box-shadow: var(--md-shadow-lift);
+  border-color: var(--md-line-strong);
+  box-shadow: none;
 }
-/* Forms / status banners — no lift on hover */
 .md-panel-static,
 .md-panel-static:hover {
   transform: none;
-  border-color: var(--md-line-strong);
-  box-shadow: var(--md-shadow);
+  border-color: var(--md-line);
+  box-shadow: none;
 }
 .md-empty {
-  padding: 56px 28px; text-align: center; color: var(--md-ink-mute); font-size: 14px; line-height: 1.5;
-  border: 1px dashed var(--md-line-strong); border-radius: 22px;
-  background: color-mix(in oklab, var(--md-surface) 58%, transparent);
+  padding: 48px 24px; text-align: center; color: var(--md-ink-mute); font-size: 14px; line-height: 1.5;
+  border: 1px dashed var(--md-line-strong); border-radius: 14px;
+  background: color-mix(in oklab, var(--md-stage) 55%, transparent);
 }
-.md-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.md-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .md-field:last-child { margin-bottom: 0; }
 .md-field label {
-  font-family: var(--md-font-mono); font-size: 10px; letter-spacing: 0.14em;
+  font-family: var(--md-font-mono); font-size: 10px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--md-ink-faint);
 }
 .md-field input,
 .md-field select,
 .md-field textarea {
   border: 1px solid var(--md-line-strong); background: var(--md-surface);
-  border-radius: 14px; padding: 11px 14px; font: inherit; color: var(--md-ink); outline: none;
+  border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--md-ink); outline: none;
   transition: border-color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
 }
 .md-field input:hover,
 .md-field select:hover,
 .md-field textarea:hover {
-  border-color: color-mix(in oklab, var(--md-cobalt) 25%, var(--md-line-strong));
+  border-color: color-mix(in oklab, var(--md-ink) 18%, var(--md-line-strong));
 }
 .md-field input:focus,
 .md-field select:focus,
@@ -217,12 +225,20 @@ body::-webkit-scrollbar,
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes md-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); opacity: 0.85; }
-  50% { filter: drop-shadow(0 0 8px color-mix(in oklab, var(--md-cobalt) 40%, transparent)); opacity: 1; }
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); opacity: 0.82; }
+  50% { filter: drop-shadow(0 0 10px color-mix(in oklab, var(--md-cobalt) 48%, transparent)); opacity: 1; }
 }
 @keyframes md-dock-up {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes md-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes md-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
