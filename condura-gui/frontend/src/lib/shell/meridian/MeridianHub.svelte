@@ -5,7 +5,9 @@
    */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
+  import { isOfflineError } from '../../ipc/errors'
   import { hub } from '../../stores/hub.svelte'
+  import { primarySlashToken } from '../../skill-slash'
 
   type TrustFilter = 'all' | 'verified' | 'trusted' | 'community'
 
@@ -16,7 +18,7 @@
   let trustFilter = $state<TrustFilter>('all')
 
   onMount(() => {
-    void hub.search('', 24)
+    void Promise.all([hub.refreshInstalled(), hub.search('', 24)])
   })
 
   const filtered = $derived(
@@ -46,6 +48,11 @@
     void hub.search('', 24)
   }
 
+  function refreshShelf(): void {
+    note = ''
+    void Promise.all([hub.refreshInstalled(), hub.search(q.trim(), 24)])
+  }
+
   function initial(name: string): string {
     const t = name.trim()
     return t ? t[0]!.toUpperCase() : '?'
@@ -67,14 +74,31 @@
     window.location.hash = '#/skills'
   }
 
-  function useInAsk(name: string): void {
-    const starter = `Use the local skill “${name}” — explain what it does, then wait for my go-ahead before acting.`
+  function useInAsk(name: string, id?: string): void {
+    const token = primarySlashToken({
+      id: id || '',
+      name,
+      description: '',
+      version: '',
+      author: '',
+      license: '',
+      trust: '',
+    })
     try {
-      sessionStorage.setItem('md-ask-starter', starter)
+      sessionStorage.setItem('md-ask-starter', `${token} `)
     } catch {
       /* ignore */
     }
     window.location.hash = '#/'
+  }
+
+  function goAddSkill(): void {
+    window.location.hash = '#/skills'
+    try {
+      sessionStorage.setItem('md-skills-open-create', '1')
+    } catch {
+      /* ignore */
+    }
   }
 </script>
 
@@ -84,7 +108,8 @@
   lead="Browse skills from the community. Install stays local — nothing runs until you ask, and the Gatekeeper still decides."
 >
   {#snippet actions()}
-    <button type="button" class="md-btn md-btn-ghost" onclick={search}>Refresh</button>
+    <button type="button" class="md-btn md-btn-ghost" onclick={refreshShelf}>Refresh</button>
+    <button type="button" class="md-btn md-btn-ghost" onclick={goAddSkill}>Add local skill</button>
     <button type="button" class="md-btn md-btn-primary" onclick={goSkills}>
       My Skills{#if installedCount > 0}&nbsp;·&nbsp;{installedCount}{/if}
     </button>
@@ -142,22 +167,31 @@
 
     {#if hub.loading}
       <div class="md-empty">Loading the shelf…</div>
-    {:else if hub.error && !/IPC client not started|not connected|Failed to fetch/i.test(hub.error)}
-      <div class="md-empty">{hub.error}</div>
+    {:else if hub.error && !isOfflineError(hub.error)}
+      <div class="md-empty empty">
+        <p class="empty-title">Shelf unavailable</p>
+        <p class="empty-lead">{hub.error}</p>
+        <button type="button" class="md-btn md-btn-ghost" onclick={refreshShelf}>Try again</button>
+      </div>
     {:else if hub.results.length === 0}
       <div class="md-empty empty">
         <p class="empty-title">{q ? 'No skills matched' : 'Shelf is quiet'}</p>
         <p class="empty-lead">
           {#if q}
             Try a broader term, or clear the search to browse the shelf.
-          {:else}
+          {:else if isOfflineError(hub.error ?? '')}
             Connect the daemon to load community skills. Until then, the shelf waits.
+          {:else}
+            No community skills returned yet. Refresh, or open local Skills for what is already on this machine.
           {/if}
         </p>
         {#if q}
           <button type="button" class="md-btn md-btn-ghost" onclick={clearSearch}>Clear search</button>
         {:else}
-          <button type="button" class="md-btn md-btn-ghost" onclick={goSkills}>Open local Skills</button>
+          <div class="empty-actions">
+            <button type="button" class="md-btn md-btn-ghost" onclick={refreshShelf}>Refresh shelf</button>
+            <button type="button" class="md-btn md-btn-ghost" onclick={goSkills}>Open local Skills</button>
+          </div>
         {/if}
       </div>
     {:else if filtered.length === 0}
@@ -211,7 +245,7 @@
               <span class="meta">Nothing runs from Hub itself — Ask is the door.</span>
               <div class="feature-actions">
                 {#if hub.installed.has(featured.id)}
-                  <button type="button" class="md-btn md-btn-ghost" onclick={() => useInAsk(featured.name)}>
+                  <button type="button" class="md-btn md-btn-ghost" onclick={() => useInAsk(featured.name, featured.id)}>
                     Use in Ask
                   </button>
                   <button type="button" class="md-btn md-btn-primary" onclick={goSkills}>Open in Skills</button>
@@ -417,16 +451,43 @@
     line-height: 1.5;
     color: var(--md-ink-mute);
   }
+  .empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
   .shelf {
     display: grid;
     gap: 16px;
   }
   .feature {
-    background: var(--md-surface);
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line-strong));
-    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(145deg, color-mix(in oklab, var(--md-cobalt) 8%, transparent) 0%, transparent 42%),
+      var(--md-surface);
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 30%, var(--md-line-strong));
+    border-radius: 22px;
     padding: 24px;
-    box-shadow: var(--md-shadow-lift);
+    box-shadow:
+      var(--md-shadow-lift),
+      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset;
+  }
+  .feature::after {
+    content: '';
+    position: absolute;
+    right: -8%;
+    top: -20%;
+    width: 42%;
+    height: 70%;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle, color-mix(in oklab, var(--md-live) 12%, transparent), transparent 68%);
+  }
+  .feature > * {
+    position: relative;
+    z-index: 1;
   }
   .feature-top {
     display: flex;
@@ -444,9 +505,10 @@
     font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.04em;
-    color: var(--md-cobalt);
-    background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+    color: #fff;
+    background: linear-gradient(145deg, var(--md-cobalt), var(--md-cobalt-deep));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    box-shadow: 0 8px 18px -10px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
   }
   .mono.lg {
     width: 56px;

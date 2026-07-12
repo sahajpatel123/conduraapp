@@ -2,12 +2,21 @@
   /**
    * Account — optional passport. Local work needs none.
    * Signature: local vs cloud atlas doors + OAuth passport strip.
+   *
+   * OAuth must use the desktop deep-link redirect (condura://auth/callback)
+   * and open the returned URL — browser origin is not registered with the
+   * providers and discarding the URL left buttons stuck on "Opening…".
    */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { account } from '../../stores/account.svelte'
+  import type { AccountProvider, OAuthURLResult } from '../../ipc/types'
+
+  /** Must match processOAuthCallback in condura-app/cmd/condura-gui/main.go */
+  const OAUTH_REDIRECT = 'condura://auth/callback'
 
   let signing = $state<string | null>(null)
+  let signInNote = $state('')
 
   onMount(() => {
     void account.checkStatus()
@@ -21,30 +30,28 @@
     signedIn
       ? `Signed in as ${account.status?.display_name || account.status?.email || 'you'}`
       : offlineError
-        ? 'Daemon offline — OAuth still opens in the browser'
+        ? 'Daemon offline — reconnect to sign in'
         : 'No account required for Ask, Audit, Halt, or consent'
   )
 
-  const PROVIDERS = [
-    {
-      id: 'google',
-      label: 'Google',
-      mark: 'G',
-      run: () => account.signInWithGoogle(window.location.origin + '/'),
-    },
-    {
-      id: 'github',
-      label: 'GitHub',
-      mark: 'GH',
-      run: () => account.signInWithGitHub(window.location.origin + '/'),
-    },
-    {
-      id: 'apple',
-      label: 'Apple',
-      mark: '',
-      run: () => account.signInWithApple(window.location.origin + '/'),
-    },
-  ] as const
+  type ProviderBtn = {
+    id: AccountProvider
+    label: string
+    mark: string
+  }
+
+  const ALL_PROVIDERS: ProviderBtn[] = [
+    { id: 'google', label: 'Google', mark: 'G' },
+    { id: 'github', label: 'GitHub', mark: 'GH' },
+    { id: 'apple', label: 'Apple', mark: '' },
+  ]
+
+  /** Only show providers the daemon reports as configured; fall back to all if unknown. */
+  const providers = $derived.by(() => {
+    const configured = account.configuredProviders?.filter((p) => p !== 'magic') ?? []
+    if (configured.length === 0) return ALL_PROVIDERS
+    return ALL_PROVIDERS.filter((p) => configured.includes(p.id))
+  })
 
   function go(hash: string): void {
     window.location.hash = hash
@@ -54,11 +61,38 @@
     window.open('https://condura.app/donate', '_blank', 'noopener,noreferrer')
   }
 
-  async function signIn(id: string, run: () => Promise<unknown> | unknown): Promise<void> {
+  function openExternal(url: string): void {
+    const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }
+    if (w.runtime?.BrowserOpenURL) {
+      try {
+        w.runtime.BrowserOpenURL(url)
+        return
+      } catch {
+        /* fall through */
+      }
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function signIn(id: AccountProvider): Promise<void> {
     if (signing) return
     signing = id
+    signInNote = ''
     try {
-      await run()
+      let res: OAuthURLResult | null = null
+      if (id === 'google') res = await account.signInWithGoogle(OAUTH_REDIRECT)
+      else if (id === 'github') res = await account.signInWithGitHub(OAUTH_REDIRECT)
+      else if (id === 'apple') res = await account.signInWithApple(OAUTH_REDIRECT)
+      if (res?.url) {
+        openExternal(res.url)
+        signInNote = 'Browser opened — finish sign-in there, then return here.'
+      } else if (account.error) {
+        signInNote = account.error
+      } else {
+        signInNote = 'No sign-in URL returned. Check daemon account config.'
+      }
+    } catch (e) {
+      signInNote = String(e)
     } finally {
       signing = null
     }
@@ -140,13 +174,13 @@
           <strong>Carry a passport</strong>
           <span>OAuth opens in your browser. Condura never sees your password.</span>
           <div class="passport" role="group" aria-label="Sign in providers">
-            {#each PROVIDERS as p (p.id)}
+            {#each providers as p (p.id)}
               <button
                 type="button"
                 class="provider"
                 data-id={p.id}
                 disabled={signing === p.id}
-                onclick={() => void signIn(p.id, p.run)}
+                onclick={() => void signIn(p.id)}
               >
                 <span class="mark" aria-hidden="true">
                   {#if p.id === 'apple'}
@@ -163,7 +197,12 @@
               </button>
             {/each}
           </div>
-          <p class="note">OAuth · browser · optional</p>
+          {#if signInNote}
+            <p class="signin-note" class:bad={!!account.error && !signInNote.startsWith('Browser')}>
+              {signInNote}
+            </p>
+          {/if}
+          <p class="note">OAuth · browser · optional · deep-link return</p>
         </div>
       </div>
     {/if}
@@ -420,6 +459,15 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
+  }
+  .signin-note {
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-live);
+  }
+  .signin-note.bad {
+    color: var(--md-halt);
   }
 
   @media (max-width: 720px) {

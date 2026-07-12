@@ -17,6 +17,13 @@
 
   function onKey(e: KeyboardEvent): void {
     if (!replay.frames.length) return
+    const t = e.target as HTMLElement | null
+    if (
+      t &&
+      (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+    ) {
+      return
+    }
     if (e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J') {
       e.preventDefault()
       replay.selectIndex(Math.max(0, replay.selectedIndex - 1))

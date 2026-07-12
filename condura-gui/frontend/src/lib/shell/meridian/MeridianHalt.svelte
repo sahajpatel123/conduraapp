@@ -1,19 +1,30 @@
 <script lang="ts">
+  /**
+   * Kill-switch sheet — honest sticky-resume (T3b).
+   * Resume is not in-process: mint a ticket, confirm in a terminal.
+   */
   import { onMount } from 'svelte'
+  import { halt } from '../../stores/halt.svelte'
 
-  interface Props {
-    onresume: () => void
-  }
-  let { onresume }: Props = $props()
+  let primaryBtn = $state<HTMLButtonElement | null>(null)
 
-  let resumeBtn = $state<HTMLButtonElement | null>(null)
+  const reason = $derived(halt.state.reason || 'User or system kill-switch')
+  const ticket = $derived(halt.ticket)
+  const confirmVia = $derived(
+    (() => {
+      if (!ticket) return ''
+      const via = (halt.confirmVia || '').replace(/<ticket>/g, ticket).trim()
+      if (via && !via.includes('<ticket>')) return via
+      return `condura resume confirm --ticket ${ticket}`
+    })()
+  )
 
   onMount(() => {
-    queueMicrotask(() => resumeBtn?.focus())
+    queueMicrotask(() => primaryBtn?.focus())
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return
       e.preventDefault()
-      resumeBtn?.focus()
+      primaryBtn?.focus()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -21,19 +32,62 @@
 </script>
 
 <div class="back" role="presentation"></div>
-<div class="sheet" role="alertdialog" aria-modal="true" aria-label="Agent halted" aria-describedby="md-halt-detail">
+<div
+  class="sheet"
+  role="alertdialog"
+  aria-modal="true"
+  aria-label="Agent halted"
+  aria-describedby="md-halt-detail"
+>
   <span class="pulse" aria-hidden="true"></span>
   <p class="kicker">Halt engaged</p>
   <h2>Condura is stopped.</h2>
-  <p class="detail" id="md-halt-detail">Nothing will run until you resume. Your audit trail is intact.</p>
-  <button
-    type="button"
-    class="md-btn md-btn-primary resume"
-    bind:this={resumeBtn}
-    onclick={onresume}
-  >
-    Resume
-  </button>
+  <p class="detail" id="md-halt-detail">
+    Nothing will run until a human confirms resume outside this app. Your audit trail is intact.
+  </p>
+  <p class="reason" title={reason}>{reason}</p>
+
+  {#if ticket}
+    <div class="ticket-block">
+      <p class="cite">resume ticket</p>
+      <code class="ticket" translate="no">{ticket}</code>
+      <p class="cli">
+        In a terminal:
+        <code class="cmd" translate="no">{confirmVia}</code>
+      </p>
+      <div class="row">
+        <button type="button" class="md-btn md-btn-primary" bind:this={primaryBtn} onclick={() => void halt.copyTicket()}>
+          Copy command
+        </button>
+        <button
+          type="button"
+          class="md-btn md-btn-ghost"
+          disabled={halt.ticketBusy}
+          onclick={() => void halt.resume()}
+        >
+          {halt.ticketBusy ? 'Minting…' : 'New ticket'}
+        </button>
+      </div>
+      {#if halt.copyNote}
+        <p class="note" aria-live="polite">{halt.copyNote}</p>
+      {/if}
+    </div>
+  {:else}
+    <button
+      type="button"
+      class="md-btn md-btn-primary resume"
+      bind:this={primaryBtn}
+      disabled={halt.ticketBusy}
+      onclick={() => void halt.resume()}
+    >
+      {halt.ticketBusy ? 'Minting…' : 'Request resume ticket'}
+    </button>
+    <p class="hint">
+      Opens a one-time ticket. Confirm with
+      <code class="cmd">condura resume confirm --ticket …</code>
+      in a terminal — the app cannot un-halt itself.
+    </p>
+  {/if}
 </div>
 
 <style>
@@ -50,7 +104,7 @@
     position: fixed;
     left: 50%;
     top: 50%;
-    width: min(400px, calc(100vw - 32px));
+    width: min(420px, calc(100vw - 32px));
     background: var(--md-surface);
     border: 1px solid color-mix(in oklab, var(--md-halt) 32%, var(--md-line-strong));
     border-radius: 24px;
@@ -59,6 +113,7 @@
     text-align: center;
     box-shadow: var(--md-shadow-lift);
     animation: md-pop 380ms var(--md-spring) both;
+    transform: translate(-50%, -50%);
   }
   .pulse {
     display: block;
@@ -84,13 +139,76 @@
     margin: 0 0 10px;
   }
   .detail {
-    margin: 0 0 22px;
+    margin: 0 0 12px;
     color: var(--md-ink-mute);
     font-size: 14px;
     line-height: 1.5;
   }
+  .reason {
+    margin: 0 0 18px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    color: var(--md-ink-faint);
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .ticket-block {
+    text-align: left;
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--md-line);
+    background: var(--md-stage);
+  }
+  .cite {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--md-ink-faint);
+    margin: 0 0 8px;
+  }
+  .ticket {
+    display: block;
+    font-family: var(--md-font-mono);
+    font-size: 12px;
+    word-break: break-all;
+    color: var(--md-ink);
+    margin: 0 0 12px;
+    line-height: 1.4;
+  }
+  .cli {
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: var(--md-ink-mute);
+    line-height: 1.45;
+  }
+  .cmd {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    word-break: break-all;
+    color: var(--md-cobalt);
+    line-height: 1.4;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--md-live);
+  }
   .resume {
-    min-width: 120px;
+    min-width: 160px;
+  }
+  .hint {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--md-ink-faint);
+    line-height: 1.4;
   }
   @keyframes md-halt-pulse {
     0% {

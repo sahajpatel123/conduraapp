@@ -90,27 +90,21 @@
     })
 
     void initStores()
-      .then(() => checkOnboarding())
+      .then(() => {
+        try {
+          consent.start()
+        } catch {
+          /* ignore */
+        }
+        return checkOnboarding()
+      })
       .catch((e) => {
         console.warn('initStores failed', e)
         void checkOnboarding()
       })
 
-    try {
-      halt.startPolling()
-    } catch {
-      /* ignore */
-    }
-    try {
-      overlay.start()
-    } catch {
-      /* ignore */
-    }
-    try {
-      consent.start()
-    } catch {
-      /* ignore */
-    }
+    // halt/overlay polling start inside initStores after ipc.start —
+    // do not race them here (empty same-origin baseURL used to skip start).
 
     // OAuth deep-link return: Go emits after ExchangeCode succeeds.
     let offOAuth: (() => void) | undefined
@@ -131,15 +125,17 @@
     window.addEventListener('hashchange', onHash)
 
     const onShowOnboarding = (): void => {
-      // Settings re-run already calls onboarding.reset(); belt-and-suspenders
-      // so any other dispatcher still walks EULA → perms → hotkey.
-      void onboarding
-        .reset()
-        .catch(() => {})
-        .finally(() => {
-          showOnboarding = true
-          window.location.hash = '#/'
-        })
+      // Settings re-run opens the wizard. reset() needs the daemon and
+      // swallows RPC failures into onboarding.error — clear transport
+      // failures so offline Vite preview can show the bundled EULA.
+      void onboarding.reset().finally(() => {
+        const err = onboarding.error || ''
+        if (/Load failed|Failed to fetch|NetworkError|ECONNREFUSED|not connected|IPC client not started/i.test(err)) {
+          onboarding.error = null
+        }
+        showOnboarding = true
+        window.location.hash = '#/'
+      })
     }
     window.addEventListener('condura:show-onboarding', onShowOnboarding)
 
@@ -248,15 +244,18 @@
   </div>
 {:else if !onboardingChecked}
   <div class="md boot" aria-busy="true" aria-label="Starting Condura">
+    <div class="boot-gem" aria-hidden="true"></div>
     <p class="boot-mark">Condura</p>
     <p class="boot-sub">Starting…</p>
   </div>
 {:else}
   <div class="md root">
     <div class="wash" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
 
     <header class="top">
       <div class="brand">
+        <span class="gem" aria-hidden="true"></span>
         <span class="word">Condura</span>
         <span class="edition">Meridian</span>
       </div>
@@ -364,14 +363,26 @@
     height: 100dvh;
     display: grid;
     place-content: center;
-    gap: 8px;
+    justify-items: center;
+    gap: 10px;
     background: var(--md-mist);
+    background-image: var(--md-wash);
     text-align: center;
+  }
+  .boot-gem {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, var(--md-cobalt), var(--md-live));
+    box-shadow: 0 0 24px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+    animation: md-breathe 2.4s var(--md-ease) infinite;
+    margin-bottom: 4px;
   }
   .boot-mark {
     font-family: var(--md-font-display);
-    font-size: 28px;
-    letter-spacing: -0.04em;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.05em;
     margin: 0;
     color: var(--md-ink);
   }
@@ -379,7 +390,7 @@
     margin: 0;
     font-family: var(--md-font-mono);
     font-size: 11px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
   }
@@ -396,13 +407,27 @@
     position: absolute;
     inset: -8% -4% -4%;
     background: var(--md-wash);
-    filter: blur(28px);
+    filter: blur(32px);
     transform: translateZ(0);
     pointer-events: none;
     z-index: 0;
   }
+  .grain {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image: var(--md-grain);
+    background-repeat: repeat;
+    background-size: 180px 180px;
+    mix-blend-mode: multiply;
+  }
+  :root[data-mode='dark'] .grain {
+    opacity: 0.07;
+    mix-blend-mode: soft-light;
+  }
   .root::before {
-    /* Soft veil so mist never meets the stage as a hard band */
     content: '';
     position: absolute;
     inset: 0;
@@ -412,8 +437,8 @@
       linear-gradient(
         180deg,
         color-mix(in oklab, var(--md-mist) 0%, transparent) 0%,
-        color-mix(in oklab, var(--md-stage) 28%, transparent) 42%,
-        color-mix(in oklab, var(--md-stage) 55%, transparent) 100%
+        color-mix(in oklab, var(--md-stage) 22%, transparent) 40%,
+        color-mix(in oklab, var(--md-stage) 48%, transparent) 100%
       );
   }
   .top {
@@ -424,30 +449,44 @@
     align-items: center;
     gap: 16px;
     padding: 14px 22px;
-    min-height: 56px;
+    min-height: 58px;
     animation: md-fade 400ms var(--md-ease) both;
   }
   .brand {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     flex: none;
     z-index: 1;
     justify-self: start;
     grid-column: 1;
   }
+  .gem {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex: none;
+    background: linear-gradient(135deg, var(--md-cobalt) 0%, color-mix(in oklab, var(--md-live) 70%, var(--md-cobalt)) 100%);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--md-cobalt) 35%, transparent),
+      0 0 16px color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+  }
   .word {
     font-family: var(--md-font-display);
     font-size: 22px;
     font-weight: 700;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.055em;
   }
   .edition {
     font-family: var(--md-font-mono);
     font-size: 10px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 40%, transparent);
   }
   .jump {
     position: relative;
@@ -455,7 +494,9 @@
     justify-self: center;
     width: min(420px, 42vw);
     max-width: 420px;
-    z-index: 1;
+    /* Sit above the status arc so its red beam glow never samples through. */
+    z-index: 2;
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -463,19 +504,22 @@
     padding: 10px 16px;
     border-radius: 999px;
     border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    /* Opaque enough that the arc cannot bleed a red wash into the control. */
+    background: color-mix(in oklab, var(--md-surface) 94%, var(--md-stage));
     color: var(--md-ink-mute);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: border-color var(--md-dur) var(--md-ease), transform 200ms var(--md-spring), box-shadow 200ms var(--md-ease);
+    /* No box-shadow — the old ::after red seat + soft glow sat under Jump. */
+    box-shadow: none;
+    transition: border-color var(--md-dur) var(--md-ease), transform 200ms var(--md-spring), color var(--md-dur) var(--md-ease), background var(--md-dur) var(--md-ease);
   }
   .jump:hover {
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 42%, var(--md-line-strong));
     color: var(--md-ink);
+    background: var(--md-surface);
     transform: translateY(-1px);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+    box-shadow: none;
   }
   .jump kbd {
     font-family: var(--md-font-mono);
@@ -483,6 +527,7 @@
     padding: 3px 7px;
     border-radius: 6px;
     background: var(--md-stage);
+    border: 1px solid var(--md-line);
     color: var(--md-ink-faint);
   }
   .right {
@@ -504,10 +549,11 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--md-ink-mute);
-    padding: 7px 11px;
+    padding: 7px 12px;
     border-radius: 999px;
-    background: color-mix(in oklab, var(--md-surface) 55%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 62%, transparent);
     border: 1px solid var(--md-line);
+    backdrop-filter: blur(8px);
   }
   .dot {
     width: 7px;
@@ -536,13 +582,14 @@
     justify-content: center;
     border-radius: 12px;
     border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 65%, transparent);
+    background: color-mix(in oklab, var(--md-surface) 72%, transparent);
     color: var(--md-ink-mute);
     cursor: pointer;
+    backdrop-filter: blur(8px);
     transition: transform 180ms var(--md-spring), border-color var(--md-dur) var(--md-ease), color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
   }
   .icon:hover {
-    transform: scale(1.04);
+    transform: scale(1.05);
     border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
     color: var(--md-ink);
   }
@@ -552,16 +599,19 @@
     border-color: var(--md-cobalt);
   }
   .jump:focus-visible {
-    outline: none;
+    outline: 2px solid var(--md-cobalt);
+    outline-offset: 2px;
     border-color: var(--md-cobalt);
-    box-shadow: var(--md-focus);
+    box-shadow: none;
     color: var(--md-ink);
   }
   .arc-wrap {
     position: relative;
     z-index: 1;
     padding: 0 12px;
-    margin-top: -4px;
+    margin-top: -2px;
+    /* Clip upward SVG blur so the red beam cannot wash the Jump control. */
+    overflow: hidden;
   }
   .stage {
     position: relative;
@@ -569,14 +619,19 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    background: color-mix(in oklab, var(--md-stage) 62%, transparent);
-    border-radius: 28px 28px 0 0;
+    background: color-mix(in oklab, var(--md-stage) 72%, transparent);
+    backdrop-filter: blur(2px);
+    border-radius: 26px 26px 0 0;
     margin: 0 12px;
-    border: 1px solid var(--md-line);
+    border: 1px solid color-mix(in oklab, var(--md-line-strong) 80%, transparent);
     border-bottom: 0;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
-    /* Keep page content clear of the floating dock */
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent),
+      0 -8px 32px -20px color-mix(in oklab, var(--md-ink) 18%, transparent);
     padding-bottom: 8px;
+  }
+  .stage :global(> *) {
+    animation: md-rise 420ms var(--md-ease) both;
   }
   @keyframes md-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
@@ -615,6 +670,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .top, .status .dot { animation: none !important; }
+    .top, .status .dot, .boot-gem, .stage :global(> *) { animation: none !important; }
   }
 </style>

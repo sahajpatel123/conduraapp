@@ -28,13 +28,19 @@
     chatId?: string
   }
 
-  let channels = $state<ChannelRow[]>([
+  /** Fixed catalog: live Telegram + honest v0.2 soon rows. Daemon list only updates known ids. */
+  const CATALOG: ChannelRow[] = [
     { id: 'telegram', name: 'Telegram', state: 'off', hint: 'Connect a BotFather token' },
     { id: 'whatsapp', name: 'WhatsApp', state: 'soon' },
     { id: 'slack', name: 'Slack', state: 'soon' },
     { id: 'discord', name: 'Discord', state: 'soon' },
     { id: 'imessage', name: 'iMessage', state: 'soon' },
-  ])
+  ]
+
+  /** BotFather shape: digits:secret (legacy Channels validates the same). */
+  const BOT_TOKEN_RE = /^\d+:[A-Za-z0-9_-]{20,}$/
+
+  let channels = $state<ChannelRow[]>(CATALOG.map((c) => ({ ...c })))
   let loading = $state(true)
   let error = $state('')
 
@@ -57,7 +63,7 @@
   // ChannelInfo) use as the canonical id; we fall back to `id`
   // and `name` for backward-compat with any older builds that
   // don't yet emit the `channel` field.
-  function mapChannel(c: ChannelInfo): ChannelRow {
+  function mapChannel(c: ChannelInfo): Partial<ChannelRow> & { id: string } {
     const id = (c.channel || c.id || c.name || '').toLowerCase() || 'unknown'
     let state: ChannelRow['state'] = 'off'
     if (c.connected || c.status === 'connected') state = 'connected'
@@ -68,7 +74,29 @@
       name: c.name || c.channel || id,
       state,
       hint: c.detail,
+      chatId: c.chat_id || undefined,
     }
+  }
+
+  function mergeCatalog(list: ChannelInfo[]): ChannelRow[] {
+    const byId = new Map<string, ChannelInfo>()
+    for (const raw of list) {
+      const id = (raw.channel || raw.id || raw.name || '').toLowerCase()
+      if (id) byId.set(id, raw)
+    }
+    return CATALOG.map((base) => {
+      const hit = byId.get(base.id)
+      if (!hit) return { ...base }
+      // Preserve soon rows — daemon only returns persisted live channels.
+      if (base.state === 'soon') return { ...base }
+      const mapped = mapChannel(hit)
+      return {
+        ...base,
+        ...mapped,
+        id: base.id,
+        name: mapped.name || base.name,
+      }
+    })
   }
 
   async function load(): Promise<void> {
@@ -77,7 +105,9 @@
     try {
       const list = await ipc.channelsList()
       if (Array.isArray(list) && list.length) {
-        channels = list.map(mapChannel)
+        channels = mergeCatalog(list)
+      } else {
+        channels = CATALOG.map((c) => ({ ...c }))
       }
     } catch (e) {
       const s = String(e)
@@ -110,6 +140,10 @@
       submitError = 'Token is empty'
       return
     }
+    if (!BOT_TOKEN_RE.test(token)) {
+      submitError = 'Token must look like 123456789:ABCdefGHIjklMNOpqr'
+      return
+    }
     busy = id
     submitError = null
     try {
@@ -120,7 +154,7 @@
               ...c,
               state: 'connected',
               hint: undefined,
-              chatId: (info as { chat_id?: string }).chat_id,
+              chatId: info.chat_id || undefined,
             }
           : c
       )
@@ -142,13 +176,14 @@
   // disconnect tears down an existing connection.
   async function disconnect(id: string): Promise<void> {
     busy = id
+    submitError = null
     try {
       await ipc.channelsDisconnect(id)
       channels = channels.map((c) =>
         c.id === id ? { ...c, state: 'off', hint: undefined, chatId: undefined } : c
       )
-    } catch {
-      // keep honest state
+    } catch (e) {
+      submitError = String(e)
     } finally {
       busy = null
     }
@@ -270,6 +305,9 @@
                 {busy === telegram.id ? 'Disconnecting…' : 'Revoke channel'}
               </button>
             </div>
+            {#if submitError}
+              <p class="err" role="alert">{submitError}</p>
+            {/if}
           {:else if openInput === telegram.id}
             <p class="step-note">Step 02 — paste the token BotFather gave you.</p>
             <div class="token-form" role="group" aria-label="Telegram bot token">

@@ -1,12 +1,13 @@
-/* MERIDIAN — Condura product shell
-   Apple-level craft: quiet surfaces, precise type, intentional motion. */
+/* MERIDIAN — Condura instrument desk
+   Optical glass · cool mist · living cobalt beam.
+   Quiet surfaces, precise type, intentional motion. */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  background: #C9D4E3;
-  color: #0B1526;
-  font-family: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  background: #B8C6D9;
+  color: #0A1220;
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -18,58 +19,62 @@ img, svg { display: block; max-width: 100%; }
 
 :root[data-mode='light'],
 :root:not([data-mode]) {
-  --md-mist: #C9D4E3;
-  --md-stage: #EEF2F7;
-  --md-surface: #FFFFFF;
-  --md-ink: #0B1526;
-  --md-ink-soft: #3A4A63;
-  --md-ink-mute: #6B7A90;
-  --md-ink-faint: #8A97AB;
-  --md-line: rgba(11, 21, 38, 0.08);
-  --md-line-strong: rgba(11, 21, 38, 0.14);
-  --md-cobalt: #2F5BFF;
-  --md-cobalt-deep: #1E3FCC;
-  --md-live: #0F9F8A;
-  --md-halt: #D61F69;
-  --md-shadow: 0 18px 40px -28px rgba(11, 21, 38, 0.32);
-  --md-shadow-lift: 0 24px 52px -26px rgba(11, 21, 38, 0.4);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
-  --md-scrim: color-mix(in oklab, #0B1526 52%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #0B1526 68%, transparent);
-  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(47, 91, 255, 0.14) 0%, rgba(47, 91, 255, 0.06) 32%, transparent 68%),
-             radial-gradient(110% 80% at 8% 108%, rgba(15, 159, 138, 0.08) 0%, rgba(15, 159, 138, 0.03) 40%, transparent 72%),
-             radial-gradient(90% 70% at 40% 40%, rgba(201, 212, 227, 0.55) 0%, transparent 70%),
+  --md-mist: #B8C6D9;
+  --md-stage: #E8EEF6;
+  --md-surface: #FBFCFE;
+  --md-ink: #0A1220;
+  --md-ink-soft: #2E3F58;
+  --md-ink-mute: #5A6B84;
+  --md-ink-faint: #7A8BA3;
+  --md-line: rgba(10, 18, 32, 0.07);
+  --md-line-strong: rgba(10, 18, 32, 0.13);
+  --md-cobalt: #2451F5;
+  --md-cobalt-deep: #1839C4;
+  --md-live: #0B9A86;
+  --md-halt: #D11F5C;
+  --md-ember: #C47A2A;
+  --md-shadow: 0 20px 44px -28px rgba(10, 18, 32, 0.36);
+  --md-shadow-lift: 0 28px 56px -26px rgba(10, 18, 32, 0.42);
+  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 24%, transparent);
+  --md-scrim: color-mix(in oklab, #0A1220 54%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #0A1220 70%, transparent);
+  --md-wash: radial-gradient(130% 90% at 78% -12%, rgba(36, 81, 245, 0.18) 0%, rgba(36, 81, 245, 0.06) 34%, transparent 70%),
+             radial-gradient(100% 75% at 4% 110%, rgba(11, 154, 134, 0.1) 0%, rgba(11, 154, 134, 0.03) 42%, transparent 74%),
+             radial-gradient(80% 60% at 48% 38%, rgba(251, 252, 254, 0.45) 0%, transparent 68%),
              var(--md-mist);
+  --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.07 0 0 0 0 0.12 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 :root[data-mode='dark'] {
-  --md-mist: #070A10;
-  --md-stage: #0E131C;
-  --md-surface: #161D2A;
-  --md-ink: #E8EEF7;
-  --md-ink-soft: #C2CBD9;
-  --md-ink-mute: #8B97AB;
-  --md-ink-faint: #5F6B7E;
-  --md-line: rgba(232, 238, 247, 0.08);
-  --md-line-strong: rgba(232, 238, 247, 0.14);
-  --md-cobalt: #6B8CFF;
-  --md-cobalt-deep: #4A6EF5;
+  --md-mist: #06080E;
+  --md-stage: #0C111A;
+  --md-surface: #141B28;
+  --md-ink: #E6EDF8;
+  --md-ink-soft: #B8C4D6;
+  --md-ink-mute: #8491A6;
+  --md-ink-faint: #586478;
+  --md-line: rgba(230, 237, 248, 0.07);
+  --md-line-strong: rgba(230, 237, 248, 0.13);
+  --md-cobalt: #6B8FFF;
+  --md-cobalt-deep: #4A6FF0;
   --md-live: #2DD4BF;
   --md-halt: #FF4D8D;
-  --md-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.55);
-  --md-shadow-lift: 0 28px 60px -24px rgba(0, 0, 0, 0.65);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
-  --md-scrim: color-mix(in oklab, #000 62%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #000 78%, transparent);
-  --md-wash: radial-gradient(140% 95% at 72% -18%, rgba(107, 140, 255, 0.18) 0%, rgba(107, 140, 255, 0.07) 32%, transparent 68%),
-             radial-gradient(110% 80% at 8% 108%, rgba(45, 212, 191, 0.07) 0%, rgba(45, 212, 191, 0.025) 40%, transparent 72%),
-             radial-gradient(90% 70% at 40% 40%, rgba(7, 10, 16, 0.4) 0%, transparent 70%),
+  --md-ember: #E0A04A;
+  --md-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.6);
+  --md-shadow-lift: 0 30px 64px -24px rgba(0, 0, 0, 0.7);
+  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 30%, transparent);
+  --md-scrim: color-mix(in oklab, #000 64%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #000 80%, transparent);
+  --md-wash: radial-gradient(130% 90% at 78% -12%, rgba(107, 143, 255, 0.22) 0%, rgba(107, 143, 255, 0.08) 34%, transparent 70%),
+             radial-gradient(100% 75% at 4% 110%, rgba(45, 212, 191, 0.09) 0%, rgba(45, 212, 191, 0.03) 42%, transparent 74%),
+             radial-gradient(80% 60% at 48% 38%, rgba(6, 8, 14, 0.5) 0%, transparent 68%),
              var(--md-mist);
+  --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.92 0 0 0 0 0.98 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .md {
-  --md-font-display: 'Sora', 'Avenir Next', system-ui, sans-serif;
-  --md-font-sans: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --md-font-display: 'Space Grotesk', 'Avenir Next', system-ui, sans-serif;
+  --md-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --md-font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
   --md-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --md-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -101,9 +106,10 @@ body::-webkit-scrollbar,
 
 .md-btn {
   appearance: none; border: 0; border-radius: 999px;
-  font-family: var(--md-font-sans); font-size: 13px; font-weight: 700;
+  font-family: var(--md-font-sans); font-size: 13px; font-weight: 600;
   letter-spacing: -0.01em;
   padding: 10px 18px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition:
     transform 180ms var(--md-spring),
     box-shadow 220ms var(--md-ease),
@@ -118,22 +124,27 @@ body::-webkit-scrollbar,
   box-shadow: var(--md-focus), 0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
 }
 .md-btn-primary {
-  background: var(--md-cobalt); color: #fff;
-  box-shadow: 0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+  background: linear-gradient(165deg, color-mix(in oklab, var(--md-cobalt) 92%, #fff) 0%, var(--md-cobalt) 48%, var(--md-cobalt-deep) 100%);
+  color: #fff;
+  box-shadow:
+    0 1px 0 color-mix(in oklab, #fff 28%, transparent) inset,
+    0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 72%, transparent);
 }
 .md-btn-primary:not(:disabled:hover) {
-  transform: translateY(-1px); background: var(--md-cobalt-deep);
-  box-shadow: 0 16px 36px -14px color-mix(in oklab, var(--md-cobalt) 80%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, #fff 32%, transparent) inset,
+    0 16px 36px -14px color-mix(in oklab, var(--md-cobalt) 82%, transparent);
 }
 .md-btn-ghost {
-  background: color-mix(in oklab, var(--md-surface) 78%, transparent);
+  background: color-mix(in oklab, var(--md-surface) 82%, transparent);
   color: var(--md-ink); border: 1px solid var(--md-line-strong);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .md-btn-ghost:not(:disabled:hover) {
   transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line-strong));
+  border-color: color-mix(in oklab, var(--md-cobalt) 42%, var(--md-line-strong));
   background: var(--md-surface);
 }
 .md-btn-danger {
@@ -144,25 +155,33 @@ body::-webkit-scrollbar,
   background: color-mix(in oklab, var(--md-halt) 16%, transparent);
 }
 .md-panel {
-  background: var(--md-surface); border: 1px solid var(--md-line-strong);
-  border-radius: 22px; padding: 20px 22px;
-  box-shadow: var(--md-shadow);
+  background: var(--md-surface);
+  border: 1px solid var(--md-line-strong);
+  border-radius: 20px;
+  padding: 20px 22px;
+  box-shadow:
+    var(--md-shadow),
+    0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
   transition: transform 220ms var(--md-ease), box-shadow 220ms var(--md-ease), border-color 220ms var(--md-ease);
 }
-.md-panel:hover {
-  border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line-strong));
-  box-shadow: var(--md-shadow-lift);
+:root[data-mode='dark'] .md-panel {
+  box-shadow:
+    var(--md-shadow),
+    0 1px 0 color-mix(in oklab, #fff 6%, transparent) inset;
 }
-/* Forms / status banners — no lift on hover */
+.md-panel:hover {
+  border-color: color-mix(in oklab, var(--md-cobalt) 24%, var(--md-line-strong));
+  box-shadow: var(--md-shadow-lift), 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+}
 .md-panel-static,
 .md-panel-static:hover {
   transform: none;
   border-color: var(--md-line-strong);
-  box-shadow: var(--md-shadow);
+  box-shadow: var(--md-shadow), 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
 }
 .md-empty {
   padding: 56px 28px; text-align: center; color: var(--md-ink-mute); font-size: 14px; line-height: 1.5;
-  border: 1px dashed var(--md-line-strong); border-radius: 22px;
+  border: 1px dashed var(--md-line-strong); border-radius: 20px;
   background: color-mix(in oklab, var(--md-surface) 58%, transparent);
 }
 .md-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
@@ -217,12 +236,20 @@ body::-webkit-scrollbar,
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes md-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); opacity: 0.85; }
-  50% { filter: drop-shadow(0 0 8px color-mix(in oklab, var(--md-cobalt) 40%, transparent)); opacity: 1; }
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); opacity: 0.82; }
+  50% { filter: drop-shadow(0 0 10px color-mix(in oklab, var(--md-cobalt) 48%, transparent)); opacity: 1; }
 }
 @keyframes md-dock-up {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes md-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes md-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,9 @@
   /**
    * Sync — opt-in device meridian.
    * Signature: PIN ceremony hero · nearby / paired arcs · cut-the-line revoke.
+   *
+   * Live discovery: poll peers every 5s while mounted (legacy Sync).
+   * Ceremony: honest TTL from pair_begin expires_in + local countdown.
    */
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
@@ -10,9 +13,37 @@
   let pin = $state('')
   let revoking = $state<string | null>(null)
   let pairing = $state<string | null>(null)
+  let syncingId = $state<string | null>(null)
+  let lastSyncNote = $state('')
+  let confirmRevokeId = $state<string | null>(null)
+  let remainingSec = $state(0)
 
   onMount(() => {
     void sync.refresh()
+    const poll = setInterval(() => {
+      void sync.refresh({ quiet: true })
+    }, 5000)
+    return () => clearInterval(poll)
+  })
+
+  // Ceremony countdown — clear pending when PIN window closes.
+  $effect(() => {
+    if (!sync.pendingPin || !sync.pendingExpiresAt) {
+      remainingSec = 0
+      return
+    }
+    const tick = () => {
+      const ms = new Date(sync.pendingExpiresAt).getTime() - Date.now()
+      if (!Number.isFinite(ms)) {
+        remainingSec = 0
+        return
+      }
+      // Leave pendingPin set so the expired plate can offer "Back to peers".
+      remainingSec = Math.max(0, Math.ceil(ms / 1000))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
   })
 
   function initial(name: string): string {
@@ -24,18 +55,33 @@
     return !!err && /IPC client not started|not connected|Failed to fetch|daemon/i.test(err)
   }
 
+  function fmtRemaining(sec: number): string {
+    if (sec <= 0) return 'expired'
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
   const showError = $derived(!!sync.error && !isOffline(sync.error))
   const pinDigits = $derived((sync.pendingPin || '').split(''))
+  const pinExpired = $derived(!!sync.pendingPin && remainingSec <= 0)
+  const pinUrgent = $derived(remainingSec > 0 && remainingSec <= 30)
   const liveNote = $derived(
     sync.pendingPin
-      ? 'Ceremony open — confirm the PIN on both machines'
+      ? pinExpired
+        ? 'PIN expired — start pair again'
+        : `Ceremony open · ${fmtRemaining(remainingSec)} left`
       : isOffline(sync.error)
         ? 'Daemon offline — discovery paused'
         : `${sync.peers.length} nearby · ${sync.pairs.length} paired`
   )
+  const peerLabel = $derived(
+    sync.peerById(sync.pendingPeerId)?.name || sync.pendingPeerId || 'peer'
+  )
 
   async function pair(id: string): Promise<void> {
     pairing = id
+    pin = ''
     try {
       await sync.pairWith(id)
     } finally {
@@ -44,17 +90,50 @@
   }
 
   async function confirm(): Promise<void> {
+    if (!pin.trim() || pinExpired) return
     await sync.confirmPairing(pin)
     pin = ''
   }
 
-  async function revoke(id: string): Promise<void> {
+  function requestRevoke(id: string): void {
+    confirmRevokeId = id
+  }
+
+  function cancelRevoke(): void {
     if (revoking) return
+    confirmRevokeId = null
+  }
+
+  async function confirmRevoke(): Promise<void> {
+    const id = confirmRevokeId
+    if (!id || revoking) return
     revoking = id
     try {
       await sync.revoke(id)
+      confirmRevokeId = null
     } finally {
       revoking = null
+    }
+  }
+
+  async function revoke(id: string): Promise<void> {
+    requestRevoke(id)
+  }
+
+  async function syncNow(id: string): Promise<void> {
+    if (syncingId || revoking) return
+    syncingId = id
+    lastSyncNote = ''
+    try {
+      const r = await sync.syncWith(id)
+      if (r) {
+        lastSyncNote =
+          r.merged === 0
+            ? 'Sync complete · nothing new to merge'
+            : `Sync complete · merged ${r.merged} entr${r.merged === 1 ? 'y' : 'ies'}`
+      }
+    } finally {
+      syncingId = null
     }
   }
 </script>
@@ -69,7 +148,7 @@
   {/snippet}
 
   <div class="desk md-stagger">
-    <p class="contract" class:hot={!!sync.pendingPin} class:off={isOffline(sync.error)}>
+    <p class="contract" class:hot={!!sync.pendingPin && !pinExpired} class:off={isOffline(sync.error) || pinExpired}>
       <span class="live-dot" aria-hidden="true"></span>
       {liveNote}. Cutting a line is immediate — no silent re-pair.
     </p>
@@ -78,36 +157,96 @@
       <div class="md-empty">{sync.error}</div>
     {/if}
 
+    {#if lastSyncNote && !showError}
+      <p class="sync-note">{lastSyncNote}</p>
+    {/if}
+
     {#if sync.pendingPin}
-      <section class="ceremony" aria-live="polite">
+      <section class="ceremony" class:expired={pinExpired} aria-live="polite">
         <p class="cite">pairing ceremony</p>
-        <h2>Confirm the PIN</h2>
+        <h2>{pinExpired ? 'PIN expired' : 'Confirm the PIN'}</h2>
         <p class="hint">
-          Read these digits on this machine. Enter the same PIN on the peer within a few minutes to seal the pair.
+          {#if pinExpired}
+            The daemon closed this window. Pair again from the peer list to mint a fresh PIN.
+          {:else}
+            Read these digits on this machine. Enter the same PIN on
+            <strong>{peerLabel}</strong>
+            before the timer ends to seal the pair.
+          {/if}
         </p>
-        <div class="digits" aria-label={`PIN ${sync.pendingPin}`}>
-          {#each pinDigits as d, i (i)}
-            <span style={`animation-delay: ${i * 40}ms`}>{d || '·'}</span>
-          {/each}
-        </div>
+        {#if !pinExpired}
+          <div class="digits" aria-label={`PIN ${sync.pendingPin}`}>
+            {#each pinDigits as d, i (i)}
+              <span style={`animation-delay: ${i * 40}ms`}>{d || '·'}</span>
+            {/each}
+          </div>
+          <p class="ttl" class:urgent={pinUrgent} aria-live="polite">
+            Expires in {fmtRemaining(remainingSec)}
+          </p>
+          <div class="row">
+            <input
+              bind:value={pin}
+              placeholder="Enter PIN to seal"
+              maxlength="8"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              aria-label="Pairing PIN"
+            />
+            <button
+              type="button"
+              class="md-btn md-btn-primary"
+              disabled={!pin.trim() || pinExpired}
+              onclick={() => void confirm()}
+            >
+              Seal pair
+            </button>
+            <button
+              type="button"
+              class="md-btn md-btn-ghost"
+              onclick={() => {
+                pin = ''
+                sync.clearPending()
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        {:else}
+          <div class="row">
+            <button
+              type="button"
+              class="md-btn md-btn-primary"
+              onclick={() => {
+                pin = ''
+                sync.clearPending()
+              }}
+            >
+              Back to peers
+            </button>
+          </div>
+        {/if}
+      </section>
+    {/if}
+
+    {#if confirmRevokeId}
+      <section class="revoke-plate" aria-live="polite">
+        <p class="cite">cut the line</p>
+        <h2>Revoke this device?</h2>
+        <p class="hint">
+          Immediate and local. The peer must pair again with a new PIN to reconnect.
+        </p>
         <div class="row">
-          <input
-            bind:value={pin}
-            placeholder="Enter PIN on peer"
-            maxlength="8"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            aria-label="Pairing PIN"
-          />
           <button
             type="button"
-            class="md-btn md-btn-primary"
-            disabled={!pin.trim()}
-            onclick={() => void confirm()}
+            class="md-btn md-btn-danger"
+            disabled={!!revoking}
+            onclick={() => void confirmRevoke()}
           >
-            Seal pair
+            {revoking ? 'Cutting…' : 'Cut line'}
           </button>
-          <button type="button" class="md-btn md-btn-ghost" onclick={() => sync.clearPending()}>Cancel</button>
+          <button type="button" class="md-btn md-btn-ghost" disabled={!!revoking} onclick={cancelRevoke}>
+            Keep paired
+          </button>
         </div>
       </section>
     {/if}
@@ -117,7 +256,7 @@
         <header>
           <p class="cite">nearby · discover</p>
           <h2>On the LAN</h2>
-          <p class="hint">Devices offering a pair. Pairing never starts without your click.</p>
+          <p class="hint">Devices offering a pair. Refreshes every few seconds while this page is open.</p>
         </header>
         {#if sync.loading && sync.peers.length === 0}
           <div class="md-empty soft">Looking for peers…</div>
@@ -128,7 +267,7 @@
               {#if isOffline(sync.error)}
                 Connect the daemon to discover devices on your local network.
               {:else}
-                Make sure the other device is online with Sync running.
+                Make sure the other device is online with Sync running — discovery updates live.
               {/if}
             </p>
           </div>
@@ -159,7 +298,7 @@
         <header>
           <p class="cite">paired · trusted line</p>
           <h2>Sealed devices</h2>
-          <p class="hint">Revoke anytime. The cut is immediate and local.</p>
+          <p class="hint">Sync when online on the LAN. Revoke anytime — the cut is immediate and local.</p>
         </header>
         {#if sync.pairs.length === 0}
           <div class="md-empty soft">
@@ -168,21 +307,47 @@
           </div>
         {:else}
           <div class="list">
-            {#each sync.pairs as pair (pair.device_id)}
-              <div class="item">
-                <div class="mono live" aria-hidden="true">{initial(pair.device_name || pair.device_id)}</div>
+            {#each sync.pairs as pairRow (pairRow.device_id)}
+              {@const online = sync.isDiscoverable(pairRow.device_id)}
+              <div class="item paired-item">
+                <div class="mono live" aria-hidden="true">{initial(pairRow.device_name || pairRow.device_id)}</div>
                 <div class="copy">
-                  <strong>{pair.device_name || pair.device_id}</strong>
-                  <span class="meta">{pair.device_id}</span>
+                  <strong>{pairRow.device_name || pairRow.device_id}</strong>
+                  <span class="meta">
+                    {online ? 'on LAN' : 'not discoverable'}
+                    · {pairRow.device_id}
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  class="md-btn md-btn-danger"
-                  disabled={revoking === pair.device_id}
-                  onclick={() => void revoke(pair.device_id)}
-                >
-                  {revoking === pair.device_id ? 'Cutting…' : 'Cut line'}
-                </button>
+                <div class="item-actions">
+                  <button
+                    type="button"
+                    class="md-btn md-btn-primary mini"
+                    disabled={
+                      !!syncingId ||
+                      !!revoking ||
+                      confirmRevokeId === pairRow.device_id ||
+                      !online
+                    }
+                    title={online
+                      ? 'Pull and merge with this device'
+                      : 'Device must be online and announcing on the LAN'}
+                    onclick={() => void syncNow(pairRow.device_id)}
+                  >
+                    {syncingId === pairRow.device_id ? 'Syncing…' : 'Sync now'}
+                  </button>
+                  <button
+                    type="button"
+                    class="md-btn md-btn-danger mini"
+                    disabled={
+                      revoking === pairRow.device_id ||
+                      confirmRevokeId === pairRow.device_id ||
+                      !!syncingId
+                    }
+                    onclick={() => void revoke(pairRow.device_id)}
+                  >
+                    {revoking === pairRow.device_id ? 'Cutting…' : 'Cut line'}
+                  </button>
+                </div>
               </div>
             {/each}
           </div>
@@ -241,7 +406,8 @@
     color: var(--md-ink-faint);
     margin: 0 0 8px;
   }
-  .ceremony {
+  .ceremony,
+  .revoke-plate {
     padding: 28px 24px;
     border-radius: 24px;
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 35%, transparent);
@@ -251,7 +417,15 @@
     box-shadow: var(--md-shadow-lift);
     text-align: center;
   }
-  .ceremony h2 {
+  .ceremony.expired,
+  .revoke-plate {
+    border-color: color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    background:
+      radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--md-halt) 10%, transparent), transparent 60%),
+      var(--md-surface);
+  }
+  .ceremony h2,
+  .revoke-plate h2 {
     font-family: var(--md-font-display);
     font-size: 28px;
     letter-spacing: -0.04em;
@@ -264,10 +438,17 @@
     line-height: 1.45;
     color: var(--md-ink-mute);
   }
+  .hint strong {
+    display: inline;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: var(--md-ink);
+  }
   .digits {
     display: inline-flex;
     gap: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
   }
   .digits span {
     width: 48px;
@@ -283,6 +464,17 @@
     background: var(--md-stage);
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
     animation: md-rise 320ms var(--md-ease) both;
+  }
+  .ttl {
+    margin: 0 0 16px;
+    font-family: var(--md-font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--md-ink-mute);
+  }
+  .ttl.urgent {
+    color: var(--md-halt);
+    font-weight: 700;
   }
   .row {
     display: flex;
@@ -352,6 +544,13 @@
     display: grid;
     gap: 8px;
   }
+  .sync-note {
+    margin: 0;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--md-live);
+  }
   .item {
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -361,6 +560,16 @@
     border-radius: 14px;
     background: var(--md-stage);
     border: 1px solid var(--md-line);
+  }
+  .item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .mini {
+    padding: 8px 12px;
+    font-size: 12px;
   }
   .mono {
     width: 40px;

@@ -980,12 +980,32 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// rows; cuComps.resolver satisfies executor.Resolver via
 	// its *agent.Action-shaped Execute method.
 	subs.Pending = pending.New(db)
-	if cuComps != nil {
-		subs.Executor = executor.New(gate, cuComps.resolver)
+	// §1.1 fix (2026-07-12 audit): always construct the Executor
+	// when the gatekeeper is wired, even if cuComps is nil. The
+	// Executor dispatches shell.* kinds via its own
+	// exec.CommandContext path (no resolver dependency) and only
+	// touches e.CU for computeruse.* kinds — which already nil-guard
+	// themselves in execCU. Before this fix, a daemon booted
+	// without an LLM provider had subs.Executor == nil, so any
+	// delegate.spawn that produced a shell.exec ActionRequest
+	// (via pending.decide with AutoRun, or pending.execute) crashed
+	// with a nil-pointer dereference at the first executor call.
+	// Now: shell-only flows work in no-LLM mode; computeruse flows
+	// still return a clean "computer-use resolver not configured"
+	// error (which the gate would have denied anyway, but
+	// defense-in-depth).
+	if gate != nil {
+		var cu executor.Resolver
+		if cuComps != nil {
+			cu = cuComps.resolver
+		}
+		subs.Executor = executor.New(gate, cu)
 	}
 	// N2: wire the executor into the session factory so chat tool_use
-	// blocks dispatch through the gated executor (act mode). nil if
-	// cuComps is nil (chat stays talk-only via the streaming path).
+	// blocks dispatch through the gated executor (act mode).
+	// Always non-nil now (since §1.1); the session factory's
+	// chat-only streaming path was unaffected by the original
+	// nil-Executor fallback because SetExecutor is nil-safe.
 	sessionFactory.SetExecutor(subs.Executor)
 	// Wire screenshot store into CU resolver so before/after
 	// screenshots are captured for the replay timeline.

@@ -46,7 +46,7 @@
     { route: 'channels', label: 'Channels', hint: 'Telegram & more' },
     { route: 'delegation', label: 'Agents', hint: 'Pending actions' },
     { route: 'account', label: 'Account', hint: 'Sign in' },
-    { route: 'settings', label: 'Settings', hint: 'Defaults' },
+    { route: 'settings', label: 'Settings', hint: 'Theme, models, spend limit' },
     { route: 'about', label: 'About', hint: 'Build · promises · safety' },
   ]
 
@@ -102,7 +102,9 @@
         kbd: 'Halt',
         danger: true,
         run: () => {
-          void halt.halt('palette').catch(() => {})
+          // Halt failures toast via halt store — never empty-catch the kill-switch.
+          void halt.halt('palette')
+          onclose()
         },
       },
     ]
@@ -225,12 +227,16 @@
     top: 14vh;
     left: 50%;
     width: min(520px, calc(100vw - 32px));
-    background: var(--md-surface);
+    background: color-mix(in oklab, var(--md-surface) 96%, transparent);
     border: 1px solid var(--md-line-strong);
-    border-radius: 22px;
+    border-radius: 20px;
     z-index: 81;
     overflow: hidden;
-    box-shadow: var(--md-shadow-lift);
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    box-shadow:
+      var(--md-shadow-lift),
+      0 1px 0 color-mix(in oklab, #fff 45%, transparent) inset;
     transform: translateX(-50%);
     animation: md-palette 320ms var(--md-spring) both;
   }

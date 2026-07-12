@@ -1,0 +1,189 @@
+/**
+ * Onboarding token bridge for Meridian.
+ *
+ * Meridian never loads style.css / dark-glass tokens. The classic wizard
+ * (OnboardingWizard + ui/*) still references --space-*, --accent-*, --surface-*,
+ * etc. Scope aliases under .onboarding-layer so first-run (and re-run) reads
+ * mist/cobalt instead of unstyled fallbacks — without pulling the full dark
+ * glass system into the product shell.
+ */
+
+.onboarding-layer {
+  /* Surfaces → Meridian stage ladder */
+  --bg: var(--md-mist);
+  --surface-1: color-mix(in oklab, var(--md-stage) 92%, transparent);
+  --surface-2: var(--md-surface);
+  --surface-3: color-mix(in oklab, var(--md-surface) 88%, var(--md-cobalt) 4%);
+  --surface-glass: color-mix(in oklab, var(--md-surface) 78%, transparent);
+  --surface-glass-strong: color-mix(in oklab, var(--md-surface) 92%, transparent);
+  --surface-overlay: var(--md-scrim);
+
+  --border: var(--md-line);
+  --border-strong: var(--md-line-strong);
+  --border-focus: var(--md-cobalt);
+  --border-danger: color-mix(in oklab, var(--md-halt) 32%, transparent);
+
+  --text: var(--md-ink);
+  --text-muted: var(--md-ink-mute);
+  --text-faint: var(--md-ink-faint);
+  --text-inverse: #ffffff;
+
+  --accent: var(--md-cobalt);
+  --accent-hover: var(--md-cobalt-deep);
+  --accent-press: var(--md-cobalt-deep);
+  --accent-soft: color-mix(in oklab, var(--md-cobalt) 12%, transparent);
+  --accent-faint: color-mix(in oklab, var(--md-cobalt) 6%, transparent);
+  --accent-glow: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
+  --accent-gradient: linear-gradient(135deg, var(--md-cobalt) 0%, var(--md-cobalt-deep) 100%);
+  --accent-gradient-soft: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--md-cobalt) 18%, transparent),
+    color-mix(in oklab, var(--md-cobalt-deep) 18%, transparent)
+  );
+
+  --success: var(--md-live);
+  --success-soft: color-mix(in oklab, var(--md-live) 14%, transparent);
+  --success-glow: color-mix(in oklab, var(--md-live) 32%, transparent);
+
+  --warn: #c4892a;
+  --warn-soft: color-mix(in oklab, #c4892a 14%, transparent);
+  --warn-glow: color-mix(in oklab, #c4892a 32%, transparent);
+
+  --error: var(--md-halt);
+  --error-soft: color-mix(in oklab, var(--md-halt) 12%, transparent);
+  --error-glow: color-mix(in oklab, var(--md-halt) 28%, transparent);
+
+  --info: var(--md-cobalt);
+  --info-soft: color-mix(in oklab, var(--md-cobalt) 14%, transparent);
+
+  --danger: var(--md-halt);
+  --danger-hover: color-mix(in oklab, var(--md-halt) 88%, #000);
+  --danger-gradient: linear-gradient(135deg, var(--md-halt) 0%, color-mix(in oklab, var(--md-halt) 70%, #000) 100%);
+
+  --font-sans: var(--md-font-sans);
+  --font-display: var(--md-font-display);
+  --font-mono: var(--md-font-mono);
+
+  --size-2xs: 11px;
+  --size-xs: 12px;
+  --size-sm: 13px;
+  --size-md: 14px;
+  --size-lg: 16px;
+  --size-xl: 20px;
+  --size-2xl: 28px;
+  --size-3xl: 40px;
+  --size-4xl: 56px;
+
+  --weight-light: 300;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.03em;
+  --tracking-tighter: -0.045em;
+  --tracking-normal: -0.01em;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 96px;
+  --space-12: 128px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-3xl: 36px;
+  --radius-pill: 9999px;
+
+  --shadow-xs: 0 1px 2px color-mix(in oklab, var(--md-ink) 12%, transparent);
+  --shadow-sm: 0 2px 8px color-mix(in oklab, var(--md-ink) 10%, transparent);
+  --shadow-md: 0 8px 24px color-mix(in oklab, var(--md-ink) 12%, transparent);
+  --shadow-lg: 0 16px 48px color-mix(in oklab, var(--md-ink) 14%, transparent);
+  --shadow-xl: 0 24px 60px color-mix(in oklab, var(--md-ink) 16%, transparent);
+  --shadow-2xl: 0 40px 90px color-mix(in oklab, var(--md-ink) 18%, transparent);
+  --shadow-focus: var(--md-focus);
+  --shadow-glow: 0 0 24px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+  --shadow-glow-strong: 0 0 40px color-mix(in oklab, var(--md-cobalt) 32%, transparent);
+  --shadow-inset: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
+  --shadow-inset-strong: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent);
+
+  --transition-instant: 50ms linear;
+  --transition-fast: 150ms var(--md-ease);
+  --transition-base: 220ms var(--md-ease);
+  --transition-slow: 360ms var(--md-ease);
+  --transition-spring: 420ms var(--md-spring);
+  --transition-bounce: 600ms var(--md-spring);
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: var(--md-spring);
+  --thread-ease: var(--md-ease);
+
+  /* Color-* aliases used by some ui pieces */
+  --color-bg: var(--bg);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-danger: var(--danger);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes breathe-soft {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-layer {
+    --transition-instant: 0ms;
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+    --transition-spring: 0ms;
+    --transition-bounce: 0ms;
+  }
+  .onboarding-layer .halo,
+  .onboarding-layer .step-node.active::after {
+    animation: none !important;
+  }
+}

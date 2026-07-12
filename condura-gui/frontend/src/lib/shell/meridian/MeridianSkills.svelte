@@ -7,6 +7,7 @@
   import MeridianPage from './MeridianPage.svelte'
   import { ipc } from '../../ipc/client'
   import type { InstalledSkill } from '../../ipc/types'
+  import { primarySlashToken } from '../../skill-slash'
 
   type Provenance = 'all' | 'local' | 'hub'
 
@@ -14,9 +15,19 @@
   let loading = $state(true)
   let error = $state('')
   let removing = $state<string | null>(null)
+  /** Two-step remove — never delete on first click. */
+  let confirmRemoveId = $state<string | null>(null)
   let activeId = $state<string | null>(null)
   let provenance = $state<Provenance>('all')
   let offline = $state(false)
+
+  // Add Skill form
+  let showCreate = $state(false)
+  let createName = $state('')
+  let createDesc = $state('')
+  let createSteps = $state('')
+  let createBusy = $state(false)
+  let createNote = $state('')
 
   const filtered = $derived(
     provenance === 'all'
@@ -26,8 +37,29 @@
   const active = $derived(filtered.find((s) => s.id === activeId) ?? filtered[0] ?? null)
   const hubCount = $derived(skills.filter(fromHub).length)
   const localCount = $derived(skills.length - hubCount)
+  const createSlashPreview = $derived(
+    createName.trim()
+      ? primarySlashToken({
+          id: '',
+          name: createName.trim(),
+          description: '',
+          version: '',
+          author: '',
+          license: '',
+          trust: '',
+        })
+      : '/…'
+  )
 
   onMount(() => {
+    try {
+      if (sessionStorage.getItem('md-skills-open-create') === '1') {
+        sessionStorage.removeItem('md-skills-open-create')
+        openCreate()
+      }
+    } catch {
+      /* ignore */
+    }
     void load()
   })
 
@@ -59,18 +91,38 @@
   $effect(() => {
     if (!filtered.length) {
       activeId = null
+      confirmRemoveId = null
       return
     }
     if (!filtered.some((s) => s.id === activeId)) {
       activeId = filtered[0]!.id
     }
+    // Drop confirm if the staged skill left the shelf or is no longer selected.
+    if (
+      confirmRemoveId &&
+      (!skills.some((s) => s.id === confirmRemoveId) || confirmRemoveId !== activeId)
+    ) {
+      confirmRemoveId = null
+    }
   })
 
-  async function remove(id: string): Promise<void> {
+  function requestRemove(id: string): void {
+    confirmRemoveId = id
+    error = ''
+  }
+
+  function cancelRemove(): void {
     if (removing) return
+    confirmRemoveId = null
+  }
+
+  async function confirmRemove(): Promise<void> {
+    const id = confirmRemoveId
+    if (!id || removing) return
     removing = id
     try {
       await ipc.skillsDelete(id)
+      confirmRemoveId = null
       if (activeId === id) activeId = null
       await load()
     } catch (e) {
@@ -90,7 +142,8 @@
   }
 
   function useInAsk(s: InstalledSkill): void {
-    const starter = `Use the local skill “${s.name}” — explain what it does, then wait for my go-ahead before acting.`
+    const token = primarySlashToken(s)
+    const starter = `${token} `
     try {
       sessionStorage.setItem('md-ask-starter', starter)
     } catch {
@@ -99,8 +152,57 @@
     window.location.hash = '#/'
   }
 
+  function openCreate(): void {
+    showCreate = true
+    createNote = ''
+    createName = ''
+    createDesc = ''
+    createSteps = ''
+  }
+
+  function cancelCreate(): void {
+    if (createBusy) return
+    showCreate = false
+    createNote = ''
+  }
+
+  async function submitCreate(): Promise<void> {
+    const name = createName.trim()
+    if (!name || createBusy) return
+    createBusy = true
+    createNote = ''
+    error = ''
+    try {
+      const steps = createSteps
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const sk = await ipc.skillsCreate({
+        name,
+        description: createDesc.trim(),
+        steps,
+      })
+      showCreate = false
+      provenance = 'local'
+      await load()
+      activeId = sk.id
+      createNote = ''
+    } catch (e) {
+      createNote = String(e)
+    } finally {
+      createBusy = false
+    }
+  }
+
   function onKey(e: KeyboardEvent): void {
     if (!filtered.length) return
+    const t = e.target as HTMLElement | null
+    if (
+      t &&
+      (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+    ) {
+      return
+    }
     const i = filtered.findIndex((s) => s.id === activeId)
     if (e.key === 'ArrowDown' || e.key === 'j' || e.key === 'J') {
       e.preventDefault()
@@ -112,6 +214,10 @@
       const prev = filtered[Math.max(0, (i < 0 ? 0 : i) - 1)]
       if (prev) activeId = prev.id
     }
+    if (e.key === 'Escape' && confirmRemoveId) {
+      e.preventDefault()
+      cancelRemove()
+    }
   }
 </script>
 
@@ -120,18 +226,63 @@
 <MeridianPage
   kicker="Shelf · this machine"
   title="Skills"
-  lead="Procedures installed locally. Inspect provenance, seed Ask, or remove — nothing runs until you open the door."
+  lead="Author local procedures, install from Hub, then invoke them in Ask with /Name — Gatekeeper still gates every action."
 >
   {#snippet actions()}
     <button type="button" class="md-btn md-btn-ghost" onclick={() => void load()}>Refresh</button>
-    <button type="button" class="md-btn md-btn-primary" onclick={goHub}>Browse Hub</button>
+    <button type="button" class="md-btn md-btn-ghost" onclick={goHub}>Browse Hub</button>
+    <button type="button" class="md-btn md-btn-primary" onclick={openCreate}>Add skill</button>
   {/snippet}
 
   <div class="desk md-stagger">
     <p class="contract">
       <span class="live-dot" aria-hidden="true"></span>
-      Skills live on disk. Use in Ask seeds the composer — the Gatekeeper still gates every action.
+      Skills live on this machine. Use in Ask seeds <code>/Name</code> in the composer — nothing runs until you send.
     </p>
+
+    {#if showCreate}
+      <div class="create-plate" role="dialog" aria-label="Add skill">
+        <header class="create-head">
+          <h3>Add a local skill</h3>
+          <p class="hint">
+            Name it something callable — e.g. <strong>UI</strong> → invoke with
+            <code>{createSlashPreview}</code> in Ask.
+          </p>
+        </header>
+        <label class="field">
+          <span>Name</span>
+          <input bind:value={createName} placeholder="UI" maxlength="64" />
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <input bind:value={createDesc} placeholder="What this skill is for" maxlength="240" />
+        </label>
+        <label class="field">
+          <span>Steps (one per line, optional)</span>
+          <textarea
+            bind:value={createSteps}
+            rows="4"
+            placeholder={"Inspect the surface\nPropose a change\nWait for consent"}
+          ></textarea>
+        </label>
+        {#if createNote}
+          <p class="create-err">{createNote}</p>
+        {/if}
+        <div class="create-actions">
+          <button type="button" class="md-btn md-btn-ghost" disabled={createBusy} onclick={cancelCreate}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="md-btn md-btn-primary"
+            disabled={createBusy || !createName.trim()}
+            onclick={() => void submitCreate()}
+          >
+            {createBusy ? 'Saving…' : 'Create skill'}
+          </button>
+        </div>
+      </div>
+    {/if}
 
     {#if loading}
       <div class="md-empty">Indexing local skills…</div>
@@ -145,11 +296,14 @@
           {#if offline}
             Connect the daemon to index local skills. You can still browse Hub once Condura is online.
           {:else}
-            Install from Hub to keep procedures on this machine — they stay local after install.
+            Add a local skill or install from Hub — invoke in Ask with /Name.
           {/if}
         </p>
         <div class="empty-actions">
-          <button type="button" class="md-btn md-btn-primary" onclick={goHub}>Open Hub</button>
+          {#if !offline}
+            <button type="button" class="md-btn md-btn-primary" onclick={openCreate}>Add skill</button>
+          {/if}
+          <button type="button" class="md-btn md-btn-ghost" onclick={goHub}>Open Hub</button>
           <button type="button" class="md-btn md-btn-ghost" onclick={() => void load()}>Try again</button>
         </div>
       </div>
@@ -181,7 +335,10 @@
                 type="button"
                 class="rail-item"
                 class:on={active?.id === s.id}
-                onclick={() => (activeId = s.id)}
+                onclick={() => {
+                  activeId = s.id
+                  if (confirmRemoveId && confirmRemoveId !== s.id) confirmRemoveId = null
+                }}
               >
                 <span class="mono" class:hub={fromHub(s)} aria-hidden="true">{initial(s.name)}</span>
                 <span class="rail-copy">
@@ -203,9 +360,16 @@
                   {#if active.version} · v{active.version}{/if}
                 </p>
                 <h2>{active.name}</h2>
+                <p class="slash-call">
+                  Ask with <code>{primarySlashToken(active)}</code>
+                </p>
                 <p class="body">{active.description || 'No description on file.'}</p>
               </header>
               <dl class="facts">
+                <div>
+                  <dt>Slash</dt>
+                  <dd><code>{primarySlashToken(active)}</code></dd>
+                </div>
                 <div>
                   <dt>Author</dt>
                   <dd>{active.author || '—'}</dd>
@@ -224,26 +388,55 @@
                 </div>
               </dl>
               <p class="how">
-                <span class="how-n">01</span> Use in Ask seeds a line ·
+                <span class="how-n">01</span> Use in Ask seeds <code>{primarySlashToken(active)}</code> ·
                 <span class="how-n">02</span> Condura plans ·
                 <span class="how-n">03</span> You consent
               </p>
-              <footer>
-                <button type="button" class="md-btn md-btn-primary" onclick={() => useInAsk(active)}>
-                  Use in Ask
-                </button>
-                {#if fromHub(active)}
-                  <button type="button" class="md-btn md-btn-ghost" onclick={goHub}>Back to Hub</button>
-                {/if}
-                <button
-                  type="button"
-                  class="md-btn md-btn-danger"
-                  disabled={removing === active.id}
-                  onclick={() => void remove(active.id)}
-                >
-                  {removing === active.id ? 'Removing…' : 'Remove'}
-                </button>
-              </footer>
+              {#if confirmRemoveId === active.id}
+                <div class="remove-plate" role="alertdialog" aria-labelledby="skill-remove-title">
+                  <p class="cite">remove from shelf</p>
+                  <h3 id="skill-remove-title">Remove “{active.name}”?</h3>
+                  <p class="remove-lead">
+                    Uninstalls from this machine. Nothing runs from the shelf alone —
+                    reinstall from Hub if you need it again.
+                  </p>
+                  <div class="remove-actions">
+                    <button
+                      type="button"
+                      class="md-btn md-btn-danger"
+                      disabled={!!removing}
+                      onclick={() => void confirmRemove()}
+                    >
+                      {removing === active.id ? 'Removing…' : 'Remove skill'}
+                    </button>
+                    <button
+                      type="button"
+                      class="md-btn md-btn-ghost"
+                      disabled={!!removing}
+                      onclick={cancelRemove}
+                    >
+                      Keep
+                    </button>
+                  </div>
+                </div>
+              {:else}
+                <footer>
+                  <button type="button" class="md-btn md-btn-primary" onclick={() => useInAsk(active)}>
+                    Use in Ask
+                  </button>
+                  {#if fromHub(active)}
+                    <button type="button" class="md-btn md-btn-ghost" onclick={goHub}>Back to Hub</button>
+                  {/if}
+                  <button
+                    type="button"
+                    class="md-btn md-btn-danger"
+                    disabled={!!removing}
+                    onclick={() => requestRemove(active.id)}
+                  >
+                    Remove
+                  </button>
+                </footer>
+              {/if}
             </section>
           {/if}
         </div>
@@ -485,6 +678,89 @@
     line-height: 1.5;
   }
   .how-n {
+    color: var(--md-cobalt);
+  }
+  .remove-plate {
+    margin-top: auto;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 6%, var(--md-stage));
+  }
+  .remove-plate h3 {
+    font-family: var(--md-font-display);
+    font-size: 18px;
+    letter-spacing: -0.03em;
+    margin: 0 0 8px;
+  }
+  .remove-lead {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--md-ink-mute);
+    max-width: 42ch;
+  }
+  .remove-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .create-plate {
+    border-radius: 18px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-surface);
+    padding: 18px 16px;
+    box-shadow: var(--md-shadow);
+    margin-bottom: 16px;
+    max-width: 520px;
+    display: grid;
+    gap: 12px;
+  }
+  .create-head h3 {
+    font-family: var(--md-font-display);
+    font-size: 20px;
+    letter-spacing: -0.03em;
+    margin: 0 0 6px;
+  }
+  .create-head .hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--md-ink-mute);
+    line-height: 1.45;
+  }
+  .field {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--md-ink-mute);
+  }
+  .field input,
+  .field textarea {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--md-line-strong);
+    background: var(--md-stage);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-ink);
+    font-family: inherit;
+  }
+  .create-err {
+    margin: 0;
+    color: var(--md-halt);
+    font-size: 13px;
+  }
+  .create-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .slash-call {
+    margin: 4px 0 8px;
+    font-family: var(--md-font-mono);
+    font-size: 12px;
     color: var(--md-cobalt);
   }
   footer {
