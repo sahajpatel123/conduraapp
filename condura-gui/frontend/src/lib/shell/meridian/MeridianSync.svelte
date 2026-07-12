@@ -408,21 +408,17 @@
   }
   .ceremony,
   .revoke-plate {
-    padding: 28px 24px;
-    border-radius: 24px;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    background:
-      radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--md-cobalt) 14%, transparent), transparent 60%),
-      var(--md-surface);
-    box-shadow: var(--md-shadow-lift);
+    padding: 22px 20px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background: var(--md-surface);
+    box-shadow: none;
     text-align: center;
   }
   .ceremony.expired,
   .revoke-plate {
     border-color: color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
-    background:
-      radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--md-halt) 10%, transparent), transparent 60%),
-      var(--md-surface);
+    background: var(--md-surface);
   }
   .ceremony h2,
   .revoke-plate h2 {
@@ -485,9 +481,9 @@
   }
   .row input {
     min-width: 160px;
-    border: 1px solid var(--md-line-strong);
-    border-radius: 999px;
-    padding: 10px 14px;
+    border: 1px solid var(--md-line);
+    border-radius: 8px;
+    padding: 9px 12px;
     background: var(--md-stage);
     outline: none;
     font-family: var(--md-font-mono);

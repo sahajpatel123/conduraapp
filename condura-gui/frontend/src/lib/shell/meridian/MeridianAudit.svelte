@@ -516,15 +516,15 @@
   .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .filters button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
     font-family: var(--md-font-mono);
     font-size: 10px;
@@ -677,8 +677,8 @@
     font-size: 9px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 4px 8px;
-    border-radius: 999px;
+    padding: 3px 7px;
+    border-radius: 5px;
     border: 1px solid var(--md-line);
     color: var(--md-ink-mute);
   }

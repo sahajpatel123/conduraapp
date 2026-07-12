@@ -514,12 +514,12 @@
   .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .filters button {
-    padding: 7px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
     font-family: var(--md-font-mono);
     font-size: 10px;

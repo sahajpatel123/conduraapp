@@ -2061,6 +2061,12 @@
       no-repeat right 10px center;
     padding: 6px 28px 6px 10px;
     border-radius: 8px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    color: var(--md-ink-soft);
+    outline: none;
+  }
+  .model select:focus-visible {
     border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
   }
