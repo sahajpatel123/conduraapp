@@ -1313,18 +1313,16 @@
     text-align: left;
     display: grid;
     gap: 6px;
-    padding: 16px 16px 14px 18px;
-    border-radius: 16px;
-    border: 1px solid var(--md-line-strong);
-    background:
-      linear-gradient(180deg, color-mix(in oklab, var(--md-surface) 100%, transparent), color-mix(in oklab, var(--md-stage) 35%, var(--md-surface)));
+    padding: 14px 14px 12px 16px;
+    border-radius: 11px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
     cursor: pointer;
     color: inherit;
     overflow: hidden;
     transition:
-      border-color 180ms var(--md-ease),
-      transform 180ms var(--md-spring),
-      box-shadow 180ms var(--md-ease);
+      border-color 140ms var(--md-ease),
+      background 140ms var(--md-ease);
   }
   .door::before {
     content: '';
@@ -1332,21 +1330,19 @@
     left: 0;
     top: 12px;
     bottom: 12px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    transition: background 180ms var(--md-ease), box-shadow 180ms var(--md-ease);
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    transition: background 140ms var(--md-ease);
   }
   .door:hover,
   .door.focus {
-    border-color: color-mix(in oklab, var(--md-cobalt) 48%, transparent);
-    transform: translateY(-3px);
-    box-shadow: var(--md-shadow-lift);
+    border-color: var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-stage) 40%, var(--md-surface));
   }
   .door:hover::before,
   .door.focus::before {
-    background: linear-gradient(180deg, var(--md-cobalt), var(--md-live));
-    box-shadow: 0 0 12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    background: var(--md-cobalt);
   }
   .door:focus-visible {
     outline: none;
@@ -1665,11 +1661,11 @@
     color: var(--md-live);
   }
   .bubble {
-    font-size: 15.5px;
+    font-size: 15px;
     line-height: 1.55;
     word-break: break-word;
-    padding: 12px 16px;
-    border-radius: 18px;
+    padding: 11px 14px;
+    border-radius: 12px;
   }
   .bubble.plain {
     white-space: pre-wrap;
@@ -1726,22 +1722,16 @@
     color: var(--md-cobalt);
   }
   .msg[data-role='user'] .bubble {
-    background: linear-gradient(
-      165deg,
-      color-mix(in oklab, var(--md-cobalt) 16%, var(--md-surface)),
-      color-mix(in oklab, var(--md-cobalt) 10%, var(--md-surface))
-    );
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 26%, var(--md-line-strong));
-    border-bottom-right-radius: 5px;
-    box-shadow: 0 1px 0 color-mix(in oklab, #fff 35%, transparent) inset;
+    background: color-mix(in oklab, var(--md-cobalt) 9%, var(--md-surface));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+    border-bottom-right-radius: 4px;
+    box-shadow: none;
   }
   .msg[data-role='assistant'] .bubble {
     background: var(--md-surface);
-    border: 1px solid var(--md-line-strong);
-    border-bottom-left-radius: 5px;
-    box-shadow:
-      var(--md-shadow),
-      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset;
+    border: 1px solid var(--md-line);
+    border-bottom-left-radius: 4px;
+    box-shadow: none;
   }
   .bubble.muted {
     color: var(--md-ink-mute);
@@ -1861,19 +1851,14 @@
     margin: 0 auto 88px;
     max-width: 760px;
     width: calc(100% - 56px);
-    border-radius: 20px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
-    backdrop-filter: blur(14px) saturate(1.1);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    box-shadow:
-      var(--md-shadow),
-      0 1px 0 color-mix(in oklab, #fff 45%, transparent) inset;
+    border-radius: 12px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
     padding: 10px 12px 12px;
-    transition:
-      border-color var(--md-dur) var(--md-ease),
-      box-shadow var(--md-dur) var(--md-ease),
-      transform 240ms var(--md-spring);
+    transition: border-color 140ms var(--md-ease);
   }
   .slash-wrap {
     margin: 0 0 8px;
@@ -1881,13 +1866,13 @@
   .slash-menu {
     list-style: none;
     margin: 0;
-    padding: 6px;
-    border-radius: 14px;
-    border: 1px solid var(--md-line-strong);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
     background: var(--md-surface);
     box-shadow: var(--md-shadow);
     display: grid;
-    gap: 2px;
+    gap: 1px;
     max-height: 220px;
     overflow: auto;
   }

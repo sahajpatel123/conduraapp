@@ -1445,33 +1445,34 @@
   .sep { opacity: 0.5; }
 
   .tabs {
-    display: flex; flex-wrap: wrap; gap: 4px; padding: 4px;
-    border-radius: 14px; background: var(--md-stage); border: 1px solid var(--md-line);
+    display: flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+    border-radius: 10px; background: var(--md-stage); border: 1px solid var(--md-line);
     position: sticky; top: 0; z-index: 5;
   }
   .tab {
     appearance: none; border: 0; background: transparent; cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
-    color: var(--md-ink-mute); transition: background 160ms var(--md-ease), color 160ms var(--md-ease);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 550;
+    color: var(--md-ink-mute); transition: background 140ms var(--md-ease), color 140ms var(--md-ease);
   }
-  .tab:hover { color: var(--md-ink); background: color-mix(in oklab, var(--md-surface) 70%, transparent); }
+  .tab:hover { color: var(--md-ink); background: color-mix(in oklab, var(--md-ink) 3%, transparent); }
   .tab.on {
     background: var(--md-surface); color: var(--md-ink);
-    box-shadow: 0 1px 0 color-mix(in oklab, #fff 40%, transparent), var(--md-shadow);
+    box-shadow: none;
+    border: 1px solid var(--md-line);
   }
   .tab.need { color: var(--md-ink); }
   .tab:focus-visible { outline: none; box-shadow: var(--md-focus); }
   .tab-dot {
-    width: 7px; height: 7px; border-radius: 50%; flex: none;
+    width: 6px; height: 6px; border-radius: 50%; flex: none;
     background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 18%, transparent);
+    box-shadow: none;
   }
 
   .plate {
-    border-radius: 18px; border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 92%, transparent);
-    padding: 20px 22px 22px;
+    border-radius: 12px; border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    padding: 18px 20px 20px;
   }
   #md-models, #md-spend { scroll-margin-top: 64px; }
   .plate-head { margin-bottom: 14px; }
@@ -1480,10 +1481,8 @@
   }
   .hero-top h2 { margin: 0; }
   .models-hero {
-    border-color: color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
-    background:
-      radial-gradient(120% 90% at 0% 0%, color-mix(in oklab, var(--md-cobalt) 12%, transparent), transparent 58%),
-      color-mix(in oklab, var(--md-surface) 94%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
+    background: var(--md-surface);
   }
   .models-hero[data-state='ok'] {
     border-color: color-mix(in oklab, var(--md-live) 32%, var(--md-line));
@@ -1494,9 +1493,9 @@
   }
   .status-chip {
     display: inline-flex; align-items: center;
-    padding: 3px 10px; border-radius: 999px;
+    padding: 3px 8px; border-radius: 6px;
     border: 1px solid var(--md-line); background: var(--md-stage);
-    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 10px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase;
     color: var(--md-ink-mute);
   }
   .status-chip[data-state='ok'] {
@@ -1528,16 +1527,18 @@
   .note.warn { color: var(--md-halt); }
 
   .seg {
-    display: inline-flex; padding: 4px; border-radius: 999px;
+    display: inline-flex; padding: 3px; border-radius: 9px;
     background: var(--md-stage); border: 1px solid var(--md-line); flex-wrap: wrap; gap: 2px;
   }
   .seg button {
-    padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 13px;
+    padding: 7px 12px; border-radius: 7px; font-weight: 550; font-size: 13px;
     color: var(--md-ink-mute); cursor: pointer;
+    border: 0; background: transparent;
+    transition: background 140ms var(--md-ease), color 140ms var(--md-ease);
   }
   .seg button.on {
     background: var(--md-cobalt); color: #fff;
-    box-shadow: 0 8px 18px -10px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+    box-shadow: none;
   }
   .seg button:focus-visible { outline: none; box-shadow: var(--md-focus); }
 
