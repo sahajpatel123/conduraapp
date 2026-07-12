@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	syncstd "sync"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/account"
@@ -212,6 +213,22 @@ type Subsystems struct {
 
 	// closers holds resources that must be closed on shutdown.
 	closers []io.Closer
+	// closeOnce guards Close() so that double-signal shutdown
+	// (Ctrl-C twice in quick succession, SIGINT during a
+	// graceful shutdown, or any panic-during-close path) cannot
+	// double-close the underlying *sql.DB and friends. Pre-§1.6,
+	// a second Close() call would re-iterate closers and panic
+	// on the closed SQLite handle. sync.Once also serializes
+	// CloseDatabases() — backup.restore may race the SIGINT
+	// shutdown goroutine; previously both could attempt the
+	// same close simultaneously.
+	closeOnce syncstd.Once
+	// closeDatabasesOnce guards CloseDatabases() separately from
+	// Close() so a backup.restore call doesn't permanently lock
+	// out a later full shutdown. The two guards are independent
+	// because the methods do different things (CloseDatabases
+	// re-opens via Storage.Reload; Close is terminal).
+	closeDatabasesOnce syncstd.Once
 }
 
 // replaceMemoryCloser swaps the memory SQLite store in closers.
@@ -243,22 +260,29 @@ func (s *Subsystems) replaceCloserByType(match func(io.Closer) bool, newCloser i
 	s.closers = append(s.closers, newCloser)
 }
 
-// Close releases all resources held by subsystems.
+// Close releases all resources held by subsystems. Idempotent:
+// a second call returns nil without re-iterating closers.
+// Pre-§1.6, a panic-during-close or double-signal path could
+// hit a closed *sql.DB and panic again — surfacing a stack
+// trace at exit and obscuring the real shutdown failure.
 func (s *Subsystems) Close() error {
-	var errs []error
-	// N1: stop the presence detector's poll goroutine on shutdown.
-	if s.Safety != nil && s.Safety.Presence != nil {
-		s.Safety.Presence.Stop()
-	}
-	for _, c := range s.closers {
-		if err := c.Close(); err != nil {
-			errs = append(errs, err)
+	var closeErr error
+	s.closeOnce.Do(func() {
+		var errs []error
+		// N1: stop the presence detector's poll goroutine on shutdown.
+		if s.Safety != nil && s.Safety.Presence != nil {
+			s.Safety.Presence.Stop()
 		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("subsystems close: %v", errs)
-	}
-	return nil
+		for _, c := range s.closers {
+			if err := c.Close(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			closeErr = fmt.Errorf("subsystems close: %v", errs)
+		}
+	})
+	return closeErr
 }
 
 // CloseDatabases closes only the database connections (main DB,
@@ -266,19 +290,24 @@ func (s *Subsystems) Close() error {
 // long-lived resources. Used by backup.restore to release Windows
 // file locks before the atomic directory swap. The caller must
 // call Storage.Reload() after the swap to reopen the main DB.
+// Idempotent: a second call is a no-op (won't re-close DBs that
+// the prior call already closed). Independent from Close() —
+// Close() remains callable after CloseDatabases() and vice versa.
 func (s *Subsystems) CloseDatabases() {
-	// Close in reverse order: skills, memory, main.
-	if s.Phase12 != nil && s.Phase12.SkillStore != nil {
-		_ = s.Phase12.SkillStore.Close()
-	}
-	// memStore is not directly accessible; it's in the closers list.
-	// Close all closers except the last one (extractor).
-	// The closers order is: db, memStore, extractor, skillStore.
-	for i := len(s.closers) - 1; i >= 0; i-- {
-		// Skip the extractor (index 2 in the original list).
-		// We close everything else.
-		_ = s.closers[i].Close()
-	}
+	s.closeDatabasesOnce.Do(func() {
+		// Close in reverse order: skills, memory, main.
+		if s.Phase12 != nil && s.Phase12.SkillStore != nil {
+			_ = s.Phase12.SkillStore.Close()
+		}
+		// memStore is not directly accessible; it's in the closers list.
+		// Close all closers except the last one (extractor).
+		// The closers order is: db, memStore, extractor, skillStore.
+		for i := len(s.closers) - 1; i >= 0; i-- {
+			// Skip the extractor (index 2 in the original list).
+			// We close everything else.
+			_ = s.closers[i].Close()
+		}
+	})
 }
 
 // ReloadAuxiliaryDatabases recreates the memory and skills stores
