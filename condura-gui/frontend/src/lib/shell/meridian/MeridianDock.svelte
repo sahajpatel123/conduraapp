@@ -87,86 +87,74 @@
 <style>
   .dock {
     position: absolute;
-    left: 28px;
-    right: 28px;
-    bottom: 16px;
+    left: 24px;
+    right: 24px;
+    bottom: 14px;
     z-index: 20;
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
-    padding: 9px 11px;
-    border-radius: 20px;
-    background: color-mix(in oklab, var(--md-surface) 82%, transparent);
-    border: 1px solid var(--md-line-strong);
-    backdrop-filter: blur(22px) saturate(1.25);
-    -webkit-backdrop-filter: blur(22px) saturate(1.25);
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset,
-      0 18px 32px -22px color-mix(in oklab, var(--md-ink) 32%, transparent);
-    animation: md-dock-up 640ms var(--md-ease) 120ms both;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--md-surface) 92%, transparent);
+    border: 1px solid var(--md-line);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+    box-shadow: var(--md-shadow);
+    animation: md-dock-up 520ms var(--md-ease) 80ms both;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-padding-inline: 8px;
   }
   :root[data-mode='dark'] .dock {
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 8%, transparent) inset,
-      0 18px 32px -20px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--md-shadow);
   }
   .dock::-webkit-scrollbar { display: none; }
-  .primary, .more { display: flex; align-items: center; gap: 3px; flex: none; }
+  .primary, .more { display: flex; align-items: center; gap: 2px; flex: none; }
   .divider {
-    width: 1px; align-self: stretch; margin: 4px 4px;
-    background: linear-gradient(180deg, transparent, var(--md-line-strong) 20%, var(--md-line-strong) 80%, transparent);
+    width: 1px; align-self: stretch; margin: 6px 4px;
+    background: var(--md-line-strong);
     flex: none;
   }
   .dock:hover {
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 50%, transparent) inset,
-      0 22px 38px -22px color-mix(in oklab, var(--md-ink) 38%, transparent);
-    border-color: color-mix(in oklab, var(--md-cobalt) 26%, var(--md-line-strong));
+    border-color: var(--md-line-strong);
+    box-shadow: var(--md-shadow);
   }
   .tab {
     position: relative;
     appearance: none; border: 0; background: transparent; color: var(--md-ink-mute);
-    font-family: var(--md-font-sans); font-size: 12.5px; font-weight: 600;
-    padding: 9px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    font-family: var(--md-font-sans); font-size: 12.5px; font-weight: 550;
+    padding: 8px 11px; border-radius: 9px; cursor: pointer; white-space: nowrap;
     display: inline-flex; align-items: center; gap: 6px;
-    transition: color var(--md-dur) var(--md-ease), background var(--md-dur) var(--md-ease), transform 160ms var(--md-spring), box-shadow var(--md-dur) var(--md-ease);
+    transition: color 140ms var(--md-ease), background 140ms var(--md-ease);
   }
   .tab .ico {
-    display: inline-flex; opacity: 0.72;
-    transition: opacity var(--md-dur) var(--md-ease), transform 160ms var(--md-spring);
+    display: inline-flex; opacity: 0.7;
+    transition: opacity 140ms var(--md-ease);
   }
   .tab.quiet { font-weight: 500; color: var(--md-ink-faint); }
   .tab:hover {
     color: var(--md-ink);
-    background: color-mix(in oklab, var(--md-cobalt) 8%, transparent);
-    transform: translateY(-1px);
+    background: color-mix(in oklab, var(--md-ink) 4%, transparent);
   }
   .tab:hover .ico { opacity: 1; }
   .tab.active {
     color: #fff;
-    background: linear-gradient(165deg, color-mix(in oklab, var(--md-cobalt) 90%, #fff), var(--md-cobalt) 55%, var(--md-cobalt-deep));
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 25%, transparent) inset,
-      0 8px 20px -10px color-mix(in oklab, var(--md-cobalt) 72%, transparent);
-    animation: md-tab-in 280ms var(--md-spring) both;
+    background: var(--md-cobalt);
+    box-shadow: none;
+    animation: none;
   }
   .tab.active .ico { opacity: 1; }
-  .tab:active { transform: scale(0.96); }
+  .tab:active { opacity: 0.9; }
   .tab:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
     color: var(--md-ink);
   }
   .tab.active:focus-visible {
-    box-shadow:
-      0 1px 0 color-mix(in oklab, #fff 25%, transparent) inset,
-      0 8px 20px -10px color-mix(in oklab, var(--md-cobalt) 72%, transparent),
-      var(--md-focus);
+    box-shadow: var(--md-focus);
   }
   .halt:focus-visible {
     outline: none;
@@ -174,27 +162,26 @@
   }
   .badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 16px; height: 16px; margin-left: 2px; padding: 0 4px; border-radius: 999px;
-    background: #fff; color: var(--md-cobalt); font-size: 10px; font-weight: 800;
-    animation: md-rise 280ms var(--md-spring) both;
+    min-width: 15px; height: 15px; margin-left: 2px; padding: 0 4px; border-radius: 999px;
+    background: color-mix(in oklab, var(--md-cobalt) 12%, #fff); color: var(--md-cobalt);
+    font-size: 10px; font-weight: 700;
   }
   :root[data-mode='dark'] .badge {
-    background: var(--md-surface); color: var(--md-cobalt);
+    background: color-mix(in oklab, var(--md-cobalt) 18%, var(--md-surface)); color: var(--md-cobalt);
   }
   .halt {
-    appearance: none; margin-left: 6px;
-    border: 1px solid color-mix(in oklab, var(--md-halt) 42%, transparent);
-    background: color-mix(in oklab, var(--md-halt) 12%, transparent);
-    color: var(--md-halt); font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
-    text-transform: uppercase; padding: 8px 14px; border-radius: 999px; cursor: pointer;
-    transition: background var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease), transform 160ms var(--md-spring);
+    appearance: none; margin-left: 4px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 32%, var(--md-line-strong));
+    background: transparent;
+    color: var(--md-halt); font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 7px 12px; border-radius: 9px; cursor: pointer;
+    transition: background 140ms var(--md-ease), border-color 140ms var(--md-ease);
   }
   .halt:hover {
-    background: color-mix(in oklab, var(--md-halt) 20%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 16%, transparent);
-    transform: translateY(-1px);
+    background: color-mix(in oklab, var(--md-halt) 8%, transparent);
+    border-color: color-mix(in oklab, var(--md-halt) 48%, var(--md-line-strong));
   }
-  .halt:active { transform: scale(0.96); }
+  .halt:active { opacity: 0.9; }
   @keyframes md-tab-in {
     from { transform: scale(0.92); }
     to { transform: scale(1); }

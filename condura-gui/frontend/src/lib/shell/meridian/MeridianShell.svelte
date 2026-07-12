@@ -52,6 +52,11 @@
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
   let route = $derived(hashToRoute(currentHash))
+  let rootEl = $state<HTMLDivElement | null>(null)
+
+  function pinShellFloor(): void {
+    if (rootEl && rootEl.scrollTop !== 0) rootEl.scrollTop = 0
+  }
   let theme = $state<ResolvedTheme>(getResolvedTheme())
 
   let statusLabel = $derived(
@@ -121,8 +126,11 @@
 
     const onHash = () => {
       currentHash = window.location.hash || '#/'
+      // Deep links (#/settings/models) must not scroll the shell — only .stage.
+      queueMicrotask(pinShellFloor)
     }
     window.addEventListener('hashchange', onHash)
+    pinShellFloor()
 
     const onShowOnboarding = (): void => {
       // Settings re-run opens the wizard. reset() needs the daemon and
@@ -232,6 +240,12 @@
     if (routeHash) window.location.hash = routeHash
   }
 
+  $effect(() => {
+    route
+    currentHash
+    queueMicrotask(pinShellFloor)
+  })
+
   function navigate(r: RouteId): void {
     window.location.hash = ROUTE_HASH[r]
   }
@@ -249,7 +263,7 @@
     <p class="boot-sub">Starting…</p>
   </div>
 {:else}
-  <div class="md root">
+  <div class="md root" bind:this={rootEl}>
     <div class="wash" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
 
@@ -397,10 +411,13 @@
   .root {
     height: 100vh;
     height: 100dvh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
     position: relative;
-    overflow: hidden;
+    /* clip — not hidden — so deep-link scrollIntoView cannot shift the shell
+       and leave a mist shelf under the stage. Only .stage scrolls. */
+    overflow: clip;
+    overscroll-behavior: none;
     background: var(--md-mist);
   }
   .wash {
@@ -437,18 +454,18 @@
       linear-gradient(
         180deg,
         color-mix(in oklab, var(--md-mist) 0%, transparent) 0%,
-        color-mix(in oklab, var(--md-stage) 22%, transparent) 40%,
-        color-mix(in oklab, var(--md-stage) 48%, transparent) 100%
+        color-mix(in oklab, var(--md-stage) 18%, transparent) 45%,
+        color-mix(in oklab, var(--md-stage) 28%, transparent) 100%
       );
   }
   .top {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 16px;
-    padding: 14px 22px;
+    padding: 14px 22px 6px;
     min-height: 58px;
     animation: md-fade 400ms var(--md-ease) both;
   }
@@ -492,41 +509,42 @@
     position: relative;
     grid-column: 2;
     justify-self: center;
-    width: min(420px, 42vw);
-    max-width: 420px;
-    /* Sit above the status arc so its red beam glow never samples through. */
-    z-index: 2;
+    width: min(400px, 42vw);
+    max-width: 400px;
+    z-index: 4;
     isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
-    /* Opaque enough that the arc cannot bleed a red wash into the control. */
-    background: color-mix(in oklab, var(--md-surface) 94%, var(--md-stage));
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
     color: var(--md-ink-mute);
     font-size: 13px;
     font-weight: 500;
+    letter-spacing: -0.01em;
     cursor: pointer;
-    /* No box-shadow — the old ::after red seat + soft glow sat under Jump. */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     box-shadow: none;
-    transition: border-color var(--md-dur) var(--md-ease), transform 200ms var(--md-spring), color var(--md-dur) var(--md-ease), background var(--md-dur) var(--md-ease);
+    transition:
+      border-color 140ms var(--md-ease),
+      color 140ms var(--md-ease),
+      background 140ms var(--md-ease);
   }
   .jump:hover {
-    border-color: color-mix(in oklab, var(--md-cobalt) 42%, var(--md-line-strong));
+    border-color: var(--md-line-strong);
     color: var(--md-ink);
     background: var(--md-surface);
-    transform: translateY(-1px);
-    box-shadow: none;
   }
   .jump kbd {
     font-family: var(--md-font-mono);
     font-size: 10px;
     padding: 3px 7px;
     border-radius: 6px;
-    background: var(--md-stage);
+    background: color-mix(in oklab, var(--md-stage) 70%, var(--md-surface));
     border: 1px solid var(--md-line);
     color: var(--md-ink-faint);
   }
@@ -549,49 +567,53 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--md-ink-mute);
-    padding: 7px 12px;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--md-surface) 62%, transparent);
+    padding: 6px 10px;
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
     border: 1px solid var(--md-line);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: none;
   }
   .dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--md-ink-faint);
   }
   .status[data-tone='ok'] .dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 22%, transparent);
+    box-shadow: none;
   }
   .status[data-tone='live'] .dot {
     background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+    box-shadow: none;
     animation: md-pulse 1.2s var(--md-ease) infinite;
   }
   .status[data-tone='bad'] .dot {
     background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 20%, transparent);
+    box-shadow: none;
   }
   .icon {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 72%, transparent);
+    border-radius: 9px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
     color: var(--md-ink-mute);
     cursor: pointer;
-    backdrop-filter: blur(8px);
-    transition: transform 180ms var(--md-spring), border-color var(--md-dur) var(--md-ease), color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: none;
+    transition: border-color 140ms var(--md-ease), color 140ms var(--md-ease), background 140ms var(--md-ease);
   }
   .icon:hover {
-    transform: scale(1.05);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    border-color: var(--md-line-strong);
     color: var(--md-ink);
+    background: var(--md-surface);
   }
   .icon:focus-visible {
     outline: none;
@@ -599,36 +621,34 @@
     border-color: var(--md-cobalt);
   }
   .jump:focus-visible {
-    outline: 2px solid var(--md-cobalt);
-    outline-offset: 2px;
+    outline: none;
     border-color: var(--md-cobalt);
-    box-shadow: none;
     color: var(--md-ink);
+    box-shadow: var(--md-focus);
   }
   .arc-wrap {
     position: relative;
     z-index: 1;
-    padding: 0 12px;
-    margin-top: -2px;
-    /* Clip upward SVG blur so the red beam cannot wash the Jump control. */
-    overflow: hidden;
+    padding: 10px 16px 4px;
+    /* Clear breathing room under Jump / header — never kiss the chrome */
+    margin-top: 8px;
+    margin-bottom: 0;
+    pointer-events: none;
+    overflow: visible;
   }
   .stage {
     position: relative;
     z-index: 1;
-    flex: 1;
     min-height: 0;
     overflow: auto;
-    background: color-mix(in oklab, var(--md-stage) 72%, transparent);
-    backdrop-filter: blur(2px);
+    background: var(--md-stage);
     border-radius: 26px 26px 0 0;
     margin: 0 12px;
     border: 1px solid color-mix(in oklab, var(--md-line-strong) 80%, transparent);
     border-bottom: 0;
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent),
-      0 -8px 32px -20px color-mix(in oklab, var(--md-ink) 18%, transparent);
-    padding-bottom: 8px;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent);
+    /* Dock floats over the stage — keep scroll content clear of it. */
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
   .stage :global(> *) {
     animation: md-rise 420ms var(--md-ease) both;
@@ -658,7 +678,11 @@
       padding: 6px 9px;
       font-size: 9px;
     }
-    .stage { margin: 0 8px; border-radius: 22px 22px 0 0; }
+    .stage {
+      margin: 0 8px;
+      border-radius: 22px 22px 0 0;
+      padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
   }
   @media (max-width: 420px) {
     .word { font-size: 18px; }

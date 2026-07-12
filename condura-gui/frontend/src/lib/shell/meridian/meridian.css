@@ -5,8 +5,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  background: #B8C6D9;
-  color: #0A1220;
+  background: #C4CEDC;
+  color: #0F1724;
   font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -19,28 +19,27 @@ img, svg { display: block; max-width: 100%; }
 
 :root[data-mode='light'],
 :root:not([data-mode]) {
-  --md-mist: #B8C6D9;
-  --md-stage: #E8EEF6;
-  --md-surface: #FBFCFE;
-  --md-ink: #0A1220;
-  --md-ink-soft: #2E3F58;
-  --md-ink-mute: #5A6B84;
-  --md-ink-faint: #7A8BA3;
-  --md-line: rgba(10, 18, 32, 0.07);
-  --md-line-strong: rgba(10, 18, 32, 0.13);
-  --md-cobalt: #2451F5;
-  --md-cobalt-deep: #1839C4;
-  --md-live: #0B9A86;
-  --md-halt: #D11F5C;
-  --md-ember: #C47A2A;
-  --md-shadow: 0 20px 44px -28px rgba(10, 18, 32, 0.36);
-  --md-shadow-lift: 0 28px 56px -26px rgba(10, 18, 32, 0.42);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 24%, transparent);
-  --md-scrim: color-mix(in oklab, #0A1220 54%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #0A1220 70%, transparent);
-  --md-wash: radial-gradient(130% 90% at 78% -12%, rgba(36, 81, 245, 0.18) 0%, rgba(36, 81, 245, 0.06) 34%, transparent 70%),
-             radial-gradient(100% 75% at 4% 110%, rgba(11, 154, 134, 0.1) 0%, rgba(11, 154, 134, 0.03) 42%, transparent 74%),
-             radial-gradient(80% 60% at 48% 38%, rgba(251, 252, 254, 0.45) 0%, transparent 68%),
+  --md-mist: #C4CEDC;
+  --md-stage: #EEF2F7;
+  --md-surface: #FFFFFF;
+  --md-ink: #0F1724;
+  --md-ink-soft: #334155;
+  --md-ink-mute: #64748B;
+  --md-ink-faint: #94A3B8;
+  --md-line: rgba(15, 23, 36, 0.08);
+  --md-line-strong: rgba(15, 23, 36, 0.14);
+  --md-cobalt: #1F4FE0;
+  --md-cobalt-deep: #1639B0;
+  --md-live: #0F8A78;
+  --md-halt: #C9184A;
+  --md-ember: #B86B1E;
+  --md-shadow: 0 1px 2px rgba(15, 23, 36, 0.04), 0 8px 24px -16px rgba(15, 23, 36, 0.18);
+  --md-shadow-lift: 0 1px 2px rgba(15, 23, 36, 0.05), 0 12px 28px -14px rgba(15, 23, 36, 0.22);
+  --md-focus: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+  --md-scrim: color-mix(in oklab, #0F1724 48%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #0F1724 64%, transparent);
+  --md-wash: radial-gradient(120% 80% at 80% -8%, rgba(31, 79, 224, 0.1) 0%, transparent 55%),
+             radial-gradient(90% 70% at 8% 100%, rgba(15, 138, 120, 0.06) 0%, transparent 50%),
              var(--md-mist);
   --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.07 0 0 0 0 0.12 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -60,14 +59,13 @@ img, svg { display: block; max-width: 100%; }
   --md-live: #2DD4BF;
   --md-halt: #FF4D8D;
   --md-ember: #E0A04A;
-  --md-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.6);
-  --md-shadow-lift: 0 30px 64px -24px rgba(0, 0, 0, 0.7);
-  --md-focus: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 30%, transparent);
-  --md-scrim: color-mix(in oklab, #000 64%, transparent);
-  --md-scrim-strong: color-mix(in oklab, #000 80%, transparent);
-  --md-wash: radial-gradient(130% 90% at 78% -12%, rgba(107, 143, 255, 0.22) 0%, rgba(107, 143, 255, 0.08) 34%, transparent 70%),
-             radial-gradient(100% 75% at 4% 110%, rgba(45, 212, 191, 0.09) 0%, rgba(45, 212, 191, 0.03) 42%, transparent 74%),
-             radial-gradient(80% 60% at 48% 38%, rgba(6, 8, 14, 0.5) 0%, transparent 68%),
+  --md-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -16px rgba(0, 0, 0, 0.55);
+  --md-shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 32px -14px rgba(0, 0, 0, 0.65);
+  --md-focus: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+  --md-scrim: color-mix(in oklab, #000 58%, transparent);
+  --md-scrim-strong: color-mix(in oklab, #000 74%, transparent);
+  --md-wash: radial-gradient(120% 80% at 80% -8%, rgba(107, 143, 255, 0.14) 0%, transparent 55%),
+             radial-gradient(90% 70% at 8% 100%, rgba(45, 212, 191, 0.06) 0%, transparent 50%),
              var(--md-mist);
   --md-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.92 0 0 0 0 0.98 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -105,102 +103,93 @@ body::-webkit-scrollbar,
 }
 
 .md-btn {
-  appearance: none; border: 0; border-radius: 999px;
+  appearance: none; border: 0; border-radius: 10px;
   font-family: var(--md-font-sans); font-size: 13px; font-weight: 600;
   letter-spacing: -0.01em;
-  padding: 10px 18px; cursor: pointer;
+  padding: 9px 16px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition:
-    transform 180ms var(--md-spring),
-    box-shadow 220ms var(--md-ease),
-    background 180ms var(--md-ease),
-    border-color 180ms var(--md-ease),
-    opacity 180ms var(--md-ease);
+    background 160ms var(--md-ease),
+    border-color 160ms var(--md-ease),
+    color 160ms var(--md-ease),
+    box-shadow 160ms var(--md-ease),
+    opacity 160ms var(--md-ease);
 }
-.md-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.md-btn:not(:disabled:active) { transform: scale(0.97); }
+.md-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.md-btn:not(:disabled):active { opacity: 0.92; }
 .md-btn:focus-visible {
   outline: none;
-  box-shadow: var(--md-focus), 0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
+  box-shadow: var(--md-focus);
 }
 .md-btn-primary {
-  background: linear-gradient(165deg, color-mix(in oklab, var(--md-cobalt) 92%, #fff) 0%, var(--md-cobalt) 48%, var(--md-cobalt-deep) 100%);
+  background: var(--md-cobalt);
   color: #fff;
-  box-shadow:
-    0 1px 0 color-mix(in oklab, #fff 28%, transparent) inset,
-    0 10px 28px -14px color-mix(in oklab, var(--md-cobalt) 72%, transparent);
+  box-shadow: none;
 }
-.md-btn-primary:not(:disabled:hover) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 color-mix(in oklab, #fff 32%, transparent) inset,
-    0 16px 36px -14px color-mix(in oklab, var(--md-cobalt) 82%, transparent);
+.md-btn-primary:not(:disabled):hover {
+  background: var(--md-cobalt-deep);
 }
 .md-btn-ghost {
-  background: color-mix(in oklab, var(--md-surface) 82%, transparent);
-  color: var(--md-ink); border: 1px solid var(--md-line-strong);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent;
+  color: var(--md-ink);
+  border: 1px solid var(--md-line-strong);
 }
-.md-btn-ghost:not(:disabled:hover) {
-  transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--md-cobalt) 42%, var(--md-line-strong));
-  background: var(--md-surface);
+.md-btn-ghost:not(:disabled):hover {
+  border-color: color-mix(in oklab, var(--md-ink) 22%, var(--md-line-strong));
+  background: color-mix(in oklab, var(--md-ink) 3%, var(--md-surface));
 }
 .md-btn-danger {
-  background: color-mix(in oklab, var(--md-halt) 10%, transparent);
-  color: var(--md-halt); border: 1px solid color-mix(in oklab, var(--md-halt) 32%, transparent);
+  background: transparent;
+  color: var(--md-halt);
+  border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line-strong));
 }
-.md-btn-danger:not(:disabled:hover) {
-  background: color-mix(in oklab, var(--md-halt) 16%, transparent);
+.md-btn-danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--md-halt) 8%, transparent);
+  border-color: color-mix(in oklab, var(--md-halt) 42%, var(--md-line-strong));
 }
 .md-panel {
   background: var(--md-surface);
-  border: 1px solid var(--md-line-strong);
-  border-radius: 20px;
-  padding: 20px 22px;
-  box-shadow:
-    var(--md-shadow),
-    0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
-  transition: transform 220ms var(--md-ease), box-shadow 220ms var(--md-ease), border-color 220ms var(--md-ease);
+  border: 1px solid var(--md-line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: none;
+  transition: border-color 160ms var(--md-ease);
 }
 :root[data-mode='dark'] .md-panel {
-  box-shadow:
-    var(--md-shadow),
-    0 1px 0 color-mix(in oklab, #fff 6%, transparent) inset;
+  box-shadow: none;
 }
 .md-panel:hover {
-  border-color: color-mix(in oklab, var(--md-cobalt) 24%, var(--md-line-strong));
-  box-shadow: var(--md-shadow-lift), 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+  border-color: var(--md-line-strong);
+  box-shadow: none;
 }
 .md-panel-static,
 .md-panel-static:hover {
   transform: none;
-  border-color: var(--md-line-strong);
-  box-shadow: var(--md-shadow), 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+  border-color: var(--md-line);
+  box-shadow: none;
 }
 .md-empty {
-  padding: 56px 28px; text-align: center; color: var(--md-ink-mute); font-size: 14px; line-height: 1.5;
-  border: 1px dashed var(--md-line-strong); border-radius: 20px;
-  background: color-mix(in oklab, var(--md-surface) 58%, transparent);
+  padding: 48px 24px; text-align: center; color: var(--md-ink-mute); font-size: 14px; line-height: 1.5;
+  border: 1px dashed var(--md-line-strong); border-radius: 14px;
+  background: color-mix(in oklab, var(--md-stage) 55%, transparent);
 }
-.md-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.md-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .md-field:last-child { margin-bottom: 0; }
 .md-field label {
-  font-family: var(--md-font-mono); font-size: 10px; letter-spacing: 0.14em;
+  font-family: var(--md-font-mono); font-size: 10px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--md-ink-faint);
 }
 .md-field input,
 .md-field select,
 .md-field textarea {
   border: 1px solid var(--md-line-strong); background: var(--md-surface);
-  border-radius: 14px; padding: 11px 14px; font: inherit; color: var(--md-ink); outline: none;
+  border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--md-ink); outline: none;
   transition: border-color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
 }
 .md-field input:hover,
 .md-field select:hover,
 .md-field textarea:hover {
-  border-color: color-mix(in oklab, var(--md-cobalt) 25%, var(--md-line-strong));
+  border-color: color-mix(in oklab, var(--md-ink) 18%, var(--md-line-strong));
 }
 .md-field input:focus,
 .md-field select:focus,
