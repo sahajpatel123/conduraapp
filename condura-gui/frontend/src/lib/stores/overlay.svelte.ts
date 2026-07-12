@@ -4,6 +4,7 @@
 
 import { ipc } from '../ipc/client'
 
+// Window.go.* is declared in ipc/client.ts (single ambient). Only runtime here.
 declare global {
   interface Window {
     runtime?: {
@@ -11,15 +12,6 @@ declare global {
         eventName: string,
         callback: (data: unknown) => void
       ) => () => void
-    }
-    go?: {
-      main?: {
-        App?: {
-          OpenQuickPrompt?: () => Promise<void>
-          CloseQuickPrompt?: () => Promise<void>
-          ToggleQuickPrompt?: () => Promise<void>
-        }
-      }
     }
   }
 }
@@ -76,12 +68,18 @@ class OverlayStore {
       // Not running inside Wails (unit tests / static preview).
     }
 
-    // Listen for overlay show/hide events from the daemon.
+    // Sync overlay chrome from the daemon's presence.state on connect.
+    // RPC returns { state: "hidden"|"listening"|"thinking"|"speaking" };
+    // anything other than hidden means the overlay is up.
     this.cleanups.push(
       ipc.on('connected', () => {
-        void ipc.presenceState().then((state: unknown) => {
-          this.setFromHost(state === 'active')
-        }).catch(() => {})
+        void ipc
+          .presenceState()
+          .then((res) => {
+            const s = typeof res?.state === 'string' ? res.state : 'hidden'
+            this.setFromHost(s !== 'hidden')
+          })
+          .catch(() => {})
       }),
       ipc.on('disconnected', () => {
         // Daemon gone — dismiss overlay to avoid stale state.

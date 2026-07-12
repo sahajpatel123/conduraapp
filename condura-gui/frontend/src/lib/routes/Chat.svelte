@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { marked } from 'marked'
-  import DOMPurify from 'dompurify'
+  import { renderSafeMarkdown } from '../markdown'
 
   import { conversation } from '../stores/conversation.svelte'
   import { daemon } from '../stores/daemon.svelte'
@@ -135,15 +134,6 @@
     return () => conversation.stopListening()
   })
 
-  function renderSafeMarkdown(text: string): string {
-    // marked.parse() emits raw HTML; tool output, prompt-injected
-    // model replies, and crafted STT transcripts all flow through
-    // this path with full IPC access behind it. DOMPurify strips
-    // <script>, event handlers, javascript: URLs, and any other
-    // XSS vectors before the result reaches {@html}.
-    const html = marked.parse(text, { async: false }) as string
-    return DOMPurify.sanitize(html)
-  }
 </script>
 
 <div class="chat">

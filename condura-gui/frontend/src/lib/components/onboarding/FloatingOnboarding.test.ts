@@ -32,6 +32,12 @@ vi.mock('../../stores/onboarding.svelte', () => ({
   onboarding: mockOnboarding,
 }))
 
+// EulaScreen gates Accept on daemon.connected — accepting the license is a
+// daemon write. Without this mock, tests run "offline" and Accept is a no-op.
+vi.mock('../../stores/daemon.svelte', () => ({
+  daemon: { connected: true, lastError: '', baseURL: 'http://127.0.0.1:7666' },
+}))
+
 vi.mock('../../ipc/client', () => ({
   ipc: {
     onboardingEula: vi.fn().mockResolvedValue({

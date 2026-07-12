@@ -161,6 +161,8 @@ export interface APIKeySetParams {
 export interface ProviderInfo {
   name: string
   models: ModelInfo[]
+  /** false = catalog-only (needs key / enable before Ask can stream). */
+  available?: boolean
 }
 
 // ----- Spend monitoring -----
@@ -339,6 +341,7 @@ export interface AppConfig {
     audit_log_path: string
     audit_retention_days: number
     spend_limit_usd_per_day: number
+    pii_redaction?: boolean
   }
   api_server: {
     host: string
@@ -367,6 +370,7 @@ export interface AppConfig {
   }
   hotkey: {
     overlay: string
+    kill_switch?: string
   }
   window: {
     width: number
@@ -374,6 +378,14 @@ export interface AppConfig {
     x: number
     y: number
     last_conversation_id: number
+  }
+  /** Optional; present when config.get returns full YAML view. */
+  voice?: {
+    enabled?: boolean
+    wake?: {
+      enabled?: boolean
+      hotword?: string
+    }
   }
 }
 
@@ -702,6 +714,20 @@ export interface InstalledSkill {
   source?: string
   hub_id?: string
   checksum?: string
+  /** Optional procedure steps — used when Ask invokes via /Name. */
+  steps?: string[]
+  /** Preferred slash form, e.g. /UI */
+  trigger_pattern?: string
+  dependencies?: string[]
+}
+
+export interface SkillCreateParams {
+  name: string
+  description?: string
+  version?: string
+  id?: string
+  steps?: string[]
+  trigger_pattern?: string
 }
 
 // ----- Phase 12: P2P Sync -----
@@ -899,6 +925,111 @@ export interface PairConfirmResult {
   device_id: string
 }
 
+// ----- Presence / overlay (Phase 6) -----
+// presence.state returns the overlay Controller state string.
+export type PresenceOverlayState =
+  | 'hidden'
+  | 'listening'
+  | 'thinking'
+  | 'speaking'
+  | 'unknown'
+
+export interface PresenceStateResult {
+  state: PresenceOverlayState | string
+}
+
+// ----- Delegation (spawn + list) -----
+export interface DelegateAgentInfo {
+  name: string
+  description: string
+  binary: string
+  installed?: boolean
+  enabled?: boolean
+  default_model?: string
+  available_models?: string[]
+}
+
+export interface DelegateRunningSpawn {
+  spawn_id: string
+  agent_name?: string
+  state: string
+  started?: string
+}
+
+export interface DelegateSpawnResult {
+  spawn_id: string
+  agent_name: string
+  output?: string
+  exit_code?: number
+  duration_ms?: number
+  token_count?: number
+  pending_actions?: PendingActionRow[]
+  pending_action_ids?: string[]
+  state?: string
+  tokens?: number
+  cost?: number
+  started?: string
+  finished?: string
+}
+
+// ----- Phase 18: Sub-agent pending ActionRequests -----
+//
+// Daemon RPCs: delegate.pending.{list,get,decide,execute,sweep}.
+// Meridian Agents (MeridianDelegation) + dock badge depend on these.
+
+export type PendingActionStatus =
+  | 'pending'
+  | 'approved'
+  | 'denied'
+  | 'executed'
+  | 'failed'
+  | 'expired'
+  | 'superseded'
+
+export interface PendingActionPayload {
+  command?: string
+  path?: string
+  body?: string
+  target?: string
+  key?: string
+}
+
+/** One row from the pending_actions queue (JSON shape from the daemon). */
+export interface PendingActionRow {
+  id: string
+  spawn_id: string
+  session_id?: string
+  agent_name: string
+  kind: string
+  payload: PendingActionPayload
+  gate_decision: string
+  gate_reason: string
+  blast_class?: string
+  status: PendingActionStatus
+  created_at: string
+  expires_at: string
+  decided_at?: string
+  decided_by?: string
+  decision_note?: string
+  executed_at?: string
+  exit_code: number
+  result: string
+  execution_error?: string
+  duration_ms: number
+}
+
+export interface PendingActionListResult {
+  actions: PendingActionRow[]
+}
+
+export interface PendingDecideParams {
+  id: string
+  decision: 'approve' | 'deny' | string
+  decided_by: string
+  note?: string
+  auto_run?: boolean
+}
+
 // ----- Phase 15: Gatekeeper consent -----
 
 // ConsentTicket is a pending Gatekeeper consent request surfaced
@@ -988,5 +1119,7 @@ export interface ChannelInfo {
   status: string
   connected: boolean
   detail?: string
+  /** Linked chat after Telegram handshake; daemon json: chat_id */
+  chat_id?: string
 }
 

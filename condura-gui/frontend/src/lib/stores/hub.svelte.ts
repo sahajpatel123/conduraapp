@@ -19,6 +19,7 @@
 //        └─────── success/error │    success / error  │
 //                               └────────────────────┘
 
+import { humanizeHubError } from '../ipc/errors'
 import { ipc } from '../ipc/client'
 import type {
   HubSearchResult,
@@ -79,31 +80,44 @@ export class HubStore {
   installed = $state<Set<string>>(new Set())
 
   /**
-   * Searches the Hub. Empty query returns the empty list
-   * (no RPC). Results overwrite the previous query's
-   * results to avoid races.
+   * Searches the Hub. Empty query browses the shelf (daemon
+   * accepts q="" as match-all). Stale responses from an older
+   * query are dropped so typing doesn't thrash the list.
    */
   async search(query: string, limit: number = 20): Promise<void> {
-    if (query.trim() === '') {
-      this.results = []
-      this.lastQuery = ''
-      return
-    }
+    // Stamp the in-flight query before the RPC so concurrent
+    // searches only commit when still current.
+    this.lastQuery = query
     this.loading = true
     this.error = null
     try {
       const res = await ipc.hubSearch(query, limit)
-      // Only commit the result if the query is still
-      // current (the user may have typed a new query
-      // before this one returned).
-      if (query === this.lastQuery || this.lastQuery === '') {
-        this.results = res.skills ?? []
-        this.lastQuery = query
-      }
+      if (query !== this.lastQuery) return
+      this.results = res.skills ?? []
     } catch (e) {
-      this.error = String(e)
+      if (query !== this.lastQuery) return
+      this.error = humanizeHubError(e)
+      this.results = []
     } finally {
-      this.loading = false
+      if (query === this.lastQuery) this.loading = false
+    }
+  }
+
+  /**
+   * Sync installed skill IDs from the daemon so Hub can show
+   * "on this machine" after restart (not only mid-session install).
+   */
+  async refreshInstalled(): Promise<void> {
+    try {
+      const list = await ipc.skillsList(100)
+      const next = new Set<string>()
+      for (const s of list ?? []) {
+        if (s.id) next.add(s.id)
+        if (s.hub_id) next.add(s.hub_id)
+      }
+      this.installed = next
+    } catch {
+      // Offline: keep whatever we already tracked this session.
     }
   }
 
@@ -124,7 +138,7 @@ export class HubStore {
       this.installed = next
       return result
     } catch (e) {
-      this.error = String(e)
+      this.error = humanizeHubError(e)
       return null
     } finally {
       this.loading = false
@@ -176,7 +190,7 @@ export class HubStore {
       this.publishState = { kind: 'success', result }
       return result
     } catch (e) {
-      const message = String(e)
+      const message = humanizeHubError(e)
       this.publishState = { kind: 'error', message }
       this.error = message
       return null

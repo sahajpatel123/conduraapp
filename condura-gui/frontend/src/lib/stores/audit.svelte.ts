@@ -36,11 +36,18 @@ export interface AuditFilters {
   models: Set<string>
 }
 
+function default24hWindow(): Pick<AuditFilters, 'whenStart' | 'whenEnd'> {
+  const now = new Date()
+  return {
+    whenStart: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+    whenEnd: now.toISOString(),
+  }
+}
+
 export const DEFAULT_FILTERS: AuditFilters = {
   search: '',
   whenPreset: '24h',
-  whenStart: null,
-  whenEnd: null,
+  ...default24hWindow(),
   blastClasses: new Set<BlastClass>(['READ', 'WRITE', 'NETWORK', 'DESTRUCTIVE']),
   verdict: 'all',
   apps: new Set<string>(),
@@ -82,6 +89,12 @@ class AuditStore {
   facetCounts = $state<AuditFacetCounts | null>(null)
   integrity = $state<AuditIntegrityReport | null>(null)
   integrityLoading = $state<boolean>(false)
+  /** Set when verifyIntegrity fails — never silently null the seal. */
+  integrityError = $state<string | null>(null)
+  /** True while subscribed to SSE `audit` (daemon may still be offline). */
+  liveSubscribed = $state<boolean>(false)
+  /** Timestamp of last live append (0 = none this session). */
+  lastLiveAt = $state<number>(0)
   exportInFlight = $state<boolean>(false)
   exportResult = $state<{ path: string; count: number } | null>(null)
   exportError = $state<string | null>(null)
@@ -129,8 +142,30 @@ class AuditStore {
     const f = this.filters
     const params: AuditListParams = { limit, offset }
     if (f.search) params.search = f.search
-    if (f.whenStart) params.since = f.whenStart
-    if (f.whenEnd) params.until = f.whenEnd
+    // Rolling window for relative presets so live rows aren't cut by a stale whenEnd.
+    if (f.whenPreset !== 'all') {
+      const now = new Date()
+      let start: Date | null = null
+      switch (f.whenPreset) {
+        case '1h':
+          start = new Date(now.getTime() - 60 * 60 * 1000)
+          break
+        case '24h':
+          start = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          break
+        case '7d':
+          start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          break
+        case '30d':
+          start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          break
+      }
+      if (start) params.since = start.toISOString()
+      params.until = now.toISOString()
+    } else {
+      if (f.whenStart) params.since = f.whenStart
+      if (f.whenEnd) params.until = f.whenEnd
+    }
     if (f.blastClasses.size > 0 && f.blastClasses.size < BLAST_CLASSES.length) {
       params.blast_classes = Array.from(f.blastClasses) as BlastClass[]
     }
@@ -140,10 +175,17 @@ class AuditStore {
     return params
   }
 
+  /** Facet rails ignore the active verdict chip so chip badges stay honest. */
+  private buildFacetParams(): AuditListParams {
+    const p = this.buildListParams(0, 1000)
+    delete p.verdict
+    return p
+  }
+
   // ── facet counts ────────────────────────────────────────────
   private async refreshFacets(): Promise<void> {
     try {
-      const counts = await ipc.auditFacetCounts(this.buildListParams(0, 1000))
+      const counts = await ipc.auditFacetCounts(this.buildFacetParams())
       this.facetCounts = counts
     } catch {
       // RPC may not be implemented yet — the derived fallback below fills in.
@@ -179,14 +221,16 @@ class AuditStore {
   // ── chain integrity ─────────────────────────────────────────
   async verifyIntegrity(): Promise<void> {
     this.integrityLoading = true
+    this.integrityError = null
     try {
-      const params = this.buildListParams(0, 10000)
+      // limit 0 = full chain (audit.VerifyChain). A capped walk can
+      // report "intact" while newer rows are unverified — false seal.
+      const params = this.buildListParams(0, 0)
       const report = await ipc.auditVerifyIntegrity(params)
       this.integrity = report
-    } catch {
-      // RPC may not be implemented; surface a soft "unknown" status so the
-      // chain badge still reads honestly.
+    } catch (e) {
       this.integrity = null
+      this.integrityError = String(e)
     } finally {
       this.integrityLoading = false
     }
@@ -291,15 +335,18 @@ class AuditStore {
 
   // ── live SSE ────────────────────────────────────────────────
   // Subscribes to the SSE 'audit' event and pushes new rows to the top
-  // of the timeline. Re-subscribes are no-ops.
+  // of the timeline. Re-subscribes are no-ops. The daemon publishes
+  // after each successful Append (see audit.Log.SetOnAppend).
   startLive(): void {
     if (this.sseOff) return
     try {
       this.sseOff = ipc.on('audit', (event) => {
         this.appendLiveEvent(event as AuditEvent)
       })
+      this.liveSubscribed = true
     } catch {
       this.sseOff = null
+      this.liveSubscribed = false
     }
   }
   stopLive(): void {
@@ -311,11 +358,41 @@ class AuditStore {
       }
       this.sseOff = null
     }
+    this.liveSubscribed = false
   }
   appendLiveEvent(ev: AuditEvent): void {
-    if (!ev || typeof ev.id !== 'number') return
-    if (this.events.some((e) => e.id === ev.id)) return
-    this.events = [ev, ...this.events]
+    if (!ev) return
+    const id = typeof ev.id === 'number' ? ev.id : Number(ev.id)
+    if (!Number.isFinite(id)) return
+    const normalized = { ...ev, id }
+    if (this.events.some((e) => e.id === id)) return
+    // Drop live rows that fail the active server filters (list is filtered).
+    if (this.filters.verdict !== 'all') {
+      const v = deriveVerdict(normalized)
+      if (v !== this.filters.verdict && normalized.result !== this.filters.verdict) {
+        this.lastLiveAt = Date.now()
+        void this.refreshFacets()
+        return
+      }
+    }
+    // Live rows are "now" — only enforce rolling since for relative presets.
+    if (this.filters.whenPreset !== 'all') {
+      const hours =
+        this.filters.whenPreset === '1h'
+          ? 1
+          : this.filters.whenPreset === '24h'
+            ? 24
+            : this.filters.whenPreset === '7d'
+              ? 24 * 7
+              : 24 * 30
+      const ts = new Date(String(normalized.ts)).getTime()
+      if (Number.isFinite(ts) && ts < Date.now() - hours * 60 * 60 * 1000) {
+        return
+      }
+    }
+    this.events = [normalized, ...this.events]
+    this.lastLiveAt = Date.now()
+    void this.refreshFacets()
   }
 }
 

@@ -35,6 +35,7 @@
   import ConfirmDialog from '../ConfirmDialog.svelte';
   import { Dialog } from '../ui';
 
+  import PermissionSection from './PermissionSection.svelte';
   import { replay } from '../../stores/replay.svelte';
   import { trust } from '../../stores/trust.svelte';
   import { settings } from '../../stores/settings.svelte';
@@ -85,7 +86,6 @@
     | { kind: 'reset-adaptive' }
     | { kind: 'restore-backup'; path: string }
   >(null);
-  let permPollTimer: ReturnType<typeof setInterval> | null = null;
 
   // Trust & safety: read-only "what this build can and can't do"
   // panel. The shape comes from daemon.capabilities (CLAUDE.md
@@ -130,31 +130,6 @@
     { id: 'trust',       label: '08', hint: 'Trust & safety' },
   ];
 
-  const PERM_KINDS = ['accessibility', 'screen_recording', 'microphone', 'notifications'] as const;
-
-  const PERM_META: Record<string, { name: string; desc: string; required: string }> = {
-    accessibility: {
-      name: 'Accessibility',
-      desc: 'I read structured UI elements (named buttons, fields, window titles).',
-      required: 'Required for computer-use.',
-    },
-    screen_recording: {
-      name: 'Screen Recording',
-      desc: 'I sample the screen occasionally when needed. Never continuously.',
-      required: 'Optional — needed only for vision-based actions.',
-    },
-    microphone: {
-      name: 'Microphone',
-      desc: 'For voice input and the "hey condura" wake word.',
-      required: 'Optional.',
-    },
-    notifications: {
-      name: 'Notifications',
-      desc: 'For task completion and important alerts.',
-      required: 'Optional.',
-    },
-  };
-
   const AUTONOMY_TASK_TYPES: Array<{ key: string; label: string }> = [
     { key: 'coding', label: 'Coding' },
     { key: 'file_operations', label: 'File operations' },
@@ -170,21 +145,6 @@
   ];
 
   const STRENGTH_OPTS: AdaptiveStrength[] = ['off', 'cautious', 'balanced', 'aggressive'];
-
-  const permissionRows = $derived(
-    PERM_KINDS.map((kind) => {
-      const status = trust.permissions.find((p) => p.kind === kind);
-      const meta = PERM_META[kind];
-      return {
-        kind,
-        name: meta?.name ?? kind,
-        desc: meta?.desc ?? '',
-        required: meta?.required ?? '',
-        granted: status?.status === 'granted',
-        status: status?.status ?? 'unknown',
-      };
-    })
-  );
 
   const adaptiveItems = $derived(adaptiveRowsFromProfile(adaptiveProfile));
 
@@ -206,12 +166,6 @@
 
   onMount(() => {
     void bootstrap();
-    permPollTimer = setInterval(() => {
-      if (current === 'permissions') void trust.refreshPermissions();
-    }, 2000);
-    return () => {
-      if (permPollTimer) clearInterval(permPollTimer);
-    };
   });
 
   async function bootstrap(): Promise<void> {
@@ -358,29 +312,6 @@
     for (const [from, to] of replacements) spec = spec.split(from).join(to);
     if (spec.endsWith('+')) spec = spec.slice(0, -1);
     return spec;
-  }
-
-  function openExternal(url: string): void {
-    const w = window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } };
-    if (w.runtime?.BrowserOpenURL) w.runtime.BrowserOpenURL(url);
-    else window.open(url, '_blank');
-  }
-
-  async function openPermissionSettings(kind: string): Promise<void> {
-    try {
-      const { openPermissionSettings: openOS } = await import('../../utils/openPermissionSettings');
-      const { ipc } = await import('../../ipc/client');
-      await openOS(kind, ipc);
-      void trust.refreshPermissions();
-    } catch {
-      // guide unavailable — fall back to deep link only
-      try {
-        const guide = await trust.loadGuide(kind);
-        if (guide.deep_link) openExternal(guide.deep_link);
-      } catch {
-        /* ignore */
-      }
-    }
   }
 
   async function saveHotkey(combo: string): Promise<void> {
@@ -633,34 +564,7 @@
         </footer>
 
       {:else if current === 'permissions'}
-        <header class="content__header">
-          <h2>Permissions</h2>
-          <p class="content__lede">Each grant is revocable. I'll stop the moment you do.</p>
-        </header>
-        <div class="permissions">
-          {#each permissionRows as perm (perm.kind)}
-            <div class="perm">
-              <div class="perm__head">
-                <div class="perm__name">{perm.name}</div>
-                <div class="perm__status">
-                  <Dot variant={perm.granted ? 'success' : 'neutral'} size="sm" />
-                  <span class="caption">{perm.granted ? 'granted' : 'not granted'}</span>
-                </div>
-              </div>
-              <p class="perm__desc">{perm.desc}</p>
-              <p class="perm__required"><span class="caption">{perm.required}</span></p>
-              <div class="perm__actions">
-                <Button
-                  variant={perm.granted ? 'destructive' : 'secondary'}
-                  size="sm"
-                  onclick={() => openPermissionSettings(perm.kind)}
-                >
-                  {perm.granted ? 'Revoke' : 'Grant'}
-                </Button>
-              </div>
-            </div>
-          {/each}
-        </div>
+        <PermissionSection />
 
       {:else if current === 'hotkey'}
         <header class="content__header">

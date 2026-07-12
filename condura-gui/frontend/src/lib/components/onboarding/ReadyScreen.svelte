@@ -6,12 +6,14 @@
   import Button from '../ui/Button.svelte'
   import Card from '../ui/Card.svelte'
   import Badge from '../ui/Badge.svelte'
-  import { t } from '../../i18n'
+  import { catalogVersion, t } from '../../i18n'
 
   interface Props {
     onDone?: (route?: string) => void
   }
   let { onDone }: Props = $props()
+  // Re-render after late daemon/static catalog merges.
+  const _catalog = $derived($catalogVersion)
 
   interface VoiceProbe {
     mic_available: boolean
@@ -56,7 +58,14 @@
       eula_version: onboarding.eulaVersion || onboarding.daemon?.steps?.eula?.data || 'v1',
       permissions_skipped: onboarding.daemon?.steps?.permissions?.status === 'skipped'
     })
-    if (res) onDone?.(route)
+    if (res) {
+      onDone?.(route)
+      return
+    }
+    // Fail loudly — never leave the user stuck on Ready with a silent no-op.
+    if (!onboarding.error) {
+      onboarding.error = 'Could not finish setup. Try again, or set a hotkey first.'
+    }
   }
 
   function openExternal(url: string): void {
@@ -205,6 +214,10 @@
 
   {#if hotkey}
     <p class="hotkey-note">{t('onboarding.ready.hotkey_note', hotkey)}</p>
+  {/if}
+
+  {#if onboarding.error}
+    <p class="error" role="alert">{onboarding.error}</p>
   {/if}
 
   <div class="actions center">
@@ -370,6 +383,13 @@
     text-align: center;
     color: var(--text-muted);
     font-size: var(--size-sm);
+    margin: 0;
+  }
+
+  .error {
+    color: var(--error, var(--md-halt));
+    font-size: var(--size-sm);
+    text-align: center;
     margin: 0;
   }
 

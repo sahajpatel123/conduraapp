@@ -91,9 +91,10 @@ export class SyncStore {
   /**
    * Fetches both the peer list and the paired-set from
    * the daemon. Called on mount and after every mutation.
+   * quiet: background poll — do not flash the loading empty state.
    */
-  async refresh(): Promise<void> {
-    this.loading = true
+  async refresh(opts?: { quiet?: boolean }): Promise<void> {
+    if (!opts?.quiet) this.loading = true
     this.error = null
     try {
       const [peersRes, pairsRes] = await Promise.all([
@@ -105,9 +106,12 @@ export class SyncStore {
     } catch (e) {
       this.error = String(e)
     } finally {
-      this.loading = false
+      if (!opts?.quiet) this.loading = false
     }
   }
+
+  /** Default PIN ceremony window when daemon omits expires_in (matches engine). */
+  static readonly DEFAULT_PIN_TTL_SEC = 300
 
   /**
    * Starts pairing with the given peer. The daemon mints a
@@ -123,10 +127,11 @@ export class SyncStore {
       const result = await ipc.syncPairBeginTyped(peerId)
       this.pendingPeerId = peerId
       this.pendingPin = result.pin
-      // expires_in is seconds; convert to ISO timestamp
-      // for the GUI's countdown display.
-      const expiresAt = new Date(Date.now() + result.expires_in * 1000)
-      this.pendingExpiresAt = expiresAt.toISOString()
+      // expires_in is seconds; fall back to 5m if missing/NaN so countdown works.
+      const raw = Number(result.expires_in)
+      const sec =
+        Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : SyncStore.DEFAULT_PIN_TTL_SEC
+      this.pendingExpiresAt = new Date(Date.now() + sec * 1000).toISOString()
       return result
     } catch (e) {
       this.error = String(e)
@@ -196,6 +201,27 @@ export class SyncStore {
   }
 
   /**
+   * Pulls and merges state with a paired device that is
+   * currently discoverable on the LAN (sync.sync_with).
+   */
+  async syncWith(
+    deviceId: string
+  ): Promise<{ ok: boolean; merged: number } | null> {
+    this.loading = true
+    this.error = null
+    try {
+      const result = await ipc.syncWith(deviceId)
+      await this.refresh({ quiet: true })
+      return result
+    } catch (e) {
+      this.error = String(e)
+      return null
+    } finally {
+      this.loading = false
+    }
+  }
+
+  /**
    * Returns the peer with the given ID, or null if not
    * found. Used by the GUI to look up peer metadata
    * (name, fingerprint) when displaying the pending
@@ -203,6 +229,11 @@ export class SyncStore {
    */
   peerById(peerId: string): SyncPeer | null {
     return this.peers.find((p) => p.device_id === peerId) ?? null
+  }
+
+  /** True when a paired device is also announcing on the LAN. */
+  isDiscoverable(deviceId: string): boolean {
+    return this.peers.some((p) => p.device_id === deviceId)
   }
 }
 

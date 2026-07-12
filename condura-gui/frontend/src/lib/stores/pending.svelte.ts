@@ -1,54 +1,25 @@
 // Pending sub-agent actions store.
 //
-// Phase 18 (v0.2.0): surfaces the persistent queue of
-// ActionRequests emitted by spawned sub-agents. The user
-// approves or denies each one via the GUI; approved rows
-// flow into the executor (shell.exec or computeruse.*).
+// Surfaces the persistent queue of ActionRequests emitted by spawned
+// sub-agents. The user approves or denies each one via the GUI; approved
+// rows flow into the executor (shell.exec or computeruse.*).
 //
-// v0.2.0 transports updates via polling. SSE wiring for the
-// namespaced `pending_action.*` events is a Phase 18.1
-// follow-on (the daemon already publishes them; the IPC
-// client's typed event list is the blocker).
+// Transport: SSE `pending_action.<status>` (live) + light polling fallback
+// (reconnect gaps / missed events). Daemon publishes on insert/decide/execute.
 import { writable, derived, get } from 'svelte/store'
 import { ipc } from '../ipc/client'
+import type { PendingActionRow, PendingActionStatus } from '../ipc/types'
+import { humanizeIpcError } from '../ipc/errors'
+import { notifications } from './notifications.svelte'
 
-export type PendingStatus =
-  | 'pending'
-  | 'approved'
-  | 'denied'
-  | 'executed'
-  | 'failed'
-  | 'expired'
-  | 'superseded'
+export type PendingStatus = PendingActionStatus
 
-export interface PendingAction {
-  id: string
-  spawn_id: string
-  agent_name: string
-  kind: string
-  payload: {
-    command?: string
-    path?: string
-    body?: string
-    target?: string
-    key?: string
-  }
-  gate_decision: string
-  gate_reason: string
-  status: PendingStatus
-  created_at: string
-  expires_at: string
-  decided_at?: string
-  decided_by?: string
-  decision_note?: string
-  executed_at?: string
-  exit_code: number
-  result: string
-  execution_error?: string
-  duration_ms: number
-}
+export type PendingAction = PendingActionRow
 
 export const pendingActions = writable<PendingAction[]>([])
+
+/** Last refresh failure — empty string when the last list pull succeeded. */
+export const pendingRefreshError = writable<string>('')
 
 /** Currently-decided-by identifier sent with every decide call. */
 let currentActor = 'user:anonymous'
@@ -65,6 +36,37 @@ export const pendingCount = derived(pendingActions, ($rows) =>
   $rows.filter((r) => r.status === 'pending').length,
 )
 
+function normalizeRow(row: PendingActionRow): PendingAction {
+  return {
+    ...row,
+    payload: row.payload ?? {},
+    exit_code: row.exit_code ?? 0,
+    result: row.result ?? '',
+    duration_ms: row.duration_ms ?? 0,
+    agent_name: row.agent_name ?? '',
+    kind: row.kind ?? '',
+    gate_decision: row.gate_decision ?? '',
+    gate_reason: row.gate_reason ?? '',
+    status: row.status ?? 'pending',
+    created_at: row.created_at ?? '',
+    expires_at: row.expires_at ?? '',
+    spawn_id: row.spawn_id ?? '',
+  }
+}
+
+/** Upsert one row from SSE or an RPC response. Newest-first for new ids. */
+export function applyPendingRow(raw: PendingActionRow): void {
+  if (!raw?.id) return
+  const row = normalizeRow(raw)
+  pendingActions.update((list) => {
+    const i = list.findIndex((r) => r.id === row.id)
+    if (i < 0) return [row, ...list]
+    const next = list.slice()
+    next[i] = { ...list[i], ...row }
+    return next
+  })
+}
+
 /**
  * Refresh the entire pending-action list from the daemon.
  * Called on mount, after every user action, and on every
@@ -73,9 +75,14 @@ export const pendingCount = derived(pendingActions, ($rows) =>
 export async function refreshPendingActions(status?: PendingStatus): Promise<void> {
   try {
     const resp = await ipc.delegatePendingList(status)
-    pendingActions.set(resp?.actions ?? [])
+    const rows = (resp?.actions ?? []).map(normalizeRow)
+    pendingActions.set(rows)
+    pendingRefreshError.set('')
   } catch (e) {
     console.error('refresh pending actions failed', e)
+    pendingRefreshError.set(
+      humanizeIpcError(e, 'Daemon offline — pending queue will refresh when Condura reconnects')
+    )
   }
 }
 
@@ -96,11 +103,19 @@ export async function approvePending(
       note,
       auto_run: autoRun,
     })
-    await refreshPendingActions()
-    return updated ?? null
+    if (updated?.id) applyPendingRow(updated)
+    else await refreshPendingActions()
+    return updated ? normalizeRow(updated) : null
   } catch (e) {
+    // Gatekeeper decisions must never look successful when the RPC failed.
     console.error('approve failed', e)
-    return null
+    notifications.push({
+      kind: 'error',
+      title: 'Could not approve action',
+      message: humanizeIpcError(e),
+      sticky: true,
+    })
+    throw e instanceof Error ? e : new Error(String(e))
   }
 }
 
@@ -117,11 +132,18 @@ export async function denyPending(
       note,
       auto_run: false,
     })
-    await refreshPendingActions()
-    return updated ?? null
+    if (updated?.id) applyPendingRow(updated)
+    else await refreshPendingActions()
+    return updated ? normalizeRow(updated) : null
   } catch (e) {
     console.error('deny failed', e)
-    return null
+    notifications.push({
+      kind: 'error',
+      title: 'Could not deny action',
+      message: humanizeIpcError(e),
+      sticky: true,
+    })
+    throw e instanceof Error ? e : new Error(String(e))
   }
 }
 
@@ -132,35 +154,70 @@ export async function denyPending(
 export async function executePending(id: string): Promise<PendingAction | null> {
   try {
     const updated = await ipc.delegatePendingExecute({ id })
-    await refreshPendingActions()
-    return updated ?? null
+    if (updated?.id) applyPendingRow(updated)
+    else await refreshPendingActions()
+    return updated ? normalizeRow(updated) : null
   } catch (e) {
     console.error('execute failed', e)
-    return null
+    notifications.push({
+      kind: 'error',
+      title: 'Could not run action',
+      message: humanizeIpcError(e),
+      sticky: true,
+    })
+    throw e instanceof Error ? e : new Error(String(e))
   }
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollRefCount = 0
+let unsubSSE: (() => void) | null = null
+
+/**
+ * Subscribe to live pending_action SSE. Idempotent. Safe to leave
+ * running for the app lifetime (dock badge).
+ */
+export function startListening(): void {
+  if (unsubSSE) return
+  unsubSSE = ipc.on('pending_action', (row) => {
+    applyPendingRow(row)
+  })
+}
+
+/** Drop the SSE subscription. Prefer leaving it on for the dock badge. */
+export function stopListening(): void {
+  if (!unsubSSE) return
+  unsubSSE()
+  unsubSSE = null
+}
 
 /**
  * Start polling the daemon's pending list every `intervalMs`.
- * The caller is responsible for calling stopPolling()
- * when the panel unmounts. Idempotent.
+ * Ref-counted so Agents page unmount does not kill the global dock poll.
+ * Also attaches SSE for live updates.
  */
 export function startPolling(intervalMs = 5000): void {
+  pollRefCount++
+  startListening()
   if (pollTimer != null) return
-  // Fire one refresh immediately so the panel doesn't sit empty.
   void refreshPendingActions()
   pollTimer = setInterval(() => {
     void refreshPendingActions()
   }, intervalMs)
 }
 
-/** Stop polling. Safe to call when not polling. */
+/**
+ * Release one polling interest. Timer + SSE stay up while any
+ * interest remains (initStores + Agents route).
+ */
 export function stopPolling(): void {
-  if (pollTimer == null) return
-  clearInterval(pollTimer)
-  pollTimer = null
+  pollRefCount = Math.max(0, pollRefCount - 1)
+  if (pollRefCount > 0) return
+  if (pollTimer != null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+  // Keep SSE so a late-arriving sub-agent still lights the dock.
 }
 
 /** Convenience for tests: current snapshot. */

@@ -32,6 +32,14 @@ export default defineConfig(({ command }) => ({
     host: true, // 0.0.0.0 + localhost (::1) — Cursor browser often uses localhost
     port: 5173,
     strictPort: true,
+    // Same-origin proxy so Chromium (Cursor Simple Browser / Playwright)
+    // can reach the daemon. Direct :5173 → :7666 is blocked by Private
+    // Network Access even when CORS reflects Origin.
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:7666', changeOrigin: true },
+      '/events': { target: 'http://127.0.0.1:7666', changeOrigin: true },
+      '/sse-ticket': { target: 'http://127.0.0.1:7666', changeOrigin: true },
+    },
   },
   build: {
     target: 'esnext',

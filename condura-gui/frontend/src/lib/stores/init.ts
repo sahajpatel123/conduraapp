@@ -12,8 +12,28 @@ import { updateStore } from './update.svelte'
 import { overlay } from './overlay.svelte'
 import { trust } from './trust.svelte'
 import { replay } from './replay.svelte'
+import { consent } from './consent.svelte'
+import {
+  startListening as startPendingListening,
+  startPolling as startPendingPolling,
+  refreshPendingActions,
+} from './pending.svelte'
 import { wailsBindings, ipc } from '../ipc/client'
 import { mergeDaemonCatalog } from '../i18n'
+
+/**
+ * After IPC/SSE comes back: resync kill-switch, consent, pending queue,
+ * and the open Ask thread. Prevents "Ready" while daemon is halted, and
+ * recovers assistant text finished offline. Safe on first connect too.
+ */
+export async function resyncAfterReconnect(): Promise<void> {
+  await Promise.allSettled([
+    halt.refresh(),
+    consent.poll(),
+    refreshPendingActions(),
+    conversation.resyncFromDaemon(),
+  ])
+}
 
 export async function initStores(): Promise<void> {
   // Step 1: ask the Wails-side App for the in-process daemon status.
@@ -32,10 +52,17 @@ export async function initStores(): Promise<void> {
     // Wails bindings not available in the browser; fall through.
   }
 
-  // If Wails didn't give us a URL, fall back to localhost:7666
-  // (the default the standalone daemon uses).
+  // If Wails didn't give us a URL:
+  //   - Vite / Cursor Simple Browser (DEV): use same-origin "" so
+  //     /api + /events go through the Vite proxy → :7666. Chromium
+  //     blocks cross-origin private-network fetches (:5173 → :7666).
+  //   - Otherwise fall back to the standalone daemon address.
   if (!baseURL) {
-    baseURL = 'http://127.0.0.1:7666'
+    if (import.meta.env.DEV) {
+      baseURL = ''
+    } else {
+      baseURL = 'http://127.0.0.1:7666'
+    }
   }
 
   // Auth token is read from the daemon's config on first request.
@@ -61,16 +88,32 @@ export async function initStores(): Promise<void> {
   // Step 2: configure + start the IPC client.
   daemon.configure({ baseURL, authToken })
   daemon.start()
+  // Ensure SSE open has begun (started=true) before store RPCs race.
+  // daemon.start is sync until ipc.start's first await; give the microtask
+  // a tick so openSse is in flight before refresh calls.
+  await Promise.resolve()
+  // Register after daemon.start so connected handlers run with connected=true.
+  // First open + every SSE reconnect.
+  ipc.on('connected', () => {
+    void resyncAfterReconnect()
+  })
 
   // Step 3: kick off background stores.
   spend.startPolling()
   halt.startPolling()
   updateStore.startPolling()
+  // Ask / MeridianChat: SSE stream deltas + disconnect cleanup.
+  // Legacy routes/Chat.svelte mounted this; Meridian never did — without
+  // it isStreaming sticks and tokens never render.
+  conversation.startListening()
+  // Sub-agent queue — SSE live + poll fallback; dock badge without visiting Agents.
+  startPendingListening()
+  startPendingPolling(8000)
   overlay.start()
 
   // Step 4: load initial state from the daemon. Tolerate failures
   // (the daemon may be mid-startup); stores will refresh when the
-  // SSE connection comes up.
+  // SSE connection comes up. resyncAfterReconnect also runs on connected.
   try {
     await Promise.allSettled([
       settings.refresh(),
@@ -80,6 +123,7 @@ export async function initStores(): Promise<void> {
       trust.refreshBackups(),
       trust.refreshPermissions(),
       replay.refresh(),
+      halt.refresh(),
       ipc.i18nLocale('en').then((r) => mergeDaemonCatalog('en', r.translations))
     ])
   } catch {

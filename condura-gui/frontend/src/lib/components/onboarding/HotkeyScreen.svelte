@@ -3,7 +3,7 @@
   import { onboarding } from '../../stores/onboarding.svelte'
   import Button from '../ui/Button.svelte'
   import Kbd from '../ui/Kbd.svelte'
-  import { t } from '../../i18n'
+  import { catalogVersion, t } from '../../i18n'
 
   // Pre-fill from any previously recorded value (e.g. user went
   // back from the Ready screen). No silent default per locked
@@ -39,6 +39,8 @@
   }
 
   const canContinue = $derived(!!combo && !onboarding.busy)
+  // Re-render after late daemon/static catalog merges.
+  const _catalog = $derived($catalogVersion)
 </script>
 
 <div class="wizard hotkey">

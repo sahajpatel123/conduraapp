@@ -57,8 +57,12 @@ type EventMap = {
   halt: [HaltState]
   spend_warning: [SpendSummary]
   audit: [AuditEvent]
+  // Gatekeeper consent ticket (daemon: safety.consent.request).
+  consent: [import('./types').ConsentTicket]
   // Raw stream events from the SSE channel.
   stream: [import('./types').StreamEvent]
+  // Sub-agent pending ActionRequest lifecycle (daemon: pending_action.<status>).
+  pending_action: [import('./types').PendingActionRow]
 }
 
 type EventName = keyof EventMap
@@ -70,6 +74,7 @@ class TypedEmitter extends EventEmitter<EventMap> {}
 class IPCClient {
   private emitter = new TypedEmitter()
   private baseURL = ''
+  private started = false
   private authToken = ''
   private nextId = 1
   private connected = false
@@ -81,10 +86,15 @@ class IPCClient {
   /**
    * Configure and start the IPC client. Must be called before any
    * call() / on() can succeed.
+   *
+   * baseURL may be "" for same-origin Vite proxy mode (dev browser
+   * previews): /api and /events hit the page origin, which proxies
+   * to the daemon. Empty is intentional — not "unstarted".
    */
   async start(opts: { baseURL: string; authToken: string }): Promise<void> {
     this.baseURL = opts.baseURL.replace(/\/$/, '')
     this.authToken = opts.authToken
+    this.started = true
     await this.openSse()
   }
 
@@ -93,6 +103,7 @@ class IPCClient {
    */
   stop(): void {
     this.connected = false
+    this.started = false
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
@@ -101,6 +112,21 @@ class IPCClient {
       this.sse.close()
       this.sse = null
     }
+  }
+
+  /** Origin for absolute URLs (SSE / ticket). Empty baseURL → page origin. */
+  private resolveOrigin(): string {
+    if (this.baseURL) return this.baseURL
+    if (typeof globalThis !== 'undefined') {
+      const loc = (globalThis as { location?: { origin?: string } }).location
+      if (loc?.origin) return loc.origin
+    }
+    return 'http://127.0.0.1:5173'
+  }
+
+  /** RPC endpoint path — relative when baseURL is "" (Vite proxy). */
+  private apiEndpoint(): string {
+    return this.baseURL ? `${this.baseURL}/api` : '/api'
   }
 
   // ---- Event subscription ----
@@ -122,7 +148,9 @@ class IPCClient {
   // ---- Core RPC call ----
 
   async call<T = unknown>(method: string, params?: unknown): Promise<T> {
-    if (!this.baseURL) {
+    // started=true with baseURL "" is valid (same-origin proxy).
+    // Tests may set baseURL without start(); allow that too.
+    if (!this.started && !this.baseURL) {
       throw new Error('IPC client not started; call start() first')
     }
     const id = this.nextId++
@@ -132,7 +160,7 @@ class IPCClient {
       params,
       id
     }
-    const res = await fetch(`${this.baseURL}/api`, {
+    const res = await fetch(this.apiEndpoint(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -212,6 +240,9 @@ class IPCClient {
   conversationsDelete(id: number): Promise<void> {
     return this.call<void>('conversations.delete', { id })
   }
+  conversationsRename(id: number, title: string): Promise<ConversationMeta> {
+    return this.call<ConversationMeta>('conversations.rename', { id, title })
+  }
   conversationsAppend(p: ConversationAppendParams): Promise<void> {
     return this.call<void>('conversations.append', p)
   }
@@ -286,6 +317,18 @@ class IPCClient {
   }
   overlayHide(): Promise<void> {
     return this.call<void>('overlay.hide', {})
+  }
+
+  // Presence = overlay lifecycle (summon / dismiss / state).
+  // overlay.svelte.ts syncs active chrome from presenceState on connect.
+  presenceState(): Promise<import('./types').PresenceStateResult> {
+    return this.call('presence.state', {})
+  }
+  presenceSummon(): Promise<{ ok: boolean }> {
+    return this.call('presence.summon', {})
+  }
+  presenceDismiss(): Promise<{ ok: boolean }> {
+    return this.call('presence.dismiss', {})
   }
   trayUpdate(p: { spend?: SpendSummary; active_conversation?: ConversationMeta; status?: 'ok' | 'degraded' | 'down' }): Promise<void> {
     return this.call<void>('tray.update', p)
@@ -423,6 +466,11 @@ class IPCClient {
   }
   skillsDelete(id: string): Promise<{ ok: boolean }> {
     return this.call('skills.delete', { id })
+  }
+  skillsCreate(
+    params: import('./types').SkillCreateParams
+  ): Promise<import('./types').InstalledSkill> {
+    return this.call('skills.create', params)
   }
 
   // Phase 12 — P2P Sync
@@ -589,6 +637,54 @@ class IPCClient {
     return this.call('channels.status', { channel })
   }
 
+  // ----- Delegation bus (spawn + pending queue) -----
+  delegateListAgents(): Promise<{ agents: import('./types').DelegateAgentInfo[] }> {
+    return this.call('delegate.list_agents', {})
+  }
+  delegateListSpawns(): Promise<{ running: import('./types').DelegateRunningSpawn[] }> {
+    return this.call('delegate.list_spawns', {})
+  }
+  delegateSpawn(p: {
+    agent_name: string
+    task: string
+    model?: string
+    depth?: number
+    budget?: number
+  }): Promise<import('./types').DelegateSpawnResult> {
+    return this.call('delegate.spawn', p)
+  }
+  delegateCancel(spawnId: string): Promise<{ ok: boolean }> {
+    return this.call('delegate.cancel', { spawn_id: spawnId })
+  }
+
+  // ----- Phase 18: pending sub-agent ActionRequests -----
+  // Meridian Agents (control room) + dock badge + PendingActions.svelte
+  // call these; without them approve/deny/run is a TypeError at runtime.
+  delegatePendingList(
+    status?: import('./types').PendingActionStatus | string,
+    limit = 50
+  ): Promise<import('./types').PendingActionListResult> {
+    const params: { status?: string; limit: number } = { limit }
+    if (status) params.status = status
+    return this.call('delegate.pending.list', params)
+  }
+  delegatePendingGet(id: string): Promise<import('./types').PendingActionRow> {
+    return this.call('delegate.pending.get', { id })
+  }
+  delegatePendingDecide(
+    p: import('./types').PendingDecideParams
+  ): Promise<import('./types').PendingActionRow> {
+    return this.call('delegate.pending.decide', p)
+  }
+  delegatePendingExecute(p: {
+    id: string
+  }): Promise<import('./types').PendingActionRow> {
+    return this.call('delegate.pending.execute', p)
+  }
+  delegatePendingSweep(): Promise<{ swept: number }> {
+    return this.call('delegate.pending.sweep', {})
+  }
+
   // ---- SSE transport ----
 
   private async openSse(): Promise<void> {
@@ -596,7 +692,7 @@ class IPCClient {
       this.sse.close()
       this.sse = null
     }
-    const url = new URL(this.baseURL)
+    const url = new URL(this.resolveOrigin())
     url.protocol = url.protocol === 'https:' ? 'https:' : 'http:'
     url.pathname = '/events'
     this.sseURL = url.toString()
@@ -608,7 +704,7 @@ class IPCClient {
     // out of URLs, server logs, and browser history.
     if (this.authToken) {
       try {
-        const ticketUrl = new URL(this.baseURL)
+        const ticketUrl = new URL(this.resolveOrigin())
         ticketUrl.protocol = ticketUrl.protocol === 'https:' ? 'https:' : 'http:'
         ticketUrl.pathname = '/sse-ticket'
         const resp = await fetch(ticketUrl.toString(), {
@@ -654,7 +750,7 @@ class IPCClient {
     })
 
     // Named event types (the daemon can also use named events).
-    const namedEvents = ['halt', 'spend_warning', 'audit', 'stream']
+    const namedEvents = ['halt', 'spend_warning', 'audit', 'stream', 'consent']
     for (const name of namedEvents) {
       es.addEventListener(name, (ev: MessageEvent) => {
         try {
@@ -665,6 +761,26 @@ class IPCClient {
         }
       })
     }
+
+    // Gatekeeper consent: daemon publishes safety.consent.request with ticket fields.
+    es.addEventListener('safety.consent.request', (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data) as import('./types').ConsentTicket
+        if (data && typeof data === 'object' && data.nonce) {
+          this.emitter.emit('consent', {
+            nonce: data.nonce,
+            action_kind: data.action_kind ?? '',
+            actor: data.actor ?? '',
+            detail: data.detail ?? '',
+            created_at: data.created_at ?? '',
+            expires_at: data.expires_at ?? '',
+            approved: !!data.approved,
+          })
+        }
+      } catch {
+        // ignore
+      }
+    })
 
     // Stream events published under namespaced names by the daemon's
     // stream manager (stream.started, stream.delta, stream.finished,
@@ -696,6 +812,30 @@ class IPCClient {
         }
       })
     }
+
+    // Pending ActionRequest lifecycle (delegation_wiring publishPendingEvent /
+    // processOneActionRequest). Remap pending_action.<status> → pending_action.
+    const pendingLifecycle = [
+      'pending_action.pending',
+      'pending_action.approved',
+      'pending_action.denied',
+      'pending_action.executed',
+      'pending_action.failed',
+      'pending_action.expired',
+      'pending_action.superseded',
+    ]
+    for (const name of pendingLifecycle) {
+      es.addEventListener(name, (ev: MessageEvent) => {
+        try {
+          const data = JSON.parse(ev.data) as import('./types').PendingActionRow
+          if (data && typeof data === 'object' && data.id) {
+            this.emitter.emit('pending_action', data)
+          }
+        } catch {
+          // ignore
+        }
+      })
+    }
   }
 
   private handleServerEvent(data: unknown): void {
@@ -704,6 +844,26 @@ class IPCClient {
     // or a raw params object.
     if (typeof data === 'object' && data !== null && 'method' in data) {
       const evt = data as { method: string; params: unknown }
+      if (
+        typeof evt.method === 'string' &&
+        (evt.method === 'safety.consent.request' || evt.method === 'consent')
+      ) {
+        const data = evt.params as import('./types').ConsentTicket
+        if (data && typeof data === 'object' && data.nonce) {
+          this.emitter.emit('consent', data)
+        }
+        return
+      }
+      if (
+        typeof evt.method === 'string' &&
+        evt.method.startsWith('pending_action')
+      ) {
+        const row = evt.params as import('./types').PendingActionRow
+        if (row && typeof row === 'object' && row.id) {
+          this.emitter.emit('pending_action', row)
+        }
+        return
+      }
       const allowed: EventName[] = ['halt', 'spend_warning', 'audit', 'stream']
       if (allowed.includes(evt.method as EventName)) {
         // Pass params through; the consumer decides shape.
@@ -738,8 +898,11 @@ declare global {
     go?: {
       main?: {
         App?: {
-          Ping: (name: string) => Promise<string>
-          DaemonStatus: () => Promise<{ ready: boolean; addr: string }>
+          Ping?: (name: string) => Promise<string>
+          DaemonStatus?: () => Promise<{ ready: boolean; addr: string }>
+          OpenQuickPrompt?: () => Promise<void>
+          CloseQuickPrompt?: () => Promise<void>
+          ToggleQuickPrompt?: () => Promise<void>
         }
       }
     }
