@@ -1621,3 +1621,85 @@ Extended review to the DeepSeek-session changes (dependabot.yml, .npmrc files, `
 ### Status
 
 **🟢 All 12 findings addressed or explicitly tracked. Build + vet + new tests green. Pending: commit + push + CI verification.**
+
+---
+
+## [2026-07-12] AI Model: GLM 5.2 by Z.ai (Claude Code)
+**Session ID:** backend-audit-fixes-2026-07-12
+**Branch:** main @ 52d9d78 (HEAD after the user's parallel commits landed mid-session)
+**Task:** Backend deep-dive + honest audit + fix Tier-1 bugs without touching frontend/UI. Found 3 false positives in my own audit; honest retraction included below.
+
+### Deep-dive deliverables (not edits, just knowledge)
+- Refreshed `condura-mind/synapse/understanding.md` to the 2026-07-12 reality (post-reorg paths, Meridian GUI reality, v0.1.1 ship state, 23 known drifts).
+- Wrote 5 new memory files (`synaptic-actual-layout-2026-07-12`, `synaptic-gui-three-generations`, `synaptic-stashes-and-worktrees`, `synaptic-known-flakes-and-locks`, `synaptic-active-branches-and-tags`) so future sessions don't repeat the path-drift / WIP-stash / Meridian-vs-legacy mistakes.
+- Total backend footprint measured: 85,341 LOC of non-test Go + 33,493 LOC of test Go across 60 packages. 133 unique RPC method strings registered (`internal/daemon/methods*.go`).
+
+### Tier-1 fixes shipped (in working tree, awaiting human commit)
+1. **§1.1 root cause: `subs.Executor` always constructed when gatekeeper is wired.**
+   - `condura-app/internal/daemon/subsystems.go:982-998` — changed `if cuComps != nil { subs.Executor = executor.New(...) }` to `if gate != nil { var cu executor.Resolver; if cuComps != nil { cu = cuComps.resolver }; subs.Executor = executor.New(gate, cu) }`. Shell-only mode (no LLM provider) now has a real Executor that handles `shell.exec` via `exec.CommandContext` and returns a clean error for `computeruse.*` kinds.
+   - `condura-app/internal/daemon/delegation_wiring.go:266-280` — replaced `subs.Executor != nil` guard with an explicit "should never happen post-§1.1" fail-safe that returns `ipc.CodeInternalError` instead of silently skipping AutoRun.
+   - **Orthogonal to commit 52d9d78** (which the user landed mid-session via Cursor): 52d9d78 added a fail-loud IPC error for the same nil path; my fix removes the *root cause* (Executor always constructed). Both can coexist — the §1.1 root-cause fix makes the fail-loud branch unreachable in normal operation but keeps it as a defense-in-depth trip.
+   - Regression test: `condura-app/internal/executor/executor_test.go` `TestExecutor_New_NilCU_ShellOnlyDispatch` (new, 78 lines). Passes.
+
+2. **§1.6: `Subsystems.Close()` is idempotent under panic + double-signal.**
+   - `condura-app/internal/daemon/subsystems.go` — added `closeOnce syncstd.Once` + `closeDatabasesOnce syncstd.Once` fields, wrapped `Close()` and `CloseDatabases()` bodies in `s.closeOnce.Do(...)` / `s.closeDatabasesOnce.Do(...)`. Aliased stdlib `sync` as `syncstd` to avoid colliding with the project's `internal/sync` package import on line 56.
+   - `condura-app/internal/daemon/subsystems_close_test.go` (new, ~160 lines) — four tests:
+     - `TestSubsystems_Close_Idempotent` — second Close() returns nil, closer invoked exactly once
+     - `TestSubsystems_Close_ConcurrentRace` — 64 concurrent Close() goroutines, closer invoked exactly once
+     - `TestSubsystems_CloseDatabases_Idempotent` — independent idempotency for the backup.restore path
+     - `TestSubsystems_CloseAndCloseDatabases_Independent` — Close() still works after CloseDatabases() (and vice versa)
+   - All four pass under `-race`.
+
+### Tier-1 fix shipped **by the user independently** (during this session)
+3. **§1.3: `InProcessGuard.Resume` preserves runtime allow-list.** Landed in commit `37027b4` (co-authored with Cursor) — `condura-app/internal/halt/network.go:89-204` adds `frozenAllowList` snapshot-on-Halt and restore-on-Resume semantics. My local edits to the same file were identical to the committed version; the test file `condura-app/internal/halt/network_test.go` was also updated by the user's commit. No further action needed — regression coverage already in HEAD.
+
+### Tier-1 audit findings **retracted** (honest corrections)
+While writing the fixes, I dug deeper and found three of my own audit claims were wrong:
+- **§1.4 (audit HMAC concurrent-append torn chain)** — RETRACTED. `audit.Log.Append` holds `l.mu.Lock()` from start to finish (see `condura-app/internal/audit/log.go:386-466`). The prev_hash read happens inside the lock. No race. Sorry.
+- **§1.5 (gatekeeper workspace-trust map race)** — RETRACTED. `gatekeeper.Engine.applyWorkspaceTrust` only *reads* `e.TrustHook`; there is no `workspaceOverrides` map in the current code (I misremembered the field). The mutex state is fine.
+- **§2.3 (raw `go func()` in production code)** — RETRACTED. The only raw `go func()` in non-test production files is `safego.go:16` (the safego implementation itself). Everything else uses `safego.Go` (42 call sites). The migration is already complete.
+
+The audit doc at `condura-mind/synapse/understanding.md` does not list these as open issues — only §1.1, §1.3, §1.6 were carried forward to the fix list.
+
+### Verification (Tier 1 + Tier 2)
+- `go build ./...` — exit 0, no output.
+- `go vet ./condura-app/...` — clean (only pre-existing macOS deprecation warnings from `computeruse/backends/orax_darwin.go` / `maccua_darwin.go`, unrelated to this session).
+- `go test -count=1 -race -short -timeout 300s ./condura-app/internal/...` — **all 60 packages green**, including the three I changed (`halt`, `executor`, `daemon`).
+- New regression tests confirmed: `TestExecutor_New_NilCU_ShellOnlyDispatch`, `TestSubsystems_Close_Idempotent`, `TestSubsystems_Close_ConcurrentRace`, `TestSubsystems_CloseDatabases_Idempotent`, `TestSubsystems_CloseAndCloseDatabases_Independent` all pass under `-race`.
+- The 4 new halt tests for §1.3 (`TestInProcessGuard_ResumePreservesRuntimeAllowHost`, `TestInProcessGuard_ResumePreservesRuntimeDeny`, `TestInProcessGuard_DoubleHaltDoesNotOverwriteSnapshot`, `TestInProcessGuard_ResumeWithoutHaltIsNoOp`) were in my working tree but became identical-to-HEAD once the user committed 37027b4 — already green in CI.
+
+### Working tree state (NOT YET COMMITTED — human review)
+```
+M  condura-app/internal/daemon/subsystems.go          (81 lines: §1.1 + §1.6)
+M  condura-app/internal/executor/executor_test.go     (78 lines added: §1.1 test)
+?? condura-app/internal/daemon/subsystems_close_test.go  (~160 lines: §1.6 tests)
+```
+Plus the pre-existing user-side M-staged files (MeridianArc.svelte, MeridianShell.svelte, AGENTS.md) and the `.cursor/` directory.
+
+Recommended commit shape (one commit per logical change per STYLE.md §10):
+1. `fix(daemon): always construct subs.Executor when gatekeeper is wired (closes §1.1)`
+2. `fix(daemon): make Subsystems.Close idempotent under double-signal (closes §1.6)`
+
+Both should carry `Co-Authored-By: GLM <noreply@z.ai>` per the project's byline-truth convention.
+
+### Tier-1 items explicitly NOT fixed in this session
+- **§1.2 (addr-file fsync)** — defer; the addr file is recreated from scratch on every daemon start, so a torn write at worst causes a one-shot connection-refused on the GUI side, which retries with backoff. Net risk low.
+- **§1.7 (CloseDatabases idempotency under partial-failure recovery)** — actually fixed in §1.6 (closeDatabasesOnce) but the test for partial-failure isn't written; covered by `TestSubsystems_CloseDatabases_Idempotent` only in the happy-path case.
+
+### Next steps (priority order)
+1. Human: review the 3-file diff above; commit when satisfied (suggested split above).
+2. CI: verify the commit on a real macOS dev box (Tier-3, per STYLE.md §0).
+3. v0.1.1 close-out batch: the Meridian GUI refinements + i18n edits in the working tree are independent of this session.
+4. Phase 15 on-device verification is the human's gate before public v0.1.1 launch (per `docs/phase15-verification.md`).
+
+### Retained from the earlier audit (not addressed, not retracted — real but lower priority)
+- §2.1 (133-method RPC surface has no per-method auth)
+- §2.4 (master key not machine-bound)
+- §2.5 (Subsystems god-struct, methods file naming)
+- §2.6 (no rate-limiting on RPC)
+- §2.7 (god struct)
+- §2.8 (voice integration tests missing)
+- §2.9 (delegation has no filesystem sandbox)
+- §2.10 (CLI bypasses presence checks)
+
+These are documented in the user's audit conversation (next-message ask). Will pick up by severity in a follow-up session if asked.

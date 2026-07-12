@@ -219,6 +219,8 @@ Use this decision framework when assigning a task:
 
 6. **Leverage strengths for weak spots.** If you're unsure about a domain (e.g., security), always include the specialist agent as a second pass, even if another agent did the initial work.
 
+7. **Shell hygiene (mandatory).** Subagents must not leave forever-servers as “tasks to await.” Reuse Vite (`:5173`) and `condurad` (`:7666`) when already listening; start at most one of each; never wait for those PIDs to exit. Kill hung installers (`playwright install`, stuck `npx`). Prefer browser MCP for screenshots. Project rule: `.cursor/rules/agent-shell-hygiene.mdc`. Skill: `.cursor/skills/shell-hygiene/SKILL.md`.
+
 ---
 
 ## 6. Maintenance
@@ -232,4 +234,4 @@ This file should be updated when:
 
 Keep descriptions accurate and concise. The goal is a living reference that remains genuinely useful over time — not a document that drifts from reality.
 
-**Last updated**: 2026-06-23
+**Last updated**: 2026-07-12
