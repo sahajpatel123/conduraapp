@@ -258,8 +258,8 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 11px;
-    border-radius: 999px;
+    padding: 6px 10px;
+    border-radius: 7px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-surface) 70%, transparent);
   }
@@ -270,14 +270,14 @@
   }
   .pipe .t {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 650;
     color: var(--md-ink-soft);
   }
   .plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    padding: 24px;
+    background: var(--md-surface);
+    padding: 20px;
     max-width: 640px;
   }
   .cite,
@@ -297,17 +297,17 @@
     margin-bottom: 14px;
   }
   .avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     font-family: var(--md-font-display);
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--md-cobalt);
-    background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 10%, var(--md-stage));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
   }
   h2 {
     font-family: var(--md-font-display);
@@ -336,22 +336,19 @@
   .door {
     appearance: none;
     text-align: left;
-    border: 1px solid var(--md-line-strong);
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
-    border-radius: 18px;
-    padding: 16px 16px 18px;
+    border-radius: 10px;
+    padding: 14px 14px 16px;
     cursor: pointer;
     display: grid;
     gap: 6px;
     color: inherit;
-    transition:
-      border-color 180ms var(--md-ease),
-      transform 180ms var(--md-spring),
-      box-shadow 180ms var(--md-ease);
+    transition: border-color 140ms var(--md-ease), background 140ms var(--md-ease);
   }
   .door strong {
     font-family: var(--md-font-display);
-    font-size: 17px;
+    font-size: 16px;
     letter-spacing: -0.03em;
   }
   .door > span:not(.door-k):not(.cta) {
@@ -360,9 +357,8 @@
     color: var(--md-ink-mute);
   }
   .door:hover {
-    border-color: var(--md-cobalt);
-    transform: translateY(-2px);
-    box-shadow: var(--md-shadow);
+    border-color: var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-surface) 70%, var(--md-stage));
   }
   .door:focus-visible {
     outline: none;
@@ -370,8 +366,8 @@
     border-color: var(--md-cobalt);
   }
   .door.primary {
-    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
-    border-color: color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 6%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
   }
   .cta {
     margin-top: 8px;
@@ -394,9 +390,7 @@
     cursor: default;
   }
   .door.secondary:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--md-line-strong);
+    border-color: var(--md-line);
   }
   .passport {
     display: flex;
@@ -409,23 +403,19 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 9px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 8px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--md-line);
     background: var(--md-surface);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 650;
     cursor: pointer;
     color: var(--md-ink);
-    transition:
-      border-color 180ms var(--md-ease),
-      transform 160ms var(--md-spring),
-      box-shadow 180ms var(--md-ease);
+    transition: border-color 140ms var(--md-ease), background 140ms var(--md-ease);
   }
   .provider:hover:not(:disabled) {
-    border-color: var(--md-cobalt);
-    transform: translateY(-1px);
-    box-shadow: var(--md-shadow);
+    border-color: var(--md-line-strong);
+    background: color-mix(in oklab, var(--md-stage) 50%, var(--md-surface));
   }
   .provider:disabled {
     opacity: 0.6;

@@ -680,7 +680,7 @@
     }
     .stage {
       margin: 0 8px;
-      border-radius: 22px 22px 0 0;
+      border-radius: 14px 14px 0 0;
       padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     }
   }

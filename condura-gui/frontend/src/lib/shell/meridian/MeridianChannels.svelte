@@ -422,9 +422,7 @@
     align-items: center;
     gap: 8px;
     padding: 7px 11px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 70%, transparent);
+    border-radius: 7px;
   }
   .pipe .n {
     font-family: var(--md-font-mono);
@@ -574,7 +572,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: 6px;
     border: 1px solid var(--md-line);
     color: var(--md-ink-faint);
     background: var(--md-surface);

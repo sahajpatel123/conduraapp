@@ -227,18 +227,16 @@
     top: 14vh;
     left: 50%;
     width: min(520px, calc(100vw - 32px));
-    background: color-mix(in oklab, var(--md-surface) 96%, transparent);
-    border: 1px solid var(--md-line-strong);
-    border-radius: 20px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-radius: 12px;
     z-index: 81;
     overflow: hidden;
-    backdrop-filter: blur(18px) saturate(1.15);
-    -webkit-backdrop-filter: blur(18px) saturate(1.15);
-    box-shadow:
-      var(--md-shadow-lift),
-      0 1px 0 color-mix(in oklab, #fff 45%, transparent) inset;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--md-shadow);
     transform: translateX(-50%);
-    animation: md-palette 320ms var(--md-spring) both;
+    animation: md-palette 280ms var(--md-ease) both;
   }
   .jump-cite {
     margin: 0;
@@ -311,7 +309,7 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     padding: 2px 6px;
-    border-radius: 999px;
+    border-radius: 5px;
     border: 1px solid var(--md-line);
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 8%, transparent);

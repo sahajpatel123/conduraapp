@@ -106,13 +106,13 @@
     top: 50%;
     width: min(420px, calc(100vw - 32px));
     background: var(--md-surface);
-    border: 1px solid color-mix(in oklab, var(--md-halt) 32%, var(--md-line-strong));
-    border-radius: 24px;
-    padding: 30px 28px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
+    border-radius: 12px;
+    padding: 24px 22px;
     z-index: 96;
     text-align: center;
-    box-shadow: var(--md-shadow-lift);
-    animation: md-pop 380ms var(--md-spring) both;
+    box-shadow: var(--md-shadow);
+    animation: md-pop 280ms var(--md-ease) both;
     transform: translate(-50%, -50%);
   }
   .pulse {

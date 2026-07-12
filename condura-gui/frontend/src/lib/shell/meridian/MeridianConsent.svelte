@@ -136,18 +136,15 @@
     top: 50%;
     width: min(440px, calc(100vw - 32px));
     transform: translate(-50%, -50%);
-    background: color-mix(in oklab, var(--md-surface) 97%, transparent);
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line-strong));
-    border-radius: 22px;
-    padding: 28px;
+    background: var(--md-surface);
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
+    border-radius: 12px;
+    padding: 22px;
     z-index: 91;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow:
-      var(--md-shadow-lift),
-      0 0 0 1px color-mix(in oklab, var(--md-cobalt) 8%, transparent),
-      0 1px 0 color-mix(in oklab, #fff 45%, transparent) inset;
-    animation: md-pop 360ms var(--md-spring) both;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--md-shadow);
+    animation: md-pop 280ms var(--md-ease) both;
   }
   .kicker {
     font-family: var(--md-font-mono);
