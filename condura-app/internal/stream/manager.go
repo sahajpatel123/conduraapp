@@ -284,7 +284,7 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 			if errors.Is(err, ErrSpendCap) {
 				return "", err
 			}
-			return "", fmt.Errorf("%w: %v", ErrSpendCap, err)
+			return "", fmt.Errorf("%w: %w", ErrSpendCap, err)
 		}
 	}
 
