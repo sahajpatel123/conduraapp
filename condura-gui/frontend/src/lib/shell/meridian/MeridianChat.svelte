@@ -1146,14 +1146,14 @@
   }
   .setup-chip {
     appearance: none;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 30%, var(--md-line));
-    background: color-mix(in oklab, var(--md-cobalt) 10%, var(--md-surface));
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
     color: var(--md-cobalt);
     font-family: var(--md-font-mono);
     font-size: 11px;
     letter-spacing: 0.04em;
-    padding: 6px 10px;
-    border-radius: 999px;
+    padding: 5px 9px;
+    border-radius: 7px;
     cursor: pointer;
   }
   .setup-chip:hover {
@@ -1196,16 +1196,10 @@
     line-height: 1.05;
     margin: 0 0 12px;
     animation: md-rise 520ms var(--md-ease) 40ms both;
-    background: linear-gradient(105deg, var(--md-ink) 0%, color-mix(in oklab, var(--md-ink) 70%, var(--md-cobalt)) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--md-ink);
   }
   .hero.calm h1 {
     color: var(--md-ink);
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
   }
   .sub {
     margin: 0 0 14px;
@@ -1998,19 +1992,14 @@
   }
   .composer.focused,
   .composer.ready.focused {
-    transform: translateY(-2px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 55%, var(--md-line-strong));
-    box-shadow:
-      var(--md-focus),
-      var(--md-shadow-lift),
-      0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+    transform: none;
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line));
+    box-shadow: var(--md-focus);
     background: var(--md-surface);
   }
   .composer[data-tone='ready']:not(.focused) {
-    box-shadow:
-      var(--md-shadow),
-      0 0 0 1px color-mix(in oklab, var(--md-cobalt) 12%, transparent),
-      0 1px 0 color-mix(in oklab, #fff 45%, transparent) inset;
+    box-shadow: none;
+    border-color: color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
   }
   .input {
     width: 100%;
@@ -2071,13 +2060,7 @@
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7A90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
       no-repeat right 10px center;
     padding: 6px 28px 6px 10px;
-    border-radius: 999px;
-    font-family: var(--md-font-mono);
-    font-size: 11px;
-    color: var(--md-ink-soft);
-    outline: none;
-  }
-  .model select:focus-visible {
+    border-radius: 8px;
     border-color: var(--md-cobalt);
     box-shadow: var(--md-focus);
   }
