@@ -124,6 +124,20 @@ func registerDelegationMethods(srv *ipc.Server, subs *Subsystems) {
 		return map[string]any{"agents": agents}, nil
 	})
 
+	// Running spawn IDs for the Agents panel "in flight" list.
+	// Spawns are short-lived; empty is the common case.
+	srv.Register("delegate.list_spawns", func(_ context.Context, _ json.RawMessage) (any, error) {
+		ids := subs.Delegation.ListActive()
+		running := make([]map[string]any, 0, len(ids))
+		for _, id := range ids {
+			running = append(running, map[string]any{
+				"spawn_id": id,
+				"state":    "running",
+			})
+		}
+		return map[string]any{"running": running}, nil
+	})
+
 	srv.Register("delegate.cancel", func(_ context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			SpawnID string `json:"spawn_id"`
@@ -187,6 +201,11 @@ func pendingList(subs *Subsystems, params json.RawMessage) (any, error) {
 	rows, err := subs.Pending.List(context.Background(), pending.Status(p.Status), p.Limit)
 	if err != nil {
 		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	}
+	// Never JSON-encode a nil slice as "actions":null — GUI clients treat
+	// null as a hard empty, but a stable [] keeps contract tests simple.
+	if rows == nil {
+		rows = []*pending.Action{}
 	}
 	return map[string]any{"actions": rows}, nil
 }

@@ -231,6 +231,9 @@ func TestGatedRunner_CancelUnknown(t *testing.T) {
 	cfg := DefaultConfig()
 	l := NewLimiter(cfg, nil)
 	g := NewGatedRunner(cfg, allowGate{}, l)
+	if ids := g.ListActive(); len(ids) != 0 {
+		t.Errorf("ListActive on empty runner = %v, want []", ids)
+	}
 	if g.Cancel("spawn-999") {
 		t.Fatal("cancel of unknown spawn_id must return false")
 	}

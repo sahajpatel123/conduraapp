@@ -4,6 +4,7 @@
 package daemon
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -15,6 +16,11 @@ func TestTrustE2E_HubSearchRequiresConfiguration(t *testing.T) {
 	_, err := trustCallRPC(t, addr, "hub.search", map[string]any{"query": "test", "limit": 10})
 	if err == nil {
 		t.Fatalf("expected error when hub not configured")
+	}
+	// Default config enables hub; CI may return unreachable instead of not configured.
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, errHubNotConfigured) && !strings.Contains(errMsg, errHubUnreachable) {
+		t.Fatalf("expected hub configuration error, got: %v", err)
 	}
 }
 

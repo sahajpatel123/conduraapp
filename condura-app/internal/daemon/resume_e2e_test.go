@@ -62,7 +62,7 @@ func newFakeIPCHaltBus(t *testing.T) *fakeIPCHaltBus {
 	}
 	auditLog := audit.New(db, []byte("test-hmac-secret-32-bytes-pad")) //nolint:gosec // test secret; not security-sensitive
 	srv := ipc.NewServer()
-	registerHaltMethods(srv, haltFlag, auditLog, nil, guard, tickets, secret)
+	registerHaltMethods(srv, haltFlag, auditLog, nil, guard, tickets, secret, nil)
 
 	// Construct the transport directly (matches internal/daemon/ipc.go's
 	// newServerTransport pattern). Listen on a random localhost TCP port.
@@ -215,7 +215,7 @@ func TestResumeIPC_DeprecationShim(t *testing.T) {
 		t.Fatal("daemon.resume (deprecated) must return an error pointing at the new flow")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "daemon.resume_request") || !strings.Contains(msg, "condura resume --confirm") {
+	if !strings.Contains(msg, "daemon.resume_request") || !strings.Contains(msg, "condura resume confirm --ticket") {
 		t.Fatalf("deprecation error must mention both new flow names; got %q", msg)
 	}
 	// The deprecated path must NOT flip halted state (bus starts not-halted).

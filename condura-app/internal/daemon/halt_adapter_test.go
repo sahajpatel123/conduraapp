@@ -40,7 +40,7 @@ func (f *fakeGuard) State() halt.GuardState { return halt.GuardState{Halted: f.h
 func TestGuardAwareHaltFlag_HaltTogglesGuard(t *testing.T) {
 	hf := halt.New(testDB(t))
 	g := &fakeGuard{}
-	adapter := guardAwareHaltFlag{flag: hf, guard: g}
+	adapter := guardAwareHaltFlag{flag: hf, guard: g, broker: nil}
 
 	st, err := adapter.Halt(context.Background(), "watchdog fired")
 	if err != nil {
@@ -92,5 +92,46 @@ func TestGuardAwareHaltFlag_IsHaltedForwards(t *testing.T) {
 	}
 	if !adapter.IsHalted() {
 		t.Fatal("should be halted after Halt")
+	}
+}
+
+// TestRearmNetGuardIfHalted_RestoresLayer3 documents Survival Rule /
+// 24/7: sticky halt on disk must re-arm the in-process NetGuard so
+// restart cannot re-open LLM egress while still halted.
+func TestRearmNetGuardIfHalted_RestoresLayer3(t *testing.T) {
+	db := testDB(t)
+	hf := halt.New(db)
+	if _, err := hf.Halt(context.Background(), "crash mid-halt"); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate restart: new flag from same DB, new open guard.
+	hf2 := halt.New(db)
+	if err := hf2.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !hf2.IsHalted() {
+		t.Fatal("halt flag should still be sticky after Refresh")
+	}
+	g := halt.NewInProcessGuard()
+	if !g.Allow("api.openai.com") {
+		t.Fatal("fresh guard should allow providers before re-arm")
+	}
+	rearmNetGuardIfHalted(hf2, g, nil)
+	if g.Allow("api.openai.com") {
+		t.Fatal("after re-arm, allow-listed hosts must still be denied")
+	}
+	if !g.State().Halted {
+		t.Fatal("guard State.Halted should be true")
+	}
+}
+
+// TestRearmNetGuardIfHalted_NoOpWhenNotHalted ensures boot without halt
+// does not lock the network.
+func TestRearmNetGuardIfHalted_NoOpWhenNotHalted(t *testing.T) {
+	hf := halt.New(testDB(t))
+	g := halt.NewInProcessGuard()
+	rearmNetGuardIfHalted(hf, g, nil)
+	if !g.Allow("api.openai.com") {
+		t.Fatal("should not re-arm when halt flag is clear")
 	}
 }

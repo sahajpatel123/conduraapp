@@ -323,6 +323,37 @@ func (c *testConsent) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
 	return c.approved, nil
 }
 
+// TestNewConsentTicket_FillsActorAndDetail ensures Meridian never
+// receives blank actor/detail on gated actions.
+func TestNewConsentTicket_FillsActorAndDetail(t *testing.T) {
+	v := Verdict{Decision: RequireConsent, TimeoutSecs: 60}
+	ticket := newConsentTicket(blastradius.Action{
+		Kind:      "shell.exec",
+		TargetApp: "Terminal",
+		Command:   "rm -rf /tmp/x",
+	}, v)
+	if ticket.Actor != "Terminal" {
+		t.Fatalf("Actor = %q, want Terminal", ticket.Actor)
+	}
+	if ticket.Detail == "" || !strings.Contains(ticket.Detail, "rm -rf") {
+		t.Fatalf("Detail = %q, want command summary", ticket.Detail)
+	}
+	if ticket.ActionKind != "shell.exec" {
+		t.Fatalf("ActionKind = %q", ticket.ActionKind)
+	}
+	if ticket.Nonce == "" {
+		t.Fatal("Nonce empty")
+	}
+
+	fallback := newConsentTicket(blastradius.Action{Kind: "file.write", Path: "/tmp/a"}, v)
+	if fallback.Actor != "Condura agent" {
+		t.Fatalf("default Actor = %q", fallback.Actor)
+	}
+	if !strings.Contains(fallback.Detail, "/tmp/a") {
+		t.Fatalf("path Detail = %q", fallback.Detail)
+	}
+}
+
 // Phase 17, Fix #2 (A6): ApproveTicket / DenyTicket must reject
 // expired nonces. We seed the engine's pending list with a ticket
 // whose ExpiresAt is in the past and verify both methods return

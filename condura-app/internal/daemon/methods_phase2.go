@@ -16,6 +16,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/stream"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/watchdog"
 )
@@ -35,7 +36,15 @@ func registerConversationMethods(
 	wdog *watchdog.Watchdog,
 ) {
 	srv.Register("conversations.list", func(ctx context.Context, _ json.RawMessage) (any, error) {
-		return store.List(ctx)
+		list, err := store.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// JSON null breaks GUI clients that call .slice on the result.
+		if list == nil {
+			list = []conversation.Meta{}
+		}
+		return list, nil
 	})
 	srv.Register("conversations.get", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
@@ -97,6 +106,28 @@ func registerConversationMethods(
 			Message: "id=" + itoa(p.ID),
 		})
 		return auditOK(), nil
+	})
+	srv.Register("conversations.rename", func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p struct {
+			ID    int64  `json:"id"`
+			Title string `json:"title"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+		if p.ID == 0 {
+			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id is required"}
+		}
+		m, err := store.Rename(ctx, p.ID, p.Title)
+		if err != nil {
+			return nil, err
+		}
+		_ = auditLog.Append(ctx, audit.Event{
+			Actor: actorDaemon, Action: "conversations.rename", App: appCondurad,
+			Level: auditLevelInfo, Result: auditResultAllow,
+			Message: "id=" + itoa(p.ID),
+		})
+		return m, nil
 	})
 	srv.Register("conversations.append", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if haltFlag.IsHalted() {
@@ -258,6 +289,8 @@ func mapStreamError(err error) error {
 		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 	case isStreamErr(err, stream.ErrHalted):
 		return &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+	case isStreamErr(err, stream.ErrSpendCap):
+		return &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 	case isStreamErr(err, stream.ErrContextFull):
 		return &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
 	case isStreamErr(err, stream.ErrAlreadyExists):
@@ -271,31 +304,143 @@ func isStreamErr(err, target error) bool {
 	return errors.Is(err, target)
 }
 
-// registerAuditMethods wires audit.list.
+// auditListParams is the Phase 15 filter envelope shared by
+// audit.list, audit.export, and audit.facetCounts.
+type auditListParams struct {
+	Limit        int      `json:"limit"`
+	Offset       int      `json:"offset"`
+	Since        string   `json:"since"`
+	Until        string   `json:"until"`
+	Action       string   `json:"action"`
+	Level        string   `json:"level"`
+	Search       string   `json:"search"`
+	Verdict      string   `json:"verdict"`
+	BlastClasses []string `json:"blast_classes"`
+	Apps         []string `json:"apps"`
+	Models       []string `json:"models"`
+	Destination  string   `json:"destination"` // export only
+}
+
+func parseAuditQuery(params json.RawMessage) (audit.Query, string, error) {
+	var p auditListParams
+	if len(params) > 0 && string(params) != "null" {
+		if err := json.Unmarshal(params, &p); err != nil {
+			return audit.Query{}, "", &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		}
+	}
+	q := audit.Query{
+		Limit:        p.Limit,
+		Offset:       p.Offset,
+		Action:       p.Action,
+		Level:        p.Level,
+		Search:       p.Search,
+		Verdict:      p.Verdict,
+		BlastClasses: p.BlastClasses,
+		Apps:         p.Apps,
+		Models:       p.Models,
+	}
+	if p.Since != "" {
+		if t, err := time.Parse(time.RFC3339, p.Since); err == nil {
+			q.Since = t
+		} else if t, err := time.Parse(time.RFC3339Nano, p.Since); err == nil {
+			q.Since = t
+		}
+	}
+	if p.Until != "" {
+		if t, err := time.Parse(time.RFC3339, p.Until); err == nil {
+			q.Until = t
+		} else if t, err := time.Parse(time.RFC3339Nano, p.Until); err == nil {
+			q.Until = t
+		}
+	}
+	return q, p.Destination, nil
+}
+
+// registerAuditMethods wires audit.list + audit.verifyIntegrity + audit.export + audit.facetCounts.
+// Meridian's "Verify seal" CTA calls verifyIntegrity; the response
+// shape matches the FE AuditIntegrityReport (ok / broken_at_id / …),
+// mapped from audit.ChainReport so the seal plate can render without
+// field-name drift from replay.verify_integrity.
+// audit.export writes a forensic JSONL dump (path + count).
+// audit.facetCounts powers FilterRail aggregates over the same filters as list.
 func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 	srv.Register("audit.list", func(ctx context.Context, params json.RawMessage) (any, error) {
-		var p struct {
-			Limit  int    `json:"limit"`
-			Offset int    `json:"offset"`
-			Since  string `json:"since"`
-			Action string `json:"action"`
-			Level  string `json:"level"`
+		if auditLog == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
-		}
-		q := audit.Query{
-			Limit:  p.Limit,
-			Offset: p.Offset,
-			Action: p.Action,
-			Level:  p.Level,
-		}
-		if p.Since != "" {
-			if t, err := time.Parse(time.RFC3339, p.Since); err == nil {
-				q.Since = t
-			}
+		q, _, err := parseAuditQuery(params)
+		if err != nil {
+			return nil, err
 		}
 		return auditLog.List(ctx, q)
+	})
+
+	srv.Register("audit.facetCounts", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if auditLog == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+		}
+		q, _, err := parseAuditQuery(params)
+		if err != nil {
+			return nil, err
+		}
+		return auditLog.FacetCounts(ctx, q)
+	})
+
+	srv.Register("audit.verifyIntegrity", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if auditLog == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+		}
+		// Optional since_id / limit from FE filter params; default full chain.
+		var p struct {
+			SinceID int64 `json:"since_id"`
+			Limit   int   `json:"limit"`
+		}
+		if len(params) > 0 && string(params) != "null" {
+			_ = json.Unmarshal(params, &p)
+		}
+		start := time.Now()
+		rep, err := auditLog.VerifyChain(ctx, p.SinceID, p.Limit)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		var brokenAt any
+		if rep.FirstBreakID != 0 {
+			brokenAt = rep.FirstBreakID
+		} else {
+			brokenAt = nil
+		}
+		var reason any
+		if rep.FirstBreakReason != "" {
+			reason = rep.FirstBreakReason
+		} else {
+			reason = nil
+		}
+		return map[string]any{
+			"ok":            rep.Valid,
+			"broken_at_id":  brokenAt,
+			"reason":        reason,
+			"rows_verified": rep.RowsChecked,
+			"rows_skipped":  0,
+			"duration_ms":   time.Since(start).Milliseconds(),
+		}, nil
+	})
+
+	srv.Register("audit.export", func(ctx context.Context, params json.RawMessage) (any, error) {
+		if auditLog == nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+		}
+		q, dest, err := parseAuditQuery(params)
+		if err != nil {
+			return nil, err
+		}
+		// Export paginates itself; leave Limit unset so Export uses its page size.
+		q.Limit = 0
+		q.Offset = 0
+		path, count, err := auditLog.Export(ctx, q, dest)
+		if err != nil {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
+		}
+		return map[string]any{"path": path, "count": count}, nil
 	})
 }
 
@@ -313,7 +458,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 //   - `halt.confirm_resume` (IPC, this file): consumes the ticket + a
 //     human-only secret (the CLI prompts the user). Constant-time
 //     secret compare. On success: resumes the flag + the net guard.
-//   - `condura resume --confirm <ticket>` (CLI, separate OS process):
+//   - `condura resume confirm --ticket <ticket>` (CLI, separate OS process):
 //     prompts for the secret, opens its own IPC client, calls
 //     halt.confirm_resume. Out of the in-process trust boundary.
 //
@@ -335,6 +480,7 @@ func registerHaltMethods(
 	guard halt.NetworkGuard,
 	ticketStore *ResumeTicketStore,
 	resumeSecret *ResumeSecretManager,
+	broker *sse.Broker,
 ) {
 	srv.Register("daemon.halt", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
@@ -352,6 +498,8 @@ func registerHaltMethods(
 		if sm != nil {
 			streamsCanceled = sm.CancelAll()
 		}
+		// Live GUI: SSE so MeridianHalt appears without waiting on poll.
+		publishHaltSSE(broker, haltFlag.Halted())
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorIPC, Action: "daemon.halt", App: appConduraG,
 			Level: auditLevelWarn, Result: auditResultAllow,
@@ -393,7 +541,10 @@ func registerHaltMethods(
 			"halted":      true,
 			"ticket":      ticket,
 			"ttl_seconds": int(resumeTicketTTL / time.Second),
-			"confirm_via": "condura resume --confirm <ticket>   OR   halt.confirm_resume IPC",
+			// Single runnable CLI line — Meridian "Copy command" pastes this.
+			// Must match `condura resume confirm --ticket` (not the old
+			// `resume --confirm` shape, which the CLI rejects).
+			"confirm_via": "condura resume confirm --ticket " + ticket,
 		}, nil
 	})
 
@@ -451,6 +602,8 @@ func registerHaltMethods(
 		if guard != nil {
 			_ = guard.Resume()
 		}
+		// Clear halt overlay immediately on successful human confirm.
+		publishHaltSSE(broker, haltFlag.Halted())
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorGUIHuman, Action: "halt.confirm_resume", App: appConduraG,
 			Level: auditLevelInfo, Result: auditResultAllow,
@@ -469,11 +622,11 @@ func registerHaltMethods(
 		_ = auditLog.Append(ctx, audit.Event{
 			Actor: actorIPC, Action: "daemon.resume", App: appConduraG,
 			Level: auditLevelWarn, Result: auditResultDeny,
-			Message: "deprecated: use daemon.resume_request + halt.confirm_resume (or `condura resume --confirm`)",
+			Message: "deprecated: use daemon.resume_request + halt.confirm_resume (or `condura resume confirm --ticket`)",
 		})
 		return nil, &ipc.Error{
 			Code:    ipc.CodeInvalidRequest,
-			Message: "daemon.resume is deprecated since T3b sticky-resume; call daemon.resume_request to mint a ticket, then halt.confirm_resume (or `condura resume --confirm <ticket>`) to confirm with the human-confirmation secret",
+			Message: "daemon.resume is deprecated since T3b sticky-resume; call daemon.resume_request to mint a ticket, then halt.confirm_resume (or `condura resume confirm --ticket <ticket>`) to confirm with the human-confirmation secret",
 		}
 	})
 	srv.Register("halt.state", func(_ context.Context, _ json.RawMessage) (any, error) {

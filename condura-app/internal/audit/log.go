@@ -20,9 +20,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,19 +79,164 @@ type Event struct {
 	SSAfterRef    string `json:"screenshot_after_ref,omitempty"`
 	SessionID     string `json:"session_id,omitempty"`
 
-	// HMAC chain fields. Not exported via JSON for now — internal.
+	// HMAC chain fields. Private for internal writers; MarshalJSON
+	// surfaces them as prev_hash / this_hash for list + live SSE.
 	prevHash string `json:"-"`
 	hmac     string `json:"-"`
 }
 
-// Query filters for List.
+// MarshalJSON emits the public audit event shape for IPC/SSE,
+// including chain hashes so Meridian can show seal detail live.
+func (e Event) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		ID            int64     `json:"id"`
+		TS            time.Time `json:"ts"`
+		Actor         string    `json:"actor"`
+		Action        string    `json:"action"`
+		App           string    `json:"app"`
+		Level         string    `json:"level"`
+		Result        string    `json:"result"`
+		Message       string    `json:"message"`
+		Kind          string    `json:"kind,omitempty"`
+		BlastClass    string    `json:"blast_class,omitempty"`
+		Verdict       string    `json:"verdict,omitempty"`
+		TargetApp     string    `json:"target_app,omitempty"`
+		TargetURL     string    `json:"target_url,omitempty"`
+		Path          string    `json:"path,omitempty"`
+		Command       string    `json:"command,omitempty"`
+		ConsentResult string    `json:"consent_result,omitempty"`
+		SSBeforeRef   string    `json:"screenshot_before_ref,omitempty"`
+		SSAfterRef    string    `json:"screenshot_after_ref,omitempty"`
+		SessionID     string    `json:"session_id,omitempty"`
+		PrevHash      string    `json:"prev_hash,omitempty"`
+		ThisHash      string    `json:"this_hash,omitempty"`
+	}
+	return json.Marshal(wire{
+		ID:            e.ID,
+		TS:            e.TS,
+		Actor:         e.Actor,
+		Action:        e.Action,
+		App:           e.App,
+		Level:         e.Level,
+		Result:        e.Result,
+		Message:       e.Message,
+		Kind:          e.Kind,
+		BlastClass:    e.BlastClass,
+		Verdict:       e.Verdict,
+		TargetApp:     e.TargetApp,
+		TargetURL:     e.TargetURL,
+		Path:          e.Path,
+		Command:       e.Command,
+		ConsentResult: e.ConsentResult,
+		SSBeforeRef:   e.SSBeforeRef,
+		SSAfterRef:    e.SSAfterRef,
+		SessionID:     e.SessionID,
+		PrevHash:      e.prevHash,
+		ThisHash:      e.hmac,
+	})
+}
+
+// Query filters for List / Export / FacetCounts (Phase 15 FE params).
 type Query struct {
-	Limit  int
-	Offset int
-	Since  time.Time
-	Action string
-	Level  string
-	Kind   string
+	Limit        int
+	Offset       int
+	Since        time.Time
+	Until        time.Time
+	Action       string
+	Level        string
+	Kind         string
+	Search       string
+	Verdict      string   // allow|block|prompt|error — matches verdict or result
+	BlastClasses []string // READ|WRITE|NETWORK|DESTRUCTIVE
+	Apps         []string
+	Models       []string // best-effort message match (no dedicated column yet)
+}
+
+// FacetCounts is the server-side shape of FE AuditFacetCounts.
+type FacetCounts struct {
+	Apps         []NameCount    `json:"apps"`
+	Models       []NameCount    `json:"models"`
+	BlastClasses map[string]int `json:"blast_classes"`
+	Verdicts     map[string]int `json:"verdicts"`
+	Total        int            `json:"total"`
+}
+
+// NameCount is a named bucket for facet rails.
+type NameCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// buildWhere returns SQL fragment after FROM audit_log (starts with
+// " WHERE 1=1") and bound args for List / FacetCounts / Export filters.
+func (q Query) buildWhere() (string, []interface{}) {
+	query := ` WHERE 1=1`
+	args := []interface{}{}
+	if !q.Since.IsZero() {
+		query += ` AND ts >= ?`
+		// Match Append's Format (local wall clock + offset), not forced UTC —
+		// SQLite compares ts as TEXT; mixed zones break FilterBySince.
+		args = append(args, q.Since.Format(time.RFC3339Nano))
+	}
+	if !q.Until.IsZero() {
+		query += ` AND ts <= ?`
+		args = append(args, q.Until.Format(time.RFC3339Nano))
+	}
+	if q.Action != "" {
+		query += ` AND action LIKE ?`
+		args = append(args, "%"+q.Action+"%")
+	}
+	if q.Level != "" {
+		query += ` AND level = ?`
+		args = append(args, q.Level)
+	}
+	if q.Kind != "" {
+		query += ` AND kind = ?`
+		args = append(args, q.Kind)
+	}
+	if q.Search != "" {
+		like := "%" + q.Search + "%"
+		query += ` AND (actor LIKE ? OR action LIKE ? OR message LIKE ? OR app LIKE ? OR path LIKE ? OR command LIKE ? OR target_app LIKE ? OR target_url LIKE ?)`
+		args = append(args, like, like, like, like, like, like, like, like)
+	}
+	if q.Verdict != "" {
+		// Prefer explicit verdict; fall back to result for legacy rows.
+		query += ` AND (verdict = ? OR (verdict = '' AND result = ?))`
+		args = append(args, q.Verdict, q.Verdict)
+	}
+	if len(q.BlastClasses) > 0 {
+		query += ` AND blast_class IN (` + placeholders(len(q.BlastClasses)) + `)`
+		for _, c := range q.BlastClasses {
+			args = append(args, c)
+		}
+	}
+	if len(q.Apps) > 0 {
+		query += ` AND app IN (` + placeholders(len(q.Apps)) + `)`
+		for _, a := range q.Apps {
+			args = append(args, a)
+		}
+	}
+	if len(q.Models) > 0 {
+		// No model column — match common "model=…" / bare name in message.
+		parts := make([]string, 0, len(q.Models))
+		for _, m := range q.Models {
+			parts = append(parts, `message LIKE ?`)
+			args = append(args, "%"+m+"%")
+		}
+		query += ` AND (` + strings.Join(parts, ` OR `) + `)`
+	}
+	return query, args
+}
+
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	b := make([]string, n)
+	for i := range b {
+		b[i] = "?"
+	}
+	return strings.Join(b, ",")
 }
 
 // Log is the audit log. Construct once at startup; share across handlers.
@@ -115,6 +263,22 @@ type Log struct {
 	// may have changed (e.g. after a backup restore).
 	lastHMACValue string
 	lastHMACValid bool
+
+	// onAppend is an optional fan-out after a successful Append
+	// (e.g. SSE "audit" for Meridian live ledger). Called while
+	// still holding mu; must not re-enter Append.
+	onAppend func(Event)
+}
+
+// SetOnAppend registers a callback invoked after each successful Append.
+// Pass nil to clear. Safe for concurrent use.
+func (l *Log) SetOnAppend(fn func(Event)) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.onAppend = fn
 }
 
 // New returns a Log wrapping the given database. secret is the
@@ -291,6 +455,11 @@ func (l *Log) Append(ctx context.Context, e Event) error {
 	// Update the cache so the next Append skips the SELECT.
 	l.lastHMACValue = e.hmac
 	l.lastHMACValid = true
+	if l.onAppend != nil {
+		// Fan-out while holding mu so the id/hmac snapshot is
+		// stable; callbacks must not call Append again.
+		l.onAppend(e)
+	}
 	return nil
 }
 
@@ -299,6 +468,10 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 	if q.Limit <= 0 || q.Limit > 1000 {
 		q.Limit = 100
 	}
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+	where, args := q.buildWhere()
 	query := `SELECT id, ts, actor, action, app, level, result, message,
 		         kind, blast_class, verdict,
 		         target_app, target_url, path, command,
@@ -306,24 +479,7 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		         screenshot_before_ref, screenshot_after_ref,
 		         session_id,
 		         prev_hash, hmac
-		      FROM audit_log WHERE 1=1`
-	args := []interface{}{}
-	if !q.Since.IsZero() {
-		query += ` AND ts >= ?`
-		args = append(args, q.Since.Format(time.RFC3339Nano))
-	}
-	if q.Action != "" {
-		query += ` AND action LIKE ?`
-		args = append(args, "%"+q.Action+"%")
-	}
-	if q.Level != "" {
-		query += ` AND level = ?`
-		args = append(args, q.Level)
-	}
-	if q.Kind != "" {
-		query += ` AND kind = ?`
-		args = append(args, q.Kind)
-	}
+		      FROM audit_log` + where
 	// Secondary sort by id keeps ordering deterministic when multiple
 	// events share an identical timestamp (observed as flaky frame
 	// ordering on fast clocks, e.g. Windows CI runners).
@@ -353,6 +509,197 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// FacetCounts returns aggregate rails for the Filter UI over the same
+// filter set as List (without limit/offset).
+func (l *Log) FacetCounts(ctx context.Context, q Query) (*FacetCounts, error) {
+	where, args := q.buildWhere()
+	out := &FacetCounts{
+		Apps:         []NameCount{},
+		Models:       []NameCount{},
+		BlastClasses: map[string]int{"READ": 0, "WRITE": 0, "NETWORK": 0, "DESTRUCTIVE": 0},
+		Verdicts:     map[string]int{"allow": 0, "block": 0, "prompt": 0, "error": 0},
+	}
+
+	// total
+	if err := l.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_log`+where, args...).Scan(&out.Total); err != nil {
+		return nil, fmt.Errorf("facet total: %w", err)
+	}
+
+	// apps
+	appRows, err := l.db.QueryContext(ctx,
+		`SELECT app, COUNT(*) AS n FROM audit_log`+where+` AND app != '' GROUP BY app ORDER BY n DESC LIMIT 40`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("facet apps: %w", err)
+	}
+	for appRows.Next() {
+		var nc NameCount
+		if err := appRows.Scan(&nc.Name, &nc.Count); err != nil {
+			_ = appRows.Close()
+			return nil, fmt.Errorf("facet apps scan: %w", err)
+		}
+		out.Apps = append(out.Apps, nc)
+	}
+	_ = appRows.Close()
+	if err := appRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// blast_class
+	bcRows, err := l.db.QueryContext(ctx,
+		`SELECT blast_class, COUNT(*) FROM audit_log`+where+` AND blast_class != '' GROUP BY blast_class`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("facet blast: %w", err)
+	}
+	for bcRows.Next() {
+		var name string
+		var n int
+		if err := bcRows.Scan(&name, &n); err != nil {
+			_ = bcRows.Close()
+			return nil, fmt.Errorf("facet blast scan: %w", err)
+		}
+		out.BlastClasses[name] = n
+	}
+	_ = bcRows.Close()
+
+	// verdict / result
+	vRows, err := l.db.QueryContext(ctx,
+		`SELECT CASE WHEN verdict != '' THEN verdict ELSE result END AS v, COUNT(*)
+		 FROM audit_log`+where+` GROUP BY v`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("facet verdicts: %w", err)
+	}
+	for vRows.Next() {
+		var name string
+		var n int
+		if err := vRows.Scan(&name, &n); err != nil {
+			_ = vRows.Close()
+			return nil, fmt.Errorf("facet verdicts scan: %w", err)
+		}
+		if name == "" {
+			continue
+		}
+		out.Verdicts[name] += n
+	}
+	_ = vRows.Close()
+
+	// models: best-effort empty until a dedicated column exists
+	return out, nil
+}
+
+// ExportRecord is one JSONL line written by Export. Hashes are public
+// on the forensic dump so offline tools can re-verify the chain.
+type ExportRecord struct {
+	ID            int64     `json:"id"`
+	TS            time.Time `json:"ts"`
+	Actor         string    `json:"actor"`
+	Action        string    `json:"action"`
+	App           string    `json:"app"`
+	Level         string    `json:"level"`
+	Result        string    `json:"result"`
+	Message       string    `json:"message"`
+	Kind          string    `json:"kind,omitempty"`
+	BlastClass    string    `json:"blast_class,omitempty"`
+	Verdict       string    `json:"verdict,omitempty"`
+	TargetApp     string    `json:"target_app,omitempty"`
+	TargetURL     string    `json:"target_url,omitempty"`
+	Path          string    `json:"path,omitempty"`
+	Command       string    `json:"command,omitempty"`
+	ConsentResult string    `json:"consent_result,omitempty"`
+	SessionID     string    `json:"session_id,omitempty"`
+	PrevHash      string    `json:"prev_hash,omitempty"`
+	ThisHash      string    `json:"this_hash,omitempty"`
+}
+
+// Export writes matching audit rows as JSONL to destination.
+// Empty destination → ~/Downloads/condura-audit-YYYYMMDD-HHMMSS.jsonl
+// (or the temp dir if Downloads is unavailable). Returns the path
+// written and the number of rows. Paginates List until exhausted.
+func (l *Log) Export(ctx context.Context, q Query, destination string) (string, int, error) {
+	path, err := resolveExportPath(destination)
+	if err != nil {
+		return "", 0, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", 0, fmt.Errorf("audit export: mkdir: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", 0, fmt.Errorf("audit export: open: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	const page = 500
+	offset := 0
+	count := 0
+	enc := json.NewEncoder(f)
+	for {
+		pageQ := q
+		pageQ.Limit = page
+		pageQ.Offset = offset
+		rows, err := l.List(ctx, pageQ)
+		if err != nil {
+			return "", 0, fmt.Errorf("audit export: list: %w", err)
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, e := range rows {
+			rec := ExportRecord{
+				ID:            e.ID,
+				TS:            e.TS,
+				Actor:         e.Actor,
+				Action:        e.Action,
+				App:           e.App,
+				Level:         e.Level,
+				Result:        e.Result,
+				Message:       e.Message,
+				Kind:          e.Kind,
+				BlastClass:    e.BlastClass,
+				Verdict:       e.Verdict,
+				TargetApp:     e.TargetApp,
+				TargetURL:     e.TargetURL,
+				Path:          e.Path,
+				Command:       e.Command,
+				ConsentResult: e.ConsentResult,
+				SessionID:     e.SessionID,
+				PrevHash:      e.prevHash,
+				ThisHash:      e.hmac,
+			}
+			if err := enc.Encode(rec); err != nil {
+				return "", 0, fmt.Errorf("audit export: encode: %w", err)
+			}
+			count++
+		}
+		if len(rows) < page {
+			break
+		}
+		offset += page
+	}
+	if err := f.Sync(); err != nil {
+		return "", 0, fmt.Errorf("audit export: sync: %w", err)
+	}
+	return path, count, nil
+}
+
+func resolveExportPath(destination string) (string, error) {
+	if strings.TrimSpace(destination) != "" {
+		return filepath.Clean(destination), nil
+	}
+	home, err := os.UserHomeDir()
+	base := ""
+	if err == nil && home != "" {
+		base = filepath.Join(home, "Downloads")
+	}
+	if base == "" {
+		base = os.TempDir()
+	}
+	name := fmt.Sprintf("condura-audit-%s.jsonl", time.Now().UTC().Format("20060102-150405"))
+	return filepath.Join(base, name), nil
 }
 
 // GetByID returns one event by id, with its hmac chain fields populated.

@@ -48,6 +48,7 @@ var (
 	ErrNotFound      = errors.New("stream: request_id not found")
 	ErrContextFull   = errors.New("stream: conversation exceeds model context window")
 	ErrHalted        = errors.New("stream: daemon is halted")
+	ErrSpendCap      = errors.New("stream: daily spend cap exceeded")
 )
 
 // Event names published to the SSE broker. The GUI listens for these.
@@ -144,6 +145,11 @@ type Manager struct {
 	// record success or failure on the provider's breaker.
 	// Set via SetBreakerResult.
 	breakerResult func(provider string, success bool)
+	// spendCheck is called on Start with the model name. Non-nil
+	// error refuses the stream (daily spend cap). Set via SetSpendCheck.
+	spendCheck func(model string) error
+	// spendRecord is called when usage is known (tokens). Set via SetSpendRecord.
+	spendRecord func(provider, model string, usage llm.Usage)
 }
 
 type activeStream struct {
@@ -159,6 +165,11 @@ type activeStream struct {
 	// record success/failure on the provider's circuit breaker.
 	// May be nil if no breaker is configured.
 	breakerResult func(provider string, success bool)
+	// spendRecord records token usage cost after the stream.
+	// May be nil if no spend monitor is configured.
+	spendRecord func(provider, model string, usage llm.Usage)
+	// spendRecorded avoids double-counting if usage is published twice.
+	spendRecorded bool
 }
 
 // NewManager returns a fresh Manager. The broker and registry must be
@@ -177,9 +188,11 @@ func NewManager(broker *sse.Broker, registry *llm.Registry) *Manager {
 	}
 }
 
-// Close cancels every in-flight stream and releases the manager's
-// internal context. The broker is not closed (the daemon owns it).
+// Close cancels every in-flight stream (provider abort + stream ctx)
+// then releases the manager's root context. The broker is not closed
+// (the daemon owns it). Prefer this on graceful shutdown.
 func (m *Manager) Close() {
+	_ = m.CancelAll()
 	m.rootCancel()
 }
 
@@ -214,6 +227,22 @@ func (m *Manager) SetBreakerResult(fn func(provider string, success bool)) {
 	m.breakerResult = fn
 }
 
+// SetSpendCheck registers a function called on Start to enforce
+// the daily spend cap before a stream begins (mirrors llm.chat).
+func (m *Manager) SetSpendCheck(fn func(model string) error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.spendCheck = fn
+}
+
+// SetSpendRecord registers a function called when usage is known
+// so the spend monitor can Record actual cost after streaming.
+func (m *Manager) SetSpendRecord(fn func(provider, model string, usage llm.Usage)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.spendRecord = fn
+}
+
 // Start kicks off a new stream. It returns immediately with a
 // request_id; the actual tokens arrive on the SSE broker as
 // stream.delta events tagged with this request_id.
@@ -242,9 +271,21 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 	m.mu.Lock()
 	checkFn := m.breakerCheck
 	resultFn := m.breakerResult
+	spendCheck := m.spendCheck
+	spendRecord := m.spendRecord
 	m.mu.Unlock()
 	if checkFn != nil && !checkFn(req.ProviderName) {
 		return "", fmt.Errorf("circuit breaker open for provider: %s", req.ProviderName)
+	}
+
+	// Daily spend cap: same gate as llm.chat so Meridian Ask cannot bypass Settings.
+	if spendCheck != nil {
+		if err := spendCheck(req.Chat.Model); err != nil {
+			if errors.Is(err, ErrSpendCap) {
+				return "", err
+			}
+			return "", fmt.Errorf("%w: %v", ErrSpendCap, err)
+		}
 	}
 
 	// Context-window check: refuse up front rather than fail
@@ -270,6 +311,7 @@ func (m *Manager) Start(ctx context.Context, req Request) (string, error) {
 		state:          StateRunning,
 		done:           make(chan struct{}),
 		breakerResult:  resultFn,
+		spendRecord:    spendRecord,
 	}
 
 	// Acquire the provider's stream channel and cancel func before
@@ -396,6 +438,11 @@ func (m *Manager) List() []Active {
 // CancelByConversation cancels all streams for a given conversation.
 // Used when the GUI deletes a conversation mid-stream. Returns the
 // number of streams canceled.
+//
+// Important: do NOT remove entries from m.active before calling Cancel.
+// Cancel looks up the stream to invoke s.cancel() (provider HTTP abort).
+// Pre-deleting left provider pumps running until the HTTP client timeout
+// (5–10m) — a 24/7 leak on Stop / conversation delete.
 func (m *Manager) CancelByConversation(conversationID int64) int {
 	m.mu.Lock()
 	var toCancel []string
@@ -404,15 +451,15 @@ func (m *Manager) CancelByConversation(conversationID int64) int {
 			toCancel = append(toCancel, id)
 		}
 	}
-	for _, id := range toCancel {
-		delete(m.active, id)
-	}
 	m.mu.Unlock()
 
+	n := 0
 	for _, id := range toCancel {
-		_ = m.Cancel(id)
+		if err := m.Cancel(id); err == nil {
+			n++
+		}
 	}
-	return len(toCancel)
+	return n
 }
 
 // pump drains the provider's stream channel and republishes events
@@ -454,6 +501,7 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 				fieldFinishReason:   string(ev.FinishReason),
 			})
 			if ev.Usage.TotalTokens > 0 || ev.Usage.InputTokens > 0 {
+				m.recordSpend(s, ev.Usage)
 				m.broker.PublishJSON(EventUsage, map[string]any{
 					fieldRequestID:      requestID,
 					fieldConversationID: s.conversationID,
@@ -482,9 +530,9 @@ func (m *Manager) pump(requestID string, events <-chan llm.StreamEvent, s *activ
 				fieldToolCalls:      ev.Delta.ToolCalls,
 			})
 		}
-		// If the final event of a non-`Done` stream carries usage,
-		// surface it so the spend monitor can update.
+		// If a non-Done event carries usage, surface it and record spend once.
 		if ev.Usage.TotalTokens > 0 {
+			m.recordSpend(s, ev.Usage)
 			m.broker.PublishJSON(EventUsage, map[string]any{
 				fieldRequestID:      requestID,
 				fieldConversationID: s.conversationID,
@@ -508,6 +556,17 @@ func (m *Manager) markState(s *activeStream, st State) {
 	m.mu.Lock()
 	s.state = st
 	m.mu.Unlock()
+}
+
+func (m *Manager) recordSpend(s *activeStream, usage llm.Usage) {
+	if s == nil || s.spendRecord == nil || s.spendRecorded {
+		return
+	}
+	if usage.TotalTokens <= 0 && usage.InputTokens <= 0 && usage.OutputTokens <= 0 {
+		return
+	}
+	s.spendRecorded = true
+	s.spendRecord(s.providerName, s.model, usage)
 }
 
 func (m *Manager) isHalted() bool {

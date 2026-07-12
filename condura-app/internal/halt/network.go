@@ -89,11 +89,24 @@ func DefaultProviderAllowList() []string {
 // It is NOT a hard guarantee because a determined misbehaving
 // agent can skip the transport.
 type InProcessGuard struct {
-	mu        sync.RWMutex
-	halted    bool
-	since     time.Time
-	reason    string
+	mu     sync.RWMutex
+	halted bool
+	since  time.Time
+	reason string
+	// allowList is the active set of permitted hosts. Mutated
+	// only under mu.Lock() (write) or read via Allow/State
+	// under mu.RLock().
 	allowList map[string]bool
+	// frozenAllowList is a deep-copy snapshot of allowList taken
+	// at Halt time. nil when not halted. Resume restores
+	// allowList from this snapshot so runtime AllowHost/DenyHost
+	// additions made between Halt and Resume do not silently
+	// overwrite the user's pre-halt configuration (this was the
+	// 2026-07-12 audit finding #1.3). AllowHost / DenyHost called
+	// while halted are still applied to allowList (they just
+	// have no observable effect until Resume, because Allow()
+	// returns false on every host during a halt).
+	frozenAllowList map[string]bool
 }
 
 // NewInProcessGuard returns a guard seeded with the default
@@ -134,23 +147,58 @@ func (g *InProcessGuard) Allow(host string) bool {
 	return false
 }
 
+// snapshotAllowList returns a deep copy of g.allowList. Caller
+// must hold g.mu (read or write).
+func (g *InProcessGuard) snapshotAllowList() map[string]bool {
+	cp := make(map[string]bool, len(g.allowList))
+	for h, v := range g.allowList {
+		cp[h] = v
+	}
+	return cp
+}
+
 // Halt denies all outbound connections.
+//
+// Takes a deep-copy snapshot of the current allow-list so the
+// user's pre-halt configuration (including any AllowHost/DenyHost
+// runtime mutations) is preserved through the halt window and
+// restored verbatim on Resume. Without this snapshot, Resume
+// would overwrite runtime additions with DefaultProviderAllowList
+// (the constructor seed), silently dropping user intent.
 func (g *InProcessGuard) Halt(reason string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if !g.halted {
+		// Only snapshot on the active→halted transition. A
+		// second Halt call (idempotent) preserves the snapshot
+		// taken on the first call so a later Resume restores
+		// the truly-original configuration, not whatever was
+		// allowed at the second Halt.
+		g.frozenAllowList = g.snapshotAllowList()
+	}
 	g.halted = true
 	g.since = time.Now()
 	g.reason = reason
 	return nil
 }
 
-// Resume re-enables the allow-list.
+// Resume re-enables the allow-list, restoring the snapshot taken
+// at Halt time. If the guard was never halted, Resume is a no-op
+// aside from clearing any stale state. If Halt was called but
+// AllowHost/DenyHost ran during the halt window, those calls
+// ARE preserved on the live allowList (so the post-Resume guard
+// reflects them) but they DO NOT pollute the snapshot — the next
+// Halt captures a fresh snapshot.
 func (g *InProcessGuard) Resume() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.halted = false
 	g.since = time.Time{}
 	g.reason = ""
+	if g.frozenAllowList != nil {
+		g.allowList = g.frozenAllowList
+		g.frozenAllowList = nil
+	}
 	return nil
 }
 

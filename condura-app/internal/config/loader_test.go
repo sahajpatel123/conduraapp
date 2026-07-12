@@ -370,6 +370,23 @@ func TestLoader_Load_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "ja-JP", cfg.General.Language)
 }
 
+func TestLoader_Load_IgnoresNonHierarchyEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("version: 4\ngeneral:\n  data_dir: "+tmpDir+"\n"), 0o600))
+
+	// Resume CLI / ResumeSecretManager use CONDURA_RESUME_SECRET — it must
+	// not be treated as a YAML override or daemon boot fails when the var
+	// is set in the shell.
+	t.Setenv("CONDURA_RESUME_SECRET", strings.Repeat("ab", 32))
+	t.Setenv("CONDURA_LOGGING__LEVEL", "warn")
+
+	loader := NewLoader(path)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "warn", cfg.Logging.Level)
+}
+
 func TestLoader_Load_EnvInvalidBool(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")

@@ -386,3 +386,11 @@ func TestFailover_NoMatchingModel(t *testing.T) {
 	_, _, _, err := f.Chat(context.Background(), 0, est)
 	assert.ErrorIs(t, err, ErrAllExhausted)
 }
+
+func TestSpendMonitor_Seed(t *testing.T) {
+	m := NewSpendMonitor(SpendCap{USDPerDay: 5.0})
+	m.Seed(3.5)
+	assert.InDelta(t, 3.5, m.Spent(), 1e-9)
+	assert.False(t, m.Allow(2.0))
+	assert.True(t, m.Allow(1.0))
+}

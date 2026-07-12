@@ -2,7 +2,10 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -553,5 +556,142 @@ func TestPruneTombstones_ForensicQuery(t *testing.T) {
 	}
 	if total != 5 {
 		t.Errorf("sum of pruned_count = %d, want 5 (3 + 2)", total)
+	}
+}
+
+func TestLog_Export(t *testing.T) {
+	l := setupTestLog(t)
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		if err := l.Append(ctx, Event{
+			Actor:   "user",
+			Action:  "test.export",
+			App:     "condurad",
+			Level:   "info",
+			Result:  "allow",
+			Message: "row",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dest := filepath.Join(t.TempDir(), "out.jsonl")
+	path, count, err := l.Export(ctx, Query{}, dest)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if path != dest {
+		t.Fatalf("path = %q, want %q", path, dest)
+	}
+	if count != 3 {
+		t.Fatalf("count = %d, want 3", count)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("lines = %d, want 3", len(lines))
+	}
+	if !strings.Contains(lines[0], `"this_hash"`) && !strings.Contains(lines[0], "this_hash") {
+		// JSON keys present
+		if !strings.Contains(string(raw), "this_hash") {
+			t.Fatalf("export missing this_hash: %s", lines[0])
+		}
+	}
+}
+
+func TestLog_OnAppendAndMarshalHashes(t *testing.T) {
+	l := setupTestLog(t)
+	ctx := context.Background()
+	var got []Event
+	l.SetOnAppend(func(e Event) {
+		got = append(got, e)
+	})
+	if err := l.Append(ctx, Event{
+		Actor:  "user",
+		Action: "test.live",
+		Level:  "info",
+		Result: "allow",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("onAppend count = %d, want 1", len(got))
+	}
+	if got[0].ID == 0 {
+		t.Fatal("onAppend event missing id")
+	}
+	raw, err := json.Marshal(got[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	if !strings.Contains(s, `"this_hash"`) || !strings.Contains(s, `"prev_hash"`) {
+		t.Fatalf("marshal missing hashes: %s", s)
+	}
+}
+
+func TestLog_ListPhase15FiltersAndFacets(t *testing.T) {
+	l := setupTestLog(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// Older row outside 1h window
+	_ = l.Append(ctx, Event{
+		TS: now.Add(-2 * time.Hour), Actor: "u", Action: "old.action",
+		App: "app-old", Level: "info", Result: "allow", Message: "ancient",
+		BlastClass: "READ", Verdict: "allow",
+	})
+	_ = l.Append(ctx, Event{
+		TS: now.Add(-10 * time.Minute), Actor: "u", Action: "shell.exec",
+		App: "app-a", Level: "info", Result: "block", Message: "denied",
+		BlastClass: "WRITE", Verdict: "block",
+	})
+	_ = l.Append(ctx, Event{
+		TS: now.Add(-5 * time.Minute), Actor: "u", Action: "http.get",
+		App: "app-b", Level: "info", Result: "allow", Message: "ok model=gpt",
+		BlastClass: "NETWORK", Verdict: "allow",
+	})
+
+	since := now.Add(-1 * time.Hour)
+	got, err := l.List(ctx, Query{
+		Limit: 50, Since: since,
+		Verdict: "block",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Action != "shell.exec" {
+		t.Fatalf("verdict block filter: got %+v", got)
+	}
+
+	search, err := l.List(ctx, Query{Limit: 50, Since: since, Search: "denied"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search) != 1 {
+		t.Fatalf("search: got %d", len(search))
+	}
+
+	bc, err := l.List(ctx, Query{Limit: 50, Since: since, BlastClasses: []string{"NETWORK"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bc) != 1 || bc[0].BlastClass != "NETWORK" {
+		t.Fatalf("blast filter: %+v", bc)
+	}
+
+	facets, err := l.FacetCounts(ctx, Query{Since: since})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facets.Total != 2 {
+		t.Fatalf("facet total = %d, want 2 (1h window)", facets.Total)
+	}
+	if facets.Verdicts["block"] < 1 || facets.Verdicts["allow"] < 1 {
+		t.Fatalf("verdicts = %+v", facets.Verdicts)
+	}
+	if facets.BlastClasses["WRITE"] < 1 || facets.BlastClasses["NETWORK"] < 1 {
+		t.Fatalf("blast_classes = %+v", facets.BlastClasses)
 	}
 }

@@ -528,6 +528,11 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	log.Info("llm registry ready", "registered_providers", registered)
 
 	mon := failover.NewSpendMonitor(failover.SpendCap{USDPerDay: cfg.Security.SpendLimitUSDPerDay})
+	// Hydrate today's spend from durable rollup so restarts don't reset the cap.
+	if seeded := loadSpendToday(db.SQL()); seeded > 0 {
+		mon.Seed(seeded)
+		log.Info("spend monitor seeded from spend_daily", "spent_usd", seeded)
+	}
 	breakers := failover.NewBreakerRegistry(3, 30*time.Second)
 	failoverProviders := buildFailoverProviders(registry, breakers)
 	fo := failover.New(failoverProviders, mon)
@@ -559,6 +564,9 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// when Halt is called, all outbound HTTP is denied except to
 	// allow-listed providers. See internal/halt/network.go.
 	netGuard := halt.NewInProcessGuard()
+	// Survival Rule / 24/7: halt flag is sticky on disk (Refresh above).
+	// The guard is in-process only — re-arm when we boot already halted.
+	rearmNetGuardIfHalted(haltFlag, netGuard, log)
 	// T3b sticky-resume: ticket store + human-only secret manager.
 	// The ticket store lives in-memory (no persistence: a restart
 	// while halted is an acceptable fail-closed outcome — the user
@@ -584,6 +592,14 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 	// owns the lifecycle of in-flight LLM streams and bridges them
 	// to the broker.
 	broker := sse.NewBroker()
+	// Live audit ledger: every successful Append fans out on SSE
+	// event "audit" so Meridian can prepend rows without Refresh.
+	// PublishJSON is non-blocking (drops on full buffer).
+	if auditLog != nil {
+		auditLog.SetOnAppend(func(e audit.Event) {
+			broker.PublishJSON("audit", e)
+		})
+	}
 	streamMgr := stream.NewManager(broker, registry)
 	streamMgr.SetHaltChecker(haltFlag.IsHalted)
 	// Wire the circuit breaker into the streaming path so a
@@ -598,6 +614,34 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 			b.RecordSuccess()
 		} else {
 			b.RecordFailure()
+		}
+	})
+	// Daily spend cap on Meridian Ask (llm.stream) — was only on llm.chat.
+	streamMgr.SetSpendCheck(func(model string) error {
+		if mon == nil {
+			return nil
+		}
+		est := llm.EstimateCost(model, llm.Usage{})
+		if !mon.Allow(est) {
+			return stream.ErrSpendCap
+		}
+		return nil
+	})
+	streamMgr.SetSpendRecord(func(provider, model string, usage llm.Usage) {
+		if mon == nil {
+			return
+		}
+		cost := llm.EstimateCost(model, usage)
+		mon.Record(cost)
+		persistSpend(db.SQL(), provider, model, usage, cost, log)
+		// Soft warning at 80% of daily cap (GUI may poll spend.today too).
+		cap := mon.Cap().USDPerDay
+		if cap > 0 && mon.Spent() >= cap*0.8 {
+			broker.PublishJSON("spend_warning", map[string]any{
+				"spent":     mon.Spent(),
+				"cap":       cap,
+				"remaining": mon.Remaining(),
+			})
 		}
 	})
 
@@ -621,7 +665,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		}
 	}
 
-	safety := buildSafetyLayer(haltFlag, broker, trustStore, cfg, log)
+	safety := buildSafetyLayerWithGuard(haltFlag, netGuard, broker, trustStore, cfg, log)
 	gate := safety.Engine
 	log.Info("gatekeeper ready", "policy", "engine", "consent_provider", "rpc")
 
@@ -865,7 +909,7 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		wdog = watchdog.New(
 			cfg.Daemon.Watchdog.Timeout,
 			cfg.Daemon.Watchdog.CheckInterval,
-			guardAwareHaltFlag{flag: haltFlag, guard: netGuard},
+			guardAwareHaltFlag{flag: haltFlag, guard: netGuard, broker: broker},
 			watchdogAuditAdapter{log: auditLog, appName: appCondurad},
 			log,
 		)
@@ -1701,3 +1745,42 @@ func perceptionEnergyMode(cfg *config.Config) perception.EnergyMode {
 		return perception.EnergyAuto
 	}
 }
+
+// loadSpendToday returns SUM(cost_usd) for the local calendar day from spend_daily.
+func loadSpendToday(db *sql.DB) float64 {
+	if db == nil {
+		return 0
+	}
+	day := time.Now().Format("2006-01-02")
+	var sum float64
+	err := db.QueryRow(`SELECT COALESCE(SUM(cost_usd), 0) FROM spend_daily WHERE day = ?`, day).Scan(&sum)
+	if err != nil {
+		return 0
+	}
+	return sum
+}
+
+// persistSpend writes one llm_calls row and upserts spend_daily for durable caps across restarts.
+func persistSpend(db *sql.DB, provider, model string, usage llm.Usage, cost float64, log *slog.Logger) {
+	if db == nil {
+		return
+	}
+	day := time.Now().Format("2006-01-02")
+	_, err := db.Exec(
+		`INSERT INTO llm_calls (provider, model, task, input_tokens, output_tokens, cost_usd, success)
+		 VALUES (?, ?, 'chat', ?, ?, ?, 1)`,
+		provider, model, usage.InputTokens, usage.OutputTokens, cost,
+	)
+	if err != nil && log != nil {
+		log.Warn("spend: llm_calls insert failed", "err", err)
+	}
+	_, err = db.Exec(
+		`INSERT INTO spend_daily (day, provider, cost_usd) VALUES (?, ?, ?)
+		 ON CONFLICT(day, provider) DO UPDATE SET cost_usd = cost_usd + excluded.cost_usd`,
+		day, provider, cost,
+	)
+	if err != nil && log != nil {
+		log.Warn("spend: spend_daily upsert failed", "err", err)
+	}
+}
+
