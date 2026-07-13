@@ -330,7 +330,7 @@
     flex: none;
     border-radius: 50%;
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .search {
     display: flex;
@@ -588,7 +588,7 @@
     display: grid;
     gap: 6px;
     padding: 8px;
-    border-radius: 20px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-surface) 70%, transparent);
   }

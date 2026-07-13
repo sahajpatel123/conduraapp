@@ -469,9 +469,9 @@
   }
   .word {
     font-family: var(--md-font-display);
-    font-size: clamp(52px, 11vw, 96px);
-    font-weight: 700;
-    letter-spacing: -0.065em;
+    font-size: clamp(44px, 9vw, 72px);
+    font-weight: 650;
+    letter-spacing: -0.05em;
     color: var(--md-ink);
   }
   .slash {
@@ -526,10 +526,10 @@
   .atlas-title {
     margin: 0 0 10px;
     font-family: var(--md-font-display);
-    font-size: clamp(26px, 4vw, 36px);
-    font-weight: 700;
-    letter-spacing: -0.045em;
-    line-height: 1.08;
+    font-size: clamp(22px, 3.4vw, 30px);
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
     color: var(--md-ink);
     text-wrap: balance;
   }
@@ -558,22 +558,21 @@
     min-height: 220px;
     padding: 20px 18px 18px;
     text-align: left;
-    border-radius: 22px;
-    border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
+    border-radius: 11px;
+    border: 1px solid var(--md-line);
     background: var(--md-surface);
     color: inherit;
     cursor: pointer;
     transition:
-      transform 220ms var(--about-spring),
-      border-color 220ms var(--about-ease),
-      box-shadow 220ms var(--about-ease),
-      background 220ms var(--about-ease);
+      border-color 140ms var(--about-ease),
+      background 140ms var(--about-ease);
   }
   .atlas-door:hover,
   .atlas-door.focus {
-    transform: translateY(-2px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 32%, transparent);
-    box-shadow: 0 18px 36px -28px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    transform: none;
+    border-color: var(--md-line-strong);
+    box-shadow: none;
+    background: color-mix(in oklab, var(--md-stage) 35%, var(--md-surface));
   }
   .atlas-door:focus-visible {
     outline: none;
@@ -712,8 +711,8 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    padding: 4px 8px;
-    border-radius: 999px;
+    padding: 3px 7px;
+    border-radius: 5px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-surface) 55%, transparent);
   }
@@ -732,7 +731,7 @@
     right: 6%;
     top: 22px;
     height: 2px;
-    border-radius: 999px;
+    border-radius: 2px;
     background: var(--md-line-strong);
     z-index: 0;
     overflow: hidden;
@@ -743,8 +742,8 @@
     inset: 0 auto 0 0;
     width: var(--fill, 14%);
     border-radius: inherit;
-    background: linear-gradient(90deg, var(--md-live), var(--md-cobalt));
-    box-shadow: 0 0 16px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    background: var(--md-cobalt);
+    box-shadow: none;
     transition: width 480ms var(--about-ease);
   }
 
@@ -764,20 +763,18 @@
     min-width: 0;
   }
   .star-core {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
     display: grid;
     place-items: center;
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    border: 1px solid var(--md-line-strong);
-    box-shadow: 0 1px 0 color-mix(in oklab, #fff 55%, transparent) inset;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    box-shadow: none;
     transition:
-      transform 220ms var(--about-spring),
-      background 220ms var(--about-ease),
-      border-color 220ms var(--about-ease),
-      box-shadow 220ms var(--about-ease),
-      color 220ms var(--about-ease);
+      background 140ms var(--about-ease),
+      border-color 140ms var(--about-ease),
+      color 140ms var(--about-ease);
   }
   .star-roman {
     font-family: var(--md-font-mono);
@@ -813,10 +810,8 @@
     background: var(--md-cobalt);
     border-color: transparent;
     color: #fff;
-    transform: scale(1.08);
-    box-shadow:
-      0 0 0 6px color-mix(in oklab, var(--md-cobalt) 16%, transparent),
-      0 12px 28px -12px color-mix(in oklab, var(--md-cobalt) 65%, transparent);
+    transform: none;
+    box-shadow: none;
   }
   .star.on .star-roman {
     color: #fff;
@@ -825,15 +820,15 @@
     color: var(--md-ink);
   }
   .star:hover .star-core {
-    transform: translateY(-2px) scale(1.04);
-    border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    transform: none;
+    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
   }
   .star.on:hover .star-core {
-    transform: scale(1.1);
+    transform: none;
   }
   .star:focus-visible .star-core {
     outline: none;
-    box-shadow: var(--md-focus), 0 12px 28px -12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    box-shadow: var(--md-focus);
   }
 
   .stage-plate {
@@ -842,8 +837,8 @@
     height: 380px;
     min-height: 380px;
     max-height: 380px;
-    padding: 28px 36px 22px;
-    border-radius: 28px;
+    padding: 22px 28px 18px;
+    border-radius: 14px;
     border: 1px solid color-mix(in oklab, var(--md-ink) 9%, transparent);
     background: var(--md-surface);
     overflow: hidden;
@@ -913,8 +908,8 @@
     letter-spacing: -0.01em;
     text-transform: none;
     color: var(--md-ink-mute);
-    padding: 5px 11px;
-    border-radius: 999px;
+    padding: 4px 9px;
+    border-radius: 6px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-stage) 55%, var(--md-surface));
   }
@@ -931,8 +926,8 @@
     font-weight: 600;
     letter-spacing: -0.01em;
     text-transform: none;
-    padding: 5px 11px;
-    border-radius: 999px;
+    padding: 4px 9px;
+    border-radius: 6px;
     border: 1px solid var(--md-line);
     color: var(--md-ink-mute);
     background: color-mix(in oklab, var(--md-stage) 55%, var(--md-surface));
@@ -989,38 +984,36 @@
   }
   .stage-nav {
     appearance: none;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border-radius: 9px;
     display: grid;
     place-items: center;
-    border: 1px solid var(--md-line-strong);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
     color: var(--md-ink);
     cursor: pointer;
-    box-shadow: 0 8px 22px -16px color-mix(in oklab, var(--md-ink) 40%, transparent);
+    box-shadow: none;
     transition:
-      transform 180ms var(--about-spring),
-      background 180ms var(--about-ease),
-      border-color 180ms var(--about-ease),
-      color 180ms var(--about-ease),
-      box-shadow 180ms var(--about-ease);
+      background 140ms var(--about-ease),
+      border-color 140ms var(--about-ease),
+      color 140ms var(--about-ease);
   }
   .stage-nav:hover:not(:disabled) {
-    transform: translateY(-1px);
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    transform: none;
+    border-color: var(--md-line-strong);
     color: var(--md-cobalt);
   }
   .stage-nav.primary {
     background: var(--md-cobalt);
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 14px 28px -14px color-mix(in oklab, var(--md-cobalt) 70%, transparent);
+    box-shadow: none;
   }
   .stage-nav.primary:hover:not(:disabled) {
     background: var(--md-cobalt-deep);
     color: #fff;
-    transform: translateY(-1px) scale(1.03);
+    transform: none;
   }
   .stage-nav:disabled {
     opacity: 0.28;
@@ -1041,21 +1034,19 @@
     margin: 0 auto;
   }
   .tick {
-    height: 4px;
+    height: 3px;
     flex: 1;
-    border-radius: 999px;
+    border-radius: 2px;
     background: var(--md-line-strong);
-    transition:
-      background 220ms var(--about-ease),
-      transform 220ms var(--about-spring);
+    transition: background 180ms var(--about-ease);
   }
   .tick.passed {
     background: color-mix(in oklab, var(--md-cobalt) 45%, var(--md-line-strong));
   }
   .tick.on {
     background: var(--md-cobalt);
-    transform: scaleY(1.35);
-    box-shadow: 0 0 12px color-mix(in oklab, var(--md-cobalt) 45%, transparent);
+    transform: none;
+    box-shadow: none;
   }
 
   /* —— Closing colophon —— */
@@ -1071,7 +1062,7 @@
   .close-mark {
     width: 28px;
     height: 2px;
-    border-radius: 999px;
+    border-radius: 1px;
     background: var(--md-cobalt);
     margin-bottom: 18px;
     opacity: 0.85;
@@ -1237,8 +1228,8 @@
       height: 360px;
       min-height: 360px;
       max-height: 360px;
-      padding: 22px 20px 16px;
-      border-radius: 22px;
+      padding: 18px 16px 14px;
+      border-radius: 12px;
     }
     .stage-copy h3 {
       max-width: 16ch;

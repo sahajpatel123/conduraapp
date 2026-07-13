@@ -470,7 +470,7 @@
     flex: none;
     border-radius: 50%;
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -481,17 +481,18 @@
     margin: 0 0 10px;
   }
   .empty-atlas {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 28px 24px;
-    box-shadow: var(--md-shadow);
+    padding: 22px 20px;
+    box-shadow: none;
     max-width: 520px;
   }
   .empty-atlas h2 {
     font-family: var(--md-font-display);
-    font-size: 26px;
-    letter-spacing: -0.04em;
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     margin: 0 0 8px;
   }
   .empty-lead {
@@ -546,8 +547,8 @@
   .rail {
     display: grid;
     gap: 6px;
-    padding: 10px 8px 8px;
-    border-radius: 20px;
+    padding: 8px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-surface) 70%, transparent);
   }
@@ -557,8 +558,8 @@
     gap: 10px;
     align-items: center;
     text-align: left;
-    padding: 10px;
-    border-radius: 14px;
+    padding: 9px 10px;
+    border-radius: 8px;
     border: 1px solid transparent;
     cursor: pointer;
     color: inherit;
@@ -571,22 +572,22 @@
   }
   .rail-item.on {
     background: var(--md-surface);
-    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    box-shadow: var(--md-shadow);
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+    box-shadow: none;
   }
   .rail-item:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
   }
   .mono {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
     font-family: var(--md-font-display);
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 650;
     color: var(--md-live);
     background: color-mix(in oklab, var(--md-live) 12%, var(--md-stage));
     border: 1px solid color-mix(in oklab, var(--md-live) 18%, var(--md-line));
@@ -603,7 +604,7 @@
   }
   .rail-copy strong {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -616,19 +617,20 @@
     color: var(--md-ink-faint);
   }
   .stage-plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 24px;
-    box-shadow: var(--md-shadow);
+    padding: 18px 18px 20px;
+    box-shadow: none;
     min-height: 300px;
     display: flex;
     flex-direction: column;
   }
   .stage-plate h2 {
     font-family: var(--md-font-display);
-    font-size: clamp(26px, 4vw, 34px);
-    letter-spacing: -0.045em;
+    font-size: clamp(22px, 3.6vw, 28px);
+    font-weight: 650;
+    letter-spacing: -0.035em;
     margin: 0 0 10px;
   }
   .body {
@@ -682,10 +684,10 @@
   }
   .remove-plate {
     margin-top: auto;
-    padding: 16px 18px;
-    border-radius: 16px;
-    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
-    background: color-mix(in oklab, var(--md-halt) 6%, var(--md-stage));
+    padding: 14px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 4%, var(--md-stage));
   }
   .remove-plate h3 {
     font-family: var(--md-font-display);
@@ -706,11 +708,11 @@
     gap: 8px;
   }
   .create-plate {
-    border-radius: 18px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 18px 16px;
-    box-shadow: var(--md-shadow);
+    padding: 16px 14px;
+    box-shadow: none;
     margin-bottom: 16px;
     max-width: 520px;
     display: grid;

@@ -87,67 +87,67 @@
 <style>
   .dock {
     position: absolute;
-    left: 24px;
-    right: 24px;
-    bottom: 14px;
+    left: 20px;
+    right: 20px;
+    bottom: 12px;
     z-index: 20;
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
-    padding: 6px 8px;
-    border-radius: 14px;
-    background: color-mix(in oklab, var(--md-surface) 92%, transparent);
+    gap: 4px;
+    padding: 5px 6px;
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--md-surface) 94%, transparent);
     border: 1px solid var(--md-line);
-    backdrop-filter: blur(18px) saturate(1.1);
-    -webkit-backdrop-filter: blur(18px) saturate(1.1);
-    box-shadow: var(--md-shadow);
-    animation: md-dock-up 520ms var(--md-ease) 80ms both;
+    backdrop-filter: blur(12px) saturate(1.05);
+    -webkit-backdrop-filter: blur(12px) saturate(1.05);
+    box-shadow: none;
+    animation: md-dock-up 420ms var(--md-ease) 60ms both;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-padding-inline: 8px;
   }
   :root[data-mode='dark'] .dock {
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
   }
   .dock::-webkit-scrollbar { display: none; }
-  .primary, .more { display: flex; align-items: center; gap: 2px; flex: none; }
+  .primary, .more { display: flex; align-items: center; gap: 1px; flex: none; }
   .divider {
-    width: 1px; align-self: stretch; margin: 6px 4px;
-    background: var(--md-line-strong);
+    width: 1px; align-self: stretch; margin: 7px 5px;
+    background: var(--md-line);
     flex: none;
   }
   .dock:hover {
     border-color: var(--md-line-strong);
-    box-shadow: var(--md-shadow);
   }
   .tab {
     position: relative;
     appearance: none; border: 0; background: transparent; color: var(--md-ink-mute);
-    font-family: var(--md-font-sans); font-size: 12.5px; font-weight: 550;
-    padding: 8px 11px; border-radius: 9px; cursor: pointer; white-space: nowrap;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: color 140ms var(--md-ease), background 140ms var(--md-ease);
+    font-family: var(--md-font-sans); font-size: 12px; font-weight: 500;
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: color 120ms var(--md-ease), background 120ms var(--md-ease);
   }
   .tab .ico {
-    display: inline-flex; opacity: 0.7;
-    transition: opacity 140ms var(--md-ease);
+    display: inline-flex; opacity: 0.65;
+    transition: opacity 120ms var(--md-ease);
   }
-  .tab.quiet { font-weight: 500; color: var(--md-ink-faint); }
+  .tab.quiet { font-weight: 450; color: var(--md-ink-faint); }
   .tab:hover {
     color: var(--md-ink);
-    background: color-mix(in oklab, var(--md-ink) 4%, transparent);
+    background: color-mix(in oklab, var(--md-ink) 3.5%, transparent);
   }
-  .tab:hover .ico { opacity: 1; }
+  .tab:hover .ico { opacity: 0.95; }
   .tab.active {
     color: #fff;
     background: var(--md-cobalt);
     box-shadow: none;
     animation: none;
+    font-weight: 550;
   }
   .tab.active .ico { opacity: 1; }
-  .tab:active { opacity: 0.9; }
+  .tab:active { opacity: 0.88; }
   .tab:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
@@ -158,30 +158,30 @@
   }
   .halt:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 22%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--md-halt) 26%, transparent);
   }
   .badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 15px; height: 15px; margin-left: 2px; padding: 0 4px; border-radius: 999px;
-    background: color-mix(in oklab, var(--md-cobalt) 12%, #fff); color: var(--md-cobalt);
-    font-size: 10px; font-weight: 700;
+    min-width: 14px; height: 14px; margin-left: 1px; padding: 0 4px; border-radius: 999px;
+    background: color-mix(in oklab, var(--md-cobalt) 10%, #fff); color: var(--md-cobalt);
+    font-size: 9px; font-weight: 700;
   }
   :root[data-mode='dark'] .badge {
-    background: color-mix(in oklab, var(--md-cobalt) 18%, var(--md-surface)); color: var(--md-cobalt);
+    background: color-mix(in oklab, var(--md-cobalt) 16%, var(--md-surface)); color: var(--md-cobalt);
   }
   .halt {
-    appearance: none; margin-left: 4px;
-    border: 1px solid color-mix(in oklab, var(--md-halt) 32%, var(--md-line-strong));
+    appearance: none; margin-left: 2px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line-strong));
     background: transparent;
-    color: var(--md-halt); font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
-    text-transform: uppercase; padding: 7px 12px; border-radius: 9px; cursor: pointer;
-    transition: background 140ms var(--md-ease), border-color 140ms var(--md-ease);
+    color: var(--md-halt); font-size: 10.5px; font-weight: 650; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    transition: background 120ms var(--md-ease), border-color 120ms var(--md-ease);
   }
   .halt:hover {
-    background: color-mix(in oklab, var(--md-halt) 8%, transparent);
-    border-color: color-mix(in oklab, var(--md-halt) 48%, var(--md-line-strong));
+    background: color-mix(in oklab, var(--md-halt) 6%, transparent);
+    border-color: color-mix(in oklab, var(--md-halt) 44%, var(--md-line-strong));
   }
-  .halt:active { opacity: 0.9; }
+  .halt:active { opacity: 0.88; }
   @keyframes md-tab-in {
     from { transform: scale(0.92); }
     to { transform: scale(1); }
@@ -189,12 +189,12 @@
   @media (max-width: 720px) {
     .dock {
       left: 14px; right: 14px; bottom: 10px;
-      padding: 8px 9px; gap: 6px; border-radius: 18px;
+      padding: 5px 6px; gap: 4px; border-radius: 12px;
       justify-content: flex-start;
     }
-    .tab { padding: 8px 10px; font-size: 12px; gap: 5px; }
+    .tab { padding: 7px 9px; font-size: 12px; gap: 5px; }
     .tab .ico { display: none; }
-    .halt { padding: 7px 11px; font-size: 11px; margin-left: 4px; }
+    .halt { padding: 6px 10px; font-size: 10.5px; margin-left: 2px; }
   }
   @media (max-width: 420px) {
     .dock {

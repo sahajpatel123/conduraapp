@@ -262,7 +262,7 @@
     flex: none;
     border-radius: 50%;
     background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
+    box-shadow: none;
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -276,10 +276,10 @@
     display: flex;
     gap: 14px;
     align-items: center;
-    padding: 14px 16px;
-    border-radius: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    background: var(--md-surface);
   }
   .seal.ok {
     border-color: color-mix(in oklab, var(--md-live) 30%, transparent);
@@ -324,11 +324,11 @@
     color: var(--md-halt);
   }
   .empty-atlas {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 28px 24px;
-    box-shadow: var(--md-shadow);
+    padding: 22px 20px;
+    box-shadow: none;
     max-width: 520px;
   }
   .empty-atlas h2 {
@@ -356,11 +356,9 @@
     gap: 14px;
   }
   .stage {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
-    background:
-      radial-gradient(120% 80% at 50% 0%, color-mix(in oklab, var(--md-cobalt) 10%, transparent), transparent 55%),
-      var(--md-stage);
+    background: var(--md-stage);
     min-height: 280px;
     overflow: hidden;
   }
@@ -412,16 +410,17 @@
     line-height: 1.5;
   }
   .plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 20px;
-    box-shadow: var(--md-shadow);
+    padding: 16px;
+    box-shadow: none;
   }
   .plate h2 {
     font-family: var(--md-font-display);
-    font-size: 22px;
-    letter-spacing: -0.04em;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     margin: 0 0 6px;
   }
   .app {
@@ -454,8 +453,8 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 12px 14px;
-    border-radius: 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
     background: var(--md-surface);
     border: 1px solid var(--md-line-strong);
   }
@@ -488,8 +487,8 @@
     flex: none;
     width: 140px;
     text-align: left;
-    padding: 10px;
-    border-radius: 14px;
+    padding: 9px;
+    border-radius: 8px;
     border: 1px solid var(--md-line);
     background: var(--md-stage);
     cursor: pointer;
@@ -498,7 +497,7 @@
   .thumb.on {
     border-color: color-mix(in oklab, var(--md-cobalt) 45%, transparent);
     background: var(--md-surface);
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
   }
   .thumb:focus-visible {
     outline: none;

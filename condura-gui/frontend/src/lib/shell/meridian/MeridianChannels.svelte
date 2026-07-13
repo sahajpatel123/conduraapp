@@ -407,7 +407,7 @@
   }
   .contract.hot .live-dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .pipe {
     display: flex;
@@ -431,15 +431,15 @@
   }
   .pipe .t {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 550;
     color: var(--md-ink-soft);
   }
   .instrument {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 24px;
-    box-shadow: var(--md-shadow);
+    padding: 18px;
+    box-shadow: none;
   }
   .instrument.live {
     border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
@@ -455,14 +455,14 @@
     margin-bottom: 18px;
   }
   .node {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     font-family: var(--md-font-display);
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 650;
     color: var(--md-cobalt);
     background: color-mix(in oklab, var(--md-cobalt) 12%, var(--md-stage));
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
@@ -551,8 +551,8 @@
     color: var(--md-halt);
   }
   .horizon {
-    padding: 16px 18px;
-    border-radius: 18px;
+    padding: 14px 14px;
+    border-radius: 10px;
     border: 1px dashed var(--md-line-strong);
     background: color-mix(in oklab, var(--md-stage) 60%, transparent);
   }

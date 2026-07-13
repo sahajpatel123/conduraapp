@@ -425,7 +425,7 @@
   }
   .contract.hot .live-dot {
     background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
+    box-shadow: none;
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -438,16 +438,16 @@
   .pulse {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 22px;
+    gap: 18px;
     align-items: center;
-    padding: 22px 24px;
-    border-radius: 22px;
+    padding: 16px 18px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    background: var(--md-surface);
   }
   .pulse.hot {
-    border-color: color-mix(in oklab, var(--md-cobalt) 35%, transparent);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-cobalt) 10%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, transparent);
+    box-shadow: none;
   }
   .pulse-ring {
     width: 88px;
@@ -513,15 +513,16 @@
   }
 
   .spawn-plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
-    padding: 22px 24px 20px;
+    background: var(--md-surface);
+    padding: 18px 18px 16px;
   }
   .spawn-plate h2 {
     font-family: var(--md-font-display);
-    font-size: 22px;
-    letter-spacing: -0.04em;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     margin: 0 0 8px;
   }
   .spawn-lead {
@@ -664,11 +665,11 @@
     gap: 12px;
   }
   .sheet {
-    border-radius: 20px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 18px 18px 16px;
-    box-shadow: var(--md-shadow);
+    padding: 16px 16px 14px;
+    box-shadow: none;
   }
   .sheet header {
     display: flex;
@@ -677,9 +678,9 @@
     margin-bottom: 12px;
   }
   .mono {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     flex: none;

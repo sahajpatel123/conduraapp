@@ -234,7 +234,7 @@
     overflow: hidden;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
     transform: translateX(-50%);
     animation: md-palette 280ms var(--md-ease) both;
   }
@@ -353,7 +353,7 @@
       right: 0;
       width: 100%;
       max-width: none;
-      border-radius: 22px 22px 0 0;
+      border-radius: 14px 14px 0 0;
       border-left: 0;
       border-right: 0;
       border-bottom: 0;

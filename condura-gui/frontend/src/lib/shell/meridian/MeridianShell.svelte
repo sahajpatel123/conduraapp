@@ -384,19 +384,19 @@
     text-align: center;
   }
   .boot-gem {
-    width: 14px;
-    height: 14px;
-    border-radius: 4px;
-    background: linear-gradient(135deg, var(--md-cobalt), var(--md-live));
-    box-shadow: 0 0 24px color-mix(in oklab, var(--md-cobalt) 55%, transparent);
-    animation: md-breathe 2.4s var(--md-ease) infinite;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--md-cobalt);
+    box-shadow: none;
+    animation: md-breathe 2.8s var(--md-ease) infinite;
     margin-bottom: 4px;
   }
   .boot-mark {
     font-family: var(--md-font-display);
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: -0.05em;
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.04em;
     margin: 0;
     color: var(--md-ink);
   }
@@ -479,31 +479,29 @@
     grid-column: 1;
   }
   .gem {
-    width: 11px;
-    height: 11px;
-    border-radius: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
     flex: none;
-    background: linear-gradient(135deg, var(--md-cobalt) 0%, color-mix(in oklab, var(--md-live) 70%, var(--md-cobalt)) 100%);
-    box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--md-cobalt) 35%, transparent),
-      0 0 16px color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    background: var(--md-cobalt);
+    box-shadow: none;
   }
   .word {
     font-family: var(--md-font-display);
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.055em;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -0.04em;
   }
   .edition {
     font-family: var(--md-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: 9px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--md-ink-faint);
-    padding: 3px 8px;
-    border-radius: 999px;
+    padding: 2px 6px;
+    border-radius: 4px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 40%, transparent);
+    background: transparent;
   }
   .jump {
     position: relative;
@@ -642,11 +640,11 @@
     min-height: 0;
     overflow: auto;
     background: var(--md-stage);
-    border-radius: 16px 16px 0 0;
+    border-radius: 12px 12px 0 0;
     margin: 0 12px;
     border: 1px solid color-mix(in oklab, var(--md-line-strong) 80%, transparent);
     border-bottom: 0;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 70%, transparent);
+    box-shadow: none;
     /* Dock floats over the stage — keep scroll content clear of it. */
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
@@ -680,7 +678,7 @@
     }
     .stage {
       margin: 0 8px;
-      border-radius: 14px 14px 0 0;
+      border-radius: 12px 12px 0 0;
       padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     }
   }

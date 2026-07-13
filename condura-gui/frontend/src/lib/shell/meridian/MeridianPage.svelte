@@ -23,24 +23,25 @@
 </div>
 
 <style>
-  .page { max-width: 980px; margin: 0 auto; padding: 28px 28px 120px; min-height: 100%; }
+  .page { max-width: 960px; margin: 0 auto; padding: 24px 24px 112px; min-height: 100%; }
   .head {
-    display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
-    margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--md-line); position: relative;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+    margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--md-line); position: relative;
   }
   .head::after {
-    content: ''; position: absolute; left: 0; bottom: -1px; width: 48px; height: 2px;
+    content: ''; position: absolute; left: 0; bottom: -1px; width: 40px; height: 1.5px;
     border-radius: 1px;
     background: var(--md-cobalt);
     transform-origin: left;
-    animation: md-underline 560ms var(--md-ease) 80ms both;
+    animation: md-underline 480ms var(--md-ease) 60ms both;
     box-shadow: none;
   }
   .kicker {
-    font-family: var(--md-font-mono); font-size: 11px; letter-spacing: 0.16em;
-    text-transform: uppercase; color: var(--md-ink-faint); margin: 0 0 10px;
-    display: inline-flex; align-items: center; gap: 8px;
-    animation: md-rise 420ms var(--md-ease) both;
+    font-family: var(--md-font-mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--md-ink-faint); margin: 0 0 8px;
+    display: inline-flex; align-items: center; gap: 7px;
+    animation: md-rise 360ms var(--md-ease) both;
+    font-weight: 500;
   }
   .kicker::before {
     content: '';
@@ -49,13 +50,13 @@
     box-shadow: none;
   }
   h1 {
-    font-family: var(--md-font-display); font-size: clamp(34px, 5vw, 52px); font-weight: 700;
-    letter-spacing: -0.055em; line-height: 0.96; margin: 0 0 10px;
-    animation: md-rise 480ms var(--md-ease) 40ms both;
+    font-family: var(--md-font-display); font-size: clamp(28px, 4.2vw, 40px); font-weight: 650;
+    letter-spacing: -0.04em; line-height: 1.05; margin: 0 0 8px;
+    animation: md-rise 400ms var(--md-ease) 30ms both;
   }
   .lead {
-    margin: 0; max-width: 46ch; font-size: 15px; line-height: 1.55; color: var(--md-ink-mute);
-    animation: md-rise 480ms var(--md-ease) 90ms both;
+    margin: 0; max-width: 48ch; font-size: 14px; line-height: 1.5; color: var(--md-ink-mute);
+    animation: md-rise 400ms var(--md-ease) 60ms both;
   }
   .actions { display: flex; gap: 8px; flex: none; flex-wrap: wrap; animation: md-rise 480ms var(--md-ease) 120ms both; }
   .body { animation: md-rise 520ms var(--md-ease) 140ms both; }

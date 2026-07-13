@@ -148,7 +148,7 @@
   .preset-chip {
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     padding: 6px 12px;
     cursor: pointer;
     transition: border-color var(--transition-base), background var(--transition-base);

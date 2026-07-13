@@ -20,18 +20,17 @@
     fill="none"
     stroke="var(--md-line-strong)"
     stroke-width="2"
+    stroke-linecap="butt"
   />
-  <!-- Solid halt red — no glow, no faded gradient -->
+  <!-- Solid halt red — no glow, no endpoint nodes -->
   <path
     class="beam"
     d="M 36 58 C 260 14, 940 14, 1164 58"
     fill="none"
     stroke="var(--md-halt)"
     stroke-width="2.75"
-    stroke-linecap="round"
+    stroke-linecap="butt"
   />
-  <circle class="node left" cx="36" cy="58" r="4.25" />
-  <circle class="node right" cx="1164" cy="58" r="4.25" />
 </svg>
 
 <style>
@@ -56,16 +55,6 @@
       opacity: 1;
     }
   }
-  .node {
-    fill: var(--md-surface);
-    stroke: var(--md-halt);
-    stroke-width: 2;
-  }
-  .live .node {
-    fill: var(--md-halt);
-    stroke: color-mix(in oklab, var(--md-halt) 55%, #fff);
-    animation: md-breathe 1.4s var(--md-ease) infinite;
-  }
   .bad .beam {
     animation: none;
     opacity: 1;
@@ -74,17 +63,11 @@
   .bad .track {
     stroke: color-mix(in oklab, var(--md-halt) 28%, var(--md-line-strong));
   }
-  .bad .node {
-    fill: var(--md-halt);
-    stroke: color-mix(in oklab, var(--md-halt) 55%, #fff);
-    animation: none;
-  }
   :global(:root[data-mode='dark']) .track {
     stroke: color-mix(in oklab, var(--md-ink) 18%, transparent);
   }
   @media (prefers-reduced-motion: reduce) {
-    .beam,
-    .node {
+    .beam {
       animation: none !important;
     }
   }

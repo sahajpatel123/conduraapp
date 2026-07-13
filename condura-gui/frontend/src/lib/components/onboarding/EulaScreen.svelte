@@ -209,12 +209,12 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-3);
-    background: var(--surface-glass);
+    background: var(--md-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-2xl);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: var(--shadow-md), var(--shadow-inset);
+    border-radius: var(--radius-lg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
   }
 
   .head {
@@ -275,9 +275,9 @@
     text-align: left;
     background: var(--surface-1);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     padding: var(--space-4) var(--space-5);
-    box-shadow: var(--shadow-inset);
+    box-shadow: none;
   }
   .eula-body pre {
     white-space: pre-wrap;
@@ -296,7 +296,7 @@
   }
   .eula-body::-webkit-scrollbar-thumb {
     background: var(--border-strong);
-    border-radius: var(--radius-pill);
+    border-radius: 4px;
   }
 
   .checkbox {
@@ -377,10 +377,10 @@
     border: 1px solid var(--border-strong);
     background: var(--surface-1);
     color: var(--accent, #2f5bff);
-    font-weight: 700;
+    font-weight: 550;
     font-size: var(--size-sm);
     padding: 8px 14px;
-    border-radius: 999px;
+    border-radius: 8px;
     cursor: pointer;
   }
 </style>

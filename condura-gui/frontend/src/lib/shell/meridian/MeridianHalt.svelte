@@ -111,7 +111,7 @@
     padding: 24px 22px;
     z-index: 96;
     text-align: center;
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
     animation: md-pop 280ms var(--md-ease) both;
     transform: translate(-50%, -50%);
   }
@@ -154,8 +154,8 @@
   }
   .ticket-block {
     text-align: left;
-    padding: 14px 14px 12px;
-    border-radius: 16px;
+    padding: 12px 12px 11px;
+    border-radius: 10px;
     border: 1px solid var(--md-line);
     background: var(--md-stage);
   }
@@ -224,7 +224,7 @@
   @media (max-width: 420px) {
     .sheet {
       padding: 24px 20px;
-      border-radius: 20px;
+      border-radius: 14px;
     }
     h2 {
       font-size: 24px;

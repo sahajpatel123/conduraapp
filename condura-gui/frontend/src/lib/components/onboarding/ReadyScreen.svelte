@@ -110,7 +110,7 @@
     <section class="power">
       <h3 class="section-title">{t('onboarding.ready.power_title')}</h3>
       <div class="power-grid">
-        <Card elevation="glass" padding="md" class="power-card">
+        <Card elevation={1} padding="md" class="power-card">
           <div class="power-row">
             <div class="power-icon" class:on={probe.ollama_reachable} aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -146,7 +146,7 @@
         </Card>
 
         {#if probe.clis && probe.clis.length}
-          <Card elevation="glass" padding="md" class="power-card">
+          <Card elevation={1} padding="md" class="power-card">
             <div class="power-row">
               <div class="power-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -178,7 +178,7 @@
     <h3 class="section-title">{t('onboarding.ready.optional_title')}</h3>
     <div class="optional-grid">
       <Card
-        elevation="glass"
+        elevation={1}
         padding="md"
         interactive
         onclick={() => finish('#/settings')}
@@ -189,7 +189,7 @@
       </Card>
 
       <Card
-        elevation="glass"
+        elevation={1}
         padding="md"
         interactive
         onclick={() => finish('#/channels')}
@@ -200,7 +200,7 @@
       </Card>
 
       <Card
-        elevation="glass"
+        elevation={1}
         padding="md"
         interactive
         onclick={() => finish('#/settings')}
@@ -254,14 +254,15 @@
   h1 {
     font-family: var(--font-display);
     font-size: var(--size-4xl);
-    font-weight: var(--weight-light);
+    font-weight: 650;
     letter-spacing: var(--tracking-tighter);
     line-height: var(--leading-tight);
     margin: 0;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text);
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: unset;
   }
   .subtitle {
     color: var(--text-muted);
@@ -340,7 +341,7 @@
     display: inline-flex;
     align-items: center;
     padding: 4px 10px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     background: var(--surface-3);
     border: 1px solid var(--border);
     color: var(--text);
