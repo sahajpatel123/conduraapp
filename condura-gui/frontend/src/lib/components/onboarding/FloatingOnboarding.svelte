@@ -193,7 +193,7 @@
                 border-radius: 50%;
                 background: {i <= currentStepIndex ? 'var(--lp-synapse)' : 'var(--lp-ink-ghost)'};
                 transition: background var(--lp-dur-normal) var(--lp-ease-thread);
-                box-shadow: {i === currentStepIndex ? '0 0 6px var(--lp-synapse-glow)' : 'none'};
+                box-shadow: none;
                 position: relative;
                 z-index: 1;
               "
@@ -203,10 +203,7 @@
                 style="
                   width: 48px;
                   height: 1.5px;
-                  background: linear-gradient(90deg,
-                    {i < currentStepIndex ? 'var(--lp-synapse)' : 'var(--lp-ink-ghost)'},
-                    {i < currentStepIndex ? 'var(--lp-synapse)' : 'var(--lp-ink-ghost)'}
-                  );
+                  background: {i < currentStepIndex ? 'var(--lp-synapse)' : 'var(--lp-ink-ghost)'};
                   opacity: 0.5;
                 "
               ></div>

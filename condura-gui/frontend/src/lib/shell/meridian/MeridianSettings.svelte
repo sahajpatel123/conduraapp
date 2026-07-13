@@ -1440,7 +1440,7 @@
   }
   .status-bar.ok .dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 18%, transparent);
+    box-shadow: none;
   }
   .sep { opacity: 0.5; }
 
@@ -1569,8 +1569,8 @@
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px;
   }
   .auto-card {
-    text-align: left; padding: 14px; border-radius: 14px; border: 1px solid var(--md-line-strong);
-    background: var(--md-stage); cursor: pointer; display: grid; gap: 6px; color: inherit;
+    text-align: left; padding: 12px 13px; border-radius: 10px; border: 1px solid var(--md-line-strong);
+    background: var(--md-stage); cursor: pointer; display: grid; gap: 5px; color: inherit;
   }
   .auto-card strong { font-family: var(--md-font-display); font-size: 15px; letter-spacing: -0.03em; }
   .auto-card span:last-child { font-size: 12px; line-height: 1.4; color: var(--md-ink-mute); }

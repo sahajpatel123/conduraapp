@@ -1091,13 +1091,13 @@
   .hero::before {
     content: '';
     position: absolute;
-    left: -12%;
-    top: -8%;
-    width: 58%;
-    height: 42%;
+    left: -8%;
+    top: -6%;
+    width: 48%;
+    height: 36%;
     pointer-events: none;
-    background: radial-gradient(ellipse at center, color-mix(in oklab, var(--md-cobalt) 16%, transparent), transparent 70%);
-    filter: blur(8px);
+    background: radial-gradient(ellipse at center, color-mix(in oklab, var(--md-cobalt) 7%, transparent), transparent 72%);
+    filter: blur(10px);
     z-index: 0;
   }
   .hero > * {
@@ -1111,14 +1111,12 @@
     background: var(--md-cobalt);
   }
   .setup-plate {
-    margin: 22px 0 8px;
-    padding: 20px 22px;
-    border-radius: 18px;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
-    background:
-      linear-gradient(135deg, color-mix(in oklab, var(--md-cobalt) 8%, transparent), transparent 55%),
-      color-mix(in oklab, var(--md-cobalt) 5%, var(--md-surface));
-    box-shadow: var(--md-shadow);
+    margin: 20px 0 8px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 18%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 3%, var(--md-surface));
+    box-shadow: none;
   }
   .setup-plate .cite {
     font-family: var(--md-font-mono);
@@ -1130,9 +1128,10 @@
   }
   .setup-plate h2 {
     font-family: var(--md-font-display);
-    font-size: 22px;
-    letter-spacing: -0.04em;
-    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    margin: 0 0 6px;
   }
   .setup-plate p {
     margin: 0 0 16px;
@@ -1190,24 +1189,24 @@
   }
   h1 {
     font-family: var(--md-font-display);
-    font-size: clamp(36px, 6.2vw, 56px);
-    font-weight: 700;
-    letter-spacing: -0.055em;
-    line-height: 1.05;
-    margin: 0 0 12px;
-    animation: md-rise 520ms var(--md-ease) 40ms both;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 650;
+    letter-spacing: -0.04em;
+    line-height: 1.08;
+    margin: 0 0 10px;
+    animation: md-rise 420ms var(--md-ease) 30ms both;
     color: var(--md-ink);
   }
   .hero.calm h1 {
     color: var(--md-ink);
   }
   .sub {
-    margin: 0 0 14px;
-    max-width: 40ch;
-    font-size: 15px;
-    line-height: 1.55;
+    margin: 0 0 12px;
+    max-width: 42ch;
+    font-size: 14px;
+    line-height: 1.5;
     color: var(--md-ink-mute);
-    animation: md-rise 520ms var(--md-ease) 80ms both;
+    animation: md-rise 420ms var(--md-ease) 50ms both;
   }
   .live {
     display: inline-flex;
@@ -1231,14 +1230,14 @@
   }
   .live.hot .live-dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 18%, transparent);
+    box-shadow: none;
   }
   .live.bad {
     color: var(--md-halt);
   }
   .live.bad .live-dot {
     background: var(--md-halt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-halt) 18%, transparent);
+    box-shadow: none;
   }
 
   .pipe {
@@ -1254,12 +1253,12 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 13px;
-    border-radius: 999px;
+    padding: 6px 10px;
+    border-radius: 7px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 78%, transparent);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 1px 0 color-mix(in oklab, #fff 40%, transparent) inset;
+    background: var(--md-surface);
+    backdrop-filter: none;
+    box-shadow: none;
   }
   .pipe .n {
     font-family: var(--md-font-mono);
@@ -1269,7 +1268,7 @@
   }
   .pipe .t {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 550;
     color: var(--md-ink-soft);
   }
 
@@ -1356,10 +1355,10 @@
   }
   .door-t {
     font-family: var(--md-font-display);
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.2;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
   }
   .door-b {
     font-size: 12.5px;
@@ -1389,12 +1388,12 @@
     gap: 8px;
   }
   .recent-chip {
-    padding: 8px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--md-line-strong);
+    padding: 7px 11px;
+    border-radius: 7px;
+    border: 1px solid var(--md-line);
     background: var(--md-stage);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 550;
     color: var(--md-ink-mute);
     cursor: pointer;
     max-width: 220px;
@@ -1486,12 +1485,12 @@
   .rename-input {
     min-width: min(280px, 100%);
     flex: 1;
-    padding: 8px 12px;
-    border-radius: 12px;
+    padding: 8px 11px;
+    border-radius: 8px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
     font-family: var(--md-font-display);
-    font-size: 18px;
+    font-size: 16px;
     letter-spacing: -0.03em;
     color: var(--md-ink);
   }
@@ -1514,10 +1513,10 @@
   }
   .delete-plate {
     margin: 0 0 14px;
-    padding: 14px 16px;
-    border-radius: 16px;
-    border: 1px solid color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
-    background: color-mix(in oklab, var(--md-halt) 6%, var(--md-surface));
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 4%, var(--md-surface));
   }
   .delete-plate.slim {
     display: flex;
@@ -1562,7 +1561,7 @@
     align-items: center;
     gap: 2px;
     flex: none;
-    border-radius: 999px;
+    border-radius: 8px;
     border: 1px solid var(--md-line);
     background: transparent;
   }
@@ -1591,7 +1590,7 @@
     width: 26px;
     height: 26px;
     margin-right: 4px;
-    border-radius: 999px;
+    border-radius: 6px;
     font-size: 14px;
     line-height: 1;
     color: var(--md-ink-faint);
@@ -1755,8 +1754,8 @@
     grid-template-columns: auto 1fr;
     gap: 12px;
     align-items: start;
-    padding: 12px 14px;
-    border-radius: 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
     border: 1px solid var(--md-line);
     background: color-mix(in oklab, var(--md-stage) 65%, var(--md-surface));
   }
@@ -1776,7 +1775,7 @@
   .steps strong {
     display: block;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.02em;
   }
   .steps .args {
@@ -1819,8 +1818,8 @@
     font-family: var(--md-font-mono);
     font-size: 10px;
     letter-spacing: 0.04em;
-    padding: 5px 10px;
-    border-radius: 999px;
+    padding: 5px 9px;
+    border-radius: 6px;
     border: 1px solid var(--md-line);
     background: var(--md-stage);
     color: var(--md-ink-mute);
@@ -1864,7 +1863,7 @@
     border-radius: 10px;
     border: 1px solid var(--md-line);
     background: var(--md-surface);
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
     display: grid;
     gap: 1px;
     max-height: 220px;
@@ -1880,17 +1879,17 @@
   }
   .composer-note {
     margin: 0 2px 8px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: 1px solid color-mix(in oklab, var(--md-cobalt) 22%, var(--md-line));
-    background: color-mix(in oklab, var(--md-cobalt) 7%, var(--md-surface));
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 14%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 4%, var(--md-surface));
     font-size: 12px;
     line-height: 1.4;
     color: var(--md-ink-mute);
   }
   .composer-note.warn {
-    border-color: color-mix(in oklab, var(--md-halt) 28%, var(--md-line));
-    background: color-mix(in oklab, var(--md-halt) 8%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-halt) 22%, var(--md-line));
+    background: color-mix(in oklab, var(--md-halt) 5%, var(--md-surface));
     color: var(--md-halt);
   }
   .slash-item {
@@ -1942,7 +1941,7 @@
     background: var(--md-ink-faint);
   }
   .composer[data-tone='ready'] {
-    border-color: color-mix(in oklab, var(--md-cobalt) 40%, transparent);
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line-strong));
   }
   .composer[data-tone='ready'] .tone {
     color: var(--md-cobalt);
@@ -1951,7 +1950,7 @@
     background: var(--md-cobalt);
   }
   .composer[data-tone='thinking'] {
-    border-color: color-mix(in oklab, var(--md-live) 40%, transparent);
+    border-color: color-mix(in oklab, var(--md-live) 28%, var(--md-line-strong));
   }
   .composer[data-tone='thinking'] .tone {
     color: var(--md-live);
@@ -1961,7 +1960,7 @@
     animation: md-tone-pulse 1.2s var(--md-ease) infinite;
   }
   .composer[data-tone='halted'] {
-    border-color: color-mix(in oklab, var(--md-halt) 45%, transparent);
+    border-color: color-mix(in oklab, var(--md-halt) 32%, var(--md-line-strong));
   }
   .composer[data-tone='halted'] .tone {
     color: var(--md-halt);

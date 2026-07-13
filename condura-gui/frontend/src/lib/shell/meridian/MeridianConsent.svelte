@@ -143,7 +143,7 @@
     z-index: 91;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
     animation: md-pop 280ms var(--md-ease) both;
   }
   .kicker {
@@ -206,7 +206,7 @@
   @media (max-width: 420px) {
     .sheet {
       padding: 22px 18px;
-      border-radius: 20px;
+      border-radius: 14px;
     }
     h2 {
       font-size: 20px;

@@ -283,11 +283,11 @@
 
 <style>
   .plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
-    padding: 22px 24px 24px;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--md-surface) 55%, transparent);
+    background: var(--md-surface);
+    padding: 18px 18px 20px;
+    box-shadow: none;
   }
   .plate-head { margin-bottom: 14px; }
   .perms-head {
@@ -314,8 +314,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 14px;
-    border-radius: 14px;
+    padding: 9px 12px;
+    border-radius: 10px;
     border: 1px solid var(--md-line);
     background: var(--md-stage);
     margin-bottom: 14px;
@@ -338,10 +338,10 @@
   .perm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .perm-row {
     border: 1px solid var(--md-line-strong);
-    border-radius: 16px;
+    border-radius: 10px;
     background: var(--md-stage);
-    padding: 14px 14px 12px;
-    border-left: 3px solid var(--md-ink-faint);
+    padding: 12px 12px 11px;
+    border-left: 2px solid var(--md-ink-faint);
   }
   .perm-row[data-state='granted'] { border-left-color: var(--md-live); }
   .perm-row[data-state='denied'] { border-left-color: var(--md-halt); }
@@ -404,8 +404,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 9px;
-    border-radius: 999px;
+    padding: 4px 8px;
+    border-radius: 6px;
     border: 1px solid var(--md-line);
     font-family: var(--md-font-mono);
     font-size: 10px;
@@ -427,7 +427,7 @@
   }
   .perm-status[data-state='granted'] i {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 18%, transparent);
+    box-shadow: none;
   }
   .perm-status[data-state='denied'] {
     color: var(--md-halt);

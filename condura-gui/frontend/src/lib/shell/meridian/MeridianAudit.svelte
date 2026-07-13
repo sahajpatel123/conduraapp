@@ -437,7 +437,7 @@
   }
   .contract.hot .live-dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -451,10 +451,10 @@
     display: flex;
     gap: 14px;
     align-items: center;
-    padding: 16px 18px;
-    border-radius: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 88%, transparent);
+    background: var(--md-surface);
   }
   .seal.ok {
     border-color: color-mix(in oklab, var(--md-live) 35%, transparent);
@@ -469,15 +469,15 @@
     border-radius: 50%;
     flex: none;
     background: var(--md-ink-faint);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-ink-faint) 18%, transparent);
+    box-shadow: none;
   }
   .seal.ok .seal-mark {
     background: var(--md-live);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-live) 18%, transparent);
+    box-shadow: none;
   }
   .seal.bad .seal-mark {
     background: var(--md-halt);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--md-halt) 18%, transparent);
+    box-shadow: none;
   }
   .seal strong {
     font-family: var(--md-font-display);
@@ -571,17 +571,18 @@
     box-shadow: var(--md-focus);
   }
   .empty-atlas {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 28px 24px;
-    box-shadow: var(--md-shadow);
+    padding: 22px 20px;
+    box-shadow: none;
     max-width: 520px;
   }
   .empty-atlas h2 {
     font-family: var(--md-font-display);
-    font-size: 26px;
-    letter-spacing: -0.04em;
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     margin: 0 0 8px;
   }
   .empty-lead {
@@ -631,20 +632,21 @@
   }
   .link.on {
     background: var(--md-surface);
-    border-radius: 14px;
+    border-radius: 10px;
     border-bottom-color: transparent;
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
+    border: 1px solid var(--md-line);
   }
   .link:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
   }
   .tick {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--md-ink-faint);
-    box-shadow: 0 0 0 3px var(--md-stage);
+    box-shadow: none;
   }
   .tick[data-v='allow'] {
     background: var(--md-live);
@@ -695,18 +697,19 @@
     border-color: color-mix(in oklab, var(--md-cobalt) 30%, transparent);
   }
   .stage-plate {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line-strong);
     background: var(--md-surface);
-    padding: 22px;
-    box-shadow: var(--md-shadow);
+    padding: 18px;
+    box-shadow: none;
     position: sticky;
     top: 8px;
   }
   .stage-plate h2 {
     font-family: var(--md-font-display);
-    font-size: 24px;
-    letter-spacing: -0.04em;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
     margin: 0 0 8px;
   }
   .body {

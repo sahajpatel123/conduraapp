@@ -90,7 +90,7 @@
           color: var(--lp-ink);
           cursor: pointer;
           transition: all var(--lp-dur-normal) var(--lp-ease-thread);
-          box-shadow: {recording ? '0 0 0 3px var(--lp-synapse-glow)' : 'none'};
+          box-shadow: {recording ? 'var(--md-focus, 0 0 0 2px color-mix(in oklab, var(--lp-synapse) 28%, transparent))' : 'none'};
         "
       >
         {#if recording}
@@ -122,7 +122,7 @@
             onclick={() => { combo = preset }}
             style="
               padding: 4px 12px;
-              border-radius: var(--lp-radius-pill);
+              border-radius: var(--lp-radius-sm);
               border: 1px solid var(--lp-ink-ghost);
               background: transparent;
               color: var(--lp-ink-mute);

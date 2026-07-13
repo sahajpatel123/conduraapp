@@ -46,31 +46,31 @@
   }
 
   .elev-1 {
-    box-shadow: var(--shadow-xs);
+    box-shadow: none;
   }
   .elev-2 {
     background: var(--surface-2);
     border-color: var(--border-strong);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
   }
   .elev-3 {
     background: var(--surface-3);
     border-color: var(--border-strong);
-    box-shadow: var(--shadow-md);
+    box-shadow: none;
   }
   .elev-glass {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
+    background: var(--md-surface, var(--surface-2));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-color: var(--border);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
   }
   .elev-glass-strong {
-    background: var(--glass-bg-solid);
-    backdrop-filter: var(--glass-blur-heavy);
-    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    background: var(--md-surface, var(--surface-2));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-color: var(--border-strong);
-    box-shadow: var(--shadow-md);
+    box-shadow: none;
   }
 
   .card-pad-none { padding: 0; }
@@ -84,8 +84,8 @@
   .card.interactive:hover {
     background: var(--surface-3);
     border-color: var(--border-focus);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md), 0 0 0 1px var(--accent-soft);
+    transform: none;
+    box-shadow: none;
   }
   .card.interactive:active {
     transform: translateY(0);

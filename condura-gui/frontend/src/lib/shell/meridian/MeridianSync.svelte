@@ -392,11 +392,11 @@
   }
   .contract.hot .live-dot {
     background: var(--md-cobalt);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-cobalt) 16%, transparent);
+    box-shadow: none;
   }
   .contract:not(.hot):not(.off) .live-dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .cite {
     font-family: var(--md-font-mono);
@@ -499,10 +499,10 @@
     gap: 14px;
   }
   .arc {
-    border-radius: 22px;
+    border-radius: 12px;
     border: 1px solid var(--md-line);
-    background: color-mix(in oklab, var(--md-surface) 85%, transparent);
-    padding: 18px;
+    background: var(--md-surface);
+    padding: 16px;
     min-height: 240px;
   }
   .arc header {

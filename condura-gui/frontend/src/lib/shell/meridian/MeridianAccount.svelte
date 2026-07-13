@@ -244,7 +244,7 @@
   }
   .contract.hot .live-dot {
     background: var(--md-live);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--md-live) 16%, transparent);
+    box-shadow: none;
   }
   .pipe {
     display: flex;

@@ -52,7 +52,7 @@
     border-radius: 10px;
     border: 1px solid var(--md-line);
     background: var(--md-surface);
-    box-shadow: var(--md-shadow);
+    box-shadow: none;
     animation: toast-in 220ms var(--md-ease) both;
   }
   .mark {
@@ -77,7 +77,7 @@
   .body strong {
     display: block;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--md-ink);
   }

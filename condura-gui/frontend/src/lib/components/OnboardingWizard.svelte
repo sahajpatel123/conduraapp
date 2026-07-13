@@ -182,15 +182,15 @@
   }
 
   .step-node.active {
-    background: var(--accent-gradient);
+    background: var(--accent);
     border-color: var(--accent);
     color: var(--text-inverse);
-    transform: scale(1.05);
-    box-shadow: var(--shadow-glow);
+    transform: none;
+    box-shadow: none;
   }
   .step-node.active::after {
-    border-color: var(--accent-glow);
-    animation: breathe 2.4s var(--ease-in-out-quart) infinite;
+    border-color: color-mix(in oklab, var(--accent) 28%, transparent);
+    animation: none;
   }
 
   .stage {

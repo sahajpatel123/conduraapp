@@ -143,7 +143,7 @@
   <div class="perm-grid">
     {#each rows as row, i (row.kind)}
       <div class="stagger-item" style="--stagger-index: {i}">
-        <Card elevation="glass" padding="md" class="perm-card">
+        <Card elevation={1} padding="md" class="perm-card">
           <div class="perm-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
 					{#if row.kind === 'accessibility'}
