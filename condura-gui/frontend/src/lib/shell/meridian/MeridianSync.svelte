@@ -17,6 +17,7 @@
   let lastSyncNote = $state('')
   let confirmRevokeId = $state<string | null>(null)
   let remainingSec = $state(0)
+  let pinEl = $state<HTMLInputElement | null>(null)
 
   onMount(() => {
     void sync.refresh()
@@ -44,6 +45,17 @@
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
+  })
+
+  /** Auto-focus the PIN input the moment a pairing ceremony appears.
+   *  The user just walked over to this device and read the PIN off it —
+   *  making them click before typing defeats the purpose. */
+  $effect(() => {
+    if (!sync.pendingPin || pinExpired) return
+    queueMicrotask(() => {
+      pinEl?.focus({ preventScroll: true })
+      pinEl?.select()
+    })
   })
 
   function initial(name: string): string {
@@ -185,6 +197,7 @@
           </p>
           <div class="row">
             <input
+              bind:this={pinEl}
               bind:value={pin}
               placeholder="Enter PIN to seal"
               maxlength="8"
