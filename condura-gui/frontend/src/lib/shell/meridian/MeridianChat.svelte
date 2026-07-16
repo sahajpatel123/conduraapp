@@ -311,6 +311,16 @@
   // power users don't have to leave the home row.
   $effect(() => {
     const onStop = (): void => {
+      // Surface a confirmation toast so the user gets feedback that
+      // the cancel succeeded — otherwise the Stop button just
+      // disappears with no acknowledgment.
+      if (conversation.isStreaming) {
+        notifications.push({
+          kind: 'info',
+          title: 'Stream stopped',
+          message: 'The in-flight response was cancelled.',
+        })
+      }
       void conversation.cancel()
     }
     window.addEventListener('condura:stop-stream', onStop)
