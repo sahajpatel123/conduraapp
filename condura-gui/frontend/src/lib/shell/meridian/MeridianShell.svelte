@@ -418,10 +418,12 @@
         </button>
         <button
           type="button"
-          class="icon"
+          class="icon theme-toggle"
           onclick={() => setResolvedTheme(theme === 'light' ? 'dark' : 'light')}
-          aria-label="Toggle theme"
+          aria-label="Toggle theme ({theme})"
+          title="Switch light / dark (⇧T)"
         >
+          <span class="theme-label" aria-hidden="true">{theme === 'light' ? 'Light' : 'Dark'}</span>
           {#if theme === 'light'}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
@@ -745,6 +747,23 @@
     border-color: var(--md-line-strong);
     color: var(--md-ink);
     background: var(--md-surface);
+  }
+  /* Theme toggle: hide the SVG behind a "Light"/"Dark" label by
+     default — the icon is recognizable but the state name is even
+     more so. Hover reveals both. */
+  .theme-toggle .theme-label {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .theme-toggle svg {
+    transition: opacity 140ms var(--md-ease);
+  }
+  .theme-toggle:hover svg,
+  .theme-toggle:focus-visible svg {
+    opacity: 0.35;
   }
   .icon:focus-visible {
     outline: none;
