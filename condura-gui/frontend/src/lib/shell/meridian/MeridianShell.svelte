@@ -253,6 +253,12 @@
         navigate('audit')
         return
       }
+      // Open Sync — ⌘⇧S navigates to the device-pairing surface.
+      if (mod && e.shiftKey && k === 's' && !typing) {
+        e.preventDefault()
+        navigate('sync')
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

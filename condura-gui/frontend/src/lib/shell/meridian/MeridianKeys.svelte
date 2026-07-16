@@ -26,6 +26,7 @@
         { keys: ['⇧', 'T'], label: 'Switch light / dark' },
         { keys: ['⌘', '⇧', 'Esc'], label: 'Hard halt — stop everything' },
         { keys: ['⌘', '⇧', 'A'], label: 'Open Audit ledger' },
+        { keys: ['⌘', '⇧', 'S'], label: 'Open Sync (device pairing)' },
       ],
     },
     {
