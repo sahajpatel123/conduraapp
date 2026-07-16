@@ -191,6 +191,14 @@
         e.preventDefault()
         theme = toggleLightDark()
       }
+      // Copy last assistant response — Alt+C fires on the chat route.
+      // Dispatched as an event so MeridianChat (only mounted on chat) owns
+      // the actual clipboard + "Copied" feedback.
+      if (e.altKey && !mod && k === 'c' && route === 'chat' && !typing) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('condura:copy-last-response'))
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

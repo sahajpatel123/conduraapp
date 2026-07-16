@@ -263,6 +263,17 @@
     if (slashIndex >= slashSuggestions.length) slashIndex = 0
   })
 
+  // Global ⌥C shortcut — MeridianShell dispatches this on the chat route
+  // when the user isn't typing. We own the clipboard + "Copied" feedback
+  // here so it stays consistent with the thread-header Copy button.
+  $effect(() => {
+    const onCopyEvent = (): void => {
+      void copyLast()
+    }
+    window.addEventListener('condura:copy-last-response', onCopyEvent)
+    return () => window.removeEventListener('condura:copy-last-response', onCopyEvent)
+  })
+
   $effect(() => {
     conversation.messages.length
     conversation.streamingDelta

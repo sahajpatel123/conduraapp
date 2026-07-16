@@ -42,6 +42,7 @@
         { keys: ['⇧', 'Enter'], label: 'New line' },
         { keys: ['Esc'], label: 'Stop stream' },
         { keys: ['/'], label: 'Slash commands & skills' },
+        { keys: ['⌥', 'C'], label: 'Copy last assistant response' },
       ],
     },
   ]

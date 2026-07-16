@@ -54,6 +54,8 @@ describe('MeridianKeys', () => {
     // Ask (MeridianChat.svelte onKey handler)
     expect(text).toContain('Stop stream')
     expect(text).toContain('Slash commands')
+    // Global copy shortcut — wired through MeridianShell dispatch + MeridianChat $effect listener
+    expect(text).toContain('Copy last assistant response')
   })
 
   it('renders each shortcut as kbd elements joined with plus', () => {
