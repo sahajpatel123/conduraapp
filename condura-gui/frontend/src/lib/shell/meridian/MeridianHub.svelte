@@ -37,10 +37,30 @@
   const rest = $derived(featured ? filtered.filter((s) => s.id !== featured.id) : filtered)
   const installedCount = $derived(hub.installed.size)
 
+  /** Latest debounce handle so a fast typist doesn't fire multiple
+   *  in-flight requests. Resets on every keystroke. */
+  let searchTimer: ReturnType<typeof setTimeout> | null = null
+
   function search(): void {
     note = ''
     void hub.search(q.trim(), 24)
   }
+
+  /** Debounced live search — fires 300ms after the user stops typing.
+   *  Power users expect search-as-you-type; the daemon prefers not to
+   *  receive a request per keystroke. Calls search() directly so the
+   *  debounced path uses the same store wiring as Enter. */
+  $effect(() => {
+    // Track q reactively so this effect re-runs on every keystroke.
+    const qNow = q
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+      search()
+    }, 300)
+    return () => {
+      if (searchTimer) clearTimeout(searchTimer)
+    }
+  })
 
   function clearSearch(): void {
     q = ''
