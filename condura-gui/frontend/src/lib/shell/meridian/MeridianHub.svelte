@@ -178,6 +178,16 @@
       {/each}
     </div>
 
+    {#if q.trim()}
+      <p class="result-count" aria-live="polite">
+        {#if hub.loading}
+          Searching…
+        {:else}
+          {hub.results.length} result{hub.results.length === 1 ? '' : 's'} for “{q.trim()}”
+        {/if}
+      </p>
+    {/if}
+
     {#if note}
       <p class="install-note">
         {note}
@@ -399,6 +409,13 @@
   .clear:hover {
     color: var(--md-ink);
     background: var(--md-stage);
+  }
+  .result-count {
+    margin: 0 0 12px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--md-ink-faint);
   }
   .filters {
     display: flex;
