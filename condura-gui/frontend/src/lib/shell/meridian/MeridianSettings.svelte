@@ -206,6 +206,33 @@
     { id: 'models', label: 'Models' },
     { id: 'data', label: 'Data' },
   ]
+  const tabIdx = $derived(Math.max(0, TABS.findIndex((t) => t.id === tab)))
+  let tabNavEl = $state<HTMLElement | null>(null)
+
+  /**
+   * Roving tabindex across the settings tabs (mirrors MeridianDock).
+   * ArrowLeft/Right move focus AND selection; Home/End jump to the
+   * ends. Tabs are the page-level tab pattern (W3C APG), but the
+   * Meridian shell uses hash deep-links (#/settings/models, etc.) and
+   * each section is its own plate — so the cheaper "toolbar with
+   * auto-activation" pattern fits.
+   */
+  function onTabKey(e: KeyboardEvent): void {
+    let next = tabIdx
+    if (e.key === 'ArrowRight') next = (tabIdx + 1) % TABS.length
+    else if (e.key === 'ArrowLeft') next = (tabIdx - 1 + TABS.length) % TABS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = TABS.length - 1
+    else return
+    e.preventDefault()
+    const target = TABS[next]
+    if (!target) return
+    selectTab(target.id)
+    queueMicrotask(() => {
+      const btn = tabNavEl?.querySelector<HTMLElement>(`[data-tab-id="${target.id}"]`)
+      btn?.focus({ preventScroll: true })
+    })
+  }
 
   /** Cap from config; live spent from spend store (poll + spend_warning SSE). */
   const spendCap = $derived(
@@ -835,13 +862,15 @@
       {/if}
     </div>
 
-    <nav class="tabs" aria-label="Settings sections">
+    <nav class="tabs" aria-label="Settings sections" bind:this={tabNavEl} onkeydown={onTabKey}>
       {#each TABS as t (t.id)}
         <button
           type="button"
           class="tab"
           class:on={tab === t.id}
           class:need={t.id === 'models' && modelsTabNeedsAttention}
+          tabindex={tab === t.id ? 0 : -1}
+          data-tab-id={t.id}
           aria-current={tab === t.id ? 'page' : undefined}
           onclick={() => selectTab(t.id)}
         >

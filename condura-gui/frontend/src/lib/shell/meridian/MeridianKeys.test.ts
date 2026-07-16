@@ -28,15 +28,15 @@ describe('MeridianKeys', () => {
     expect(container.querySelector('.back')).toBeNull()
   })
 
-  it('renders the dialog with three groups when open', () => {
+  it('renders the dialog with four groups when open', () => {
     const { getByRole, container } = render(MeridianKeys, { props: { open: true, onclose } })
     const dialog = getByRole('dialog')
     expect(dialog).toBeInTheDocument()
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     const groups = container.querySelectorAll('.group')
-    expect(groups.length).toBe(3)
+    expect(groups.length).toBe(4)
     const kinds = Array.from(groups).map((g) => g.querySelector('.group-k')?.textContent?.trim())
-    expect(kinds).toEqual(['Global', 'Palette', 'Ask'])
+    expect(kinds).toEqual(['Global', 'Palette', 'Ask', 'Settings'])
   })
 
   it('lists every shortcut the shell binds', () => {
@@ -48,6 +48,10 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Open Settings')
     expect(text).toContain('Switch light / dark')
     expect(text).toContain('Hard halt — stop everything')
+    // Settings (MeridianSettings.svelte onTabKey)
+    expect(text).toContain('Move between tabs')
+    expect(text).toContain('First tab')
+    expect(text).toContain('Last tab')
     // Palette (MeridianPalette.svelte)
     expect(text).toContain('Move selection')
     expect(text).toContain('Close palette')

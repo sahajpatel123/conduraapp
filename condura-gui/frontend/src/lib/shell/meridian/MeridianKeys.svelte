@@ -45,6 +45,14 @@
         { keys: ['⌥', 'C'], label: 'Copy last assistant response' },
       ],
     },
+    {
+      kind: 'Settings',
+      rows: [
+        { keys: ['←', '→'], label: 'Move between tabs' },
+        { keys: ['Home'], label: 'First tab' },
+        { keys: ['End'], label: 'Last tab' },
+      ],
+    },
   ]
 
   onMount(() => {
@@ -166,7 +174,7 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     padding: 16px 22px 18px;
   }
