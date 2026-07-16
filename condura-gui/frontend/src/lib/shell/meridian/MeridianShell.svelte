@@ -246,6 +246,13 @@
         window.dispatchEvent(new CustomEvent('condura:regenerate-last'))
         return
       }
+      // Open Audit — ⌘⇧A navigates to the audit ledger from anywhere.
+      // Common path when debugging a refused/errored action.
+      if (mod && e.shiftKey && k === 'a' && !typing) {
+        e.preventDefault()
+        navigate('audit')
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

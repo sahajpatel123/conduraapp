@@ -25,6 +25,7 @@
         { keys: ['⌘', ','], label: 'Open Settings' },
         { keys: ['⇧', 'T'], label: 'Switch light / dark' },
         { keys: ['⌘', '⇧', 'Esc'], label: 'Hard halt — stop everything' },
+        { keys: ['⌘', '⇧', 'A'], label: 'Open Audit ledger' },
       ],
     },
     {
