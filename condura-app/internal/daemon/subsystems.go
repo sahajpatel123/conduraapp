@@ -664,11 +664,11 @@ func initSubsystems(log *slog.Logger, cfg *config.Config, loader *config.Loader)
 		mon.Record(cost)
 		persistSpend(db.SQL(), provider, model, usage, cost, log)
 		// Soft warning at 80% of daily cap (GUI may poll spend.today too).
-		cap := mon.Cap().USDPerDay
-		if cap > 0 && mon.Spent() >= cap*0.8 {
+		dailyCap := mon.Cap().USDPerDay
+		if dailyCap > 0 && mon.Spent() >= dailyCap*0.8 {
 			broker.PublishJSON("spend_warning", map[string]any{
 				"spent":     mon.Spent(),
-				"cap":       cap,
+				"cap":       dailyCap,
 				"remaining": mon.Remaining(),
 			})
 		}
@@ -1083,7 +1083,7 @@ func buildI18nCatalog(log *slog.Logger, cfg *config.Config) *i18n.Catalog {
 		catalog = i18n.MustNewCatalog()
 	}
 	lang := cfg.General.Language
-	if lang == "" || lang == "auto" {
+	if lang == "" || lang == syncAutoKey {
 		lang = "en"
 	}
 	log.Info("i18n catalog ready", "locale", lang, "available", len(catalog.Locales()))
@@ -1802,7 +1802,8 @@ func loadSpendToday(db *sql.DB) float64 {
 	}
 	day := time.Now().Format("2006-01-02")
 	var sum float64
-	err := db.QueryRow(`SELECT COALESCE(SUM(cost_usd), 0) FROM spend_daily WHERE day = ?`, day).Scan(&sum)
+	//nolint:noctx // called from a poll path with no incoming ctx; the read is best-effort and the worst case is a stale cap, not a stuck query.
+	err := db.QueryRowContext(context.TODO(), `SELECT COALESCE(SUM(cost_usd), 0) FROM spend_daily WHERE day = ?`, day).Scan(&sum)
 	if err != nil {
 		return 0
 	}
@@ -1815,7 +1816,8 @@ func persistSpend(db *sql.DB, provider, model string, usage llm.Usage, cost floa
 		return
 	}
 	day := time.Now().Format("2006-01-02")
-	_, err := db.Exec(
+	//nolint:noctx // called from a fire-and-forget callback in the LLM request path; threading ctx would require changing the executor's executor hook signature, which is out of scope for the lint sweep.
+	_, err := db.ExecContext(context.TODO(),
 		`INSERT INTO llm_calls (provider, model, task, input_tokens, output_tokens, cost_usd, success)
 		 VALUES (?, ?, 'chat', ?, ?, ?, 1)`,
 		provider, model, usage.InputTokens, usage.OutputTokens, cost,
@@ -1823,7 +1825,8 @@ func persistSpend(db *sql.DB, provider, model string, usage llm.Usage, cost floa
 	if err != nil && log != nil {
 		log.Warn("spend: llm_calls insert failed", "err", err)
 	}
-	_, err = db.Exec(
+	//nolint:noctx // see comment on the INSERT above.
+	_, err = db.ExecContext(context.TODO(),
 		`INSERT INTO spend_daily (day, provider, cost_usd) VALUES (?, ?, ?)
 		 ON CONFLICT(day, provider) DO UPDATE SET cost_usd = cost_usd + excluded.cost_usd`,
 		day, provider, cost,
@@ -1832,4 +1835,3 @@ func persistSpend(db *sql.DB, provider, model string, usage llm.Usage, cost floa
 		log.Warn("spend: spend_daily upsert failed", "err", err)
 	}
 }
-

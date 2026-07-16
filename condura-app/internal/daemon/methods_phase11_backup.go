@@ -109,7 +109,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			}
 			path = p.Destination
 		}
-		return map[string]any{"path": path}, nil
+		return map[string]any{syncPathKey: path}, nil
 	})
 
 	// backup.restore — restore a backup archive. GATED through

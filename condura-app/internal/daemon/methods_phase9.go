@@ -162,19 +162,19 @@ func loadPolicyFromDisk(subs *Subsystems) (string, error) {
 					// default-deny policy is strictly safer than
 					// refusing to serve at all.
 					slog.Error("policy.yaml rejected by schema validator; falling back to defaults",
-						"path", policyPath,
+						syncPathKey, policyPath,
 						"rule_index", schemaErr.RuleIndex,
 						"rule", schemaErr.Rule,
-						"reason", schemaErr.Reason,
+						syncReasonKey, schemaErr.Reason,
 						"detail", schemaErr.Detail,
 					)
 					if subs.Broker != nil {
 						subs.Broker.PublishJSON("daemon.policy.rejected", map[string]any{
-							"path":       policyPath,
-							"rule_index": schemaErr.RuleIndex,
-							"rule":       schemaErr.Rule,
-							"reason":     schemaErr.Reason,
-							"detail":     schemaErr.Detail,
+							syncPathKey:   policyPath,
+							"rule_index":  schemaErr.RuleIndex,
+							"rule":        schemaErr.Rule,
+							syncReasonKey: schemaErr.Reason,
+							"detail":      schemaErr.Detail,
 						})
 					}
 				} else {

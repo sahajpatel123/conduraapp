@@ -36,6 +36,10 @@ const (
 	syncPeerKey     = "peer"
 	syncExpiresKey  = "expires_at"
 	syncCreatedKey  = "created_at"
+	syncReasonKey   = "reason"
+	syncPathKey     = "path"
+	syncAutoKey     = "auto"
+	syncHaltedKey   = "halted"
 )
 
 // Phase12Components bundles the Phase 12 subsystems.
@@ -60,6 +64,8 @@ func registerPhase12Methods(srv *ipc.Server, p12 *Phase12Components) {
 }
 
 // registerSkillsMethods adds skills.list and skills.get RPC methods.
+//
+//nolint:gocognit,gocyclo // each handler is a flat srv.Register block; the cognitive count comes from the per-handler parameter validation + DB calls, which would have to be duplicated if extracted. Splitting buys no readability and risks drift between similar handlers.
 func registerSkillsMethods(srv *ipc.Server, p12 *Phase12Components) {
 	// skills.list: list locally installed skills.
 	srv.Register("skills.list", func(ctx context.Context, params json.RawMessage) (any, error) {

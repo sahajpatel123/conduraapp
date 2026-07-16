@@ -39,6 +39,8 @@ type SafetyComponents struct {
 // config has no entries, the hook falls back to the conservative
 // hardcoded default (research / image_generation / code_review are
 // autonomous; everything else warns) so a fresh install still works.
+//
+//nolint:unparam // trustStore is plumbed through today so Phase 16 trust-store wiring (per-workspace trust at /trusted_workspaces.yaml) can be added without changing this signature; all current callers pass nil because that feature is gated on a config flag.
 func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	return buildSafetyLayerWithGuard(haltFlag, nil, broker, trustStore, cfg, log)
 }
@@ -46,6 +48,8 @@ func buildSafetyLayer(haltFlag *halt.Flag, broker *sse.Broker, trustStore *trust
 // buildSafetyLayerWithGuard is the full constructor. netGuard should be
 // the same Layer-3 guard used by watchdog/RPC halts so anomaly trips
 // isolate network and publish SSE (not just flip the sticky flag).
+//
+//nolint:gocognit,gocyclo // this is the canonical safety-layer wiring point (Anomaly + Autonomy + Sanitize + Trust hooks all set up here); splitting into per-hook helpers would scatter the safety contract across files. Per-hook behaviors are already isolated in their own packages (anomaly, autonomy, sanitize, trust).
 func buildSafetyLayerWithGuard(haltFlag *halt.Flag, netGuard halt.NetworkGuard, broker *sse.Broker, trustStore *trust.Store, cfg *config.Config, log *slog.Logger) *SafetyComponents {
 	policy := gatekeeper.DefaultPolicy()
 	var consent gatekeeper.ConsentProvider = &rpcConsentProvider{log: log, publish: func(t *gatekeeper.ConsentTicket) {
@@ -54,13 +58,13 @@ func buildSafetyLayerWithGuard(haltFlag *halt.Flag, netGuard halt.NetworkGuard, 
 			return
 		}
 		broker.PublishJSON("safety.consent.request", map[string]any{
-			"nonce":       t.Nonce,
-			"action_kind": t.ActionKind,
-			"actor":       t.Actor,
-			"detail":      t.Detail,
-			"created_at":  t.CreatedAt.UTC().Format(time.RFC3339),
-			"expires_at":  t.ExpiresAt.UTC().Format(time.RFC3339),
-			"approved":    t.Approved,
+			"nonce":        t.Nonce,
+			"action_kind":  t.ActionKind,
+			"actor":        t.Actor,
+			"detail":       t.Detail,
+			syncCreatedKey: t.CreatedAt.UTC().Format(time.RFC3339),
+			syncExpiresKey: t.ExpiresAt.UTC().Format(time.RFC3339),
+			"approved":     t.Approved,
 		})
 	}}
 	// 2026-06-29 audit P1-1: the test-only autoApproveConsentProvider
@@ -295,7 +299,7 @@ func parseAutonomyLevel(s string, fallback autonomy.Level) autonomy.Level {
 		return autonomy.Warn
 	case "ask", "2", "supervised":
 		return autonomy.Ask
-	case "autonomous", "3", "auto":
+	case "autonomous", "3", syncAutoKey:
 		return autonomy.Autonomous
 	case "":
 		return fallback

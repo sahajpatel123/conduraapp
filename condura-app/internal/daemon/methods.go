@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/api_key"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/audit"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
@@ -19,7 +21,6 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
-	"gopkg.in/yaml.v3"
 )
 
 // daemonStart is the wall-clock time the daemon became ready to
@@ -58,6 +59,8 @@ func daemonUptimeSeconds() float64 {
 // registerMethods wires every JSON-RPC method the daemon exposes into
 // the given server. The method list is the single source of truth for
 // what the GUI and CLI can call.
+//
+//nolint:gocognit,gocyclo // RPC method registration is intentionally a single inventory at startup; splitting it would scatter the daemon's RPC wire-format across files with no semantic benefit. Phase handlers are already split (methods_phase2.go, methods_phase9.go, …) where they cross the 30-line or 10-call threshold.
 func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs *Subsystems, ver version.Info) {
 	_ = log // kept for future per-method logging
 
@@ -399,11 +402,11 @@ func publicConfigView(cfg *config.Config) (map[string]any, error) {
 
 // redactConfigSecrets clears yaml-key secrets in the public config map.
 func redactConfigSecrets(m map[string]any) {
-	llm, _ := m["llm"].(map[string]any)
-	if llm == nil {
+	llmCfg, _ := m["llm"].(map[string]any)
+	if llmCfg == nil {
 		return
 	}
-	providers, _ := llm["providers"].(map[string]any)
+	providers, _ := llmCfg["providers"].(map[string]any)
 	for name, v := range providers {
 		p, ok := v.(map[string]any)
 		if !ok {

@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+// maxConversationTitleLen caps the conversation title so a pasted essay
+// can't blow up the sidebar. Bump this together with any matching DB
+// schema constraint if the limit ever changes.
+const maxConversationTitleLen = 120
+
 // Message is a single chat message. Mirrors the JSON shape sent
 // to/from the GUI.
 type Message struct {
@@ -172,8 +177,8 @@ func (s *Store) Rename(ctx context.Context, id int64, title string) (Meta, error
 		title = "New conversation"
 	}
 	// Cap length so a pasted essay can't blow up the sidebar.
-	if len(title) > 120 {
-		title = title[:120]
+	if len(title) > maxConversationTitleLen {
+		title = title[:maxConversationTitleLen]
 	}
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,

@@ -518,13 +518,13 @@ func consentActor(a blastradius.Action) string {
 // consentDetail is a one-line human summary for MeridianConsent.
 // Prefer concrete payload over bare kind; truncate for the sheet.
 func consentDetail(a blastradius.Action) string {
-	const max = 220
+	const maxLen = 220
 	trim := func(s string) string {
 		s = strings.TrimSpace(s)
-		if len(s) <= max {
+		if len(s) <= maxLen {
 			return s
 		}
-		return s[:max-1] + "…"
+		return s[:maxLen-1] + "…"
 	}
 	switch {
 	case strings.TrimSpace(a.Command) != "":
