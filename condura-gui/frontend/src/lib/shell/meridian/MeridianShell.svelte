@@ -239,6 +239,13 @@
         window.dispatchEvent(new CustomEvent('condura:export-thread'))
         return
       }
+      // Regenerate last assistant response — ⌘⇧R re-sends the last user
+      // message. Disabled while streaming via the button state.
+      if (mod && e.shiftKey && k === 'r' && route === 'chat' && !typing) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('condura:regenerate-last'))
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

@@ -294,6 +294,17 @@
     return () => window.removeEventListener('condura:export-thread', onExport)
   })
 
+  // Global ⌘⇧R — regenerate the last assistant response by re-sending
+  // the last user message. Same event-dispatch pattern as the rest of
+  // the chat shortcuts.
+  $effect(() => {
+    const onRegen = (): void => {
+      void regenerateLast()
+    }
+    window.addEventListener('condura:regenerate-last', onRegen)
+    return () => window.removeEventListener('condura:regenerate-last', onRegen)
+  })
+
   $effect(() => {
     conversation.messages.length
     conversation.streamingDelta
@@ -660,6 +671,26 @@
   }
 
   let exported = $state(false)
+  let regenerating = $state(false)
+
+  /**
+   * Re-send the last user message verbatim. Wired to ⌘⇧R. Disabled
+   * while a stream is in flight so we don't race the SSE — the
+   * conversation store rejects concurrent sends anyway, but the
+   * button-state mirror makes the rule visible to the user.
+   */
+  async function regenerateLast(): Promise<void> {
+    if (regenerating || conversation.isStreaming || halted) return
+    const last = [...conversation.messages].reverse().find((m) => m.role === 'user' && m.content)
+    if (!last?.content) return
+    regenerating = true
+    try {
+      await send(last.content)
+    } finally {
+      regenerating = false
+    }
+  }
+
   async function exportThread(): Promise<void> {
     if (!conversation.messages.length) return
     try {
@@ -892,6 +923,15 @@
           <div class="thread-actions">
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void copyLast()} disabled={!conversation.messages.some((m) => m.role === 'assistant' && m.content)}>
               {copied ? 'Copied' : 'Copy last'}
+            </button>
+            <button
+              type="button"
+              class="md-btn md-btn-ghost tiny"
+              onclick={() => void regenerateLast()}
+              disabled={regenerating || conversation.isStreaming || !conversation.messages.some((m) => m.role === 'user')}
+              title="Re-send the last user message (⌘⇧R)"
+            >
+              {regenerating ? 'Retrying…' : 'Regenerate'}
             </button>
             <button
               type="button"

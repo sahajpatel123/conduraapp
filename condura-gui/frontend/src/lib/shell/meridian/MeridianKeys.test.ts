@@ -74,6 +74,8 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Start a new ask')
     // ⌘⇧E export-thread shortcut
     expect(text).toContain('Export thread as Markdown')
+    // ⌘⇧R regenerate shortcut
+    expect(text).toContain('Regenerate last response')
   })
 
   it('renders each shortcut as kbd elements joined with plus', () => {
