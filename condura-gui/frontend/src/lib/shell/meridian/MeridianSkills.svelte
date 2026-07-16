@@ -352,6 +352,12 @@
         {/if}
       </label>
 
+      {#if q.trim()}
+        <p class="result-count" aria-live="polite">
+          {filtered.length} skill{filtered.length === 1 ? '' : 's'} for “{q.trim()}”
+        </p>
+      {/if}
+
       {#if filtered.length === 0}
         <div class="md-empty empty">
           <p class="empty-title">No {provenance} skills</p>
@@ -594,6 +600,13 @@
     padding: 4px 0;
   }
   .search input::placeholder {
+    color: var(--md-ink-faint);
+  }
+  .result-count {
+    margin: 0 0 12px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
     color: var(--md-ink-faint);
   }
   .search .clear {
