@@ -207,6 +207,11 @@
   <div class="panel" role="dialog" aria-label="Jump" aria-modal="true" bind:this={panelEl}>
     <p class="jump-cite">Jump · meridian</p>
     <input bind:this={inputEl} bind:value={q} placeholder="Jump or act…" class="q" />
+    {#if q.trim()}
+      <p class="result-count" aria-live="polite">
+        {filtered.length} match{filtered.length === 1 ? '' : 'es'} for “{q.trim()}”
+      </p>
+    {/if}
     <ul bind:this={listEl}>
       {#each filtered as item, i (item.id)}
         <li>
@@ -283,6 +288,14 @@
     background: transparent;
     color: var(--md-ink);
     outline: none;
+  }
+  .result-count {
+    margin: 0;
+    padding: 10px 22px 6px;
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--md-ink-faint);
   }
   ul {
     margin: 0;
