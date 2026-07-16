@@ -25,6 +25,9 @@
     { id: 'about', label: 'About' },
   ]
   const pending = $derived($pendingCount)
+  /** Flat navigation order — primary first, then more. Matches the visual order. */
+  const NAV_IDS: RouteId[] = [...PRIMARY.map((p) => p.id), ...MORE.map((m) => m.id)]
+  const activeIdx = $derived(Math.max(0, NAV_IDS.indexOf(route)))
 
   let dockEl = $state<HTMLElement | null>(null)
 
@@ -43,12 +46,43 @@
       })
     })
   })
+
+  /**
+   * Toolbar roving-tabindex keyboard nav (W3C APG pattern).
+   * Arrow keys move both focus AND selection so a screen-reader user can
+   * hear the new route as soon as they press the key — mirrors macOS Dock.
+   * Halt button is a separate action and stays out of the roving order.
+   */
+  function onKey(e: KeyboardEvent): void {
+    let next = activeIdx
+    if (e.key === 'ArrowRight') next = (activeIdx + 1) % NAV_IDS.length
+    else if (e.key === 'ArrowLeft') next = (activeIdx - 1 + NAV_IDS.length) % NAV_IDS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = NAV_IDS.length - 1
+    else return
+    e.preventDefault()
+    const target = NAV_IDS[next]
+    if (!target) return
+    onnavigate(target)
+    queueMicrotask(() => {
+      const btn = dockEl?.querySelector<HTMLElement>(`[data-tab-id="${target}"]`)
+      btn?.focus({ preventScroll: true })
+    })
+  }
 </script>
 
-<nav class="dock" aria-label="Primary" bind:this={dockEl}>
+<nav class="dock" aria-label="Primary" bind:this={dockEl} onkeydown={onKey}>
   <div class="primary">
     {#each PRIMARY as item (item.id)}
-      <button type="button" class="tab" class:active={route === item.id} onclick={() => onnavigate(item.id)}>
+      <button
+        type="button"
+        class="tab"
+        class:active={route === item.id}
+        tabindex={route === item.id ? 0 : -1}
+        data-tab-id={item.id}
+        aria-current={route === item.id ? 'page' : undefined}
+        onclick={() => onnavigate(item.id)}
+      >
         <span class="ico" aria-hidden="true" data-i={item.icon}>
           {#if item.icon === 'ask'}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 6.5h16M4 12h10M4 17.5h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -76,11 +110,19 @@
   <div class="divider" aria-hidden="true"></div>
   <div class="more">
     {#each MORE as item (item.id)}
-      <button type="button" class="tab quiet" class:active={route === item.id} onclick={() => onnavigate(item.id)}>
+      <button
+        type="button"
+        class="tab quiet"
+        class:active={route === item.id}
+        tabindex={route === item.id ? 0 : -1}
+        data-tab-id={item.id}
+        aria-current={route === item.id ? 'page' : undefined}
+        onclick={() => onnavigate(item.id)}
+      >
         {item.label}
       </button>
     {/each}
-    <button type="button" class="halt" onclick={() => void halt.halt()} aria-label="Halt agent">Halt</button>
+    <button type="button" class="halt" tabindex="-1" onclick={() => void halt.halt()} aria-label="Halt agent">Halt</button>
   </div>
 </nav>
 
