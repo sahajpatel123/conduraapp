@@ -47,12 +47,6 @@
       return name.includes(needle) || desc.includes(needle)
     })
   })
-
-  const filtered = $derived(
-    provenance === 'all'
-      ? skills
-      : skills.filter((s) => (fromHub(s) ? 'hub' : 'local') === provenance)
-  )
   const active = $derived(filtered.find((s) => s.id === activeId) ?? filtered[0] ?? null)
   const hubCount = $derived(skills.filter(fromHub).length)
   const localCount = $derived(skills.length - hubCount)
