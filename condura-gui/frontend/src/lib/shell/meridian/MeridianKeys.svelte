@@ -27,6 +27,7 @@
         { keys: ['⌘', '⇧', 'Esc'], label: 'Hard halt — stop everything' },
         { keys: ['⌘', '⇧', 'A'], label: 'Open Audit ledger' },
         { keys: ['⌘', '⇧', 'S'], label: 'Open Sync (device pairing)' },
+        { keys: ['⌘', '⇧', 'H'], label: 'Open Hub (skills shelf)' },
       ],
     },
     {

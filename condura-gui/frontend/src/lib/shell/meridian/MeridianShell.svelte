@@ -259,6 +259,12 @@
         navigate('sync')
         return
       }
+      // Open Hub — ⌘⇧H navigates to the community shelf.
+      if (mod && e.shiftKey && k === 'h' && !typing) {
+        e.preventDefault()
+        navigate('hub')
+        return
+      }
       // ⌘. (Cmd-period) — macOS convention for "stop". On the chat
       // route, cancel any in-flight stream. Mirrors the Esc handler in
       // MeridianChat so power users don't have to leave the home row.
