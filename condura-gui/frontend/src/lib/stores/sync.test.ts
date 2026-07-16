@@ -89,4 +89,82 @@ describe('SyncStore.pairWith', () => {
     expect(r).toBeNull()
     expect(store.error).toMatch(/discoverable/i)
   })
+
+  it('refresh populates peers and pairs from daemon', async () => {
+    syncPeers.mockResolvedValue({
+      peers: [
+        { device_id: 'p1', name: 'Laptop' },
+        { device_id: 'p2', name: 'Phone' },
+      ],
+    })
+    syncListPairs.mockResolvedValue({
+      devices: [{ device_id: 'p2', device_name: 'Phone' }],
+    })
+    const store = new SyncStore()
+    await store.refresh()
+    expect(store.peers).toHaveLength(2)
+    expect(store.pairs).toHaveLength(1)
+    expect(store.loading).toBe(false)
+  })
+
+  it('refresh records error on daemon failure', async () => {
+    syncPeers.mockRejectedValue(new Error('IPC client not started'))
+    syncListPairs.mockRejectedValue(new Error('IPC client not started'))
+    const store = new SyncStore()
+    await store.refresh()
+    expect(store.error).toMatch(/IPC client not started/i)
+    expect(store.peers).toEqual([])
+    expect(store.pairs).toEqual([])
+  })
+
+  it('peerById returns matching peer or null', async () => {
+    syncPeers.mockResolvedValue({
+      peers: [
+        { device_id: 'p1', name: 'Laptop' },
+        { device_id: 'p2', name: 'Phone' },
+      ],
+    })
+    syncListPairs.mockResolvedValue({ devices: [] })
+    const store = new SyncStore()
+    await store.refresh()
+    expect(store.peerById('p1')?.name).toBe('Laptop')
+    expect(store.peerById('p2')?.name).toBe('Phone')
+    expect(store.peerById('missing')).toBeNull()
+  })
+
+  it('isDiscoverable matches peer ids present in peers list', async () => {
+    syncPeers.mockResolvedValue({
+      peers: [{ device_id: 'p1', name: 'Laptop' }],
+    })
+    syncListPairs.mockResolvedValue({ devices: [] })
+    const store = new SyncStore()
+    await store.refresh()
+    expect(store.isDiscoverable('p1')).toBe(true)
+    expect(store.isDiscoverable('offline-peer')).toBe(false)
+  })
+
+  it('clearPending resets pendingPin + pendingPeerId + pendingExpiresAt', async () => {
+    syncPairBeginTyped.mockResolvedValue({
+      ok: true,
+      pin: '999999',
+      peer: 'peer-x',
+      expires_in: 60,
+    })
+    const store = new SyncStore()
+    await store.pairWith('peer-x')
+    expect(store.pendingPin).toBe('999999')
+    store.clearPending()
+    expect(store.pendingPin).toBe('')
+    expect(store.pendingPeerId).toBe('')
+    expect(store.pendingExpiresAt).toBe('')
+  })
+
+  it('pairWith surfaces error and clears pending state on failure', async () => {
+    syncPairBeginTyped.mockRejectedValue(new Error('peer already paired'))
+    const store = new SyncStore()
+    const r = await store.pairWith('peer-x')
+    expect(r).toBeNull()
+    expect(store.pendingPin).toBe('')
+    expect(store.error).toMatch(/already paired/i)
+  })
 })
