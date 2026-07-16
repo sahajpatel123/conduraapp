@@ -306,6 +306,17 @@
     return () => window.removeEventListener('condura:regenerate-last', onRegen)
   })
 
+  // Global ⌘. — Mac convention for stop. Cancels any in-flight stream
+  // when the user is on the chat route. Mirrors the Esc handler so
+  // power users don't have to leave the home row.
+  $effect(() => {
+    const onStop = (): void => {
+      void conversation.cancel()
+    }
+    window.addEventListener('condura:stop-stream', onStop)
+    return () => window.removeEventListener('condura:stop-stream', onStop)
+  })
+
   $effect(() => {
     conversation.messages.length
     conversation.streamingDelta

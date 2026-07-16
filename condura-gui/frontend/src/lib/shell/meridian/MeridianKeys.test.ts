@@ -69,6 +69,8 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Close palette')
     // Ask (MeridianChat.svelte onKey handler)
     expect(text).toContain('Stop stream')
+    // ⌘. macOS-convention stop — MeridianShell dispatch + MeridianChat listener
+    expect(text).toContain('Stop stream (macOS convention)')
     expect(text).toContain('Slash commands')
     // Global copy shortcut — wired through MeridianShell dispatch + MeridianChat $effect listener
     expect(text).toContain('Copy last assistant response')

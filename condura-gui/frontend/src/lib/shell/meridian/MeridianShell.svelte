@@ -259,6 +259,14 @@
         navigate('sync')
         return
       }
+      // ⌘. (Cmd-period) — macOS convention for "stop". On the chat
+      // route, cancel any in-flight stream. Mirrors the Esc handler in
+      // MeridianChat so power users don't have to leave the home row.
+      if (mod && e.key === '.' && route === 'chat' && !typing) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('condura:stop-stream'))
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

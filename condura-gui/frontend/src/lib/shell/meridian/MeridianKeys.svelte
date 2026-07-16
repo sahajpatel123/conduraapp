@@ -43,6 +43,7 @@
         { keys: ['Enter'], label: 'Send' },
         { keys: ['⇧', 'Enter'], label: 'New line' },
         { keys: ['Esc'], label: 'Stop stream' },
+        { keys: ['⌘', '.'], label: 'Stop stream (macOS convention)' },
         { keys: ['/'], label: 'Slash commands & skills' },
         { keys: ['⌥', 'C'], label: 'Copy last assistant response' },
         { keys: ['⌘', '⇧', 'R'], label: 'Regenerate last response' },
