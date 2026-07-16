@@ -9,15 +9,15 @@
   }
   let { route, onnavigate }: Props = $props()
 
-  const PRIMARY: { id: RouteId; label: string; icon: string }[] = [
-    { id: 'chat', label: 'Ask', icon: 'ask' },
-    { id: 'hub', label: 'Hub', icon: 'hub' },
-    { id: 'skills', label: 'Skills', icon: 'skills' },
-    { id: 'sync', label: 'Sync', icon: 'sync' },
-    { id: 'audit', label: 'Audit', icon: 'audit' },
-    { id: 'replay', label: 'Replay', icon: 'replay' },
-    { id: 'channels', label: 'Channels', icon: 'channels' },
-    { id: 'delegation', label: 'Agents', icon: 'agents' },
+  const PRIMARY: { id: RouteId; label: string; icon: string; shortcut: string }[] = [
+    { id: 'chat', label: 'Ask', icon: 'ask', shortcut: '⌘1' },
+    { id: 'hub', label: 'Hub', icon: 'hub', shortcut: '⌘2' },
+    { id: 'skills', label: 'Skills', icon: 'skills', shortcut: '⌘3' },
+    { id: 'sync', label: 'Sync', icon: 'sync', shortcut: '⌘4' },
+    { id: 'audit', label: 'Audit', icon: 'audit', shortcut: '⌘5' },
+    { id: 'replay', label: 'Replay', icon: 'replay', shortcut: '⌘6' },
+    { id: 'channels', label: 'Channels', icon: 'channels', shortcut: '⌘7' },
+    { id: 'delegation', label: 'Agents', icon: 'agents', shortcut: '⌘8' },
   ]
   const MORE: { id: RouteId; label: string }[] = [
     { id: 'account', label: 'Account' },
@@ -103,6 +103,7 @@
           {/if}
         </span>
         <span class="label">{item.label}</span>
+        <span class="dock-kbd" aria-hidden="true">{item.shortcut}</span>
         {#if item.id === 'delegation' && pending > 0}<span class="badge">{pending}</span>{/if}
       </button>
     {/each}
@@ -210,6 +211,41 @@
   }
   :root[data-mode='dark'] .badge {
     background: color-mix(in oklab, var(--md-cobalt) 16%, var(--md-surface)); color: var(--md-cobalt);
+  }
+  .dock-kbd {
+    font-family: var(--md-font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--md-stage) 60%, transparent);
+    border: 1px solid color-mix(in oklab, var(--md-line) 70%, transparent);
+    color: var(--md-ink-faint);
+    margin-left: 2px;
+    transition: color 140ms var(--md-ease), border-color 140ms var(--md-ease);
+    /* Always hidden by default — only shows on hover/active to keep the
+       dock calm. Power users can also see it persistently if their
+       platform strips hover (touch). */
+    opacity: 0;
+  }
+  .tab:hover .dock-kbd,
+  .tab.active .dock-kbd {
+    opacity: 1;
+  }
+  .tab.active .dock-kbd {
+    color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(255, 255, 255, 0.32);
+    background: transparent;
+  }
+  /* Touch / no-hover: keep the badge visible so the discoverability
+     promise holds without needing hover. */
+  @media (hover: none) {
+    .dock-kbd { opacity: 1; }
+  }
+  @media (max-width: 720px) {
+    /* Tight dock on small screens — drop the badge to save space. */
+    .dock-kbd { display: none; }
   }
   .halt {
     appearance: none; margin-left: 2px;

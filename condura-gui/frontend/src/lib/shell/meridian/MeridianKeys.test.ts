@@ -57,6 +57,11 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Jump to Permissions')
     expect(text).toContain('Jump to Models')
     expect(text).toContain('Jump to Data')
+    // Dock primary tabs ⌘1..8 — same chord, different routing when
+    // user is NOT on the Settings route.
+    expect(text).toContain('Jump to Replay')
+    expect(text).toContain('Jump to Channels')
+    expect(text).toContain('Jump to Agents')
     // Palette (MeridianPalette.svelte)
     expect(text).toContain('Move selection')
     expect(text).toContain('Close palette')

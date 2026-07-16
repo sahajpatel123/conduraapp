@@ -218,6 +218,21 @@
           return
         }
       }
+      // Dock primary tabs — ⌘1..8 jump to the 8 primary dock tabs
+      // (Ask · Hub · Skills · Sync · Audit · Replay · Channels · Agents).
+      // Works from anywhere — including Settings. We use a different
+      // chord (no Shift) so it doesn't collide with the ⌘1..5 Settings
+      // shortcut (the Settings chord only fires when route === 'settings').
+      if (mod && !e.shiftKey && !e.altKey && !typing) {
+        const idx = '12345678'.indexOf(k)
+        if (idx >= 0 && idx < 8) {
+          e.preventDefault()
+          const routeIds: RouteId[] = ['chat', 'hub', 'skills', 'sync', 'audit', 'replay', 'channels', 'delegation']
+          const target = routeIds[idx]
+          if (target) navigate(target)
+          return
+        }
+      }
       // Export thread as Markdown — ⌘⇧E dispatches when on chat route.
       if (mod && e.shiftKey && k === 'e' && route === 'chat' && !typing) {
         e.preventDefault()
