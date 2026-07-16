@@ -542,6 +542,9 @@
     // Reset scroll state so the empty new thread starts at the bottom.
     userAtBottom = true
     messagesAtBottom = 0
+    // Move keyboard focus to the composer so the user can type
+    // immediately without reaching for the mouse.
+    queueMicrotask(() => ta?.focus({ preventScroll: true }))
   }
 
   async function openThread(id: number): Promise<void> {
@@ -552,6 +555,7 @@
     // and "seen" count matching whatever messages are already loaded.
     userAtBottom = true
     messagesAtBottom = conversation.messages.length
+    queueMicrotask(() => ta?.focus({ preventScroll: true }))
   }
 
   function beginRename(): void {
