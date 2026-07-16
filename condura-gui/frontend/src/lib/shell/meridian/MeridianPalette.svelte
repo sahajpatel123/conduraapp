@@ -8,6 +8,7 @@
   import { halt } from '../../stores/halt.svelte'
   import { overlay } from '../../stores/overlay.svelte'
   import { getResolvedTheme, onThemeChange, toggleLightDark, type ResolvedTheme } from '../../theme/condura-theme'
+  import { trapTab } from '../../a11y/focusTrap'
 
   interface Props {
     open: boolean
@@ -55,6 +56,7 @@
   let idx = $state(0)
   let inputEl = $state<HTMLInputElement | null>(null)
   let listEl = $state<HTMLUListElement | null>(null)
+  let panelEl = $state<HTMLDivElement | null>(null)
 
   $effect(() => {
     if (!open) return
@@ -176,6 +178,10 @@
       e.preventDefault()
       const hit = filtered[idx]
       if (hit) run(hit)
+    } else if (e.key === 'Tab') {
+      // Keep keyboard users inside the palette — Tab from last item wraps
+      // back to the search input, Shift+Tab from the input wraps to last.
+      trapTab(panelEl, e)
     }
   }
 </script>
@@ -183,7 +189,7 @@
 <svelte:window onkeydown={onKey} />
 {#if open}
   <div class="back" onclick={onclose} role="presentation"></div>
-  <div class="panel" role="dialog" aria-label="Jump" aria-modal="true">
+  <div class="panel" role="dialog" aria-label="Jump" aria-modal="true" bind:this={panelEl}>
     <p class="jump-cite">Jump · meridian</p>
     <input bind:this={inputEl} bind:value={q} placeholder="Jump or act…" class="q" />
     <ul bind:this={listEl}>

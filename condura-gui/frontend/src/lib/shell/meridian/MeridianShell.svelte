@@ -43,11 +43,13 @@
   import MeridianConsent from './MeridianConsent.svelte'
   import MeridianHalt from './MeridianHalt.svelte'
   import MeridianToasts from './MeridianToasts.svelte'
+  import MeridianKeys from './MeridianKeys.svelte'
 
   /** First-run wizard — was only on dead App.svelte; Meridian is the sole mount. */
   let showOnboarding = $state(false)
   let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
+  let keysOpen = $state(false)
   let currentHash = $state(
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
@@ -169,6 +171,11 @@
         e.preventDefault()
         return
       }
+      if (e.key === 'Escape' && keysOpen) {
+        keysOpen = false
+        e.preventDefault()
+        return
+      }
       if (mod && k === 'k') {
         e.preventDefault()
         paletteOpen = true
@@ -183,6 +190,13 @@
       if (!typing && e.shiftKey && !mod && k === 't') {
         e.preventDefault()
         theme = toggleLightDark()
+      }
+      // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
+      // gated on `typing`, so "?" in Ask composer still opens help. `?`
+      // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.
+      if (e.key === '?' && !mod) {
+        e.preventDefault()
+        keysOpen = !keysOpen
       }
     }
     window.addEventListener('keydown', onKey)
@@ -287,6 +301,15 @@
         <button
           type="button"
           class="icon"
+          onclick={() => (keysOpen = true)}
+          aria-label="Keyboard shortcuts (?)"
+          title="Keyboard shortcuts (?)"
+        >
+          <span class="kbd-q" aria-hidden="true">?</span>
+        </button>
+        <button
+          type="button"
+          class="icon"
           onclick={() => setResolvedTheme(theme === 'light' ? 'dark' : 'light')}
           aria-label="Toggle theme"
         >
@@ -343,6 +366,7 @@
       onclose={() => (paletteOpen = false)}
       onnavigate={navigate}
     />
+    <MeridianKeys open={keysOpen} onclose={() => (keysOpen = false)} />
     <MeridianConsent />
     <MeridianToasts />
     {#if halt.state.halted}
@@ -617,6 +641,13 @@
     outline: none;
     box-shadow: var(--md-focus);
     border-color: var(--md-cobalt);
+  }
+  .kbd-q {
+    font-family: var(--md-font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
   }
   .jump:focus-visible {
     outline: none;

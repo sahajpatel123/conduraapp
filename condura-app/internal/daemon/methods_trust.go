@@ -45,7 +45,7 @@ func registerTrustMethods(srv *ipc.Server, subs *Subsystems) {
 				"workspace_id": e.WorkspaceID,
 				"label":        e.Label,
 				"always_allow": e.AlwaysAllow,
-				"created_at":   e.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+				syncCreatedKey: e.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 				"last_used_at": e.LastUsedAt.UTC().Format("2006-01-02T15:04:05Z"),
 				"app_scope":    string(e.AppScope),
 			})

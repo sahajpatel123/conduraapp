@@ -361,6 +361,8 @@ const genesisHash = "00000000000000000000000000000000000000000000000000000000000
 // sanitize.RedactSecrets before calling Append. AppendForTest
 // exists for tests and DOES redact by default — use it instead
 // of Append in any test that exercises user-derived content.
+//
+//nolint:gocyclo // Append is the canonical HMAC-chained audit write path (load prev row, set prev_hash, insert new row, compute HMAC, update row, commit, cache, fan-out). Splitting the transaction across helpers would force the HMAC chain steps to interleave with non-trivial side-effects and obscure the append→chain→commit invariant.
 func (l *Log) Append(ctx context.Context, e Event) error {
 	if l == nil {
 		return errors.New("audit: nil Log")
@@ -472,6 +474,7 @@ func (l *Log) List(ctx context.Context, q Query) ([]Event, error) {
 		q.Offset = 0
 	}
 	where, args := q.buildWhere()
+	//nolint:gosec // G202: WHERE fragment is built from the typed Query struct fields via buildWhere(); all filter values are bound via ? placeholders, so no user input flows into the SQL structure.
 	query := `SELECT id, ts, actor, action, app, level, result, message,
 		         kind, blast_class, verdict,
 		         target_app, target_url, path, command,
@@ -523,11 +526,13 @@ func (l *Log) FacetCounts(ctx context.Context, q Query) (*FacetCounts, error) {
 	}
 
 	// total
+	//nolint:gosec // G202: WHERE fragment is built from the typed Query struct fields via buildWhere(); all filter values are bound via ? placeholders, so no user input flows into the SQL structure.
 	if err := l.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_log`+where, args...).Scan(&out.Total); err != nil {
 		return nil, fmt.Errorf("facet total: %w", err)
 	}
 
 	// apps
+	//nolint:gosec // G202: see total above; the trailing AND clause is a fixed literal, not user input.
 	appRows, err := l.db.QueryContext(ctx,
 		`SELECT app, COUNT(*) AS n FROM audit_log`+where+` AND app != '' GROUP BY app ORDER BY n DESC LIMIT 40`,
 		args...)
@@ -548,6 +553,7 @@ func (l *Log) FacetCounts(ctx context.Context, q Query) (*FacetCounts, error) {
 	}
 
 	// blast_class
+	//nolint:gosec // G202: see total above; the trailing AND clause is a fixed literal, not user input.
 	bcRows, err := l.db.QueryContext(ctx,
 		`SELECT blast_class, COUNT(*) FROM audit_log`+where+` AND blast_class != '' GROUP BY blast_class`,
 		args...)
@@ -566,6 +572,7 @@ func (l *Log) FacetCounts(ctx context.Context, q Query) (*FacetCounts, error) {
 	_ = bcRows.Close()
 
 	// verdict / result
+	//nolint:gosec // G202: see total above; the trailing GROUP BY is a fixed literal, not user input.
 	vRows, err := l.db.QueryContext(ctx,
 		`SELECT CASE WHEN verdict != '' THEN verdict ELSE result END AS v, COUNT(*)
 		 FROM audit_log`+where+` GROUP BY v`,
@@ -627,6 +634,7 @@ func (l *Log) Export(ctx context.Context, q Query, destination string) (string, 
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return "", 0, fmt.Errorf("audit export: mkdir: %w", err)
 	}
+	//nolint:gosec // G304: destination is a user-provided CLI/IPC argument; the daemon runs as the same user and the caller already has write access to whatever path they name, so filepath.Clean is sufficient and there is no privilege-escalation surface here. The default-empty-destination path is bounded to ~/Downloads by resolveExportPath itself.
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", 0, fmt.Errorf("audit export: open: %w", err)
@@ -648,7 +656,8 @@ func (l *Log) Export(ctx context.Context, q Query, destination string) (string, 
 		if len(rows) == 0 {
 			break
 		}
-		for _, e := range rows {
+		for i := range rows {
+			e := &rows[i]
 			rec := ExportRecord{
 				ID:            e.ID,
 				TS:            e.TS,
@@ -686,6 +695,7 @@ func (l *Log) Export(ctx context.Context, q Query, destination string) (string, 
 	return path, count, nil
 }
 
+//nolint:unparam // error return is kept so future path-validation failures (e.g. destination outside the allowed base on a stricter OS) can be surfaced without changing this signature; today's implementation cannot fail because the allowed base always falls back to os.TempDir().
 func resolveExportPath(destination string) (string, error) {
 	if strings.TrimSpace(destination) != "" {
 		return filepath.Clean(destination), nil

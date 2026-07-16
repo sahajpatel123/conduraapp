@@ -21,10 +21,19 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/watchdog"
 )
 
+// auditNotAvailableMsg is returned to RPC callers when the audit log
+// subsystem failed to initialize at startup. Kept as a constant so the
+// goconst linter doesn't flag the repeated literal across handlers
+// (audit.list, audit.facetCounts, audit.verify, audit.export) and so
+// the user-facing copy is centrally managed.
+const auditNotAvailableMsg = "audit not available"
+
 // registerConversationMethods wires conversations.* + llm.stream +
 // llm.cancel. The anomaly detector, if non-nil, is Reset() at the
 // start of each new conversation so cross-session loop accumulation
 // can't trip false positives (Phase 16, Rec 6).
+//
+//nolint:gocognit,gocyclo // each handler is a flat srv.Register block; the audit + anomaly side-effects are deliberately co-located here so the per-conversation safety invariants stay in one auditable place.
 func registerConversationMethods(
 	srv *ipc.Server,
 	store *conversation.Store,
@@ -366,7 +375,7 @@ func parseAuditQuery(params json.RawMessage) (audit.Query, string, error) {
 func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 	srv.Register("audit.list", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if auditLog == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: auditNotAvailableMsg}
 		}
 		q, _, err := parseAuditQuery(params)
 		if err != nil {
@@ -377,7 +386,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 
 	srv.Register("audit.facetCounts", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if auditLog == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: auditNotAvailableMsg}
 		}
 		q, _, err := parseAuditQuery(params)
 		if err != nil {
@@ -388,7 +397,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 
 	srv.Register("audit.verifyIntegrity", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if auditLog == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: auditNotAvailableMsg}
 		}
 		// Optional since_id / limit from FE filter params; default full chain.
 		var p struct {
@@ -418,7 +427,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 		return map[string]any{
 			"ok":            rep.Valid,
 			"broken_at_id":  brokenAt,
-			"reason":        reason,
+			syncReasonKey:   reason,
 			"rows_verified": rep.RowsChecked,
 			"rows_skipped":  0,
 			"duration_ms":   time.Since(start).Milliseconds(),
@@ -427,7 +436,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 
 	srv.Register("audit.export", func(ctx context.Context, params json.RawMessage) (any, error) {
 		if auditLog == nil {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "audit not available"}
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: auditNotAvailableMsg}
 		}
 		q, dest, err := parseAuditQuery(params)
 		if err != nil {
@@ -440,7 +449,7 @@ func registerAuditMethods(srv *ipc.Server, auditLog *audit.Log) {
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		return map[string]any{"path": path, "count": count}, nil
+		return map[string]any{syncPathKey: path, "count": count}, nil
 	})
 }
 

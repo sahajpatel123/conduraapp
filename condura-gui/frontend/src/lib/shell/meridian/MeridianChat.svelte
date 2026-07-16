@@ -57,6 +57,18 @@
   let focused = $state(false)
   let ta = $state<HTMLTextAreaElement | null>(null)
   let scrollEl = $state<HTMLDivElement | null>(null)
+  /** True when the user is within ~80px of the chat bottom. Auto-scroll
+   *  follows this flag so users who scroll up to read aren't yanked back
+   *  down on every streaming delta. Mirrors Slack / Discord / iMessage. */
+  let userAtBottom = $state(true)
+  /** Message count the last time the user was at the bottom — drives the
+   *  "↓ New" pill so we can tell "new messages" from "messages the user
+   *  has already seen". */
+  let messagesAtBottom = $state(0)
+  /** Pill surfaces when the user has scrolled up AND new content arrived. */
+  let newSinceScrollUp = $derived(
+    conversation.messages.length > messagesAtBottom && !userAtBottom
+  )
   let selectedModel = $state('')
   let providers = $state<ProviderInfo[]>([])
   let skills = $state<InstalledSkill[]>([])
@@ -256,8 +268,29 @@
     conversation.streamingDelta
     conversation.streamingToolCalls.length
     if (!scrollEl) return
-    scrollEl.scrollTop = scrollEl.scrollHeight
+    if (userAtBottom) {
+      scrollEl.scrollTop = scrollEl.scrollHeight
+      messagesAtBottom = conversation.messages.length
+    }
   })
+
+  function onScroll(): void {
+    if (!scrollEl) return
+    const dist = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight
+    const next = dist < 80
+    if (next && !userAtBottom) {
+      // Snap-up to bottom — bring the "seen" marker with us.
+      messagesAtBottom = conversation.messages.length
+    }
+    userAtBottom = next
+  }
+
+  function jumpToLatest(): void {
+    if (!scrollEl) return
+    scrollEl.scrollTop = scrollEl.scrollHeight
+    userAtBottom = true
+    messagesAtBottom = conversation.messages.length
+  }
 
   function resize(): void {
     if (!ta) return
@@ -475,12 +508,19 @@
     await conversation.createNew().catch(() => {
       conversation.messages = []
     })
+    // Reset scroll state so the empty new thread starts at the bottom.
+    userAtBottom = true
+    messagesAtBottom = 0
   }
 
   async function openThread(id: number): Promise<void> {
     confirmDeleteId = null
     renaming = false
     await conversation.open(id).catch(() => {})
+    // Reset scroll state — opened thread starts with user at the bottom
+    // and "seen" count matching whatever messages are already loaded.
+    userAtBottom = true
+    messagesAtBottom = conversation.messages.length
   }
 
   function beginRename(): void {
@@ -561,7 +601,8 @@
 </script>
 
 <section class="chat">
-  <div class="feed" bind:this={scrollEl}>
+  <div class="feed-wrap">
+    <div class="feed" bind:this={scrollEl} onscroll={onScroll}>
     {#if !hasMessages}
       <div class="hero" class:calm={reduceMotion}>
         <header class="thesis">
@@ -914,6 +955,19 @@
     {/if}
   </div>
 
+    {#if newSinceScrollUp}
+      <button
+        type="button"
+        class="jump-pill"
+        aria-label="Jump to latest messages"
+        onclick={jumpToLatest}
+      >
+        <span class="arrow" aria-hidden="true">↓</span>
+        New messages
+      </button>
+    {/if}
+  </div>
+
   <div class="composer" class:focused class:ready={canSend} data-tone={tone}>
     <div class="tone" aria-live="polite">
       <span class="tone-dot" aria-hidden="true"></span>
@@ -1080,6 +1134,66 @@
     overflow: auto;
     padding: 28px 28px 16px;
     scroll-behavior: smooth;
+  }
+  /* .feed-wrap is a flex sibling of the composer; the pill is absolutely
+     positioned inside it so it pins to the visible bottom-right of the
+     chat area regardless of scroll position. */
+  .feed-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .jump-pill {
+    position: absolute;
+    bottom: 14px;
+    right: 18px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px 7px 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+    background: color-mix(in oklab, var(--md-cobalt) 8%, var(--md-surface));
+    color: var(--md-cobalt);
+    font-family: var(--md-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    box-shadow: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition:
+      transform 140ms var(--md-ease),
+      background 140ms var(--md-ease),
+      border-color 140ms var(--md-ease);
+    animation: md-rise 200ms var(--md-ease) both;
+  }
+  .jump-pill:hover {
+    background: color-mix(in oklab, var(--md-cobalt) 16%, var(--md-surface));
+    border-color: color-mix(in oklab, var(--md-cobalt) 44%, var(--md-line));
+  }
+  .jump-pill:active {
+    transform: translateY(1px);
+  }
+  .jump-pill:focus-visible {
+    outline: none;
+    box-shadow: var(--md-focus);
+  }
+  .jump-pill .arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
   }
 
   /* —— Empty desk —— */

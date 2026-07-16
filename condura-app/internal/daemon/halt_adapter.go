@@ -54,8 +54,8 @@ func publishHaltSSE(broker *sse.Broker, s halt.State) {
 		return
 	}
 	payload := map[string]any{
-		"halted": s.Halted,
-		"reason": s.Reason,
+		syncHaltedKey: s.Halted,
+		syncReasonKey: s.Reason,
 	}
 	if s.Halted && !s.Since.IsZero() {
 		payload["since"] = s.Since.UTC().Format(time.RFC3339)

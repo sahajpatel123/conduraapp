@@ -78,7 +78,7 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 		if err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
 		}
-		return map[string]any{"path": path}, nil
+		return map[string]any{syncPathKey: path}, nil
 	})
 }
 
