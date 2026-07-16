@@ -7,6 +7,7 @@
   import { halt } from '../../stores/halt.svelte'
 
   let primaryBtn = $state<HTMLButtonElement | null>(null)
+  let secondaryBtn = $state<HTMLButtonElement | null>(null)
 
   const reason = $derived(halt.state.reason || 'User or system kill-switch')
   const ticket = $derived(halt.ticket)
@@ -21,10 +22,23 @@
 
   onMount(() => {
     queueMicrotask(() => primaryBtn?.focus())
+    // Two-button Tab trap (mirrors MeridianConsent). When the ticket is
+    // minted the sheet has Copy command + New ticket — Shift+Tab from
+    // either button needs to bounce to the OTHER button, not escape to
+    // shell buttons behind the scrim. Capture phase so we win against
+    // shell keydown handlers.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return
       e.preventDefault()
-      primaryBtn?.focus()
+      const active = document.activeElement
+      if (e.shiftKey) {
+        if (active === primaryBtn && secondaryBtn) secondaryBtn.focus()
+        else primaryBtn?.focus()
+      } else {
+        if (active === secondaryBtn) primaryBtn?.focus()
+        else if (secondaryBtn) secondaryBtn.focus()
+        else primaryBtn?.focus()
+      }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -50,7 +64,9 @@
   {#if ticket}
     <div class="ticket-block">
       <p class="cite">resume ticket</p>
-      <code class="ticket" translate="no">{ticket}</code>
+      <code class="ticket" translate="no" aria-label={`Resume ticket ${ticket}`}>
+        {ticket}
+      </code>
       <p class="cli">
         In a terminal:
         <code class="cmd" translate="no">{confirmVia}</code>
@@ -62,6 +78,7 @@
         <button
           type="button"
           class="md-btn md-btn-ghost"
+          bind:this={secondaryBtn}
           disabled={halt.ticketBusy}
           onclick={() => void halt.resume()}
         >
