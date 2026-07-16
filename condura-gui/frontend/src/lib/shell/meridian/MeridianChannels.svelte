@@ -50,6 +50,19 @@
   // the channel id currently being submitted.
   let openInput = $state<string | null>(null)
   let inputToken = $state('')
+  let tokenInputEl = $state<HTMLInputElement | null>(null)
+
+  /** When the inline token form opens, drop focus into the field so the
+   *  user can paste/type immediately. Same auto-focus pattern as the
+   *  Sync PIN and Chat composer — "they came here to do one thing, let
+   *  them do it." */
+  $effect(() => {
+    if (!openInput) return
+    queueMicrotask(() => {
+      tokenInputEl?.focus({ preventScroll: true })
+      tokenInputEl?.select()
+    })
+  })
   let submitError = $state<string | null>(null)
   let busy = $state<string | null>(null)
 
@@ -312,6 +325,7 @@
             <p class="step-note">Step 02 — paste the token BotFather gave you.</p>
             <div class="token-form" role="group" aria-label="Telegram bot token">
               <input
+                bind:this={tokenInputEl}
                 type="password"
                 class="token-input"
                 placeholder="123456:ABC… bot token"
