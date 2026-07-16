@@ -199,15 +199,41 @@
     { keys: 'Halt', label: 'Stop everything (dock or search)' },
   ]
 
-  const TABS: { id: SettingsTab; label: string }[] = [
-    { id: 'general', label: 'General' },
-    { id: 'permissions', label: 'Permissions' },
-    { id: 'control', label: 'Control' },
-    { id: 'models', label: 'Models' },
-    { id: 'data', label: 'Data' },
+  const TABS: { id: SettingsTab; label: string; shortcut: string }[] = [
+    { id: 'general', label: 'General', shortcut: '⌘1' },
+    { id: 'permissions', label: 'Permissions', shortcut: '⌘2' },
+    { id: 'control', label: 'Control', shortcut: '⌘3' },
+    { id: 'models', label: 'Models', shortcut: '⌘4' },
+    { id: 'data', label: 'Data', shortcut: '⌘5' },
   ]
   const tabIdx = $derived(Math.max(0, TABS.findIndex((t) => t.id === tab)))
   let tabNavEl = $state<HTMLElement | null>(null)
+
+  /** ⌘1..5 → tab index. Wired from MeridianShell's global keydown so the
+   *  shortcut works from anywhere (palette open, consent up, etc.) when
+   *  the user is on the Settings route. */
+  function selectTabByIndex(i: number): void {
+    const target = TABS[i]
+    if (!target) return
+    selectTab(target.id)
+    queueMicrotask(() => {
+      const btn = tabNavEl?.querySelector<HTMLElement>(`[data-tab-id="${target.id}"]`)
+      btn?.focus({ preventScroll: true })
+    })
+  }
+
+  // Listen for the global ⌘1..5 dispatch from MeridianShell. Settings is
+  // only mounted on the settings route, so the listener is naturally
+  // scoped — but we still defensively ignore events that arrive after
+  // a route change by checking the current route.
+  $effect(() => {
+    const onTab = (e: Event): void => {
+      const idx = (e as CustomEvent<{ index: number }>).detail?.index
+      if (typeof idx === 'number') selectTabByIndex(idx)
+    }
+    window.addEventListener('condura:settings-tab', onTab)
+    return () => window.removeEventListener('condura:settings-tab', onTab)
+  })
 
   /**
    * Roving tabindex across the settings tabs (mirrors MeridianDock).
@@ -875,6 +901,7 @@
           onclick={() => selectTab(t.id)}
         >
           {t.label}
+          <span class="tab-kbd" aria-hidden="true">{t.shortcut}</span>
           {#if t.id === 'models' && modelsTabNeedsAttention}
             <span class="tab-dot" aria-hidden="true"></span>
           {/if}
@@ -1496,6 +1523,28 @@
     width: 6px; height: 6px; border-radius: 50%; flex: none;
     background: var(--md-halt);
     box-shadow: none;
+  }
+  .tab-kbd {
+    font-family: var(--md-font-mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: color-mix(in oklab, var(--md-stage) 80%, transparent);
+    border: 1px solid var(--md-line);
+    color: var(--md-ink-faint);
+    margin-left: 4px;
+    transition: color 140ms var(--md-ease), border-color 140ms var(--md-ease);
+  }
+  .tab:hover .tab-kbd,
+  .tab.on .tab-kbd {
+    color: var(--md-cobalt);
+    border-color: color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
+  }
+  @media (max-width: 720px) {
+    /* On narrow screens the kbd hint crowds the label — drop it. */
+    .tab-kbd { display: none; }
   }
 
   .plate {

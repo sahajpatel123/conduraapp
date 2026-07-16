@@ -52,6 +52,11 @@
         { keys: ['←', '→'], label: 'Move between tabs' },
         { keys: ['Home'], label: 'First tab' },
         { keys: ['End'], label: 'Last tab' },
+        { keys: ['⌘', '1'], label: 'Jump to General' },
+        { keys: ['⌘', '2'], label: 'Jump to Permissions' },
+        { keys: ['⌘', '3'], label: 'Jump to Control' },
+        { keys: ['⌘', '4'], label: 'Jump to Models' },
+        { keys: ['⌘', '5'], label: 'Jump to Data' },
       ],
     },
   ]

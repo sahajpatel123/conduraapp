@@ -207,6 +207,17 @@
         window.dispatchEvent(new CustomEvent('condura:new-ask'))
         return
       }
+      // Settings tab jump — ⌘1..5 fires a custom event that
+      // MeridianSettings listens for. Working from anywhere when the
+      // user is on the Settings route.
+      if (mod && !e.shiftKey && !e.altKey && route === 'settings' && !typing) {
+        const idx = '12345'.indexOf(k)
+        if (idx >= 0) {
+          e.preventDefault()
+          window.dispatchEvent(new CustomEvent('condura:settings-tab', { detail: { index: idx } }))
+          return
+        }
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

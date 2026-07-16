@@ -52,6 +52,11 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Move between tabs')
     expect(text).toContain('First tab')
     expect(text).toContain('Last tab')
+    // Settings ⌘1..5 number shortcuts — MeridianShell dispatch + MeridianSettings listener
+    expect(text).toContain('Jump to General')
+    expect(text).toContain('Jump to Permissions')
+    expect(text).toContain('Jump to Models')
+    expect(text).toContain('Jump to Data')
     // Palette (MeridianPalette.svelte)
     expect(text).toContain('Move selection')
     expect(text).toContain('Close palette')
