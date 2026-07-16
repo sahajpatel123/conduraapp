@@ -31,5 +31,5 @@
   "sideEffects": [
     "*.css"
   ],
-  "packageManager": "npm@10"
+  "packageManager": "npm@10.9.0"
 }
