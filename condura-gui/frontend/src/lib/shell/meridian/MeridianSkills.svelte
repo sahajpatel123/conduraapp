@@ -8,6 +8,7 @@
   import { ipc } from '../../ipc/client'
   import type { InstalledSkill } from '../../ipc/types'
   import { primarySlashToken } from '../../skill-slash'
+  import { focusOn } from '../../a11y/autofocus'
 
   type Provenance = 'all' | 'local' | 'hub'
 
@@ -20,6 +21,8 @@
   let activeId = $state<string | null>(null)
   let provenance = $state<Provenance>('all')
   let offline = $state(false)
+  let q = $state('')
+  let searchEl = $state<HTMLInputElement | null>(null)
 
   // Add Skill form
   let showCreate = $state(false)
@@ -28,6 +31,22 @@
   let createSteps = $state('')
   let createBusy = $state(false)
   let createNote = $state('')
+
+  // Filter by provenance, then by name (case-insensitive substring).
+  // `q` matches the skill's primary display name + description so a
+  // fuzzy "what was that image helper called?" still works.
+  const filtered = $derived.by(() => {
+    const needle = q.trim().toLowerCase()
+    const base = provenance === 'all'
+      ? skills
+      : skills.filter((s) => (fromHub(s) ? 'hub' : 'local') === provenance)
+    if (!needle) return base
+    return base.filter((s) => {
+      const name = (s.name || '').toLowerCase()
+      const desc = (s.description || '').toLowerCase()
+      return name.includes(needle) || desc.includes(needle)
+    })
+  })
 
   const filtered = $derived(
     provenance === 'all'
@@ -61,6 +80,11 @@
       /* ignore */
     }
     void load()
+    // Drop focus into the search field so users with many skills can
+    // start typing immediately — same auto-focus pattern as Sync PIN
+    // and the Chat composer. Wrapped in setTimeout so we run AFTER
+    // the create-form mount check above completes.
+    setTimeout(() => focusOn(() => searchEl, () => !showCreate), 0)
   })
 
   function isOfflineError(e: unknown): boolean {
@@ -320,6 +344,20 @@
         </button>
       </div>
 
+      <label class="search">
+        <span class="sr">Search installed skills</span>
+        <input
+          bind:this={searchEl}
+          bind:value={q}
+          type="search"
+          placeholder="Search skills by name…"
+          aria-label="Search skills"
+        />
+        {#if q}
+          <button type="button" class="clear" onclick={() => (q = '')} aria-label="Clear search">Clear</button>
+        {/if}
+      </label>
+
       {#if filtered.length === 0}
         <div class="md-empty empty">
           <p class="empty-title">No {provenance} skills</p>
@@ -537,6 +575,59 @@
   .filters button:focus-visible {
     outline: none;
     box-shadow: var(--md-focus);
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--md-line);
+    background: var(--md-surface);
+    margin: 0 0 14px;
+    transition: border-color 140ms var(--md-ease);
+  }
+  .search:focus-within {
+    border-color: color-mix(in oklab, var(--md-cobalt) 40%, var(--md-line));
+  }
+  .search input {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--md-ink);
+    font: inherit;
+    outline: none;
+    padding: 4px 0;
+  }
+  .search input::placeholder {
+    color: var(--md-ink-faint);
+  }
+  .search .clear {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--md-ink-faint);
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .search .clear:hover {
+    color: var(--md-ink);
+    background: color-mix(in oklab, var(--md-ink) 4%, transparent);
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
   .layout {
     display: grid;
