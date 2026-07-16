@@ -119,6 +119,21 @@
     )
   )
 
+  /** Split `text` into segments around the first match of `needle`
+   *  (case-insensitive). Empty needle → single un-matched segment. */
+  function highlight(text: string, needle: string): { t: string; m: boolean }[] {
+    const n = needle.trim()
+    if (!n) return [{ t: text, m: false }]
+    const i = text.toLowerCase().indexOf(n.toLowerCase())
+    if (i < 0) return [{ t: text, m: false }]
+    const out: { t: string; m: boolean }[] = []
+    if (i > 0) out.push({ t: text.slice(0, i), m: false })
+    out.push({ t: text.slice(i, i + n.length), m: true })
+    const tail = text.slice(i + n.length)
+    if (tail) out.push({ t: tail, m: false })
+    return out
+  }
+
   function indexForRoute(list: Item[], id: RouteId): number {
     const i = list.findIndex((it) => it.kind === 'nav' && it.route === id)
     return i >= 0 ? i : 0
@@ -205,9 +220,15 @@
               {#if item.kind === 'action'}
                 <span class="tag" class:halt={item.danger}>act</span>
               {/if}
-              {item.label}
+              {#each highlight(item.label, q) as seg}
+                {#if seg.m}<mark class="md-hl">{seg.t}</mark>{:else}{seg.t}{/if}
+              {/each}
             </span>
-            <span class="hint">{item.hint}</span>
+            <span class="hint">
+              {#each highlight(item.hint, q) as seg}
+                {#if seg.m}<mark class="md-hl">{seg.t}</mark>{:else}{seg.t}{/if}
+              {/each}
+            </span>
             <kbd>{item.kbd}</kbd>
           </button>
         </li>
@@ -334,6 +355,23 @@
     font-family: var(--md-font-mono);
     font-size: 10px;
     color: var(--md-ink-faint);
+  }
+  .md-hl {
+    background: color-mix(in oklab, var(--md-cobalt) 22%, transparent);
+    color: var(--md-cobalt);
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+    /* Inherit font weight — <mark> would otherwise reset to normal. */
+    font-weight: inherit;
+  }
+  :global(:root[data-mode='dark']) .md-hl {
+    background: color-mix(in oklab, var(--md-cobalt) 32%, transparent);
+    color: #fff;
+  }
+  button.on .md-hl {
+    background: color-mix(in oklab, #fff 26%, transparent);
+    color: #fff;
   }
   .empty {
     padding: 20px;

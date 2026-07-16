@@ -85,6 +85,23 @@ describe('MeridianPalette', () => {
     expect(back?.textContent).toContain('Ask')
   })
 
+  it('typing wraps matched substring in <mark class="md-hl">', async () => {
+    const { container } = renderOpen()
+    const input = container.querySelector<HTMLInputElement>('.q') as HTMLInputElement
+    input.value = 'hub'
+    await fireEvent.input(input)
+    // Hub is a route — should appear with "hub" highlighted.
+    const marks = container.querySelectorAll<HTMLElement>('mark.md-hl')
+    expect(marks.length).toBeGreaterThan(0)
+    const text = Array.from(marks).map((m) => m.textContent?.toLowerCase() ?? '').join('')
+    expect(text).toContain('hub')
+  })
+
+  it('empty query renders no <mark>', () => {
+    const { container } = renderOpen()
+    expect(container.querySelectorAll('mark.md-hl').length).toBe(0)
+  })
+
   it('Tab keydown does not throw and does not leak to shell', async () => {
     const { container } = renderOpen()
     // No exception from Tab in the middle of the list.
