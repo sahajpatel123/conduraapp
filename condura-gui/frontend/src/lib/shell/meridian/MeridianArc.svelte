@@ -70,5 +70,19 @@
     .beam {
       animation: none !important;
     }
+    /* Breathing animation is the primary cue for the 'live' state
+       (streaming, awaiting consent, reconnecting). When motion is
+       reduced we lose the speed difference, so swap to a static
+       marker — thicker stroke + brighter tint — so users can still
+       distinguish 'live' from 'ok' at a glance. */
+    .live .beam {
+      stroke-width: 3.25;
+      opacity: 1;
+    }
+    /* Halt already uses stroke-width 3 + animation:none — make it pop
+       a touch more without relying on motion. */
+    .bad .beam {
+      stroke-width: 3.5;
+    }
   }
 </style>
