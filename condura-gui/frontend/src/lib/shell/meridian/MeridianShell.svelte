@@ -266,11 +266,19 @@
         return
       }
       // Open Channels — ⌘⇧C navigates to the messaging-integrations
-      // surface. ⌘⇧R is reserved for Regenerate (chat route only) so
-      // the chord set skips it on this global navigation set.
+      // surface. ⌘⇧R is context-aware: Regenerate when in chat route,
+      // navigate to Replay otherwise.
       if (mod && e.shiftKey && k === 'c' && !typing) {
         e.preventDefault()
         navigate('channels')
+        return
+      }
+      // Open Replay — ⌘⇧R navigates to the day-meridian surface when
+      // the user is NOT on the chat route. (On chat route it's the
+      // Regenerate shortcut above — different surface, same chord.)
+      if (mod && e.shiftKey && k === 'r' && route !== 'chat' && !typing) {
+        e.preventDefault()
+        navigate('replay')
         return
       }
       // ⌘. (Cmd-period) — macOS convention for "stop". On the chat

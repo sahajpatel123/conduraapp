@@ -29,6 +29,7 @@
         { keys: ['⌘', '⇧', 'H'], label: 'Open Hub (skills shelf)' },
         { keys: ['⌘', '⇧', 'S'], label: 'Open Sync (device pairing)' },
         { keys: ['⌘', '⇧', 'C'], label: 'Open Channels' },
+        { keys: ['⌘', '⇧', 'R'], label: 'Open Replay (or Regenerate in chat)' },
       ],
     },
     {
