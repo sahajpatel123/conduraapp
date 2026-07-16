@@ -10,6 +10,7 @@
   import { daemon } from '../../stores/daemon.svelte'
   import { spend } from '../../stores/spend.svelte'
   import { notifications } from '../../stores/notifications.svelte'
+  import { focusOn } from '../../a11y/autofocus'
   import { ipc } from '../../ipc/client'
   import { renderSafeMarkdown } from '../../markdown'
   import type { InstalledSkill, Message, ProviderInfo, ToolCall } from '../../ipc/types'
@@ -555,7 +556,7 @@
     messagesAtBottom = 0
     // Move keyboard focus to the composer so the user can type
     // immediately without reaching for the mouse.
-    queueMicrotask(() => ta?.focus({ preventScroll: true }))
+    focusOn(() => ta)
   }
 
   async function openThread(id: number): Promise<void> {
@@ -566,7 +567,7 @@
     // and "seen" count matching whatever messages are already loaded.
     userAtBottom = true
     messagesAtBottom = conversation.messages.length
-    queueMicrotask(() => ta?.focus({ preventScroll: true }))
+    focusOn(() => ta)
   }
 
   function beginRename(): void {

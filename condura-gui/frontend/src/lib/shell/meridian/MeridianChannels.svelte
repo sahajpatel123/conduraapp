@@ -3,6 +3,7 @@
   import MeridianPage from './MeridianPage.svelte'
   import { ipc } from '../../ipc/client'
   import type { ChannelInfo } from '../../ipc/types'
+  import { focusOn } from '../../a11y/autofocus'
 
   // Meridian Channels — messaging integrations. Telegram is the only
   // one wired in v0.1.0 (via the `reach` subsystem). The others are
@@ -57,11 +58,7 @@
    *  Sync PIN and Chat composer — "they came here to do one thing, let
    *  them do it." */
   $effect(() => {
-    if (!openInput) return
-    queueMicrotask(() => {
-      tokenInputEl?.focus({ preventScroll: true })
-      tokenInputEl?.select()
-    })
+    focusOn(() => tokenInputEl, () => !!openInput)
   })
   let submitError = $state<string | null>(null)
   let busy = $state<string | null>(null)

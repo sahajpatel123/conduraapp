@@ -9,6 +9,7 @@
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { sync } from '../../stores/sync.svelte'
+  import { focusOn } from '../../a11y/autofocus'
 
   let pin = $state('')
   let revoking = $state<string | null>(null)
@@ -51,11 +52,7 @@
    *  The user just walked over to this device and read the PIN off it —
    *  making them click before typing defeats the purpose. */
   $effect(() => {
-    if (!sync.pendingPin || pinExpired) return
-    queueMicrotask(() => {
-      pinEl?.focus({ preventScroll: true })
-      pinEl?.select()
-    })
+    focusOn(() => pinEl, () => !!sync.pendingPin && !pinExpired)
   })
 
   function initial(name: string): string {
