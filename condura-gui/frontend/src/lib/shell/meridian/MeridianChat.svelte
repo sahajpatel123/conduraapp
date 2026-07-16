@@ -421,6 +421,9 @@
       if (slash.token === 'help' || slash.token === 'about') {
         slashNotice =
           'Slash tips: /SkillName runs a skill · /model opens Models · /clear clears the box. Add skills under Skills.'
+        // Also surface the visual cheatsheet — users typing /help want
+        // to discover shortcuts, not just read a one-liner.
+        window.dispatchEvent(new CustomEvent('condura:show-keys'))
         return
       }
       if (slash.token === 'compact') {

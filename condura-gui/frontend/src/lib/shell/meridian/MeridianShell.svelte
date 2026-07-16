@@ -149,6 +149,13 @@
     }
     window.addEventListener('condura:show-onboarding', onShowOnboarding)
 
+    // /help slash command (from the chat composer) opens the cheatsheet.
+    // Same shortcut as the keyboard '?' handler — the shell handles both.
+    const onShowKeys = (): void => {
+      keysOpen = true
+    }
+    window.addEventListener('condura:show-keys', onShowKeys)
+
     const onKey = (e: KeyboardEvent) => {
       if (showOnboarding) return
       const mod = e.metaKey || e.ctrlKey
@@ -296,6 +303,9 @@
         e.preventDefault()
         keysOpen = !keysOpen
       }
+      // /help slash command dispatches the same intent.
+      // Listen at the shell level so it works regardless of chat mount.
+      // Implementation lives in onMount via window.addEventListener below.
     }
     window.addEventListener('keydown', onKey)
 
@@ -309,6 +319,7 @@
       window.removeEventListener('hashchange', onHash)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('condura:show-onboarding', onShowOnboarding)
+      window.removeEventListener('condura:show-keys', onShowKeys)
       try {
         consent.stop()
       } catch {
