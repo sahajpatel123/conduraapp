@@ -15,7 +15,17 @@ export interface Notification {
 class NotificationStore {
   list = $state<Notification[]>([])
   private nextId = 1
-  private ttlMs = 5000
+  /**
+   * Per-kind TTL (ms). Success is shorter (acknowledged signal),
+   * warn/error stay longer so users can actually read them. Sticky
+   * notifications bypass this entirely.
+   */
+  private ttlByKind: Record<NotificationKind, number> = {
+    info: 5000,
+    success: 4000,
+    warn: 8000,
+    error: 10000,
+  }
 
   push(opts: { kind: NotificationKind; title: string; message: string; sticky?: boolean }): number {
     const n: Notification = {
@@ -28,7 +38,7 @@ class NotificationStore {
     }
     this.list = [...this.list, n]
     if (!n.sticky) {
-      setTimeout(() => this.dismiss(n.id), this.ttlMs)
+      setTimeout(() => this.dismiss(n.id), this.ttlByKind[n.kind])
     }
     return n.id
   }

@@ -2,14 +2,26 @@
   /**
    * Meridian toast stack — mist/cobalt surface for notifications store.
    * Spend warnings, Sync notes, etc. land here (product shell had none).
+   *
+   * Per-kind TTL lives in the notifications store (info 5s, success 4s,
+   * warn 8s, error 10s). Dismiss-to-remove uses a Svelte fly transition
+   * so the toast slides out instead of vanishing.
    */
+  import { fly } from 'svelte/transition'
+  import { cubicOut } from 'svelte/easing'
   import { notifications } from '../../stores/notifications.svelte'
 </script>
 
 {#if notifications.list.length}
   <div class="toast-stack" aria-live="polite" aria-atomic="false">
     {#each notifications.list as n (n.id)}
-      <div class="toast" data-kind={n.kind} role="status">
+      <div
+        class="toast"
+        data-kind={n.kind}
+        role="status"
+        in:fly={{ y: 10, duration: 220, easing: cubicOut }}
+        out:fly={{ y: 10, duration: 180, easing: cubicOut }}
+      >
         <span class="mark" aria-hidden="true"></span>
         <div class="body">
           <strong>{n.title}</strong>
@@ -53,7 +65,6 @@
     border: 1px solid var(--md-line);
     background: var(--md-surface);
     box-shadow: none;
-    animation: toast-in 220ms var(--md-ease) both;
   }
   .mark {
     width: 4px;
@@ -104,17 +115,9 @@
     outline: none;
     box-shadow: var(--md-focus);
   }
-  @keyframes toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(10px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
+    /* Svelte transitions already respect prefers-reduced-motion internally,
+       but keep the hook here in case any future keyframe animation lands. */
     .toast {
       animation: none;
     }
