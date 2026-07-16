@@ -218,6 +218,12 @@
           return
         }
       }
+      // Export thread as Markdown — ⌘⇧E dispatches when on chat route.
+      if (mod && e.shiftKey && k === 'e' && route === 'chat' && !typing) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('condura:export-thread'))
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

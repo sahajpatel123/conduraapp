@@ -67,6 +67,8 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Copy last assistant response')
     // ⌘⇧N new-ask shortcut — same dispatch pattern as ⌥C
     expect(text).toContain('Start a new ask')
+    // ⌘⇧E export-thread shortcut
+    expect(text).toContain('Export thread as Markdown')
   })
 
   it('renders each shortcut as kbd elements joined with plus', () => {

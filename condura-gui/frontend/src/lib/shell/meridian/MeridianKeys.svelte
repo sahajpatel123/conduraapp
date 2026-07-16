@@ -44,6 +44,7 @@
         { keys: ['/'], label: 'Slash commands & skills' },
         { keys: ['⌥', 'C'], label: 'Copy last assistant response' },
         { keys: ['⌘', '⇧', 'N'], label: 'Start a new ask' },
+        { keys: ['⌘', '⇧', 'E'], label: 'Export thread as Markdown' },
       ],
     },
     {

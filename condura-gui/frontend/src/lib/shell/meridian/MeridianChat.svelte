@@ -9,6 +9,7 @@
   import { halt } from '../../stores/halt.svelte'
   import { daemon } from '../../stores/daemon.svelte'
   import { spend } from '../../stores/spend.svelte'
+  import { notifications } from '../../stores/notifications.svelte'
   import { ipc } from '../../ipc/client'
   import { renderSafeMarkdown } from '../../markdown'
   import type { InstalledSkill, Message, ProviderInfo, ToolCall } from '../../ipc/types'
@@ -282,6 +283,15 @@
     }
     window.addEventListener('condura:new-ask', onNewAsk)
     return () => window.removeEventListener('condura:new-ask', onNewAsk)
+  })
+
+  // Global ⌘⇧E — export the current thread as Markdown to the clipboard.
+  $effect(() => {
+    const onExport = (): void => {
+      void exportThread()
+    }
+    window.addEventListener('condura:export-thread', onExport)
+    return () => window.removeEventListener('condura:export-thread', onExport)
   })
 
   $effect(() => {
@@ -620,6 +630,53 @@
     }
   }
 
+  /** Build a portable markdown dump of the current thread — one section
+   *  per message with role heading. Surfaces tool calls as a fenced
+   *  block so they survive the round-trip into a static viewer. */
+  function threadToMarkdown(): string {
+    const title = conversation.currentTitle?.trim() || `Thread ${conversation.currentID ?? 'untitled'}`
+    const lines: string[] = [`# ${title}`, '']
+    const stamp = new Date().toISOString()
+    lines.push(`*Exported from Condura Ask on ${stamp}*`, '')
+    for (const m of conversation.messages) {
+      const who = m.role === 'user' ? 'You' : m.role === 'assistant' ? 'Condura' : m.role
+      lines.push(`## ${who}`, '')
+      if (m.content) {
+        lines.push(m.content, '')
+      }
+      if (m.tool_calls && m.tool_calls.length) {
+        for (const tc of m.tool_calls) {
+          const name = tc.function?.name || 'gated action'
+          const args = tc.function?.arguments?.trim() ?? ''
+          lines.push('```json', JSON.stringify({ name, arguments: args ? JSON.parse(args) : {} }, null, 2), '```', '')
+        }
+      }
+    }
+    return lines.join('\n')
+  }
+
+  let exported = $state(false)
+  async function exportThread(): Promise<void> {
+    if (!conversation.messages.length) return
+    try {
+      const md = threadToMarkdown()
+      await navigator.clipboard.writeText(md)
+      exported = true
+      setTimeout(() => (exported = false), 1600)
+      notifications.push({
+        kind: 'success',
+        title: 'Thread exported',
+        message: `Copied ${conversation.messages.length} message${conversation.messages.length === 1 ? '' : 's'} as Markdown.`,
+      })
+    } catch (e) {
+      notifications.push({
+        kind: 'error',
+        title: 'Export failed',
+        message: String(e),
+      })
+    }
+  }
+
   /**
    * Delegated handler for the .md-code-copy buttons injected by
    * renderSafeMarkdown. Walks up to the figure, grabs the <pre>, copies
@@ -831,6 +888,15 @@
           <div class="thread-actions">
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void copyLast()} disabled={!conversation.messages.some((m) => m.role === 'assistant' && m.content)}>
               {copied ? 'Copied' : 'Copy last'}
+            </button>
+            <button
+              type="button"
+              class="md-btn md-btn-ghost tiny"
+              onclick={() => void exportThread()}
+              disabled={!conversation.messages.length}
+              title="Copy entire thread as Markdown (⌘⇧E)"
+            >
+              {exported ? 'Exported' : 'Export'}
             </button>
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={goAudit}>Open audit</button>
             <button type="button" class="md-btn md-btn-ghost tiny" onclick={() => void clearThread()}>
