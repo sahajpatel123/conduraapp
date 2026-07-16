@@ -265,6 +265,14 @@
         navigate('hub')
         return
       }
+      // Open Channels — ⌘⇧C navigates to the messaging-integrations
+      // surface. ⌘⇧R is reserved for Regenerate (chat route only) so
+      // the chord set skips it on this global navigation set.
+      if (mod && e.shiftKey && k === 'c' && !typing) {
+        e.preventDefault()
+        navigate('channels')
+        return
+      }
       // ⌘. (Cmd-period) — macOS convention for "stop". On the chat
       // route, cancel any in-flight stream. Mirrors the Esc handler in
       // MeridianChat so power users don't have to leave the home row.

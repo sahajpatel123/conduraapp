@@ -51,6 +51,7 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Open Audit ledger')
     expect(text).toContain('Open Sync (device pairing)')
     expect(text).toContain('Open Hub (skills shelf)')
+    expect(text).toContain('Open Channels')
     // Settings (MeridianSettings.svelte onTabKey)
     expect(text).toContain('Move between tabs')
     expect(text).toContain('First tab')
