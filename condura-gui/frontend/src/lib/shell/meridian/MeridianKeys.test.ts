@@ -60,6 +60,8 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Slash commands')
     // Global copy shortcut — wired through MeridianShell dispatch + MeridianChat $effect listener
     expect(text).toContain('Copy last assistant response')
+    // ⌘⇧N new-ask shortcut — same dispatch pattern as ⌥C
+    expect(text).toContain('Start a new ask')
   })
 
   it('renders each shortcut as kbd elements joined with plus', () => {

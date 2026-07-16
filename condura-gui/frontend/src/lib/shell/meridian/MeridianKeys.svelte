@@ -43,6 +43,7 @@
         { keys: ['Esc'], label: 'Stop stream' },
         { keys: ['/'], label: 'Slash commands & skills' },
         { keys: ['⌥', 'C'], label: 'Copy last assistant response' },
+        { keys: ['⌘', '⇧', 'N'], label: 'Start a new ask' },
       ],
     },
     {

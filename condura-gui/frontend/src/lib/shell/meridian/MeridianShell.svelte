@@ -199,6 +199,14 @@
         window.dispatchEvent(new CustomEvent('condura:copy-last-response'))
         return
       }
+      // New ask — ⌘⇧N mirrors the same event pattern: chat owns the
+      // actual clearThread() so it can confirm before clobbering an
+      // in-flight stream.
+      if (mod && e.shiftKey && k === 'n' && route === 'chat' && !typing) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('condura:new-ask'))
+        return
+      }
       // Help: ? opens the keyboard cheatsheet. Mirrors VS Code/Cursor — not
       // gated on `typing`, so "?" in Ask composer still opens help. `?`
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.

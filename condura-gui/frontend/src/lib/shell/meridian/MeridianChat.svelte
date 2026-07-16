@@ -274,6 +274,16 @@
     return () => window.removeEventListener('condura:copy-last-response', onCopyEvent)
   })
 
+  // Global ⌘⇧N — start a fresh ask. Same event pattern as ⌥C; chat owns
+  // clearThread() so it can cancel any in-flight stream before resetting.
+  $effect(() => {
+    const onNewAsk = (): void => {
+      void clearThread()
+    }
+    window.addEventListener('condura:new-ask', onNewAsk)
+    return () => window.removeEventListener('condura:new-ask', onNewAsk)
+  })
+
   $effect(() => {
     conversation.messages.length
     conversation.streamingDelta
