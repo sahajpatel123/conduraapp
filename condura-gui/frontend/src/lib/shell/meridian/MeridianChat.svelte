@@ -619,6 +619,38 @@
       /* ignore */
     }
   }
+
+  /**
+   * Delegated handler for the .md-code-copy buttons injected by
+   * renderSafeMarkdown. Walks up to the figure, grabs the <pre>, copies
+   * its text content, then briefly flips the button label to "Copied"
+   * so the user sees the feedback.
+   */
+  function onCopyCodeClick(e: MouseEvent): void {
+    const target = e.target as HTMLElement | null
+    if (!target) return
+    const btn = target.closest<HTMLButtonElement>('.md-code-copy')
+    if (!btn) return
+    e.preventDefault()
+    const fig = btn.closest<HTMLElement>('.md-code')
+    const pre = fig?.querySelector<HTMLPreElement>('pre')
+    if (!pre) return
+    const text = pre.innerText
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(text)
+        const orig = btn.textContent
+        btn.textContent = 'Copied'
+        btn.classList.add('is-copied')
+        setTimeout(() => {
+          btn.textContent = orig
+          btn.classList.remove('is-copied')
+        }, 1400)
+      } catch {
+        /* ignore */
+      }
+    })()
+  }
 </script>
 
 <section class="chat">
@@ -888,7 +920,7 @@
           </div>
         {/if}
 
-        <div class="messages">
+        <div class="messages" onclick={onCopyCodeClick} role="presentation">
           {#each conversation.messages as msg, i (i)}
             <article class="msg" data-role={msg.role}>
               <header>
@@ -1826,8 +1858,42 @@
     padding: 1px 6px;
     border-radius: 6px;
   }
-  .bubble.md :global(pre) {
+  .bubble.md :global(.md-code) {
+    position: relative;
     margin: 0.65em 0;
+  }
+  .bubble.md :global(.md-code-copy) {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--md-line);
+    background: color-mix(in oklab, var(--md-surface) 90%, transparent);
+    color: var(--md-ink-faint);
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 140ms var(--md-ease), color 140ms var(--md-ease), border-color 140ms var(--md-ease);
+  }
+  .bubble.md :global(.md-code:hover .md-code-copy),
+  .bubble.md :global(.md-code-copy:focus-visible) {
+    opacity: 1;
+  }
+  .bubble.md :global(.md-code-copy:hover) {
+    color: var(--md-ink);
+    border-color: var(--md-line-strong);
+  }
+  .bubble.md :global(.md-code-copy.is-copied) {
+    color: var(--md-live);
+    border-color: color-mix(in oklab, var(--md-live) 40%, var(--md-line));
+    opacity: 1;
+  }
+  .bubble.md :global(pre) {
+    margin: 0;
     padding: 12px 14px;
     overflow-x: auto;
     border-radius: 12px;
