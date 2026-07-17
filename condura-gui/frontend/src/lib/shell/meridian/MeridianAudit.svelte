@@ -7,6 +7,7 @@
   import MeridianPage from './MeridianPage.svelte'
   import { audit } from '../../stores/audit.svelte'
   import { daemon } from '../../stores/daemon.svelte'
+  import { t } from '../../i18n'
   import type { AuditEvent } from '../../ipc/types'
   import type { VerdictFilter, WhenPreset } from '../../stores/audit.svelte'
 
@@ -234,7 +235,7 @@
     {/if}
 
     <div class="filter-desk">
-      <div class="filters when" role="group" aria-label="Time window">
+      <div class="filters when" role="group" aria-label={t('audit.filter_time')}>
         {#each WHEN as w (w.id)}
           <button
             type="button"
@@ -247,7 +248,7 @@
           </button>
         {/each}
       </div>
-      <div class="filters" role="group" aria-label="Filter by verdict">
+      <div class="filters" role="group" aria-label={t('audit.filter_verdict')}>
         {#each FILTERS as f (f)}
           <button
             type="button"

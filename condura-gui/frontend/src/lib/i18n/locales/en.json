@@ -48,6 +48,8 @@
   "audit.col.time": "Time",
   "audit.empty": "No matching events.",
   "audit.filter_placeholder": "Action contains…",
+  "audit.filter_time": "Time window",
+  "audit.filter_verdict": "Filter by verdict",
   "audit.intro": "Every action the daemon takes is recorded here, with timestamp, actor, and outcome.",
   "audit.next": "Next",
   "audit.offset": "Offset: {0}",

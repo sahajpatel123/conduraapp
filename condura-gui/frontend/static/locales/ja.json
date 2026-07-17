@@ -48,6 +48,8 @@
   "audit.col.time": "Time",
   "audit.empty": "No matching events.",
   "audit.filter_placeholder": "Action contains…",
+  "audit.filter_time": "時間範囲",
+  "audit.filter_verdict": "結果でフィルター",
   "audit.intro": "Every action the daemon takes is recorded here, with timestamp, actor, and outcome.",
   "audit.next": "Next",
   "audit.offset": "Offset: {0}",
