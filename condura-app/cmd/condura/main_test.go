@@ -192,8 +192,8 @@ func TestCLIConfigJSON(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("config --json exit %d", code)
 	}
-	if !strings.Contains(so, "APIServer") {
-		t.Fatalf("expected APIServer section in JSON output, got: %s", so)
+	if !strings.Contains(so, "api_server") {
+		t.Fatalf("expected api_server section in JSON output, got: %s", so)
 	}
 }
 
