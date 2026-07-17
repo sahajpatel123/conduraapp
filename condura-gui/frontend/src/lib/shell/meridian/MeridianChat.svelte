@@ -1055,6 +1055,12 @@
           </div>
         {/if}
 
+        <!-- onclick is delegated: clicks bubble from the inner .md-code-copy
+             buttons (which are keyboard-accessible — Tab + Enter/Space).
+             Adding onkeydown on this log div would be wrong; the role="log"
+             container shouldn't be focusable. -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div class="messages" onclick={onCopyCodeClick} role="log" aria-live="polite" aria-relevant="additions">
           {#each conversation.messages as msg, i (i)}
             <article class="msg" data-role={msg.role}>
