@@ -634,6 +634,11 @@ export interface ReplayFrame {
 export interface ReplayIntegrityReport {
   valid: boolean
   rows_checked: number
+  /** Number of frames in the hash chain at verification time. Optional
+   *  because older daemon builds may not emit it yet. */
+  chain_length?: number
+  /** RFC3339 timestamp of when the verification ran. */
+  verified_at?: string
   first_break_id?: number
   first_break_reason?: string
 }
