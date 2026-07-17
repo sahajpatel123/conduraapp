@@ -13,6 +13,7 @@
   import { focusOn } from '../../a11y/autofocus'
   import { ipc } from '../../ipc/client'
   import { renderSafeMarkdown } from '../../markdown'
+  import { t } from '../../i18n'
   import type { InstalledSkill, Message, ProviderInfo, ToolCall } from '../../ipc/types'
   import {
     buildSkillSystemPrompt,
@@ -836,7 +837,7 @@
             </button>
           </div>
         {:else}
-          <ol class="pipe" aria-label="How an ask becomes an act">
+          <ol class="pipe" aria-label={t('chat.ask_becomes_act')}>
             {#each PIPE as p (p.n)}
               <li>
                 <span class="n">{p.n}</span>
@@ -922,7 +923,7 @@
                   class="rename-input"
                   bind:value={renameDraft}
                   maxlength="120"
-                  aria-label="Thread title"
+                  aria-label={t('chat.thread_title')}
                   disabled={renameBusy}
                   onkeydown={(e) => {
                     if (e.key === 'Escape') {
@@ -1008,7 +1009,7 @@
         {/if}
 
         {#if recent.length > 0}
-          <div class="rail" aria-label="Recent threads">
+          <div class="rail" aria-label={t('chat.recent_threads')}>
             {#each recent as c (c.id)}
               <div class="rail-row" class:on={c.id === conversation.currentID}>
                 <button
@@ -1034,7 +1035,7 @@
         {/if}
 
         {#if confirmDeleteId && confirmDeleteId !== conversation.currentID}
-          <div class="delete-plate slim" role="alertdialog" aria-label="Confirm delete">
+          <div class="delete-plate slim" role="alertdialog" aria-label={t('chat.confirm_delete')}>
             <p class="delete-lead tight">
               Delete
               <strong>{threadLabel(recent.find((c) => c.id === confirmDeleteId) ?? { id: confirmDeleteId })}</strong>?
@@ -1153,7 +1154,7 @@
       <button
         type="button"
         class="jump-pill"
-        aria-label="Jump to latest messages"
+        aria-label={t('chat.jump_to_latest')}
         onclick={jumpToLatest}
       >
         <span class="arrow" aria-hidden="true">↓</span>
@@ -1169,7 +1170,7 @@
     </div>
     {#if showSlash}
       <div class="slash-wrap">
-        <ul class="slash-menu" role="listbox" aria-label="Slash commands">
+        <ul class="slash-menu" role="listbox" aria-label={t('chat.slash_commands')}>
           {#each slashSuggestions as item, i (item.label)}
             <li role="option" aria-selected={i === slashIndex}>
               <button
@@ -1229,7 +1230,7 @@
             <span class="sr">Model</span>
             <select
               bind:value={selectedModel}
-              aria-label="Model"
+              aria-label={t('chat.model_label')}
               disabled={halted || conversation.isStreaming || capReached}
               onchange={() => void persistSelectedModel()}
             >
