@@ -1744,3 +1744,70 @@ Did not touch: CLAUDE.md redirect stub + MISSION.md H1, 149 Synaptic mentions (d
 - Two real Tier-1 findings closed. Three audit dimensions clean. Working tree clean. No open security regressions detected in scope.
 
 These are documented in the user's audit conversation (next-message ask). Will pick up by severity in a follow-up session if asked.
+
+## [2026-07-17 14:08 IST] AI Model: GLM 5.2 by Z.ai (Claude Code)
+**Session ID:** svelte-check-cleanup-arc-2026-07-17
+**Branch:** main @ 34c1528 (HEAD after this session's commits)
+**Task:** Complete cleanup of `condura-gui/frontend` svelte-check noise. Took the codebase from 30 errors + 26 warnings down to **0/0 across 20 commits** in a single afternoon via the `/loop` 15-min cadence. Also documented two new memories for future agents.
+
+### Milestone
+- `svelte-check --tsconfig ./tsconfig.json` reports **0 errors, 0 warnings, 0 files with problems** for the first time in the project's recorded history.
+- Baseline at session start: 30 errors / 26 warnings / 22 files with problems.
+- 20 commits shipped to `origin/main`, each one a focused polish step (none bundled unrelated work, except where Sahaj had pre-staged files that landed with mine — see "Staging-discipline lessons" below).
+
+### Fix categories (in order of impact)
+1. **Svelte 5 idiom migrations** (5 commits, ~10 errors cleared):
+   - `focusOn` cancel-return API + propagate to MeridianSync + MeridianChannels call sites (commits `25f7c6b`, `f10dee5`).
+   - `{#key step}` wrap for `FloatingOnboarding` BlurReveal re-mount (`4e47d78`) — the previous `key={step}` on the component was a no-op since `BlurReveal` doesn't declare a `key` prop.
+   - `$derived.by(() => { _dep; return expr })` in EulaScreen to replace the comma-operator dep-track hack (`c68384b`).
+   - `<div role="dialog">` for Sheet modal instead of `<aside>` (`8bfc063`) — also fixed an `align` type mismatch from binding a non-Div element ref.
+
+2. **Type-system tightening** (3 commits, 6 errors cleared):
+   - `tsconfig.paths` mirrors Vite's `$lib` alias (`9d113e6`) — eliminated 5 false-positive "Cannot find module" errors in onboarding components.
+   - `MagneticButton.type` narrowed to `'button' | 'submit' | 'reset'` (`ddc62f9`) — wide `string` was an HTML-attribute escape hatch.
+   - `ReplayIntegrityReport` extended with `chain_length?` and `verified_at?` (`5ffaf61`) — test-pinned schema drift.
+
+3. **Test-fixture drift fixes** (3 commits, 5 errors cleared):
+   - `apikeys.test.ts` fixtures got the required `auth_kind: 'api_key'` (`192c074`).
+   - `replay.test.ts` reads `chain_length` from the integrity report; declared on the type (`5ffaf61`).
+   - `MeridianPalette.test.ts` `route: 'chat'` cast as `RouteId` to survive the `...props` spread widening (`fd35a0d`).
+   - `ipc/client.test.ts` + `FloatingOnboarding.test.ts` got `as unknown as [string, RequestInit]` casts where vi.fn()'s empty call signature fights strict TS (`bfd9b9f`).
+
+4. **Dead-state / dead-code cleanup** (4 commits, 6 errors cleared):
+   - Declared missing `keysOpen` state in MeridianShell (`e15bab0`).
+   - Declared missing `offline` state in MeridianChannels (`fe80023`) with the canonical `isOfflineError` regex.
+   - Removed dead `if (onclick)` guard inside `{#if onclick}` in PollenNode (`798774f`).
+   - Removed redundant `.filter((p) => p !== 'magic')` in MeridianAccount (`bf08775`) — TS narrows the array element type and breaks the subsequent `.includes(p.id)`; the filter was already redundant since `ALL_PROVIDERS` has no 'magic' entry.
+
+5. **a11y / lint noise** (3 commits, 5 warnings cleared):
+   - `<!-- svelte-ignore a11y_* -->` + comment on MeridianChat log div for click delegation (`14dd682`), both nav containers for keyboard delegation (`5aa74c5`).
+   - `<!-- svelte-ignore state_referenced_locally -->` + comment on PermissionCards + HotkeyCard prop-capture (`dbd9f67`).
+   - Removed 4 unused CSS selectors verified via grep (`c595aa0`).
+   - Added standard `line-clamp` alongside `-webkit-line-clamp` in MeridianAbout (`34c1528`).
+   - Added `tabindex="-1"` to SegmentedControl's `role="radiogroup"` (`34c1528`).
+
+### Staging-discipline lessons
+- `git commit` (without `--only`) picks up **all** staged files, not just what you explicitly added. Two of my commits absorbed Sahaj's pre-staged files: `ddc62f9` bundled `shell.go` + `shell_edge_test.go` (the `&` bypass hardening — Tier-1 fix from his parallel security audit); `fe80023` bundled an audit-narrative LOGBOOK entry.
+- Prevention: `git status --short` + `git diff --cached --stat` immediately before every commit. Recovery: leave the bundled commit (the diff is visible on GitHub, the message describes what *I* changed; future readers can piece the full story from the LOGBOOK). **Do not** force-push amend an already-pushed commit to fix a message mismatch.
+- Saved as `synaptic-staging-discipline.md` for future sessions.
+
+### Memories saved this session
+- `synaptic-full-autonomy.md` — Sahaj's 100%-ownership directive + live-time tracking expectation.
+- `synaptic-staging-discipline.md` — the parallel-edit commit-dance lessons above.
+
+### Parallel work shipped by Sahaj (3 commits, all surfaced through this session's log)
+- `a287b1b fix(daemon): gate backup.preview and backup.create destination through Gatekeeper` — Tier-1 confused-deputy fix.
+- `f4cadb3 fix(sse): cap simultaneous SSE connections at 32 to bound daemon memory`.
+- `4d8dc30 docs(secrets): correct misleading 'machine-bound' claim in file backend`.
+
+### Working tree state at end of session
+- Clean. Last commit `34c1528` is the svelte-check zero-warning final.
+
+### Next steps (queued for future iterations)
+- **`internal/router/` package scaffold** — known-flakes #12 says it's v0.2.0 work. Now that `cfg.Router.Priorities` is drift-tested via `router_drift_test.go`, the actual router implementation can land.
+- **`internal/sse/` broker auth + rate limit** — queued in the 2026-07-17 13:14 IST security audit's "next steps." Per-connection subscription limits, message size caps, cross-session event leak risk.
+- **SQL parameter binding audit** in `internal/storage/` — confirm all `db.Query`/`db.Exec` use parameterized queries; flag any `fmt.Sprintf`-built SQL.
+- **v0.2.0 brand-pass rename** — the 149 deferred "Synaptic" mentions across `LOGBOOK.md`, `CLAUDE.md.legacy`, and inline code comments (per known-flakes #5).
+
+### Status
+- svelte-check is fully clean. The frontend type/a11y surface is in the best shape it's been since the wave-2 redesign. The `/loop` cadence (15 min per firing, 20 commits in ~75 min) proved sustainable for grinding through mechanical fixes — each firing was a self-contained iteration picking up where the last left off via the staged-commit history.
