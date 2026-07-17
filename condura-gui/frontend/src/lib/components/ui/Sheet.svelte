@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { t } from '../../i18n'
 
   interface Props {
     open: boolean
@@ -66,7 +67,7 @@
     {#if title}
       <header class="sheet-header">
         <h3 class="sheet-title">{title}</h3>
-        <button type="button" class="sheet-close" aria-label="Close" onclick={close}>
+        <button type="button" class="sheet-close" aria-label={t('common.close')} onclick={close}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>

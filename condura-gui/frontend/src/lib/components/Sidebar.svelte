@@ -3,6 +3,7 @@
   import { daemon } from '../stores/daemon.svelte'
   import { halt } from '../stores/halt.svelte'
   import { account } from '../stores/account.svelte'
+  import { t } from '../i18n'
   import Avatar from './ui/Avatar.svelte'
   import Badge from './ui/Badge.svelte'
   import IconButton from './ui/IconButton.svelte'
@@ -245,8 +246,8 @@
       <button
         type="button"
         class="signin-link"
-        title="Sign in"
-        aria-label="Sign in"
+        title={t('account.signin.title')}
+        aria-label={t('account.signin.title')}
         onclick={() => navigate('#/settings')}
       >
         <Avatar name={accountInitials} size="sm" />
