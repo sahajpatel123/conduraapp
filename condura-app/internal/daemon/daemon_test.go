@@ -64,12 +64,17 @@ func TestRun_Smoke(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
-	// Give Windows more time to shut down — the WAL checkpoint on
-	// SQLite can run past 2s on busy CI runners. Linux/macOS shut
-	// down in <500ms so 2s is plenty there.
+	// Give Windows + macOS arm64 more time to shut down — the WAL
+	// checkpoint on SQLite can run past 2s on busy CI runners,
+	// and GitHub-hosted macOS arm64 runners are slower than x86
+	// counterparts. Linux/macOS-amd64 shut down in <500ms so 2s is
+	// plenty there.
 	shutdownTimeout := 2 * time.Second
 	if runtime.GOOS == "windows" {
 		shutdownTimeout = 10 * time.Second
+	}
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		shutdownTimeout = 5 * time.Second
 	}
 	select {
 	case err := <-done:
