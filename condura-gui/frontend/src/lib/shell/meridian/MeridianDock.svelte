@@ -74,6 +74,10 @@
   }
 </script>
 
+<!-- onkeydown is delegated: keys fire on inner <button> tabs (which are
+     the real interactive elements). The <nav> is the bubble target so
+     arrow-key navigation between tabs has one listener, not N. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <nav class="dock" aria-label="Primary" bind:this={dockEl} onkeydown={onKey}>
   <div class="primary">
     {#each PRIMARY as item (item.id)}

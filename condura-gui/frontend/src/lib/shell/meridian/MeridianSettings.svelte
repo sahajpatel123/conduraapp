@@ -888,6 +888,10 @@
       {/if}
     </div>
 
+    <!-- onkeydown is delegated from inner tab <button>s — the <nav> is
+         the bubble target so arrow-key navigation between tabs has one
+         listener, not N. Inner buttons are themselves keyboard-accessible. -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class="tabs" aria-label="Settings sections" bind:this={tabNavEl} onkeydown={onTabKey}>
       {#each TABS as t (t.id)}
         <button
