@@ -3,7 +3,7 @@
 import { ipc } from '../ipc/client'
 import type { BackupEntry, PermissionGuide, PermissionStatus } from '../ipc/types'
 
-class TrustStore {
+export class TrustStore {
   backups = $state<BackupEntry[]>([])
   permissions = $state<PermissionStatus[]>([])
   loadingBackups = $state(false)
