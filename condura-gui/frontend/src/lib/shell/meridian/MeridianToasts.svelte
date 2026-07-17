@@ -10,7 +10,20 @@
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import { notifications } from '../../stores/notifications.svelte'
+
+  /** Escape dismisses the most recent toast — same keyboard parity
+   *  modals have. Loop through list from the end so users can press
+   *  Escape repeatedly to clear the stack. */
+  function onKey(e: KeyboardEvent): void {
+    if (e.key !== 'Escape') return
+    if (!notifications.list.length) return
+    e.preventDefault()
+    const last = notifications.list[notifications.list.length - 1]
+    if (last) notifications.dismiss(last.id)
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 {#if notifications.list.length}
   <div class="toast-stack" aria-live="polite" aria-atomic="false">

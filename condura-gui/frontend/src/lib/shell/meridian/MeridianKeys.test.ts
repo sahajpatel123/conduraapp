@@ -48,6 +48,7 @@ describe('MeridianKeys', () => {
     expect(text).toContain('Open Settings')
     expect(text).toContain('Switch light / dark')
     expect(text).toContain('Hard halt — stop everything')
+    expect(text).toContain('Dismiss toast')
     expect(text).toContain('Open Audit ledger')
     expect(text).toContain('Open Sync (device pairing)')
     expect(text).toContain('Open Hub (skills shelf)')

@@ -25,6 +25,7 @@
         { keys: ['⌘', ','], label: 'Open Settings' },
         { keys: ['⇧', 'T'], label: 'Switch light / dark' },
         { keys: ['⌘', '⇧', 'Esc'], label: 'Hard halt — stop everything' },
+        { keys: ['Esc'], label: 'Dismiss toast / close modal' },
         { keys: ['⌘', '⇧', 'A'], label: 'Open Audit ledger' },
         { keys: ['⌘', '⇧', 'H'], label: 'Open Hub (skills shelf)' },
         { keys: ['⌘', '⇧', 'S'], label: 'Open Sync (device pairing)' },
