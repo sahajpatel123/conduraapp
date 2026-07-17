@@ -9,6 +9,7 @@
   import { hub } from '../../stores/hub.svelte'
   import { formatRelativeTime } from '../../utils/relativeTime'
   import { primarySlashToken } from '../../skill-slash'
+  import { t } from '../../i18n'
 
   type TrustFilter = 'all' | 'verified' | 'trusted' | 'community'
 
@@ -162,16 +163,16 @@
           placeholder="Search the shelf…"
           bind:value={q}
           onkeydown={(e) => e.key === 'Enter' && search()}
-          aria-label="Search skills"
+          aria-label={t('skills.search')}
         />
         {#if q}
-          <button type="button" class="clear" onclick={clearSearch} aria-label="Clear search">Clear</button>
+          <button type="button" class="clear" onclick={clearSearch} aria-label={t('skills.clear_search')}>Clear</button>
         {/if}
       </div>
       <button type="button" class="md-btn md-btn-primary" onclick={search}>Search</button>
     </div>
 
-    <div class="filters" role="group" aria-label="Filter by trust">
+    <div class="filters" role="group" aria-label={t('hub.filter_trust')}>
       {#each (['all', 'verified', 'trusted', 'community'] as const) as f}
         <button type="button" class:on={trustFilter === f} data-f={f} onclick={() => (trustFilter = f)}>
           {f}

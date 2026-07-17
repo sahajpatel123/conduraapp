@@ -209,6 +209,7 @@
   "hub.search": "Search",
   "hub.search_placeholder": "Search skills…",
   "hub.searching": "Searching…",
+  "hub.filter_trust": "Filtrar por confianza",
   "hub.signature_invalid": "Invalid signature on skill: {0}",
   "hub.title": "Skills Hub",
   "ipc.auth_failed": "Authentication failed: {0}",
