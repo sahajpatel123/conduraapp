@@ -43,6 +43,11 @@
     busy = false,
   }: Props = $props()
 
+  // items takes initial ownership from the permissions prop, then is
+  // managed independently via refresh() polling the daemon. Don't make
+  // this a derived — that would re-snapshot on every parent update and
+  // blow away local changes mid-poll.
+  // svelte-ignore state_referenced_locally
   let items = $state([...permissions])
   let pollTimer: ReturnType<typeof setInterval> | null = null
 

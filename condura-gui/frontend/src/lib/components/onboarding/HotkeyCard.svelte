@@ -15,6 +15,10 @@
   let { onnext, onskip, busy = false, initialCombo = '' }: Props = $props()
 
   let recording = $state(false)
+  // combo takes initial ownership from the initialCombo prop (existing
+  // hotkey, if any), then is managed locally by the recorder. Don't
+  // make this a derived — would re-snapshot on every parent update.
+  // svelte-ignore state_referenced_locally
   let combo = $state(initialCombo)
   let activeKeys = $state<Set<string>>(new Set())
 
