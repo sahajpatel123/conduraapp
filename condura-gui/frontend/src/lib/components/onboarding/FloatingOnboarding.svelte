@@ -212,31 +212,33 @@
         {/each}
       </div>
 
-      <BlurReveal key={step} once={false} threshold={0}>
-        {#if step === 'eula'}
-          <EulaScreen onaccepted={onEulaAccepted} />
-        {:else if step === 'permissions'}
-          <PermissionCards
-            onnext={() => void onPermissionsContinue()}
-            onskip={() => void onPermissionsSkip()}
-            busy={onboarding.busy}
-          />
-        {:else if step === 'power'}
-          <PowerCards onnext={onPowerNext} onskip={onPowerNext} />
-        {:else if step === 'hotkey'}
-          <HotkeyCard
-            onnext={(combo) => void onHotkeyNext(combo)}
-            onskip={() => void onHotkeySkip()}
-            busy={onboarding.busy}
-            initialCombo={onboarding.hotkeyValue}
-          />
-        {:else if step === 'done'}
-          <FirstBreath
-            oncomplete={() => void handleFinish()}
-            busy={finishing || onboarding.busy}
-          />
-        {/if}
-      </BlurReveal>
+      {#key step}
+        <BlurReveal once={false} threshold={0}>
+          {#if step === 'eula'}
+            <EulaScreen onaccepted={onEulaAccepted} />
+          {:else if step === 'permissions'}
+            <PermissionCards
+              onnext={() => void onPermissionsContinue()}
+              onskip={() => void onPermissionsSkip()}
+              busy={onboarding.busy}
+            />
+          {:else if step === 'power'}
+            <PowerCards onnext={onPowerNext} onskip={onPowerNext} />
+          {:else if step === 'hotkey'}
+            <HotkeyCard
+              onnext={(combo) => void onHotkeyNext(combo)}
+              onskip={() => void onHotkeySkip()}
+              busy={onboarding.busy}
+              initialCombo={onboarding.hotkeyValue}
+            />
+          {:else if step === 'done'}
+            <FirstBreath
+              oncomplete={() => void handleFinish()}
+              busy={finishing || onboarding.busy}
+            />
+          {/if}
+        </BlurReveal>
+      {/key}
 
       {#if onboarding.error}
         <p
