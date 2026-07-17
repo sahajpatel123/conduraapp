@@ -4,6 +4,7 @@
    * Backend fills actor/detail; we still humanize empty/legacy tickets.
    */
   import { consent } from '../../stores/consent.svelte'
+  import { t } from '../../i18n'
 
   const ticket = $derived(consent.ticket)
 
@@ -76,7 +77,7 @@
     class="sheet"
     role="dialog"
     aria-modal="true"
-    aria-label="Consent required"
+    aria-label={t('consent.required')}
     aria-describedby="md-consent-detail"
   >
     <p class="kicker">

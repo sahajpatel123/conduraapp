@@ -5,6 +5,7 @@
    */
   import { onMount } from 'svelte'
   import { halt } from '../../stores/halt.svelte'
+  import { t } from '../../i18n'
 
   let primaryBtn = $state<HTMLButtonElement | null>(null)
   let secondaryBtn = $state<HTMLButtonElement | null>(null)
@@ -50,7 +51,7 @@
   class="sheet"
   role="alertdialog"
   aria-modal="true"
-  aria-label="Agent halted"
+  aria-label={t('halt.halted')}
   aria-describedby="md-halt-detail"
 >
   <span class="pulse" aria-hidden="true"></span>
