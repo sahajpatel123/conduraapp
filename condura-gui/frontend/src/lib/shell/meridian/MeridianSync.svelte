@@ -11,6 +11,7 @@
   import { sync } from '../../stores/sync.svelte'
   import { focusOn } from '../../a11y/autofocus'
   import { formatRelativeTime } from '../../utils/relativeTime'
+  import { t } from '../../i18n'
 
   let pin = $state('')
   let revoking = $state<string | null>(null)
@@ -205,11 +206,11 @@
             <input
               bind:this={pinEl}
               bind:value={pin}
-              placeholder="Enter PIN to seal"
+              placeholder={t('sync.pin_placeholder')}
               maxlength="8"
               inputmode="numeric"
               autocomplete="one-time-code"
-              aria-label="Pairing PIN"
+              aria-label={t('sync.pin_aria')}
             />
             <button
               type="button"

@@ -570,6 +570,8 @@
   "sync.title": "P2P Sync",
   "sync.unset": "(unset)",
   "sync.yes": "yes",
+  "sync.pin_placeholder": "Enter PIN to seal",
+  "sync.pin_aria": "Pairing PIN",
   "tray.status_error": "Error",
   "tray.status_halted": "HALTED",
   "tray.status_idle": "Idle",

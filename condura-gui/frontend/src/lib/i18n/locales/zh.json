@@ -570,6 +570,8 @@
   "sync.title": "P2P Sync",
   "sync.unset": "(unset)",
   "sync.yes": "yes",
+  "sync.pin_placeholder": "输入 PIN 以封存",
+  "sync.pin_aria": "配对 PIN",
   "tray.status_error": "Error",
   "tray.status_halted": "HALTED",
   "tray.status_idle": "Idle",
