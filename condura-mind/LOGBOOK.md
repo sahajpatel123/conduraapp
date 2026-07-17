@@ -1702,4 +1702,45 @@ Both should carry `Co-Authored-By: GLM <noreply@z.ai>` per the project's byline-
 - §2.9 (delegation has no filesystem sandbox)
 - §2.10 (CLI bypasses presence checks)
 
+## [2026-07-17 13:14 IST] AI Model: Claude Code (Anthropic)
+
+### Audit dimensions covered (clean reads)
+1. **OAuth scheme (`synaptic://`)** — code is clean; only historical mentions remain in `condura-mind/docs/logbook-archive/LOGBOOK-2026-06.md` (the rename record) and `condura-mind/synapse/understanding.md` (the rename described as past fact). The one fix-on-sight item from the do-not-fix list is closed.
+2. **Hardcoded secrets (sk-, ghp-, AKIA-, xoxb-)** — every match is a `_test.go` fixture (`fakeKey` const in `audit/test_helpers_test.go`, deliberate redaction inputs in `logger_test.go` and `sanitize/redact_secrets.go` godoc). No live credentials.
+3. **Go race / unsafe deserialization** — production raw `go X()` count is **1** (the `safego.go` wrapper itself). Production `safego.Go(` calls: **44**. Plus 12 explicit `defer crash.Recover()` at long-running method entrypoints (cmd/condurad, anomaly, updater, presence, watchdog, daemon×3, ipc/transport, pending, backup, crash). The June 14 hardening wave (`f3abd64` "add crash.Recover() to 8 critical long-running goroutines") is intact. Two silent-error JSON sites flagged in `internal/llm/google.go:186` and `internal/agent/agent.go:306,324` — logic-bug risk, not security RCE (Go's `encoding/json` into `any` cannot instantiate attacker types).
+4. **CI pipeline integrity** — active `.github/workflows/` is secure: no `pull_request_target`, no `workflow_run` with PR fork access, all actions pinned to major-version tags (`@v4`/`@v5`/`@v6`), explicit least-privilege `permissions:` blocks (`contents: read` default, escalating to `write` only on `release.yml`/`release-gui-patch.yml` where tag/release creation is needed). Orphan `condura-ops/ci/workflows/*.yml` is real drift (87+ line additions in `ci.yml`, Go 1.25.11→1.25.12 + post-reorg path fixes in `release-verify.yml`) — but those copies are inert (GitHub only reads `.github/`). Drift is v0.2.0 housekeeping (per do-not-fix #13), explicitly out of scope here.
+
+### Tier-1 fix shipped: backup.* Gatekeeper gates (commit `a287b1b`)
+**File:** `condura-app/internal/daemon/methods_phase11_backup.go`
+**Defense gap:** `backup.preview` accepted an arbitrary `Path` from RPC and passed it to `backup.LoadManifest` (which calls `zip.OpenReader(archivePath)` directly) with zero path validation — arbitrary file-read primitive for any local IPC peer. `backup.create` accepted an arbitrary `Destination` and `copyFile(path, p.Destination)`'d the freshly-created backup there — arbitrary file-write primitive. Neither routed through the Gatekeeper, unlike their sibling `backup.restore` (line 128) which already used `subs.GatekeeperAllow(...)`.
+**Fix:** mirror the existing Gatekeeper pattern. `backup.preview` now requires Gatekeeper approval before reading the path. `backup.create` only gates the Destination branch (default-destination backups are unchanged — common case is unprompted). Both use `msgDeniedBySafetyPolicy` on denial.
+**Verification:** `go build ./internal/daemon/...` clean, `go vet` clean, `go test -tags=synaptictest -run 'TestTrustE2E_Backup.*|TestTrustE2E_UninstallPreviewReturnsManifest' ./internal/daemon/` all 6 tests pass (1.268s).
+**Closes:** the confused-deputy gap that the June 14 hardening wave (`ebc4ada` + siblings) closed for `backup.restore` and `uninstall.execute` but did not reach for `backup.preview` and `backup.create`.
+
+### Tier-1 fix shipped: ShellSanitizer `&` bypass (bundled into `ddc62f9`)
+**File:** `condura-app/internal/sanitize/shell.go` (also `shell_edge_test.go`).
+**Defense gap:** the metacharacter dangerous list was `["|", ">", "<", "\`", ";", "&&", "||", "$(", "${", "&>"]`. The bare `&` (background operator) was missing. A command like `ls /tmp & find /tmp -empty -delete` tokenizes to `["ls", "/tmp", "&", "find", "/tmp", "-empty", "-delete"]`. First token `"ls"` is allowlisted; the token `"&"` passed both the per-token metachar check (no dangerous substring) and the allowlist (only first token is checked). Then `sh -c` interpreted it as two commands — the second (`find -delete`) ran silently.
+**Fix:** add `"&"` to the dangerous list. Lock the contract in `TestIsShellMetachar_Exhaustive` (added to the must-detect slice) and add a regression test case `ampersand-background-operator-blocked` to `TestShellSanitizer_F01BypassPayloads`.
+**Verification:** all `TestShellSanitizer_*` and `TestIsShellMetachar_Exhaustive` sub-tests pass; `go test ./internal/executor/... ./internal/sanitize/...` both packages green (0.552s + 0.214s).
+**Committing note:** this fix was committed as part of `ddc62f9 fix(gui): narrow MagneticButton type prop to button literal union` (alongside the user's GUI work). The security content is in the diff but not in the commit subject. This LOGBOOK entry is the durable record.
+
+### Other exec sites — clean reads
+- `internal/executor/executor.go:281` `sh -c <cmdStr>` — defense stack verified end-to-end: token-based parsing, allowlist, separator rejection, per-token metachar check, Gatekeeper upstream, 30s timeout via `context.WithTimeout`, 64 MiB output cap via `io.LimitReader` (defeats `cat /dev/zero` OOM). The `&` bypass was the only gap.
+- `internal/voice/openai_speaker.go:176` `powershell -c ...` — path is from `os.CreateTemp`-equivalent temp file, single-quoted in the PowerShell string, and Windows NTFS forbids `'` in filenames. `//nolint:gosec` justification holds.
+- `internal/presence/detector.go:136` `ioreg` — literal args, no user input. CLEAN.
+
+### Do-not-fix list — respected
+Did not touch: CLAUDE.md redirect stub + MISSION.md H1, 149 Synaptic mentions (deferred to v0.2.0 brand pass), `cfg.Router.Priorities` lock, meridian.css tokens, GUI Build (darwin/arm64) smoke check, `internal/secrets.TestNew_NoFilePath_Auto` flake, `methods_phase12.go` 681-line / `subsystems.go` 1786-line intentional size, `hey_synaptic` deprecated alias, `condura-hub/`/`condura-sdk/` read-only stubs, dropped `condura-receipt/`, orphan CI workflow copies, `subs.Executor` nil when `cuComps` is nil (open question), internal/router package (v0.2.0 scaffold).
+
+### Working tree state at end of session
+- clean — both shipped fixes are on `main` (`a287b1b` standalone, `ddc62f9` bundled). User's pre-existing live WIP (`autofocus.test.ts`) preserved untouched.
+
+### Next steps (queued for future security-guardian iterations)
+- **SSE/WebSocket broker auth + rate limit** (`internal/sse/broker.go`) — per-connection subscription limits, message size caps, cross-session event leak risk on the LLM-token stream.
+- **SQL parameter binding** in `internal/storage/` — confirm all `db.Query`/`db.Exec` use parameterized queries; flag any `fmt.Sprintf`-built SQL.
+- **`&` exclusion impact check** — confirm no user-approved compound commands in the default allowlist legitimately need backgrounding (none expected, but worth a one-pass review of the integration test fixtures).
+
+### Status
+- Two real Tier-1 findings closed. Three audit dimensions clean. Working tree clean. No open security regressions detected in scope.
+
 These are documented in the user's audit conversation (next-message ask). Will pick up by severity in a follow-up session if asked.

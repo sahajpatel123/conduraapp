@@ -66,6 +66,10 @@
   $effect(() => focusOn(() => tokenInputEl, () => !!openInput))
   let submitError = $state<string | null>(null)
   let busy = $state<string | null>(null)
+  /** True when the last load failed because the daemon wasn't reachable.
+   *  Mirrors MeridianSkills' offline state so the last-refreshed
+   *  indicator doesn't show a misleading '5s ago' against stale data. */
+  let offline = $state(false)
 
   onMount(() => {
     void load()
@@ -116,6 +120,7 @@
   async function load(): Promise<void> {
     loading = true
     error = ''
+    offline = false
     try {
       const list = await ipc.channelsList()
       if (Array.isArray(list) && list.length) {
@@ -128,8 +133,16 @@
       const s = String(e)
       // IPC-not-started / connection-refused errors mean the daemon
       // isn't reachable yet; don't surface those as user-visible
-      // failures — keep the defaults rendered.
-      error = /IPC client not started|not connected|Failed to fetch/i.test(s) ? '' : s
+      // failures — keep the defaults rendered. Mark offline so the
+      // last-refreshed indicator hides (otherwise it would show
+      // '5s ago' against the previous successful load's timestamp).
+      const isOffline = /IPC client not started|not connected|Failed to fetch|daemon/i.test(s)
+      if (isOffline) {
+        offline = true
+        error = ''
+      } else {
+        error = s
+      }
     } finally {
       loading = false
     }
