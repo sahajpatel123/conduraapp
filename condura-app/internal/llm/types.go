@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 )
 
 // Role is the role of a message in a chat conversation.
@@ -216,24 +217,38 @@ func EstimateCostFromInfo(info ModelInfo, u Usage) float64 {
 }
 
 // modelRegistry is a name → ModelInfo map used by EstimateCost.
-// Populated by init() in model_pricing.go.
-var modelRegistry = map[string]ModelInfo{}
+// Populated by init() in model_pricing.go; RegisterModel / UnregisterModel
+// are exported for tests and runtime extensions. modelRegistryMu guards
+// every access — Go's runtime panics on concurrent map read + write, and
+// the LookupModel hot path runs from any goroutine that streams LLM
+// tokens, so even a test calling RegisterModel concurrently with a
+// live daemon's LookupModel would crash the daemon.
+var (
+	modelRegistryMu sync.RWMutex
+	modelRegistry   = map[string]ModelInfo{}
+)
 
 // LookupModel returns the ModelInfo for the given model name.
 func LookupModel(model string) (ModelInfo, bool) {
+	modelRegistryMu.RLock()
 	m, ok := modelRegistry[model]
+	modelRegistryMu.RUnlock()
 	return m, ok
 }
 
 // RegisterModel adds a model to the global pricing registry. Intended for
 // tests and runtime extensions.
 func RegisterModel(m ModelInfo) {
+	modelRegistryMu.Lock()
 	modelRegistry[m.ID] = m
+	modelRegistryMu.Unlock()
 }
 
 // UnregisterModel removes a model from the global pricing registry.
 func UnregisterModel(id string) {
+	modelRegistryMu.Lock()
 	delete(modelRegistry, id)
+	modelRegistryMu.Unlock()
 }
 
 // -----------------------------------------------------------------------------
