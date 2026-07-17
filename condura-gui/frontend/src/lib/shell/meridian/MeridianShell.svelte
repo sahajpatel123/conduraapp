@@ -25,6 +25,7 @@
     type ResolvedTheme,
   } from '../../theme/condura-theme'
   import { ROUTE_HASH, hashToRoute, type RouteId } from './routes'
+  import { createFocusReturn } from '../../a11y/focusReturn'
 
   import MeridianArc from './MeridianArc.svelte'
   import MeridianDock from './MeridianDock.svelte'
@@ -49,8 +50,12 @@
   let showOnboarding = $state(false)
   let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
-  /** Element that opened the palette — focus returns here on close. */
-  let paletteTrigger = $state<HTMLElement | null>(null)
+  /** Focus-return handles for the user-driven modals (imperative
+   *  capture-on-open / restore-on-close). Halt and Consent use a
+   *  different shape (reactive \$effect over an external boolean) and
+   *  keep their inline state. */
+  const keysReturn = createFocusReturn()
+  const paletteReturn = createFocusReturn()
   /** Element that triggered Halt — focus returns here when the sheet closes. */
   let haltTrigger = $state<HTMLElement | null>(null)
   /** Element that triggered Consent — focus returns here when the sheet closes. */
@@ -161,7 +166,7 @@
     const onShowKeys = (): void => {
       // Capture the trigger so we can return focus when the cheatsheet closes.
       // The '?' keystroke normally fires while the chat composer is focused.
-      keysTrigger = (document.activeElement as HTMLElement) ?? null
+      keysReturn.capture()
       keysOpen = true
     }
     window.addEventListener('condura:show-keys', onShowKeys)
@@ -196,7 +201,7 @@
       }
       if (mod && k === 'k') {
         e.preventDefault()
-        paletteTrigger = (document.activeElement as HTMLElement) ?? null
+        paletteReturn.capture()
         paletteOpen = true
         return
       }
@@ -313,6 +318,7 @@
       // requires Shift on most keyboards, so we only forbid Cmd/Ctrl.
       if (e.key === '?' && !mod) {
         e.preventDefault()
+        keysReturn.capture()
         keysOpen = !keysOpen
       }
       // /help slash command dispatches the same intent.
@@ -437,7 +443,7 @@
         <span class="edition">Meridian</span>
       </div>
 
-      <button type="button" class="jump" onclick={() => { paletteTrigger = (document.activeElement as HTMLElement) ?? null; paletteOpen = true }} aria-label="Search (⌘K)">
+      <button type="button" class="jump" onclick={() => { paletteReturn.capture(); paletteOpen = true }} aria-label="Search (⌘K)">
         <span>Jump anywhere…</span>
         <kbd>⌘K</kbd>
       </button>
@@ -451,7 +457,7 @@
           type="button"
           class="icon keys-toggle"
           onclick={() => {
-            keysTrigger = (document.activeElement as HTMLElement) ?? null
+            keysReturn.capture()
             keysOpen = true
           }}
           aria-label="Keyboard shortcuts (?)"
@@ -517,10 +523,10 @@
     <MeridianPalette
       open={paletteOpen}
       route={route}
-      onclose={() => { paletteOpen = false; queueMicrotask(() => paletteTrigger?.focus({ preventScroll: true })); paletteTrigger = null }}
+      onclose={() => { paletteOpen = false; paletteReturn.restore() }}
       onnavigate={navigate}
     />
-    <MeridianKeys open={keysOpen} onclose={() => { keysOpen = false; queueMicrotask(() => keysTrigger?.focus({ preventScroll: true })); keysTrigger = null }} />
+    <MeridianKeys open={keysOpen} onclose={() => { keysOpen = false; keysReturn.restore() }} />
     <MeridianConsent />
     <MeridianToasts />
     {#if halt.state.halted}
