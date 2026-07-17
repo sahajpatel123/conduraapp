@@ -176,6 +176,7 @@
   "hub.aria_label": "Skills Hub",
   "hub.browsing": "Browsing Skills Hub...",
   "hub.by": "by {0}",
+  "hub.filter_trust": "Nach Vertrauen filtern",
   "hub.footer": "All installs are safety-scanned (dangerous patterns, missing license, experimental trust) and verified by SHA-256 checksum. Press <kbd>Enter</kbd> in the search box to run a query; <kbd>↑</kbd> / <kbd>↓</kbd> to navigate.",
   "hub.install": "install",
   "hub.install_confirm": "Install skill {0}?",
