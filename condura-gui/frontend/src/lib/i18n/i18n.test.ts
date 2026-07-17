@@ -45,53 +45,68 @@ describe('i18n catalog parity', () => {
     // Soft warning — the t() function falls back to en.json on miss, so
     // a key whose value IS the English string means either the locale
     // genuinely has the same wording (a number, an acronym, a brand
-    // name), or the translator hasn't gotten to it yet. Flag with a
-    // list in the test output rather than failing — translation
-    // coverage is a process, not a gate.
+    // name), or the translator hasn't gotten to it yet.
+    //
+    // Reports BOTH:
+    //   - per-locale fallback count (raw per-locale "still English" count)
+    //   - unique universal-fallback keys (where ALL 5 non-en locales
+    //     still equal en — the truer "remaining work" number)
+    //   - per-namespace breakdown of the universal set
     const enKeys = Object.keys(catalogs.en)
     const enValues = catalogs.en as Record<string, string>
-    const fallbackKeys: { loc: Locale; key: string }[] = []
+    const universalFallback = new Set<string>()
+    const perLocFallback = new Map<Locale, string[]>()
     for (const loc of LOCALES) {
       if (loc === SOURCE) continue
-      const locValues = catalogs[loc] as Record<string, string>
-      for (const k of enKeys) {
+      perLocFallback.set(loc, [])
+    }
+    for (const k of enKeys) {
+      let allMatch = true
+      for (const loc of LOCALES) {
+        if (loc === SOURCE) continue
+        const locValues = catalogs[loc] as Record<string, string>
         if (locValues[k] === enValues[k]) {
-          fallbackKeys.push({ loc, key: k })
+          perLocFallback.get(loc)!.push(k)
+        } else {
+          allMatch = false
         }
       }
+      if (allMatch) universalFallback.add(k)
     }
-    // Print the fallback list (vitest surfaces console output).
+    const totalPerLoc = [...perLocFallback.values()].reduce((s, a) => s + a.length, 0)
     // eslint-disable-next-line no-console
     console.log(
-      `[i18n parity] ${fallbackKeys.length} keys are still using the English value as fallback across non-en locales`
+      `[i18n parity] ${totalPerLoc} per-locale fallbacks; ${universalFallback.size} unique keys where ALL 5 non-en locales still equal en (true remaining work)`
     )
-    if (fallbackKeys.length > 0) {
-      const byLoc = new Map<Locale, string[]>()
-      for (const { loc, key } of fallbackKeys) {
-        if (!byLoc.has(loc)) byLoc.set(loc, [])
-        byLoc.get(loc)!.push(key)
-      }
-      for (const [loc, keys] of byLoc) {
+    if (universalFallback.size > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`  universal-fallback keys (first 20):`)
+      const sample = [...universalFallback].slice(0, 20)
+      for (const k of sample) {
         // eslint-disable-next-line no-console
-        console.log(`  ${loc}: ${keys.length} keys (sample: ${keys.slice(0, 5).join(', ')})`)
+        console.log(`    ${k}`)
       }
-      // Per-namespace breakdown — makes the report actionable for
-      // translation sprints: each row shows which namespace to target.
+    }
+    for (const [loc, keys] of perLocFallback) {
+      // eslint-disable-next-line no-console
+      console.log(`  ${loc}: ${keys.length} per-locale fallbacks (sample: ${keys.slice(0, 5).join(', ')})`)
+    }
+    if (universalFallback.size > 0) {
       const byNs = new Map<string, number>()
-      for (const { key } of fallbackKeys) {
-        const ns = key.split('.')[0] ?? '(ungrouped)'
+      for (const k of universalFallback) {
+        const ns = k.split('.')[0] ?? '(ungrouped)'
         byNs.set(ns, (byNs.get(ns) ?? 0) + 1)
       }
       const nsSorted = [...byNs.entries()].sort((a, b) => b[1] - a[1])
       // eslint-disable-next-line no-console
-      console.log(`  by namespace (top 15):`)
+      console.log(`  universal-fallback by namespace (top 15):`)
       for (const [ns, count] of nsSorted.slice(0, 15)) {
         // eslint-disable-next-line no-console
         console.log(`    ${ns}: ${count}`)
       }
     }
     // This test never fails — it's a coverage report.
-    expect(fallbackKeys.length).toBeGreaterThanOrEqual(0)
+    expect(true).toBe(true)
   })
 
   it('catalogs can be imported as Record<string,string> without runtime errors', () => {
