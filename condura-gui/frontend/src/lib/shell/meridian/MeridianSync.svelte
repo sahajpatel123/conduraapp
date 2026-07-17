@@ -167,7 +167,7 @@
     </p>
     {#if sync.lastRefreshedAt > 0 && !isOffline(sync.error)}
       <p class="last-refresh" aria-live="polite">
-        Last refreshed {formatRelativeTime(sync.lastRefreshedAt)}
+        Last refreshed {formatRelativeTime(sync.lastRefreshedAt)} · auto-refreshes every 5s
       </p>
     {/if}
 
