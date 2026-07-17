@@ -403,7 +403,7 @@
       </button>
 
       <div class="right">
-        <div class="status" data-tone={statusTone}>
+        <div class="status" data-tone={statusTone} aria-live="polite">
           <span class="dot"></span>
           {statusLabel}
         </div>
