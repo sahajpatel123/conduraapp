@@ -202,7 +202,18 @@ vet: ## Run go vet
 # ------------------------------------------------------------------
 
 .PHONY: verify
-verify: vet fmt lint test ## Run all checks (vet, fmt, lint, test)
+verify: vet fmt lint test frontend-verify ## Run all checks (vet, fmt, lint, test, frontend)
+
+.PHONY: frontend-verify
+frontend-verify: ## Run svelte-check on the Meridian frontend (skipped if node_modules absent)
+	@if [ -d condura-gui/frontend/node_modules ]; then \
+	  echo "==> svelte-check (condura-gui/frontend)"; \
+	  cd condura-gui/frontend && \
+	    VITE_CJS_IGNORE_WARNING=true ./node_modules/.bin/svelte-check \
+	      --tsconfig ./tsconfig.json; \
+	else \
+	  echo "==> skipping svelte-check (condura-gui/frontend/node_modules not installed)"; \
+	fi
 
 # ------------------------------------------------------------------
 # Dev
