@@ -53,6 +53,8 @@
   let paletteTrigger = $state<HTMLElement | null>(null)
   /** Element that triggered Halt — focus returns here when the sheet closes. */
   let haltTrigger = $state<HTMLElement | null>(null)
+  /** Element that triggered Consent — focus returns here when the sheet closes. */
+  let consentTrigger = $state<HTMLElement | null>(null)
   /** Element that opened the cheatsheet — focus returns here on close. */
   let keysTrigger = $state<HTMLElement | null>(null)
   let currentHash = $state(
@@ -393,6 +395,21 @@
     queueMicrotask(() => {
       haltTrigger?.focus({ preventScroll: true })
       haltTrigger = null
+    })
+  })
+
+  // Consent modal: capture the activeElement when the ticket appears
+  // (could be from a chat action, a daemon-initiated request, or
+  // anything else), restore on close. Same pattern as Halt.
+  $effect(() => {
+    if (consent.ticket) {
+      consentTrigger ??= (document.activeElement as HTMLElement) ?? null
+      return
+    }
+    if (!consentTrigger) return
+    queueMicrotask(() => {
+      consentTrigger?.focus({ preventScroll: true })
+      consentTrigger = null
     })
   })
 </script>
