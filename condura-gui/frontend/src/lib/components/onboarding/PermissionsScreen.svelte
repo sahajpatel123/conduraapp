@@ -305,7 +305,6 @@
   }
   .perm-icon svg { width: 20px; height: 20px; }
 
-  .perm-card { height: 100%; }
   .perm-head {
     display: flex;
     align-items: center;

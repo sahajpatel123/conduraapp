@@ -1448,9 +1448,6 @@
     color: var(--md-ink-mute);
     max-width: 42ch;
   }
-  .atlas.dim {
-    opacity: 0.55;
-  }
   .setup-chip {
     appearance: none;
     border: 1px solid color-mix(in oklab, var(--md-cobalt) 28%, var(--md-line));
@@ -2488,8 +2485,7 @@
     .msg,
     .composer,
     .bubble.streaming::after,
-    .tone-dot,
-    h1 span {
+    .tone-dot {
       animation: none !important;
     }
     .feed {

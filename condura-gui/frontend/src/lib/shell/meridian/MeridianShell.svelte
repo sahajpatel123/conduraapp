@@ -820,13 +820,6 @@
     box-shadow: var(--md-focus);
     border-color: var(--md-cobalt);
   }
-  .kbd-q {
-    font-family: var(--md-font-mono);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0;
-    line-height: 1;
-  }
   /* Cheatsheet toggle: dual-channel label like the theme toggle so
      the button's purpose is obvious without hovering for the title. */
   .keys-toggle .keys-label {
