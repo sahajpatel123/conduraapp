@@ -3,6 +3,7 @@ package sse
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -283,4 +284,45 @@ func TestBroker_UnsubscribeIdempotent(t *testing.T) {
 	sub := b.Subscribe()
 	b.Unsubscribe(sub)
 	b.Unsubscribe(sub) // must not panic on closed channel
+}
+
+// TestBroker_ServeHTTP_RejectsWhenAtMax verifies that the broker
+// caps simultaneous SSE connections. Without this guard, a
+// misbehaving local client could open thousands of connections and
+// OOM the daemon. We pre-populate the client map to the cap and
+// verify the next ServeHTTP call returns 503.
+func TestBroker_ServeHTTP_RejectsWhenAtMax(t *testing.T) {
+	b := NewBroker()
+	defer b.Close()
+
+	// Pre-populate to the cap with fake clients (mirrors the
+	// pattern in TestBroker_PublishReceive / TestBroker_DropOnFull).
+	b.mu.Lock()
+	for i := 0; i < maxClients; i++ {
+		b.clients[&Client{
+			broker:  b,
+			id:      fmt.Sprintf("flood-%d", i),
+			channel: make(chan Event, 1),
+			writer:  httptest.NewRecorder(),
+			done:    make(chan struct{}),
+			flusher: &nopFlusher{},
+		}] = struct{}{}
+	}
+	b.mu.Unlock()
+
+	// Stand up a real HTTP server so ServeHTTP runs as it would in
+	// production. A fresh request against the cap should get 503.
+	srv := httptest.NewServer(b)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d (max clients not enforced)",
+			resp.StatusCode, http.StatusServiceUnavailable)
+	}
 }

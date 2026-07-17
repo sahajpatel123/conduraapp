@@ -35,6 +35,16 @@ import (
 // idle connections after ~30s; 15s is a safe middle ground.
 const heartbeatInterval = 15 * time.Second
 
+// maxClients caps the number of simultaneous SSE connections. Each
+// client holds a 64-event channel buffer + an http.ResponseWriter + a
+// flusher + a per-connection goroutine. Without a cap, a misbehaving or
+// compromised local client (the daemon binds to 127.0.0.1; CORS is
+// locked to 127.0.0.1:7475) could open thousands of connections and
+// OOM the daemon. 32 is generous for a single-user desktop app (a
+// multi-tab GUI plus dev tools is the realistic ceiling) while bounding
+// the per-daemon memory cost to ~32 × a few KiB.
+const maxClients = 32
+
 // Event is a single SSE frame. The wire format is
 //
 //	event: <name>
@@ -212,6 +222,11 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
+		return
+	}
+	if len(b.clients) >= maxClients {
+		b.mu.Unlock()
+		http.Error(w, "too many SSE clients", http.StatusServiceUnavailable)
 		return
 	}
 	b.clients[client] = struct{}{}
