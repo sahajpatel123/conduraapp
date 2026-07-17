@@ -10,6 +10,7 @@
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import { notifications } from '../../stores/notifications.svelte'
+  import { t } from '../../i18n'
 
   /** Escape dismisses the most recent toast — same keyboard parity
    *  modals have. Loop through list from the end so users can press
@@ -45,7 +46,7 @@
         <button
           type="button"
           class="x"
-          aria-label="Dismiss"
+          aria-label={t('common.dismiss')}
           onclick={() => notifications.dismiss(n.id)}
         >
           ×
