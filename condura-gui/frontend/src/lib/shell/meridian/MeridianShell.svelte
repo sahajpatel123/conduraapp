@@ -50,6 +50,7 @@
   let showOnboarding = $state(false)
   let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
+  let keysOpen = $state(false)
   /** Focus-return handles for the user-driven modals (imperative
    *  capture-on-open / restore-on-close). Halt and Consent use a
    *  different shape (reactive \$effect over an external boolean) and
