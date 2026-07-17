@@ -15,14 +15,18 @@ function showBootFail(err: unknown): void {
   if (panel) panel.classList.add('show')
   if (detail) detail.textContent = `${name}: ${message}\n\n${stack}`
   else {
-    document.body.innerHTML =
-      '<pre style="color:#2F5BFF;padding:24px;font-family:monospace;white-space:pre-wrap;">' +
-      name +
-      ': ' +
-      message +
-      '\n\n' +
-      stack +
-      '</pre>'
+    // Fallback when neither the boot-fail panel nor its detail node
+    // are present in the DOM. Build the element via the safe DOM API
+    // (createElement + textContent) — never innerHTML with string
+    // concatenation, since err.message can flow from Wails IPC and
+    // could include attacker-controlled bytes in a future caller.
+    const pre = document.createElement('pre')
+    pre.style.color = '#2F5BFF'
+    pre.style.padding = '24px'
+    pre.style.fontFamily = 'monospace'
+    pre.style.whiteSpace = 'pre-wrap'
+    pre.textContent = `${name}: ${message}\n\n${stack}`
+    document.body.appendChild(pre)
   }
 }
 
