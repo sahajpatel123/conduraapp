@@ -203,6 +203,7 @@
   "ipc.auth_failed": "Authentication failed: {0}",
   "ipc.listening": "IPC listening on {0}",
   "ipc.request_failed": "Request failed: {0}",
+  "keys.title": "Keyboard shortcuts",
   "llm.chat_failed": "Chat request failed: {0}",
   "llm.no_provider": "No LLM provider configured",
   "llm.provider.registered": "Registered provider: {0} ({1} models)",

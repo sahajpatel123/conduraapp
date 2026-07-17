@@ -5,6 +5,7 @@
    * Grouped by surface (Global / Palette / Ask) so the cheatsheet scales with new surfaces.
    */
   import { onMount } from 'svelte'
+  import { t } from '../../i18n'
 
   interface Props {
     open: boolean
@@ -93,7 +94,7 @@
 <svelte:window onkeydown={onKey} />
 {#if open}
   <div class="back" onclick={onclose} role="presentation"></div>
-  <div class="panel" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="panel" role="dialog" aria-modal="true" aria-label={t('keys.title')}>
     <header class="head">
       <p class="kicker">Keyboard · meridian</p>
       <h2>Shortcuts</h2>
