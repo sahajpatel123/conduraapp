@@ -59,7 +59,7 @@ func (s *ShellSanitizer) isAllowed(bin string) bool {
 }
 
 func isShellMetachar(s string) bool {
-	dangerous := []string{"|", ">", "<", "`", ";", "&&", "||", "$(", "${", "&>"}
+	dangerous := []string{"|", ">", "<", "`", ";", "&&", "||", "$(", "${", "&>", "&"}
 	for _, d := range dangerous {
 		if s == d || strings.Contains(s, d) {
 			return true

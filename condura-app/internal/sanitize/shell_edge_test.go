@@ -112,6 +112,20 @@ func TestShellSanitizer_F01BypassPayloads(t *testing.T) {
 			expectError:  true,
 			whyItMatters: "$( is a shell metachar, caught by isShellMetachar",
 		},
+		{
+			// F-01 followup: bare & (background operator). The
+			// dangerous list contained "&&" and "&>" but not the
+			// bare "&", so a command like `ls /tmp & find /tmp -delete`
+			// tokenized as ["ls", "/tmp", "&", "find", "/tmp", "-delete"].
+			// First token "ls" is allowlisted; "&" passed the per-token
+			// metachar check (no dangerous substring); sh -c then ran
+			// both commands. Backgrounding the first lets the second
+			// execute silently. Add "&" so this is rejected at the gate.
+			name:         "ampersand-background-operator-blocked",
+			input:        "ls /tmp & find /tmp -empty -delete",
+			expectError:  true,
+			whyItMatters: "bare & lets sh -c split into two commands; sanitizer must block",
+		},
 	}
 
 	for _, tt := range tests {
@@ -152,6 +166,7 @@ func TestIsShellMetachar_Exhaustive(t *testing.T) {
 		"$(",       // dollar-paren command substitution
 		"${",       // dollar-brace variable expansion
 		"&>",       // bash redirect both
+		"&",        // bare background operator (sh -c `cmd1 & cmd2` runs cmd2 after backgrounding cmd1)
 		"ls|rm",    // metachar in arg
 		"x>y",      // metachar in arg
 		"`whoami`", // backticks in arg

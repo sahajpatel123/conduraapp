@@ -26,7 +26,7 @@
     class?: string
     children?: import('svelte').Snippet
     style?: string
-    type?: string
+    type?: 'button' | 'submit' | 'reset'
   }
 
   let {
