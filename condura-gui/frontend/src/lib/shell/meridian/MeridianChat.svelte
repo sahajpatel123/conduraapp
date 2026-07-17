@@ -1055,7 +1055,7 @@
           </div>
         {/if}
 
-        <div class="messages" onclick={onCopyCodeClick} role="presentation">
+        <div class="messages" onclick={onCopyCodeClick} role="log" aria-live="polite" aria-relevant="additions">
           {#each conversation.messages as msg, i (i)}
             <article class="msg" data-role={msg.role}>
               <header>
