@@ -112,8 +112,17 @@ func TestStartsAndStopsCleanly(t *testing.T) {
 	}
 	defer func() { stopDaemon(t, cmd) }()
 
-	// Wait up to 5s for the address file to appear.
-	deadline := time.Now().Add(5 * time.Second)
+	// Wait up to 15s on Windows, 5s elsewhere for the address file to
+	// appear. Windows cold-start first-run init (memory.db creation +
+	// WAL pragma + audit schema + halt/telemetry/updater DB reads)
+	// can push the IPC bind past the original 5s budget on busy CI
+	// runners. 15s is still tight enough to fail fast on a real
+	// regression but lenient enough for routine Windows variance.
+	addrTimeout := 5 * time.Second
+	if runtime.GOOS == "windows" {
+		addrTimeout = 15 * time.Second
+	}
+	deadline := time.Now().Add(addrTimeout)
 	var addr string
 	for time.Now().Before(deadline) {
 		b, err := os.ReadFile(filepath.Join(dataDir, "condurad.addr"))
