@@ -583,5 +583,10 @@
   "voice.recording_stopped": "Recording stopped",
   "voice.speaking": "Speaking...",
   "voice.transcribing": "Transcribing...",
-  "voice.transcript.listening": "Listening..."
+  "voice.transcript.listening": "Listening...",
+  "shell.welcome": "Welcome to Condura",
+  "shell.starting": "Starting Condura",
+  "shell.search": "Search (⌘K)",
+  "shell.shortcuts": "Keyboard shortcuts (?)",
+  "shell.toggle_theme": "Toggle theme ({theme})"
 }

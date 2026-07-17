@@ -10,6 +10,7 @@
   import { initStores } from '../../stores/init'
   import { consent } from '../../stores/consent.svelte'
   import { halt } from '../../stores/halt.svelte'
+  import { t } from '../../i18n'
   import { overlay } from '../../stores/overlay.svelte'
   import { conversation } from '../../stores/conversation.svelte'
   import { daemon } from '../../stores/daemon.svelte'
@@ -422,12 +423,12 @@
 </script>
 
 {#if showOnboarding}
-  <div class="md onboarding-layer" role="dialog" aria-modal="true" aria-label="Welcome to Condura">
+  <div class="md onboarding-layer" role="dialog" aria-modal="true" aria-label={t('shell.welcome')}>
     <div class="onboarding-wash" aria-hidden="true"></div>
     <OnboardingWizard onComplete={completeOnboarding} />
   </div>
 {:else if !onboardingChecked}
-  <div class="md boot" aria-busy="true" aria-label="Starting Condura">
+  <div class="md boot" aria-busy="true" aria-label={t('shell.starting')}>
     <div class="boot-gem" aria-hidden="true"></div>
     <p class="boot-mark">Condura</p>
     <p class="boot-sub">Starting…</p>
@@ -444,7 +445,7 @@
         <span class="edition">Meridian</span>
       </div>
 
-      <button type="button" class="jump" onclick={() => { paletteReturn.capture(); paletteOpen = true }} aria-label="Search (⌘K)">
+      <button type="button" class="jump" onclick={() => { paletteReturn.capture(); paletteOpen = true }} aria-label={t('shell.search')}>
         <span>Jump anywhere…</span>
         <kbd>⌘K</kbd>
       </button>
@@ -461,7 +462,7 @@
             keysReturn.capture()
             keysOpen = true
           }}
-          aria-label="Keyboard shortcuts (?)"
+          aria-label={t('shell.shortcuts')}
           title="Keyboard shortcuts (?)"
         >
           <span class="keys-label" aria-hidden="true">Keys</span>
@@ -470,7 +471,7 @@
           type="button"
           class="icon theme-toggle"
           onclick={() => setResolvedTheme(theme === 'light' ? 'dark' : 'light')}
-          aria-label="Toggle theme ({theme})"
+          aria-label={t('shell.toggle_theme', theme)}
           title="Switch light / dark (⇧T)"
         >
           <span class="theme-label" aria-hidden="true">{theme === 'light' ? 'Light' : 'Dark'}</span>
