@@ -96,8 +96,8 @@ describe('FloatingOnboarding navigation', () => {
     mockOnboarding.error = null
     mockOnboarding.hotkeyValue = ''
     vi.clearAllMocks()
-    if (!SVGElement.prototype.getTotalLength) {
-      SVGElement.prototype.getTotalLength = () => 100
+    if (!(SVGElement.prototype as unknown as { getTotalLength?: () => number }).getTotalLength) {
+      ;(SVGElement.prototype as unknown as { getTotalLength: () => number }).getTotalLength = () => 100
     }
   })
 

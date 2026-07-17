@@ -57,7 +57,7 @@ describe('ipc.daemonCapabilities', () => {
 
     // The wrapper passed the right method name and an empty params.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [calledURL, calledInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [calledURL, calledInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(calledURL).toBe('http://127.0.0.1:0/api');
     const body = JSON.parse(String(calledInit.body));
     expect(body.method).toBe('daemon.capabilities');
@@ -144,7 +144,7 @@ describe('ipc.llmStream contract', () => {
       request: { model: 'llama3', messages: [], stream: true },
     });
 
-    const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
     expect(body.method).toBe('llm.stream');
     expect(res.request_id).toBe('01HXYZ');
     expect(res.conversation_id).toBe(42);
@@ -178,7 +178,7 @@ describe('ipc.presenceState contract', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
     const res = await ipc.presenceState()
-    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body))
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))
     expect(body.method).toBe('presence.state')
     expect(res.state).toBe('hidden')
     vi.unstubAllGlobals()
@@ -200,7 +200,7 @@ describe('ipc.delegateListSpawns contract', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
     const res = await ipc.delegateListSpawns()
-    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body))
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))
     expect(body.method).toBe('delegate.list_spawns')
     expect(res.running).toEqual([])
     vi.unstubAllGlobals()
