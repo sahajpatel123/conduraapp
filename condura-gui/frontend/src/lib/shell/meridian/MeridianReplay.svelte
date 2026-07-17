@@ -211,7 +211,7 @@
           min="0"
           max={Math.max(0, replay.frames.length - 1)}
           value={replay.selectedIndex}
-          aria-label="Replay frame"
+          aria-label="Replay frame {replay.selectedIndex + 1} of {replay.frames.length}"
           oninput={(e) => replay.selectIndex(Number((e.currentTarget as HTMLInputElement).value))}
         />
         <span class="meta">{replay.selectedIndex + 1} / {replay.frames.length}</span>
