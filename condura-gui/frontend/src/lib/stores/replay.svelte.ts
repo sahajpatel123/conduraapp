@@ -3,7 +3,7 @@
 import { ipc } from '../ipc/client'
 import type { ReplayFrame, ReplayIntegrityReport } from '../ipc/types'
 
-class ReplayStore {
+export class ReplayStore {
   frames = $state<ReplayFrame[]>([])
   selectedIndex = $state(0)
   loading = $state(false)
