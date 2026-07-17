@@ -25,23 +25,30 @@ export interface FocusOnOptions {
  * DOM updates from the same tick (e.g. an `{#if}` flipping on the
  * same change that triggered the effect).
  *
- *   $effect(() => {
- *     focusOn(() => pinEl, () => !!sync.pendingPin && !pinExpired)
- *   })
+ * Returns a `cancel` function. If invoked before the microtask fires,
+ * the focus + select are skipped. This makes the helper composable
+ * with Svelte 5 `$effect` cleanups so a pending focus can be
+ * aborted when the effect's dependencies change before it runs
+ * (e.g. user navigates away from the PIN screen mid-tick).
+ *
+ *   $effect(() => focusOn(() => pinEl, () => !!sync.pendingPin))
  *
  *   async function openThread(id) {
  *     await conversation.open(id)
- *     focusOn(() => ta)
+ *     const cancel = focusOn(() => ta)
+ *     // later: cancel() — no-op once the microtask has already fired
  *   }
  */
 export function focusOn(
   ref: () => HTMLElement | null | undefined,
   when: () => boolean = () => true,
   options: FocusOnOptions = {}
-): void {
-  if (!when()) return
+): () => void {
+  if (!when()) return () => {}
   const { select = true, preventScroll = true } = options
+  let cancelled = false
   queueMicrotask(() => {
+    if (cancelled) return
     const el = ref()
     if (!el) return
     el.focus({ preventScroll })
@@ -49,4 +56,7 @@ export function focusOn(
       ;(el as HTMLInputElement).select()
     }
   })
+  return () => {
+    cancelled = true
+  }
 }
