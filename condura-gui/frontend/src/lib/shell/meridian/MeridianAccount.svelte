@@ -48,8 +48,10 @@
 
   /** Only show providers the daemon reports as configured; fall back to all if unknown. */
   const providers = $derived.by(() => {
-    const configured = account.configuredProviders?.filter((p) => p !== 'magic') ?? []
+    const configured = account.configuredProviders ?? []
     if (configured.length === 0) return ALL_PROVIDERS
+    // ALL_PROVIDERS only contains google/github/apple, so any 'magic'
+    // entry in `configured` cannot match — no need to filter it out.
     return ALL_PROVIDERS.filter((p) => configured.includes(p.id))
   })
 
