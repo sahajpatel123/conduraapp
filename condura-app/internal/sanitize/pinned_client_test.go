@@ -68,7 +68,7 @@ func TestNewPinnedHTTPClient_DialsPinnedIP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client.Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status: got %d, want 200", resp.StatusCode)
@@ -91,7 +91,9 @@ func TestNewPinnedHTTPClient_RejectsRedirects(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(parsed.Host)
 	ip := net.ParseIP(host)
 	port := 0
-	fmt.Sscanf(portStr, "%d", &port)
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
 
 	client := NewPinnedHTTPClient(ip, port, "test.example.com", nil)
 	resp, err := client.Get(srv.URL)
@@ -104,7 +106,7 @@ func TestNewPinnedHTTPClient_RejectsRedirects(t *testing.T) {
 		return
 	}
 	// If no error, must not have followed: status would be 302, not 200.
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusOK {
 		t.Fatalf("client followed redirect to a different host — pin bypassed")
 	}
@@ -122,7 +124,9 @@ func TestNewPinnedHTTPClient_PreservesTimeout(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(parsed.Host)
 	ip := net.ParseIP(host)
 	port := 0
-	fmt.Sscanf(portStr, "%d", &port)
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
 
 	base := &http.Client{Timeout: 7 * time.Second}
 	client := NewPinnedHTTPClient(ip, port, host, base)
@@ -160,7 +164,9 @@ func TestResolveAndPin_HTTPSKeepsSNIVerification(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(parsed.Host)
 	ip := net.ParseIP(host)
 	port := 0
-	fmt.Sscanf(portStr, "%d", &port)
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
 
 	// Use a non-secure sanitizer (no IP deny) so we get the IP back
 	// without rejection, then build the client manually with cert
@@ -177,7 +183,7 @@ func TestResolveAndPin_HTTPSKeepsSNIVerification(t *testing.T) {
 
 	resp, err := client.Do(req)
 	if err == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatalf("expected TLS verification failure against wrong.example.com, got success")
 	}
 	if !strings.Contains(err.Error(), "certificate") && !strings.Contains(err.Error(), "x509") && !strings.Contains(err.Error(), "tls") {
@@ -247,12 +253,6 @@ func TestNewPinnedHTTPClient_RefusesNonHTTPSchemes(t *testing.T) {
 			t.Errorf("ResolveAndPin(%q): expected error, got nil", badURL)
 		}
 	}
-}
-
-// reqForURL is a tiny helper to keep the test above readable.
-func reqForURL(u *url.URL) *http.Request {
-	req, _ := http.NewRequest("GET", u.String(), nil)
-	return req
 }
 
 // Ensure the compiled binary references x509 so the test imports
