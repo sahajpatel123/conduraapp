@@ -28,6 +28,8 @@
   "account.signin.sending": "Sending…",
   "account.signin.setup_hint": "Sign in with OAuth isn't configured on this machine. Either enter your email below for a magic link, or ask your admin to set <code>CONDURA_ACCOUNT_OAUTH_GOOGLE_CLIENT_ID</code> (and/or <code>…_GITHUB_CLIENT_ID</code>, <code>…_APPLE_CLIENT_ID</code>) and restart Condura.",
   "account.signin.title": "Sign in",
+  "account.needs_account": "需要账户的功能",
+  "account.signin_providers": "登录提供商",
   "anomaly.duration_exceeded": "Task duration exceeded 30 minutes",
   "anomaly.failures_exceeded": "Consecutive failures exceeded threshold",
   "anomaly.loop_detected": "Coordinate loop detected",

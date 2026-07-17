@@ -10,6 +10,7 @@
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { account } from '../../stores/account.svelte'
+  import { t } from '../../i18n'
   import type { AccountProvider, OAuthURLResult } from '../../ipc/types'
 
   /** Must match processOAuthCallback in condura-app/cmd/condura-gui/main.go */
@@ -158,7 +159,7 @@
         </button>
       </section>
     {:else}
-      <ol class="pipe" aria-label="What needs an account">
+      <ol class="pipe" aria-label={t('account.needs_account')}>
         <li><span class="n">01</span><span class="t">Local · no account</span></li>
         <li><span class="n">02</span><span class="t">Hub publish · optional</span></li>
         <li><span class="n">03</span><span class="t">Donate · optional</span></li>
@@ -175,7 +176,7 @@
           <span class="door-k">cloud · optional</span>
           <strong>Carry a passport</strong>
           <span>OAuth opens in your browser. Condura never sees your password.</span>
-          <div class="passport" role="group" aria-label="Sign in providers">
+          <div class="passport" role="group" aria-label={t('account.signin_providers')}>
             {#each providers as p (p.id)}
               <button
                 type="button"
