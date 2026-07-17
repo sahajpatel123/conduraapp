@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/svelte'
 import MeridianPalette from './MeridianPalette.svelte'
+import type { RouteId } from './routes'
 
 // MeridianPalette — ⌘K command palette.
 //
@@ -15,7 +16,7 @@ function renderOpen(props: Record<string, unknown> = {}) {
   const onnavigate = vi.fn()
   const merged = {
     open: true,
-    route: 'chat',
+    route: 'chat' as RouteId,
     onclose,
     onnavigate,
     ...props,
