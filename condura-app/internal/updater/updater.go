@@ -233,11 +233,9 @@ func (u *Updater) fetchAndVerifyManifest(ctx context.Context) (sm SignedManifest
 		sanitizedManifest = s
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedManifest, nil)
-	if err != nil {
-		return SignedManifest{}, "", err
-	}
-	resp, err := u.client.Do(req)
+	// pinnedGet closes the DNS-rebinding TOCTOU window between the
+	// Sanitize above and this fetch — see internal/sanitize/pinned_client.go.
+	resp, err := u.pinnedGet(ctx, sanitizedManifest)
 	if err != nil {
 		return SignedManifest{}, err.Error(), nil
 	}
@@ -298,7 +296,7 @@ func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 	}
 	r = fresh
 
-	// Download.
+	// Download. pinnedGet closes the DNS-rebinding TOCTOU window.
 	sanitizedDownload := r.DownloadURL
 	if !u.skipURLSanitize {
 		s, err := sanitizeUpdaterURL(r.DownloadURL)
@@ -307,8 +305,7 @@ func (u *Updater) Apply(ctx context.Context, r Result) (Result, error) {
 		}
 		sanitizedDownload = s
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedDownload, nil)
-	resp, err := u.client.Do(req)
+	resp, err := u.pinnedGet(ctx, sanitizedDownload)
 	if err != nil {
 		return r, fmt.Errorf("download: %w", err)
 	}
@@ -448,6 +445,40 @@ func readAll(r io.Reader) ([]byte, error) {
 	}
 }
 
+// pinnedGet resolves rawURL through ResolveAndPin (which closes
+// the DNS-rebinding TOCTOU window by pinning the dial IP to the
+// address that passed the SSRF check at resolve time) and
+// performs the GET using the pinned client.
+//
+// Returns (nil, nil) for empty input so callers can skip the
+// fetch when no URL is configured — mirrors sanitizeUpdaterURL's
+// empty-string contract.
+func (u *Updater) pinnedGet(ctx context.Context, rawURL string) (*http.Response, error) {
+	if rawURL == "" {
+		return nil, nil
+	}
+	// When the updater is configured to skip URL sanitization (tests,
+	// air-gapped debug builds), use the default http.Client. The
+	// production path always runs ResolveAndPin with the strict
+	// sanitizer — closing the DNS-rebinding TOCTOU window.
+	if u.skipURLSanitize {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		return u.client.Do(req)
+	}
+	client, _, _, err := sanitize.ResolveAndPin(ctx, rawURL, sanitize.NewStrictURLSanitizer())
+	if err != nil {
+		return nil, fmt.Errorf("URL rejected: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	return client.Do(req)
+}
+
 // sanitizeUpdaterURL runs an updater-controlled URL through the
 // strict URL sanitizer. A nil URL (empty string) returns an empty
 // string and no error, so callers that intentionally skip the
@@ -464,8 +495,8 @@ func readAll(r io.Reader) ([]byte, error) {
 // sanitizer catches the obvious cases (loopback, RFC1918, link-
 // local, cloud-metadata) before any network call is made. The
 // residual TOCTOU window (between Sanitize and the actual fetch)
-// is tracked as the canonical rebinding TODO in
-// internal/sanitize/specific.go (resolveHost).
+// is closed by pinnedGet (above) — see also
+// internal/sanitize/pinned_client.go.
 func sanitizeUpdaterURL(raw string) (string, error) {
 	if raw == "" {
 		return raw, nil
