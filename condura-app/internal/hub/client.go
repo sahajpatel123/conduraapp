@@ -57,6 +57,22 @@ func WithPublishKey(priv ed25519.PrivateKey) ClientOption {
 	return func(c *Client) { c.publishKey = priv }
 }
 
+// WithHTTPClient sets the underlying *http.Client. Intended for
+// callers that want to inject a PinnedHTTPClient (sanitize package)
+// so DNS-rebinding between resolve-time and request-time can't
+// redirect hub traffic to an attacker-controlled private IP. When
+// not supplied, NewClient uses a default http.Client with a 30s
+// timeout — fine for tests against httptest.Server but vulnerable
+// to DNS rebinding in production if the configured hub URL's DNS
+// is hostile.
+func WithHTTPClient(hc *http.Client) ClientOption {
+	return func(c *Client) {
+		if hc != nil {
+			c.httpClient = hc
+		}
+	}
+}
+
 // NewClient returns a hub client pointing at the given base URL.
 func NewClient(baseURL string, opts ...ClientOption) *Client {
 	c := &Client{

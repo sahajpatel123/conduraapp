@@ -1105,7 +1105,10 @@ func buildSkillStore(log *slog.Logger, cfg *config.Config) *skills.SQLiteStore {
 
 // buildHubClient constructs the Skills Hub client when enabled.
 // Honors bearer token auth and (optionally) Ed25519 publish
-// signing. Returns nil when cfg.Hub.Enabled is false.
+// signing. Returns nil when cfg.Hub.Enabled is false or when the
+// hub URL fails the DNS-rebinding pin (see sanitize.ResolveAndPin —
+// the pinned dial address is what closes the rebinding TOCTOU
+// window between URL sanitization and the actual TCP dial).
 func buildHubClient(log *slog.Logger, cfg *config.Config) *hub.Client {
 	if !cfg.Hub.Enabled {
 		return nil
@@ -1124,8 +1127,29 @@ func buildHubClient(log *slog.Logger, cfg *config.Config) *hub.Client {
 			opts = append(opts, hub.WithPublishKey(priv))
 		}
 	}
+
+	// DNS-rebinding defense: pin the dial address to the IP that
+	// passed URLSanitizer.ResolveURL at startup. Mirrors the pattern
+	// the team already migrated for the updater (pinnedGet) and
+	// telemetry (pinnedSend). Without this, a malicious DNS response
+	// between startup and the first Do could redirect hub traffic
+	// (including the Authorization: Bearer token) to an attacker-
+	// controlled private IP. Fail closed: if we can't pin, the hub
+	// is disabled this session rather than fall back to default DNS
+	// resolution.
+	pinCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	pinnedClient, _, pinnedIP, err := sanitize.ResolveAndPin(pinCtx, baseURL, sanitize.NewStrictURLSanitizer())
+	if err != nil {
+		log.Warn("hub: pinned client init failed; hub disabled this session",
+			"err", err, "base_url", baseURL)
+		return nil
+	}
+	opts = append(opts, hub.WithHTTPClient(pinnedClient))
+
 	log.Info("hub client ready",
 		"base_url", baseURL,
+		"pinned_ip", pinnedIP.String(),
 		"authenticated", cfg.Hub.Token != "",
 		"publish_signing", cfg.Hub.PublishKeyPath != "",
 	)
