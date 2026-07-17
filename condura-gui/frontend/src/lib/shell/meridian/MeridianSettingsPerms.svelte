@@ -231,6 +231,7 @@
               type="button"
               class="md-btn md-btn-danger"
               disabled={permBusy === perm.kind}
+              aria-label="Turn off {PERM_META[perm.kind].name} in System Settings"
               onclick={() => void openOSPermission(perm.kind, 'revoke')}
             >
               {permBusy === perm.kind ? 'Opening…' : 'Turn off in Settings'}
@@ -240,6 +241,7 @@
               type="button"
               class="md-btn md-btn-primary"
               disabled={permBusy === perm.kind}
+              aria-label="Turn on {PERM_META[perm.kind].name} in System Settings"
               onclick={() => void openOSPermission(perm.kind, 'grant')}
             >
               {permBusy === perm.kind ? 'Opening…' : 'Turn on in Settings'}
