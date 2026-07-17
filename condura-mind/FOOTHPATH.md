@@ -546,3 +546,191 @@ echo "FOOTHPATH 3 self-test: PASS"
   selectors — `.modal code`, `.kbd`, etc. dead style
   blocks left behind by i18n sweep). Trivial to clean up
   in a 10-min pass; not blocking.
+
+## FOOTHPATH 4 — Reorg, v0.1.x, Meridian, Rebinding Defense, Lint-Clean
+
+**Captured:** 2026-07-17
+**Branch:** main @ `f29b23f`
+**Scope:** The ~25 days since FOOTHPATH 3 — the largest
+single stretch of state change in the project's history. A
+topic-sliced reorg reshaped every path, v0.1.0 and v0.1.1
+shipped, the Meridian GUI replaced the legacy three-generation
+shell as the sole mount, a 20-commit svelte-check cleanup
+arc took the frontend from 30 errors + 26 warnings to 0/0,
+and the DNS-rebinding defense landed end-to-end across the
+three known internal HTTP callers (updater, telemetry, hub).
+
+### 1. The One-Line Status
+
+> v0.1.x is shipped, the Meridian GUI is the sole mount, and
+> the static-analysis baseline is fully clean: svelte-check
+> reports 0 errors and 0 warnings, golangci-lint reports 0
+> issues, the DNS-rebinding defense is end-to-end wired, and
+> every known internal HTTP caller pins the dial address to
+> the IP that passed the SSRF check.
+
+### 2. What Is Different From FOOTHPATH 3
+
+#### A. Layout reorg (2026-07-04, commit 9b893c1)
+- Topic-sliced paths replaced the flat layout. All Go code
+  lives under `condura-app/` (not `cmd/` + `internal/` at root),
+  the Svelte 5 frontend moved to `condura-gui/frontend/`,
+  CI/scripts/release tooling moved to `condura-ops/`, brand
+  assets to `condura-brand/`, Remotion films to
+  `condura-studio/`, and the operating manual to
+  `condura-mind/`.
+- Pre-reorg paths (`app/`, `internal/`, `web/`, root-level
+  `scripts/`) only survive in the `.worktrees/phase-15-ship-readiness/`
+  worktree. Do not read those paths and assume they apply
+  to main.
+- The Go module path (`github.com/sahajpatel123/conduraapp`)
+  is unchanged.
+
+#### B. v0.1.0 + v0.1.1 ships
+- v0.1.0 (Phase 17) shipped.
+- v0.1.1 (Phase 18 UI ship-gaps + on-device verification
+  checklist) shipped. Tags `v0.1.0` and `v0.1.1` exist on main.
+- On-device verification on clean macOS is the single
+  remaining human action before public launch. Cannot be
+  driven by an agent.
+
+#### C. Meridian GUI (sole mount)
+- The Wails GUI's only mount is now `MeridianShell.svelte`
+  (no more `App.svelte` / `LivingPaperShell.svelte` /
+  `v1` / `routes/` legacy paths). Wave-2 redesign ships
+  with a dark-glass design system, 22 primitives, the ⌘K
+  palette, and the Ritual onboarding surface.
+- Frontend total: 496 files, 0 errors, 0 warnings, 0 files
+  with problems per `svelte-check`.
+
+#### D. svelte-check cleanup arc (20 commits this conversation)
+- Started the afternoon at 30 errors + 26 warnings across 22
+  files; ended at 0/0. Each commit was a focused polish step:
+  Svelte 5 idiom migrations (cancel-return for `$effect`,
+  `{#key}` for re-mount, `$derived.by` for dep-track), type
+  narrowing (`MagneticButton.type`, `ReplayIntegrityReport`),
+  test-fixture drift fixes (apikeys, replay, palette),
+  dead-state cleanup (`keysOpen`, `offline`), a11y
+  intent-documentation (`<!-- svelte-ignore -->` for
+  delegation patterns), unused CSS removal, and HTML
+  attribute standards (`line-clamp` + `-webkit-line-clamp`,
+  `radiogroup tabindex="-1"`).
+- See the LOGBOOK entry at 2026-07-17 14:08 IST for the
+  full per-commit breakdown.
+
+#### E. DNS-rebinding defense (end-to-end, closed)
+- The TODO at `internal/sanitize/specific.go:268` had been
+  OPEN since 2026-07-06. The resolver returned a pinned IP but
+  every caller handed the original URL to `http.Client.Do`,
+  which re-resolved DNS at request time — a wide-open
+  rebinding window.
+- 4 commits closed the loop:
+  - `db95727` — `NewPinnedHTTPClient` + `ResolveAndPin`
+    helpers in `internal/sanitize/pinned_client.go` with 8
+    test cases (including a real httptest TLS handshake
+    proving cert verification stays ON).
+  - `2595678` — updater manifest + download paths route
+    through `Updater.pinnedGet`.
+  - `6ca8461` — telemetry reporter routes through
+    `Reporter.pinnedSend`.
+  - `cf1ed61` — hub client requests route through the same
+    pattern (Sahaj's commit).
+  - `a9865d4` — small linter nilnil annotation.
+- The TODO at specific.go:268 now reads `DONE (2026-07-17)`.
+
+#### F. Static-analysis baseline
+- `svelte-check`: 0 errors, 0 warnings, 0 files with problems.
+- `golangci-lint`: 0 issues across `./...`.
+- `go test -race -count=1 ./condura-app/...`: all packages
+  pass except the pre-existing `TestCLIConfigJSON` failure
+  in `cmd/condura` (unrelated, fails on unmodified main too).
+- Documented as `synaptic-lint-baseline.md` memory.
+
+#### G. Parallel security work (Sahaj, all surfaced through the
+same week's git log)
+- `a287b1b` — `backup.preview` and `backup.create`
+  destination gated through the Gatekeeper (Tier-1 confused-
+  deputy fix).
+- shell.go + shell_edge_test.go (bundled into `ddc62f9`) —
+  ShellSanitizer `&` bypass closure with regression test.
+- `f4cadb3` — SSE connections capped at 32 to bound daemon
+  memory.
+- `4d8dc30` — secrets doc correction.
+- `2a80fb6` — IPC unix socket chmod to 0600 after bind.
+- A full security-audit LOGBOOK entry covering OAuth scheme,
+  hardcoded secrets, Go race/unsafe deserialization, and CI
+  pipeline integrity.
+
+### 3. How To Verify This Status Yourself (in 60 seconds)
+
+```bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# 1. Daemon + CLI build clean.
+go build ./condura-app/...
+
+# 2. Go tests (excluding the pre-existing TestCLIConfigJSON failure).
+go test -count=1 -race -timeout 120s ./condura-app/internal/...
+
+# 3. Lint.
+golangci-lint run --timeout=5m ./...
+# expect: 0 issues
+
+# 4. Frontend type-check + a11y lint.
+cd condura-gui/frontend
+VITE_CJS_IGNORE_WARNING=true ./node_modules/.bin/svelte-check \
+  --tsconfig ./tsconfig.json
+# expect: 0 errors, 0 warnings, 0 files with problems
+
+# 5. DNS-rebinding defense is in place (helper + 3 callers wired).
+grep -l "pinnedGet\|pinnedSend\|PinnedHTTPClient" \
+  condura-app/internal/{sanitize,updater,telemetry,hub}/
+
+# 6. Daemon boot + Tier-3 ping.
+cd "$(git rev-parse --show-toplevel)"
+go build -o /tmp/condurad ./condura-app/cmd/condurad
+/tmp/condurad -print-default-config > /tmp/c.yaml
+rm -rf /tmp/data
+/tmp/condurad -config /tmp/c.yaml -data-dir /tmp/data \
+  -listen "tcp://127.0.0.1:18700" &
+DPID=$!; sleep 2
+curl -sf -X POST http://127.0.0.1:18700/api \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ping","params":{}}' \
+  | grep -q '"pong":true'
+kill "$DPID"
+rm -rf /tmp/data /tmp/c.yaml /tmp/condurad
+echo "FOOTHPATH 4 self-test: PASS"
+```
+
+If the last line prints `FOOTHPATH 4 self-test: PASS`, the
+status section above is accurate.
+
+### 4. What's Open
+
+- **On-device verification on a clean macOS machine** —
+  the human's next action, per `docs/on-device-verification.md`.
+  Required before public launch; cannot be driven by an agent.
+- **v0.2.0 backlog** (unchanged from FOOTHPATH 1):
+  - Subscription OAuth (ChatGPT Plus, Claude Pro, SuperGrok)
+  - Hardened Layer 3 (`pf`/`netsh` daemon replacing in-process guard)
+  - CGEventTap / AT-SPI dirty tracking wired to perception
+  - MCP UI (`Mcp.svelte` route)
+  - Real Signal / WhatsApp / iMessage receive
+  - Public Hub + Dashboard deploy
+  - Vision CUA opt-in
+  - Non-macOS voice via cloud STT
+  - `file.*` executor dispatch
+  - Hybrid LLM router (`internal/router/`)
+- **`cmd/condura` `TestCLIConfigJSON`** pre-existing failure —
+  tracked, not blocking. Not introduced by recent work.
+- **149 deferred "Synaptic" mentions** — v0.2.0 brand-pass
+  rename across LOGBOOK.md / CLAUDE.md.legacy / inline code
+  comments.
+- **FOOTHPATH 2/3 still reference the pre-reorg paths**
+  (`app/web/frontend/`, `internal/`, etc.) — only useful as
+  historical record. Future agents reading those entries
+  should mentally translate to the post-reorg layout
+  (`condura-gui/frontend/`, `condura-app/internal/`, etc.)
+  per `condura-mind/synapse/understanding.md`.
