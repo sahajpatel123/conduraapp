@@ -601,5 +601,11 @@
   "shell.starting": "Iniciando Condura",
   "shell.search": "Buscar (⌘K)",
   "shell.shortcuts": "Atajos de teclado (?)",
-  "shell.toggle_theme": "Cambiar tema ({theme})"
+  "shell.toggle_theme": "Cambiar tema ({theme})",
+  "about.shortcuts": "Atajos útiles",
+  "about.promises": "Siete promesas",
+  "about.stations": "Estaciones",
+  "about.prev_station": "Estación anterior",
+  "about.next_station": "Estación siguiente",
+  "about.continue_from_about": "Continuar desde Acerca de"
 }

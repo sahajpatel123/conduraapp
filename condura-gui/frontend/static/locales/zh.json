@@ -601,5 +601,11 @@
   "shell.starting": "正在启动 Condura",
   "shell.search": "搜索 (⌘K)",
   "shell.shortcuts": "键盘快捷键 (?)",
-  "shell.toggle_theme": "切换主题 ({theme})"
+  "shell.toggle_theme": "切换主题 ({theme})",
+  "about.shortcuts": "常用快捷键",
+  "about.promises": "七项承诺",
+  "about.stations": "站点",
+  "about.prev_station": "上一站",
+  "about.next_station": "下一站",
+  "about.continue_from_about": "从关于继续"
 }

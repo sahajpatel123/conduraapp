@@ -8,6 +8,7 @@
   import { ipc } from '../../ipc/client'
   import { daemon } from '../../stores/daemon.svelte'
   import type { DaemonCapabilities } from '../../ipc/types'
+  import { t } from '../../i18n'
 
   const DONATE_URL = 'https://condura.app/donate'
   const SITE_URL = 'https://condura.app'
@@ -270,7 +271,7 @@
         {/each}
       </div>
 
-      <ul class="atlas-keys" aria-label="Useful shortcuts">
+      <ul class="atlas-keys" aria-label={t('about.shortcuts')}>
         <li>
           <kbd>{modLabel}K</kbd>
           <span>Jump anywhere</span>
@@ -288,7 +289,7 @@
   </header>
 
   <!-- Signature: constellation of seven stations -->
-  <section id="meridian-section" class="meridian" aria-label="Seven promises">
+  <section id="meridian-section" class="meridian" aria-label={t('about.promises')}>
     <div class="meridian-head">
       <div class="meridian-titles">
         <p class="meridian-k">Seven promises</p>
@@ -303,7 +304,7 @@
       </div>
     </div>
 
-    <div class="constellation" role="tablist" aria-label="Stations">
+    <div class="constellation" role="tablist" aria-label={t('about.stations')}>
       <div
         class="constellation-beam"
         style="--fill: {((activeIndex + 1) / STATIONS.length) * 100}%"
@@ -365,7 +366,7 @@
           class="stage-nav"
           disabled={activeIndex <= 0}
           onclick={() => step(-1)}
-          aria-label="Previous station"
+          aria-label={t('about.prev_station')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 6 9 12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -383,7 +384,7 @@
           class="stage-nav primary"
           disabled={activeIndex >= STATIONS.length - 1}
           onclick={() => step(1)}
-          aria-label="Next station"
+          aria-label={t('about.next_station')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -397,7 +398,7 @@
   <footer class="close">
     <div class="close-mark" aria-hidden="true"></div>
     <p class="close-line">If Condura earns your trust, help keep it independent.</p>
-    <nav class="close-index" aria-label="Continue from About">
+    <nav class="close-index" aria-label={t('about.continue_from_about')}>
       <button type="button" class="close-row" onclick={goAsk}>
         <span class="close-name">Ask</span>
         <span class="close-lead" aria-hidden="true"></span>

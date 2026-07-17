@@ -600,5 +600,11 @@
   "shell.starting": "Condura を起動中",
   "shell.search": "検索 (⌘K)",
   "shell.shortcuts": "キーボードショートカット (?)",
-  "shell.toggle_theme": "テーマを切り替え ({theme})"
+  "shell.toggle_theme": "テーマを切り替え ({theme})",
+  "about.shortcuts": "便利なショートカット",
+  "about.promises": "7つの約束",
+  "about.stations": "ステーション",
+  "about.prev_station": "前のステーション",
+  "about.next_station": "次のステーション",
+  "about.continue_from_about": "概要から続ける"
 }
