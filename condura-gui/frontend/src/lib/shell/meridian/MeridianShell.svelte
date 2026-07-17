@@ -51,6 +51,8 @@
   let paletteOpen = $state(false)
   /** Element that opened the palette — focus returns here on close. */
   let paletteTrigger = $state<HTMLElement | null>(null)
+  /** Element that triggered Halt — focus returns here when the sheet closes. */
+  let haltTrigger = $state<HTMLElement | null>(null)
   /** Element that opened the cheatsheet — focus returns here on close. */
   let keysTrigger = $state<HTMLElement | null>(null)
   let currentHash = $state(
@@ -176,6 +178,7 @@
           t.isContentEditable)
       if (mod && e.shiftKey && k === 'escape') {
         e.preventDefault()
+        haltTrigger = (document.activeElement as HTMLElement) ?? null
         void halt.halt('hard_hotkey')
         return
       }
@@ -379,6 +382,19 @@
   function navigate(r: RouteId): void {
     window.location.hash = ROUTE_HASH[r]
   }
+
+  // Halt modal: when halted flips back to false, restore focus to
+  // whatever element triggered the halt (Dock Halt button or the
+  // ⌘⇧Esc keystroke). Same queueMicrotask timing as the other
+  // modals — the focus call lands AFTER the Halt sheet is removed.
+  $effect(() => {
+    if (halt.state.halted) return
+    if (!haltTrigger) return
+    queueMicrotask(() => {
+      haltTrigger?.focus({ preventScroll: true })
+      haltTrigger = null
+    })
+  })
 </script>
 
 {#if showOnboarding}
@@ -480,7 +496,7 @@
       {/key}
     </main>
 
-    <MeridianDock route={route} onnavigate={navigate} />
+    <MeridianDock route={route} onnavigate={navigate} onbeforehalt={() => { haltTrigger = (document.activeElement as HTMLElement) ?? null }} />
     <MeridianPalette
       open={paletteOpen}
       route={route}

@@ -6,8 +6,11 @@
   interface Props {
     route: RouteId
     onnavigate: (r: RouteId) => void
+    /** Called before halt.halt() so the shell can capture the
+     *  trigger element for focus restoration on close. */
+    onbeforehalt?: () => void
   }
-  let { route, onnavigate }: Props = $props()
+  let { route, onnavigate, onbeforehalt }: Props = $props()
 
   const PRIMARY: { id: RouteId; label: string; icon: string; shortcut: string }[] = [
     { id: 'chat', label: 'Ask', icon: 'ask', shortcut: '⌘1' },
@@ -123,7 +126,7 @@
         {item.label}
       </button>
     {/each}
-    <button type="button" class="halt" tabindex="-1" onclick={() => void halt.halt()} aria-label="Halt agent">Halt</button>
+    <button type="button" class="halt" tabindex="-1" onclick={() => { onbeforehalt?.(); void halt.halt() }} aria-label="Halt agent">Halt</button>
   </div>
 </nav>
 
