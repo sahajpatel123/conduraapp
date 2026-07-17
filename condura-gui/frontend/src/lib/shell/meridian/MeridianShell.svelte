@@ -49,7 +49,8 @@
   let showOnboarding = $state(false)
   let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
-  let keysOpen = $state(false)
+  /** Element that opened the cheatsheet — focus returns here on close. */
+  let keysTrigger = $state<HTMLElement | null>(null)
   let currentHash = $state(
     typeof window !== 'undefined' ? window.location.hash || '#/' : '#/'
   )
@@ -152,6 +153,9 @@
     // /help slash command (from the chat composer) opens the cheatsheet.
     // Same shortcut as the keyboard '?' handler — the shell handles both.
     const onShowKeys = (): void => {
+      // Capture the trigger so we can return focus when the cheatsheet closes.
+      // The '?' keystroke normally fires while the chat composer is focused.
+      keysTrigger = (document.activeElement as HTMLElement) ?? null
       keysOpen = true
     }
     window.addEventListener('condura:show-keys', onShowKeys)
@@ -410,7 +414,10 @@
         <button
           type="button"
           class="icon keys-toggle"
-          onclick={() => (keysOpen = true)}
+          onclick={() => {
+            keysTrigger = (document.activeElement as HTMLElement) ?? null
+            keysOpen = true
+          }}
           aria-label="Keyboard shortcuts (?)"
           title="Keyboard shortcuts (?)"
         >
@@ -477,7 +484,7 @@
       onclose={() => (paletteOpen = false)}
       onnavigate={navigate}
     />
-    <MeridianKeys open={keysOpen} onclose={() => (keysOpen = false)} />
+    <MeridianKeys open={keysOpen} onclose={() => { keysOpen = false; queueMicrotask(() => keysTrigger?.focus({ preventScroll: true })); keysTrigger = null }} />
     <MeridianConsent />
     <MeridianToasts />
     {#if halt.state.halted}
