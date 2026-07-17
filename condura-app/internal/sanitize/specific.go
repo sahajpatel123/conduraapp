@@ -266,11 +266,11 @@ func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, er
 // caller to fail closed on such a record).
 //
 // TODO(rebinding): every call site that uses the result of this
-// function should pin the IP for the HTTP request. Status: OPEN
-// (last verified 2026-07-06). Wiring is partial — the following
-// internal HTTP callers currently use the sanitized URL string
-// with the default http.Client (no IP pinning, TOCTOU window
-// remains open between Sanitize and the actual request):
+// function should pin the IP for the HTTP request. Status: WIRING
+// IN PROGRESS (helper landed 2026-07-17). The following internal
+// HTTP callers currently use the sanitized URL string with the
+// default http.Client (no IP pinning, TOCTOU window remains open
+// between Sanitize and the actual request):
 //
 //   - internal/updater/updater.go       (fetchAndVerifyManifest,
 //     sanitizeUpdaterURL — see cross-references at lines 221
@@ -278,12 +278,14 @@ func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, er
 //   - internal/telemetry/reporter.go    (send — see cross-
 //     reference at line 191)
 //
-// A follow-up should introduce a shared "PinnedHTTPClient" that
-// takes (host, ip) and dials ip with the Host header set to host,
-// and route all internal HTTP through it. ResolveURL (above)
-// already exposes the pinned IP; the missing piece is the
-// transport wrapper that actually does the dial. Until that
-// lands, the DNS-rebinding defense is best-effort.
+// The helper that closes the TOCTOU window is now in this package:
+// `NewPinnedHTTPClient(ip, port, host, base)` returns an *http.Client
+// whose transport always dials the pinned IP while preserving the
+// original Host header (and TLS SNI). The convenience wrapper
+// `ResolveAndPin(ctx, rawURL, sanitizer)` pairs it with ResolveURL.
+// Both are unit-tested in pinned_client_test.go. Migration of the
+// two callers above is the remaining work — each is a small
+// (≤10-line) swap of the http.Client construction.
 func (s *URLSanitizer) resolveHost(ctx context.Context, host string) (net.IP, error) {
 	if !s.ResolveDNS {
 		// Caller didn't opt in. This is a programming error if
