@@ -18,7 +18,8 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "$tokens/*": ["src/lib/tokens/*"],
-      "$components/*": ["src/lib/components/*"]
+      "$components/*": ["src/lib/components/*"],
+      "$lib/*": ["src/lib/*"]
     }
   },
   "include": [
