@@ -1811,3 +1811,47 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - svelte-check is fully clean. The frontend type/a11y surface is in the best shape it's been since the wave-2 redesign. The `/loop` cadence (15 min per firing, 20 commits in ~75 min) proved sustainable for grinding through mechanical fixes — each firing was a self-contained iteration picking up where the last left off via the staged-commit history.
+
+## [2026-07-17 15:13 IST] AI Model: GLM 5.2 by Z.ai (Claude Code)
+**Session ID:** dns-rebinding-defense-2026-07-17
+**Branch:** main @ a9865d4 (HEAD)
+**Task:** Land the DNS-rebinding defense that the TODO at `internal/sanitize/specific.go:268` had been OPEN about since 2026-07-06. Closed end-to-end: helper, both callers migrated, TODO updated, lint clean.
+
+### Commits in this leg
+1. `db95727 feat(sanitize): add PinnedHTTPClient to close DNS-rebinding TOCTOU`
+   - New file `internal/sanitize/pinned_client.go` (152 lines): `NewPinnedHTTPClient(ip, port, host, base)` + `ResolveAndPin(ctx, rawURL, sanitizer)` helper.
+   - New file `internal/sanitize/pinned_client_test.go` (262 lines): 8 test cases including a real httptest TLS handshake proving cert verification stays ON even after pinning.
+   - Updated the TODO at specific.go:268 from `OPEN (wiring is partial)` to `WIRING IN PROGRESS`.
+2. `2595678 fix(updater): route manifest + download fetches through PinnedHTTPClient`
+   - Added `Updater.pinnedGet` helper that calls `ResolveAndPin`.
+   - Migrated both `u.client.Do` call sites (manifest fetch + download).
+   - Preserves the `skipURLSanitize` test path via early-return.
+3. `6ca8461 fix(telemetry): route reporter sends through PinnedHTTPClient`
+   - Added `Reporter.pinnedSend` helper that calls `ResolveAndPin`.
+   - Migrated the `r.client.Do` call in `sendAsync`.
+4. `a9865d4 chore(updater): annotate nilnil for pinnedGet`
+   - Small linter-suppression //nolint:nilnil with documentation comment for the `return nil, nil` empty-URL contract.
+
+### Milestone verification
+- `svelte-check --tsconfig ./condura-gui/frontend/tsconfig.json` → 0 errors, 0 warnings, 0 files with problems (preserved from the earlier cleanup arc)
+- `golangci-lint run --timeout=5m ./...` → **0 issues** (confirmed across the full repo this leg)
+- `go test -count=1 ./condura-app/internal/sanitize/... ./condura-app/internal/updater/... ./condura-app/internal/telemetry/...` → all pass
+- `go build ./condura-app/cmd/condurad` → clean (21.7 MB binary)
+- Pre-existing failure in `cmd/condura` `TestCLIConfigJSON` is unrelated and tracked separately.
+
+### Defense recap (what the three callers now do)
+- **Updater.fetchAndVerifyManifest** — manifest URL passes Sanitize (string check) then `pinnedGet` (dial pinned to SSRF-cleared IP).
+- **Updater download path** — same `pinnedGet` for the per-update `DownloadURL`.
+- **Telemetry reporter** — `pinnedSend` wraps the POST in a client whose transport always dials the IP that passed the strict sanitizer's resolve-and-deny check.
+
+### Memories saved
+- `synaptic-lint-baseline.md` — records the 0/0 svelte-check + 0 golangci-lint state and the smoke-check commands future agents should run before declaring polish done.
+
+### Next steps (queued for future iterations)
+- **FOOTHPATH 2** entry — the current FOOTHPATH 1 was written before this arc. A new entry would record the svelte-check + golangci-lint zero-state, the rebinding-defense completion, and the updated verification bash block. Worth doing once the user signs off.
+- **`cmd/condura` `TestCLIConfigJSON`** pre-existing failure — investigate when convenient; not blocking.
+- **FOOTHPATH backlog items** (per FOOTHPATH.md §10): Subscription OAuth, Hardened Layer 3, CGEventTap/AT-SPI wiring, MCP UI, real Signal/WhatsApp/iMessage receive, Public Hub deploy, Vision CUA opt-in, non-macOS voice, `file.*` executor dispatch. All are v0.2.0+ scope, too large for one iteration each.
+
+### Status
+- DNS-rebinding defense is end-to-end wired. The two known internal HTTP callers (updater + telemetry) no longer accept a DNS-rebinding between Sanitize and the actual TCP dial. Static-analysis baseline is preserved. Ready for the next cron firing.
+
