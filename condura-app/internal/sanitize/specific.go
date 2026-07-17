@@ -266,21 +266,17 @@ func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, er
 // caller to fail closed on such a record).
 //
 // TODO(rebinding): every call site that uses the result of this
-// function should pin the IP for the HTTP request. Status: UPDATER
-// DONE (2026-07-17); TELEMETRY PENDING.
+// function should pin the IP for the HTTP request. Status: DONE
+// (2026-07-17) for the two known callers (updater + telemetry).
+// Any new internal HTTP caller should follow the same pattern:
 //
-// Done:
+//   - internal/updater/updater.go       (fetchAndVerifyManifest +
+//     download path) — migrated to Updater.pinnedGet which calls
+//     sanitize.ResolveAndPin with the strict sanitizer.
 //
-//   - internal/updater/updater.go       (fetchAndVerifyManifest
-//     + download path) — migrated to Updater.pinnedGet which calls
-//     sanitize.ResolveAndPin with the strict sanitizer. The default
-//     http.Client no longer reaches external URLs from the updater.
-//
-// Pending:
-//
-//   - internal/telemetry/reporter.go    (send — see cross-reference
-//     at line 191) — still uses the default http.Client. Same
-//     ≤10-line migration pattern as the updater.
+//   - internal/telemetry/reporter.go    (sendAsync → pinnedSend)
+//     — migrated 2026-07-17 to Reporter.pinnedSend which calls
+//     sanitize.ResolveAndPin with the strict sanitizer.
 //
 // The helper that closes the TOCTOU window is in this package:
 // `NewPinnedHTTPClient(ip, port, host, base)` returns an *http.Client

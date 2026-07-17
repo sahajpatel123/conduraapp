@@ -176,6 +176,20 @@ func (r *Reporter) incr(name string) {
 	_, _ = r.db.ExecContext(context.Background(), fmt.Sprintf(`UPDATE telemetry_counters SET %s = %s + 1 WHERE id = 1`, name, name))
 }
 
+// pinnedSend resolves the request URL via ResolveAndPin (closing the
+// DNS-rebinding TOCTOU window) and POSTs through the pinned client.
+// The request URL determines the dial address target, but the
+// actual TCP connection goes to the IP that passed the SSRF check
+// at resolve time. Host header / TLS SNI / cert verification are
+// preserved against the original URL's host.
+func (r *Reporter) pinnedSend(ctx context.Context, req *http.Request) (*http.Response, error) {
+	client, _, _, err := sanitize.ResolveAndPin(ctx, req.URL.String(), sanitize.NewStrictURLSanitizer())
+	if err != nil {
+		return nil, fmt.Errorf("telemetry URL rejected: %w", err)
+	}
+	return client.Do(req)
+}
+
 func (r *Reporter) sendAsync(ev Event) {
 	safego.Go(func() {
 		endpoint := r.Endpoint()
@@ -206,7 +220,9 @@ func (r *Reporter) sendAsync(ev Event) {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Synaptic-Session", r.sessionID)
-		resp, err := r.client.Do(req)
+		// pinnedSend closes the DNS-rebinding TOCTOU window between
+		// the Sanitize above and this POST — see internal/sanitize/pinned_client.go.
+		resp, err := r.pinnedSend(ctx, req)
 		if err != nil {
 			return
 		}
