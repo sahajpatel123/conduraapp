@@ -7,6 +7,7 @@
   import { ipc } from '../../ipc/client'
   import { humanizeIpcError } from '../../ipc/errors'
   import type { DelegateAgentInfo, DelegateRunningSpawn, DelegateSpawnResult } from '../../ipc/types'
+  import { t } from '../../i18n'
   import {
     pendingActions,
     pendingCount,
@@ -217,7 +218,7 @@
         <div class="spawn-form">
           <label class="field">
             <span>Agent</span>
-            <select bind:value={selectedAgent} aria-label="Sub-agent" disabled={spawning}>
+            <select bind:value={selectedAgent} aria-label={t('delegation.sub_agent')} disabled={spawning}>
               {#each agents as a (a.name)}
                 <option value={a.name}>
                   {a.name}{a.binary ? ` · ${a.binary}` : ''}
@@ -310,7 +311,7 @@
             When a sub-agent needs you, this room lights up.
           {/if}
         </p>
-        <ol class="legend" aria-label="Decision meanings">
+        <ol class="legend" aria-label={t('delegation.decision_meanings')}>
           <li><span class="lg allow">Approve</span> open the door</li>
           <li><span class="lg run">Run</span> execute approved</li>
           <li><span class="lg deny">Deny</span> seal shut</li>

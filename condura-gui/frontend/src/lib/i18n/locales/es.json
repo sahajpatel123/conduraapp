@@ -137,6 +137,8 @@
   "delegation.task_placeholder": "What do you want the sub-agent to do?",
   "delegation.title": "Sub-agent Delegation",
   "delegation.tokens": "Tokens",
+  "delegation.sub_agent": "Sub-agente",
+  "delegation.decision_meanings": "Significados de decisión",
   "error.cancelled": "Operation cancelled",
   "error.internal": "Internal error: {0}",
   "error.not_found": "Not found: {0}",
