@@ -75,6 +75,20 @@ describe('i18n catalog parity', () => {
         // eslint-disable-next-line no-console
         console.log(`  ${loc}: ${keys.length} keys (sample: ${keys.slice(0, 5).join(', ')})`)
       }
+      // Per-namespace breakdown — makes the report actionable for
+      // translation sprints: each row shows which namespace to target.
+      const byNs = new Map<string, number>()
+      for (const { key } of fallbackKeys) {
+        const ns = key.split('.')[0] ?? '(ungrouped)'
+        byNs.set(ns, (byNs.get(ns) ?? 0) + 1)
+      }
+      const nsSorted = [...byNs.entries()].sort((a, b) => b[1] - a[1])
+      // eslint-disable-next-line no-console
+      console.log(`  by namespace (top 15):`)
+      for (const [ns, count] of nsSorted.slice(0, 15)) {
+        // eslint-disable-next-line no-console
+        console.log(`    ${ns}: ${count}`)
+      }
     }
     // This test never fails — it's a coverage report.
     expect(fallbackKeys.length).toBeGreaterThanOrEqual(0)
