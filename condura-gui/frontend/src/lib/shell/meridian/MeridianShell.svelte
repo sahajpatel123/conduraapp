@@ -49,6 +49,8 @@
   let showOnboarding = $state(false)
   let onboardingChecked = $state(false)
   let paletteOpen = $state(false)
+  /** Element that opened the palette — focus returns here on close. */
+  let paletteTrigger = $state<HTMLElement | null>(null)
   /** Element that opened the cheatsheet — focus returns here on close. */
   let keysTrigger = $state<HTMLElement | null>(null)
   let currentHash = $state(
@@ -189,6 +191,7 @@
       }
       if (mod && k === 'k') {
         e.preventDefault()
+        paletteTrigger = (document.activeElement as HTMLElement) ?? null
         paletteOpen = true
         return
       }
@@ -401,7 +404,7 @@
         <span class="edition">Meridian</span>
       </div>
 
-      <button type="button" class="jump" onclick={() => (paletteOpen = true)} aria-label="Search (⌘K)">
+      <button type="button" class="jump" onclick={() => { paletteTrigger = (document.activeElement as HTMLElement) ?? null; paletteOpen = true }} aria-label="Search (⌘K)">
         <span>Jump anywhere…</span>
         <kbd>⌘K</kbd>
       </button>
@@ -481,7 +484,7 @@
     <MeridianPalette
       open={paletteOpen}
       route={route}
-      onclose={() => (paletteOpen = false)}
+      onclose={() => { paletteOpen = false; queueMicrotask(() => paletteTrigger?.focus({ preventScroll: true })); paletteTrigger = null }}
       onnavigate={navigate}
     />
     <MeridianKeys open={keysOpen} onclose={() => { keysOpen = false; queueMicrotask(() => keysTrigger?.focus({ preventScroll: true })); keysTrigger = null }} />
