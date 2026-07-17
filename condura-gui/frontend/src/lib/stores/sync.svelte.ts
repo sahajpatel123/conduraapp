@@ -63,6 +63,10 @@ export class SyncStore {
   /** True while a refresh / pair / revoke RPC is in flight. */
   loading = $state<boolean>(false)
 
+  /** Unix-ms timestamp of the most recent successful refresh.
+   *  Surfaces in the UI as a "Last refreshed Xm ago" indicator. */
+  lastRefreshedAt = $state<number>(0)
+
   /**
    * The most recent error from a sync RPC. Cleared on the
    * next call. Surfaced as an inline error message.
@@ -103,6 +107,7 @@ export class SyncStore {
       ])
       this.peers = peersRes.peers ?? []
       this.pairs = pairsRes.devices ?? []
+      this.lastRefreshedAt = Date.now()
     } catch (e) {
       this.error = String(e)
     } finally {

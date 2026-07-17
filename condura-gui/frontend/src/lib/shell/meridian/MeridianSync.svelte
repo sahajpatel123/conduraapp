@@ -71,6 +71,16 @@
     return `${m}:${String(s).padStart(2, '0')}`
   }
 
+  /** "5s ago" / "2m ago" / "1h ago" for the Last-refreshed indicator. */
+  function fmtAgo(t: number): string {
+    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+    if (sec < 60) return `${sec}s ago`
+    const min = Math.floor(sec / 60)
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    return `${hr}h ago`
+  }
+
   const showError = $derived(!!sync.error && !isOffline(sync.error))
   const pinDigits = $derived((sync.pendingPin || '').split(''))
   const pinExpired = $derived(!!sync.pendingPin && remainingSec <= 0)
@@ -161,6 +171,11 @@
       <span class="live-dot" aria-hidden="true"></span>
       {liveNote}. Cutting a line is immediate — no silent re-pair.
     </p>
+    {#if sync.lastRefreshedAt > 0 && !isOffline(sync.error)}
+      <p class="last-refresh" aria-live="polite">
+        Last refreshed {fmtAgo(sync.lastRefreshedAt)}
+      </p>
+    {/if}
 
     {#if showError}
       <div class="md-empty">{sync.error}</div>
@@ -415,6 +430,13 @@
     text-transform: uppercase;
     color: var(--md-ink-faint);
     margin: 0 0 8px;
+  }
+  .last-refresh {
+    margin: -4px 0 12px;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--md-ink-faint);
   }
   .ceremony,
   .revoke-plate {
