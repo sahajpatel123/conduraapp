@@ -6,6 +6,7 @@
   import { onMount } from 'svelte'
   import MeridianPage from './MeridianPage.svelte'
   import { replay } from '../../stores/replay.svelte'
+  import { t } from '../../i18n'
 
   let stripEl = $state<HTMLDivElement | null>(null)
   let exportNote = $state('')
@@ -211,7 +212,7 @@
           min="0"
           max={Math.max(0, replay.frames.length - 1)}
           value={replay.selectedIndex}
-          aria-label="Replay frame {replay.selectedIndex + 1} of {replay.frames.length}"
+          aria-label={t('replay.frame_of', replay.selectedIndex + 1, replay.frames.length)}
           oninput={(e) => replay.selectIndex(Number((e.currentTarget as HTMLInputElement).value))}
         />
         <span class="meta">{replay.selectedIndex + 1} / {replay.frames.length}</span>

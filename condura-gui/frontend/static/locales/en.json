@@ -334,6 +334,7 @@
   "replay.before_alt": "Before screenshot",
   "replay.empty": "No replay frames in the last 24 hours.",
   "replay.export": "Export MP4",
+  "replay.frame_of": "Replay frame {0} of {1}",
   "replay.export_failed": "Export failed",
   "replay.exported_alert": "Replay exported to:\n{0}",
   "replay.exporting": "Exporting…",
