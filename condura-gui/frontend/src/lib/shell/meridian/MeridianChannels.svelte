@@ -44,6 +44,8 @@
   let channels = $state<ChannelRow[]>(CATALOG.map((c) => ({ ...c })))
   let loading = $state(true)
   let error = $state('')
+  /** Unix-ms timestamp of the most recent successful load. */
+  let lastLoadedAt = $state(0)
 
   // Inline token-entry state. openInput is the channel id whose
   // token form is currently visible; inputToken holds the typed
@@ -119,6 +121,7 @@
       } else {
         channels = CATALOG.map((c) => ({ ...c }))
       }
+      lastLoadedAt = Date.now()
     } catch (e) {
       const s = String(e)
       // IPC-not-started / connection-refused errors mean the daemon
@@ -128,6 +131,16 @@
     } finally {
       loading = false
     }
+  }
+
+  /** Relative time formatter for the "Last refreshed Xs ago" indicator. */
+  function fmtAgo(t: number): string {
+    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+    if (sec < 60) return `${sec}s ago`
+    const min = Math.floor(sec / 60)
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    return `${hr}h ago`
   }
 
   // connect is the entry point on the row's Connect button. It
@@ -262,6 +275,9 @@
         <span class="live-dot" aria-hidden="true"></span>
         {liveNote}. Remote text never bypasses consent.
       </p>
+      {#if lastLoadedAt > 0 && !offline}
+        <p class="last-refresh" aria-live="polite">Last refreshed {fmtAgo(lastLoadedAt)}</p>
+      {/if}
 
       <ol class="pipe" aria-label="How Reach connects">
         <li><span class="n">01</span><span class="t">Mint bot</span></li>
@@ -419,6 +435,13 @@
   .contract.hot .live-dot {
     background: var(--md-live);
     box-shadow: none;
+  }
+  .last-refresh {
+    margin: -4px 0 12px;
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--md-ink-faint);
   }
   .pipe {
     display: flex;
