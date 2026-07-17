@@ -795,6 +795,7 @@
     max-width: 9ch;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     transition: color 220ms var(--about-ease);

@@ -53,7 +53,7 @@
   }
 </script>
 
-<div bind:this={segEl} class="seg seg-{size}" role="radiogroup" onkeydown={onKeydown}>
+<div bind:this={segEl} class="seg seg-{size}" role="radiogroup" tabindex="-1" onkeydown={onKeydown}>
   {#each options as opt (opt.value)}
     <button
       type="button"
