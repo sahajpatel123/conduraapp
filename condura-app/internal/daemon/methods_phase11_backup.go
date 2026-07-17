@@ -60,7 +60,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 
 	// backup.preview — describe a backup archive (manifest
 	// fields, file list) without decrypting.
-	srv.Register("backup.preview", func(_ context.Context, params json.RawMessage) (any, error) {
+	srv.Register("backup.preview", func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p struct {
 			Path string `json:"path"`
 		}
@@ -69,6 +69,14 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		if p.Path == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
+		}
+		// Gated: backup.preview reads an arbitrary filesystem path
+		// (the path lives in IPC params, not the daemon's data dir),
+		// so it could be used as an arbitrary-read primitive by a
+		// local IPC peer. The Gatekeeper prompts the user, mirroring
+		// backup.restore and backup.rollback.
+		if !subs.GatekeeperAllow(ctx, "backup.preview", "Preview backup manifest from "+p.Path) {
+			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
 		}
 		m, err := backup.LoadManifest(p.Path)
 		if err != nil {
@@ -104,6 +112,15 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, fmt.Errorf("backup: create: %w", err)
 		}
 		if p.Destination != "" {
+			// Gated: the Destination parameter lets the IPC caller
+			// pick an arbitrary filesystem path for the freshly-
+			// created backup. Without this gate, a local peer could
+			// write a backup archive anywhere the daemon's UID can
+			// write. Mirrors the Gatekeeper pattern on backup.restore
+			// and backup.rollback.
+			if !subs.GatekeeperAllow(ctx, "backup.create", "Copy backup to "+p.Destination) {
+				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+			}
 			if err := copyFile(path, p.Destination); err != nil {
 				return nil, fmt.Errorf("backup: copy to destination: %w", err)
 			}
