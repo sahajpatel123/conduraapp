@@ -70,8 +70,8 @@ describe('APIKeysStore', () => {
     apiKeysDelete.mockResolvedValue({ ok: true })
     const store = new APIKeysStore()
     store.list = [
-      { id: 1, provider: 'openai', label: 'default', has_token: true },
-      { id: 2, provider: 'anthropic', label: 'default', has_token: true },
+      { id: 1, provider: 'openai', label: 'default', auth_kind: 'api_key', has_token: true },
+      { id: 2, provider: 'anthropic', label: 'default', auth_kind: 'api_key', has_token: true },
     ]
     await store.remove(1)
     expect(apiKeysDelete).toHaveBeenCalledWith(1)
