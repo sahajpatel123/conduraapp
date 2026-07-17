@@ -409,12 +409,12 @@
         </div>
         <button
           type="button"
-          class="icon"
+          class="icon keys-toggle"
           onclick={() => (keysOpen = true)}
           aria-label="Keyboard shortcuts (?)"
           title="Keyboard shortcuts (?)"
         >
-          <span class="kbd-q" aria-hidden="true">?</span>
+          <span class="keys-label" aria-hidden="true">Keys</span>
         </button>
         <button
           type="button"
@@ -776,6 +776,15 @@
     font-weight: 600;
     letter-spacing: 0;
     line-height: 1;
+  }
+  /* Cheatsheet toggle: dual-channel label like the theme toggle so
+     the button's purpose is obvious without hovering for the title. */
+  .keys-toggle .keys-label {
+    font-family: var(--md-font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .jump:focus-visible {
     outline: none;
