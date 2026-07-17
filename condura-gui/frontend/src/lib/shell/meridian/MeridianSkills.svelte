@@ -9,6 +9,7 @@
   import type { InstalledSkill } from '../../ipc/types'
   import { primarySlashToken } from '../../skill-slash'
   import { focusOn } from '../../a11y/autofocus'
+  import { t } from '../../i18n'
 
   type Provenance = 'all' | 'local' | 'hub'
 
@@ -259,7 +260,7 @@
     </p>
 
     {#if showCreate}
-      <div class="create-plate" role="dialog" aria-label="Add skill">
+      <div class="create-plate" role="dialog" aria-label={t('skills.add')}>
         <header class="create-head">
           <h3>Add a local skill</h3>
           <p class="hint">
@@ -326,7 +327,7 @@
         </div>
       </div>
     {:else}
-      <div class="filters" role="group" aria-label="Filter by provenance">
+      <div class="filters" role="group" aria-label={t('skills.filter_provenance')}>
         <button type="button" class:on={provenance === 'all'} onclick={() => (provenance = 'all')}>
           All · {skills.length}
         </button>
@@ -345,10 +346,10 @@
           bind:value={q}
           type="search"
           placeholder="Search skills by name…"
-          aria-label="Search skills"
+          aria-label={t('skills.search')}
         />
         {#if q}
-          <button type="button" class="clear" onclick={() => (q = '')} aria-label="Clear search">Clear</button>
+          <button type="button" class="clear" onclick={() => (q = '')} aria-label={t('skills.clear_search')}>Clear</button>
         {/if}
       </label>
 
@@ -366,7 +367,7 @@
         </div>
       {:else}
         <div class="layout">
-          <aside class="rail" aria-label="Installed skills">
+          <aside class="rail" aria-label={t('skills.installed')}>
             <p class="cite">↑↓ / J K to walk</p>
             {#each filtered as s (s.id)}
               <button
