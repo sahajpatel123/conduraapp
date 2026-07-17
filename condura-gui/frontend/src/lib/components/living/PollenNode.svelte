@@ -86,7 +86,7 @@
       transition: box-shadow var(--lp-dur-normal) var(--lp-ease-thread),
                   transform var(--lp-dur-normal) var(--lp-ease-spring);
     "
-    onmouseenter={(e) => { if (onclick) (e.target as HTMLElement).style.transform = 'scale(1.25)' }}
+    onmouseenter={(e) => { (e.target as HTMLElement).style.transform = 'scale(1.25)' }}
     onmouseleave={(e) => { (e.target as HTMLElement).style.transform = 'scale(1)' }}
   ></span>
   </button>
