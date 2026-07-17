@@ -10,6 +10,7 @@
   import MeridianPage from './MeridianPage.svelte'
   import { sync } from '../../stores/sync.svelte'
   import { focusOn } from '../../a11y/autofocus'
+  import { formatRelativeTime } from '../../utils/relativeTime'
 
   let pin = $state('')
   let revoking = $state<string | null>(null)
@@ -71,15 +72,8 @@
     return `${m}:${String(s).padStart(2, '0')}`
   }
 
-  /** "5s ago" / "2m ago" / "1h ago" for the Last-refreshed indicator. */
-  function fmtAgo(t: number): string {
-    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
-    if (sec < 60) return `${sec}s ago`
-    const min = Math.floor(sec / 60)
-    if (min < 60) return `${min}m ago`
-    const hr = Math.floor(min / 60)
-    return `${hr}h ago`
-  }
+  /** Relative-time helper for the Last-refreshed indicator. */
+  // (formatRelativeTime imported above; see utils/relativeTime.ts)
 
   const showError = $derived(!!sync.error && !isOffline(sync.error))
   const pinDigits = $derived((sync.pendingPin || '').split(''))
@@ -173,7 +167,7 @@
     </p>
     {#if sync.lastRefreshedAt > 0 && !isOffline(sync.error)}
       <p class="last-refresh" aria-live="polite">
-        Last refreshed {fmtAgo(sync.lastRefreshedAt)}
+        Last refreshed {formatRelativeTime(sync.lastRefreshedAt)}
       </p>
     {/if}
 

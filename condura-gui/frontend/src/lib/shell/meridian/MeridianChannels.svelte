@@ -4,6 +4,7 @@
   import { ipc } from '../../ipc/client'
   import type { ChannelInfo } from '../../ipc/types'
   import { focusOn } from '../../a11y/autofocus'
+  import { formatRelativeTime } from '../../utils/relativeTime'
 
   // Meridian Channels — messaging integrations. Telegram is the only
   // one wired in v0.1.0 (via the `reach` subsystem). The others are
@@ -133,15 +134,8 @@
     }
   }
 
-  /** Relative time formatter for the "Last refreshed Xs ago" indicator. */
-  function fmtAgo(t: number): string {
-    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
-    if (sec < 60) return `${sec}s ago`
-    const min = Math.floor(sec / 60)
-    if (min < 60) return `${min}m ago`
-    const hr = Math.floor(min / 60)
-    return `${hr}h ago`
-  }
+  /** Relative-time helper for the "Last refreshed Xs ago" indicator.
+   *  Now lives in src/lib/utils/relativeTime.ts (shared with Sync). */
 
   // connect is the entry point on the row's Connect button. It
   // opens BotFather so the user can mint a bot, then reveals the
@@ -276,7 +270,7 @@
         {liveNote}. Remote text never bypasses consent.
       </p>
       {#if lastLoadedAt > 0 && !offline}
-        <p class="last-refresh" aria-live="polite">Last refreshed {fmtAgo(lastLoadedAt)}</p>
+        <p class="last-refresh" aria-live="polite">Last refreshed {formatRelativeTime(lastLoadedAt)}</p>
       {/if}
 
       <ol class="pipe" aria-label="How Reach connects">
