@@ -59,10 +59,11 @@
   /** When the inline token form opens, drop focus into the field so the
    *  user can paste/type immediately. Same auto-focus pattern as the
    *  Sync PIN and Chat composer — "they came here to do one thing, let
-   *  them do it." */
-  $effect(() => {
-    focusOn(() => tokenInputEl, () => !!openInput)
-  })
+   *  them do it."
+   *  Returning the cancel so a pending focus aborts when openInput
+   *  flips between channels (the input element is recreated, the old
+   *  focus target is stale). */
+  $effect(() => focusOn(() => tokenInputEl, () => !!openInput))
   let submitError = $state<string | null>(null)
   let busy = $state<string | null>(null)
 

@@ -51,10 +51,10 @@
 
   /** Auto-focus the PIN input the moment a pairing ceremony appears.
    *  The user just walked over to this device and read the PIN off it —
-   *  making them click before typing defeats the purpose. */
-  $effect(() => {
-    focusOn(() => pinEl, () => !!sync.pendingPin && !pinExpired)
-  })
+   *  making them click before typing defeats the purpose.
+   *  Returning the cancel so Svelte aborts a pending focus when
+   *  pendingPin / pinExpired flip mid-tick (e.g. ceremony expires). */
+  $effect(() => focusOn(() => pinEl, () => !!sync.pendingPin && !pinExpired))
 
   function initial(name: string): string {
     const t = name.trim()
