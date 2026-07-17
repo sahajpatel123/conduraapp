@@ -3,7 +3,7 @@
 import { ipc } from '../ipc/client'
 import type { APIKeyMeta } from '../ipc/types'
 
-class APIKeysStore {
+export class APIKeysStore {
   list = $state<APIKeyMeta[]>([])
   loading = $state<boolean>(false)
   saving = $state<boolean>(false)
