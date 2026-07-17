@@ -54,7 +54,7 @@
 
 {#if open}
   <div class="sheet-backdrop anim-fade" onclick={close} role="presentation"></div>
-  <aside
+  <div
     bind:this={sheetEl}
     class="sheet sheet-{side} anim-slide-up"
     role="dialog"
@@ -76,7 +76,7 @@
     <div class="sheet-body">
       {#if children}{@render children()}{/if}
     </div>
-  </aside>
+  </div>
 {/if}
 
 <style>
