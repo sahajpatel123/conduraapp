@@ -48,6 +48,18 @@ func bindUnixSocket(ctx context.Context, ipcT *ipc.ServerTransport, log *slog.Lo
 		log.Warn("unix socket bind failed; continuing", "err", err)
 		return
 	}
+	// Lock the socket to owner-only (0600). Go's net.Listen("unix")
+	// creates the socket with mode 0666 & ~umask — on a typical Linux
+	// umask of 0022 that's 0644, which is broader than the rest of
+	// the secret files in this repo (addrFilePerm=0600, secretsFilePerm=0600,
+	// secretsDirPerm=0700). The data dir's 0750 mode is the only thing
+	// keeping the broader socket mode from being reachable by other
+	// users today; lock the socket itself so a future loosening of the
+	// data dir doesn't cascade. Fails soft: a Chmod error doesn't
+	// invalidate the bind.
+	if err := os.Chmod(unixPath, 0o600); err != nil {
+		log.Warn("unix socket chmod 0600 failed; relying on data dir 0750", "err", err)
+	}
 	log.Info("ipc unix socket ready", "path", unixPath)
 }
 
