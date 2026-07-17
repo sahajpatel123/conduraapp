@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -63,12 +64,19 @@ func TestRun_Smoke(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
+	// Give Windows more time to shut down — the WAL checkpoint on
+	// SQLite can run past 2s on busy CI runners. Linux/macOS shut
+	// down in <500ms so 2s is plenty there.
+	shutdownTimeout := 2 * time.Second
+	if runtime.GOOS == "windows" {
+		shutdownTimeout = 10 * time.Second
+	}
 	select {
 	case err := <-done:
 		if err != nil {
 			t.Fatalf("Run returned error: %v", err)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(shutdownTimeout):
 		t.Fatal("Run did not return after context cancel")
 	}
 }
