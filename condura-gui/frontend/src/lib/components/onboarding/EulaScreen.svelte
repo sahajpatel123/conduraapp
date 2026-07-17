@@ -22,7 +22,13 @@
   // Subscribe so labels refresh if a late catalog merge arrives.
   const _catalog = $derived($catalogVersion)
 
-  const EULA_TITLE = $derived((_catalog, t('onboarding.eula.title')))
+  const EULA_TITLE = $derived.by(() => {
+    // Read _catalog to register a dependency so the label refreshes
+    // when a late i18n catalog merge arrives. Avoid the comma-operator
+    // hack `(x, expr)` — Svelte 5 runes track reads directly.
+    _catalog
+    return t('onboarding.eula.title')
+  })
 
   let doc = $state<EULADocument | null>(null)
   let loading = $state(true)
