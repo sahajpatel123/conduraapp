@@ -455,7 +455,7 @@ func readAll(r io.Reader) ([]byte, error) {
 // empty-string contract.
 func (u *Updater) pinnedGet(ctx context.Context, rawURL string) (*http.Response, error) {
 	if rawURL == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // pinnedGet mirrors sanitizeUpdaterURL's empty-string contract; callers branch on resp==nil, not on an error class
 	}
 	// When the updater is configured to skip URL sanitization (tests,
 	// air-gapped debug builds), use the default http.Client. The
