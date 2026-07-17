@@ -7,6 +7,7 @@
   import MeridianPage from './MeridianPage.svelte'
   import { isOfflineError } from '../../ipc/errors'
   import { hub } from '../../stores/hub.svelte'
+  import { formatRelativeTime } from '../../utils/relativeTime'
   import { primarySlashToken } from '../../skill-slash'
 
   type TrustFilter = 'all' | 'verified' | 'trusted' | 'community'
@@ -184,6 +185,9 @@
           Searching…
         {:else}
           {hub.results.length} result{hub.results.length === 1 ? '' : 's'} for “{q.trim()}”
+          {#if hub.lastSearchedAt > 0}
+            <span class="last-refresh">· refreshed {formatRelativeTime(hub.lastSearchedAt)}</span>
+          {/if}
         {/if}
       </p>
     {/if}
@@ -416,6 +420,10 @@
     font-size: 11px;
     letter-spacing: 0.02em;
     color: var(--md-ink-faint);
+  }
+  .result-count .last-refresh {
+    color: var(--md-ink-faint);
+    opacity: 0.85;
   }
   .filters {
     display: flex;

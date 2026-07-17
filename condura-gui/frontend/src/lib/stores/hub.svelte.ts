@@ -57,6 +57,9 @@ export class HubStore {
   /** True while a search or install RPC is in flight. */
   loading = $state<boolean>(false)
 
+  /** Unix-ms timestamp of the most recent successful search. */
+  lastSearchedAt = $state<number>(0)
+
   /**
    * The most recent error from a Hub RPC. Cleared on the
    * next call.
@@ -94,6 +97,7 @@ export class HubStore {
       const res = await ipc.hubSearch(query, limit)
       if (query !== this.lastQuery) return
       this.results = res.skills ?? []
+      this.lastSearchedAt = Date.now()
     } catch (e) {
       if (query !== this.lastQuery) return
       this.error = humanizeHubError(e)
