@@ -7,12 +7,24 @@
 //   - Linux: libsecret (gnome-keyring, kwallet)
 //
 // The fallback backend is an AES-256-GCM-encrypted JSON file in the Synaptic
-// data directory. The file is locked down to mode 0600. The encryption key is
-// derived from either the CONDURA_FILE_PASSPHRASE env var (headless / CI) or
-// a machine-bound key file (secrets.json.key, mode 0600, generated once) so
-// the file is not greppable and not portable to another machine. It is only
-// used when the OS keyring is unavailable (headless servers, CI, minimal
-// Linux without libsecret).
+// data directory. The file is locked down to mode 0600. The encryption key
+// comes from either the CONDURA_FILE_PASSPHRASE env var (headless / CI) or
+// a local key file (secrets.json.key, 32 random bytes, mode 0600, generated
+// once on first use).
+//
+// Security model of the file backend:
+//   - The encryption key is unguessable (32 bytes from crypto/rand) and
+//     owner-only (mode 0600).
+//   - The encryption key is NOT machine-bound. If an attacker obtains both
+//     secrets.json AND secrets.json.key (e.g. via a backup, container
+//     snapshot, or sync), they can decrypt the secrets on any machine.
+//   - This is an intentional design tradeoff: the file backend exists for
+//     headless / CI environments where the OS keyring is unavailable AND
+//     CONDURA_FILE_PASSPHRASE cannot be injected. Making it machine-bound
+//     would defeat the portability that headless setups depend on.
+//   - For machine-bound secrets storage, use the OS keyring (the default
+//     backend). Keychain and Credential Manager tie secrets to the user's
+//     account on the machine; libsecret ties them to the user's login.
 //
 // Selection logic:
 //  1. If CONDURA_SECRETS_BACKEND=keyring is set, use the keyring (fail if
@@ -215,12 +227,20 @@ func (k *keyringManager) Close() error { return nil }
 //
 // Encryption key source (first hit wins):
 //  1. CONDURA_FILE_PASSPHRASE env var (for headless / CI / scripted setups).
-//  2. A machine-bound key file at <path>.key (32 random bytes, mode 0600,
-//     generated once on first use).
+//  2. A local key file at <path>.key (32 random bytes, mode 0600, generated
+//     once on first use).
 //
-// The key is derived into an AES-256 key via HKDF-SHA256 over a fixed salt +
-// the key material. The on-disk file is never cleartext; a legacy v1
-// cleartext file is migrated to v2 (encrypted) on first read.
+// The key is derived into an AES-256 key via HKDF-SHA256 over a per-file
+// salt + the key material. The on-disk file is never cleartext; a legacy
+// v1 cleartext file is migrated to v2 (encrypted) on first read.
+//
+// NOTE: the local key file is NOT machine-bound — it holds 32 unguessable
+// random bytes with no machine-specific material mixed in. Copying both
+// secrets.json and secrets.json.key to another machine allows decryption
+// there. This is intentional: the file backend exists for headless / CI
+// setups where the OS keyring is unavailable AND env-var injection is
+// impractical. For machine-bound storage, use the keyring backend (see
+// the package doc).
 //
 // Format (v2, encrypted):
 //
