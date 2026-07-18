@@ -1,8 +1,15 @@
 name: CodeQL
 
-# Go security analysis via GitHub CodeQL. Runs on main pushes, PRs,
-# and a weekly schedule. Pairs with Dependabot (dependency hygiene)
-# and the govulncheck job in ci.yml (Go vulnerability database).
+# Security analysis via GitHub CodeQL.
+#
+# Two jobs:
+#   analyze-go     — Go monorepo (condura-app/...)
+#   analyze-js     — Svelte/TypeScript frontend (condura-gui/frontend/src)
+#
+# Pairs with Dependabot (dependency hygiene) and the govulncheck job in
+# ci.yml (Go vulnerability database).
+#
+# Runs on main pushes, PRs, and a weekly schedule.
 on:
   push:
     branches: [main]
@@ -17,9 +24,13 @@ permissions:
 
 env:
   GO_VERSION: "1.25.12"
+  NODE_VERSION: "20.19.0"
 
 jobs:
-  analyze:
+  # -----------------------------------------------------------------
+  # Go monorepo (existing job, unchanged behavior)
+  # -----------------------------------------------------------------
+  analyze-go:
     name: Analyze (Go)
     runs-on: ubuntu-latest
     env:
@@ -47,5 +58,61 @@ jobs:
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
 
-      - name: Analyze
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # -----------------------------------------------------------------
+  # Svelte/TypeScript frontend (condura-gui/frontend).
+  # CodeQL needs the built output to resolve module imports for
+  # data-flow analysis (XSS, SSRF, taint tracking). The build step
+  # is required — without it, CodeQL falls back to per-file lexical
+  # analysis and the security-extended query pack loses most of its
+  # cross-file findings.
+  # -----------------------------------------------------------------
+  analyze-js:
+    name: Analyze (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: condura-gui/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: condura-gui/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: condura-gui/frontend
+        # The build is required for CodeQL data-flow analysis — it
+        # resolves imports, type-checks TS, and emits source maps that
+        # CodeQL uses to trace taint across module boundaries.
+        run: npm run build
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Scope to the Svelte/TS source. node_modules + build outputs
+          # are excluded by default; explicit paths keeps the query
+          # pass tight.
+          paths: |
+            condura-gui/frontend/src
+            condura-gui/frontend/static
+          # security-extended is the lighter pack focused on real
+          # vulnerabilities. security-and-quality adds ~150 lint-style
+          # findings (unused vars, missing returns) that aren't
+          # security issues and would flood PR review.
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
