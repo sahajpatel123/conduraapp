@@ -2417,3 +2417,45 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `da25e80` on local main. The Skills Hub Client surface is now defended end-to-end: option setters, default timeout, runtime token update, Get happy-path + 4 error paths, Download happy-path + Content-Length pre-check + 5xx handling, auth-header propagation, network-error wrapping. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-17
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/adaptive/engine.go` with two 0% functions: `RejectPending` (the user-facing "reject this suggestion" button path) and `SetStrength` (the P2-8 live-update feature for the dialectic's LLM prompts). Both are real product surface — RejectPending is what the user clicks to dismiss a pending suggestion, SetStrength is what the user changes in settings to make the adaptive engine more or less aggressive.
+
+### Shipped
+- **`condura-app/internal/adaptive/engine_pending_test.go`** (~218 lines, 6 tests):
+  A. `TestEngine_RejectPending_OutOfRangeReturnsFalse` — `idx=-1` and `idx=999` both return false; pending slice length unchanged. Guards against silent data loss AND panic on out-of-range lookup.
+  B. `TestEngine_RejectPending_RemovesProposal` — `idx=0` returns true; pending slice shrinks by 1; the removed proposal's content fingerprint (Category|Field|Value) is no longer in pending. (Note: Proposal has no `ID` field — content fingerprint is the unique identity.)
+  C. `TestEngine_RejectPending_DoesNotApplyToModel` — model.Version unchanged after rejection (vs `ConfirmPending` which increments it). This is the SEMANTIC DIFFERENCE from confirm: reject drops, confirm applies.
+  D. `TestEngine_SetStrength_UpdatesEngineConfig` — `Aggressive`, then `Off`, then `Aggressive` again; `cfg.Strength` updates each time so subsequent `Run()` calls use the new strength.
+  E. `TestEngine_SetStrength_PropagatesToDialectic` — the P2-8 live-update contract: `e.Dialectic.strength` updates in lockstep with `e.cfg.Strength`. Without this, the user changes strength but the next LLM prompt uses the old strength until daemon restart.
+  F. `TestEngine_SetStrength_NilDialecticNoPanic` — nil-guard: SetStrength MUST NOT panic when Dialectic is nil (the `if e.Dialectic != nil` guard in source is defended).
+  Helper: `helperEngineWithPending(t)` builds an Engine + runs it once to populate the pending slice. Mirrors the existing e2e_test.go pattern but is local to this file to avoid coupling.
+
+### Subtle contracts discovered & pinned
+- **Reject semantics differ from Confirm by exactly one property**: Confirm calls `applyToModel` + `model.Version++`; Reject does neither. A regression that copied the applyToModel block into Reject would silently flip "reject" to "accept" — direct inversion of user intent.
+- **SetStrength propagation must reach the Dialectic atomically**: the source sets `e.cfg.Strength = s` BEFORE `e.Dialectic.strength = s`. A regression that set them in reverse order would briefly leave the engine's "official" strength disagreeing with the dialectic's active strength during concurrent Run calls — a subtle data race.
+- **SetStrength nil-Dialectic guard is real product surface**: the helper that wires `Engine` for some minimal deployments (e.g., tests, edge-case config) passes nil Dialectic. SetStrength must not panic on those.
+
+### Deliberately NOT pinned
+- `Run(ctx)` end-to-end — already covered by existing `TestE2E_Engine_LearnsAndPredicts` / `TestE2E_Engine_Decay` / `TestE2E_Engine_PendingConfirmations` in `e2e_test.go`.
+- `decay(ctx)` — already covered by `TestE2E_Engine_Decay`.
+- `pruneList` / `prunePatterns` / `pruneWorkflows` (60%) — internal helpers; low-value pin target.
+- `ConfirmPending` (90%) — already covered by `TestE2E_Engine_PendingConfirmations`.
+
+### Verification
+- `go test ./internal/adaptive/ -run "TestEngine_RejectPending_|TestEngine_SetStrength_" -v -count=1` → all 6 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/adaptive/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/adaptive/...` → **0 issues** (after `gofmt` + unused-helper-param fix)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `engine.go`:
+  - `RejectPending`: 0% → 100%
+  - `SetStrength`: 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Pinning the exact `pruneList` / `prunePatterns` / `pruneWorkflows` ordering — internal helpers, low-value target.
+- Pinning `applyToModel` — internal helper, already exercised transitively by ConfirmPending tests.
+
+### Status
+- Commit `ac390b0` on local main. The User-Adaptive Engine's RejectPending + SetStrength surface is now defended end-to-end: out-of-range guards, content-fingerprint-based removal, model-not-applied-on-reject semantics, config-update + dialectic-propagation live update, and nil-Dialectic guard. Ready for the next cron firing.
