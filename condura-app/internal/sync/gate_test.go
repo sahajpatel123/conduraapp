@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"strings"
 	"testing"
 	"time"
@@ -176,5 +178,89 @@ func TestHexDecode_Invalid(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "hex") {
 		t.Fatalf("error %q should mention 'hex'", err.Error())
+	}
+}
+
+// TestAcceptRevocationSignature_Valid pins the happy path: a payload
+// signed with the matching private key must verify. Without this,
+// a future change that flips a sign-check negation would silently
+// accept every revocation (the worse failure mode — an attacker
+// gets to forge pair-termination events).
+func TestAcceptRevocationSignature_Valid(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	payload := []byte(`{"device":"peer-1","reason":"user_revoked"}`)
+	sig := ed25519.Sign(priv, payload)
+	if !AcceptRevocationSignature(pub, payload, sig) {
+		t.Fatal("AcceptRevocationSignature returned false on valid signature; want true")
+	}
+}
+
+// TestAcceptRevocationSignature_TamperedPayload pins the integrity
+// check: flipping any byte in the payload must invalidate the
+// signature. Ed25519 is malleable against chosen-plaintext attacks
+// only if the signature scheme itself is broken, so a regression
+// here would point at a real bug in the verification path.
+func TestAcceptRevocationSignature_TamperedPayload(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	original := []byte(`{"device":"peer-1","reason":"user_revoked"}`)
+	sig := ed25519.Sign(priv, original)
+
+	tampered := []byte(`{"device":"peer-1","reason":"user_paired"}`) // differs in middle word
+	if string(tampered) == string(original) {
+		t.Fatal("test fixture error: tampered payload equals original")
+	}
+	if AcceptRevocationSignature(pub, tampered, sig) {
+		t.Fatal("AcceptRevocationSignature returned true on tampered payload; want false")
+	}
+}
+
+// TestAcceptRevocationSignature_WrongPublicKey pins the binding
+// between signature and public key. A signature produced by key A
+// must NOT verify against key B, even if both are valid ed25519
+// keys. A regression here would let any device accept any other
+// device's revocation — the worst possible outcome for a pair-
+// termination event.
+func TestAcceptRevocationSignature_WrongPublicKey(t *testing.T) {
+	pubA, privA, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey A: %v", err)
+	}
+	pubB, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey B: %v", err)
+	}
+	payload := []byte("revocation-event")
+	sig := ed25519.Sign(privA, payload)
+
+	if AcceptRevocationSignature(pubB, payload, sig) {
+		t.Fatal("AcceptRevocationSignature returned true with mismatched public key; want false")
+	}
+	// Sanity: it must still verify against the original key.
+	if !AcceptRevocationSignature(pubA, payload, sig) {
+		t.Fatal("sanity: AcceptRevocationSignature returned false on the correct key")
+	}
+}
+
+// TestAcceptRevocationSignature_EmptySignature pins the all-zeros
+// signature rejection. A revocation with a zero-length or all-zero
+// signature is always invalid; if it were ever accepted, an attacker
+// could broadcast empty revocations to trigger pair termination.
+func TestAcceptRevocationSignature_EmptySignature(t *testing.T) {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	payload := []byte("revocation-event")
+	if AcceptRevocationSignature(pub, payload, nil) {
+		t.Fatal("AcceptRevocationSignature returned true on nil signature; want false")
+	}
+	if AcceptRevocationSignature(pub, payload, make([]byte, ed25519.SignatureSize)) {
+		t.Fatal("AcceptRevocationSignature returned true on zero-filled signature; want false")
 	}
 }
