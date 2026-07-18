@@ -822,3 +822,46 @@ func TestPlatformIs_ExactlyOneTrue(t *testing.T) {
 		t.Fatalf("expected exactly 1 of PlatformIs{Mac,Windows,Linux} to be true on the current runtime; got %d", trues)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// fallbackDataDir — platform-specific data directory resolver
+//
+// Used when the user's normal config path can't be resolved (no home
+// dir, no XDG_CONFIG_HOME, etc). The function returns:
+//   - darwin: $HOME/Library/Application Support/condura
+//   - windows: $APPDATA/condura
+//   - linux/etc: $XDG_CONFIG_HOME/condura OR $HOME/.config/condura
+//   - last resort: ".condura" (relative)
+//
+// The "last resort" branch returns a RELATIVE path, which is a
+// data-leak risk: a daemon started from /tmp would write to /tmp/.condura.
+// The function is intentionally conservative — better than nothing —
+// but callers should never reach it on a properly configured host.
+// -----------------------------------------------------------------------------
+
+func TestFallbackDataDir_Linux_XDGHomed(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("linux-only test; runtime.GOOS=%s", runtime.GOOS)
+	}
+	t.Setenv("XDG_CONFIG_HOME", "/srv/cfg")
+	t.Setenv("HOME", "/should/not/be/used")
+	got := fallbackDataDir()
+	want := filepath.Join("/srv/cfg", "condura")
+	if got != want {
+		t.Errorf("fallbackDataDir() with XDG_CONFIG_HOME=/srv/cfg = %q, want %q", got, want)
+	}
+}
+
+func TestFallbackDataDir_Linux_NoXDG_WithHome(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("linux-only test; runtime.GOOS=%s", runtime.GOOS)
+	}
+	t.Setenv("XDG_CONFIG_HOME", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got := fallbackDataDir()
+	want := filepath.Join(home, ".config", "condura")
+	if got != want {
+		t.Errorf("fallbackDataDir() with HOME=%s (no XDG) = %q, want %q", home, got, want)
+	}
+}
