@@ -2657,3 +2657,45 @@ This is a deliberate UX choice: the GUI wants to show "no activity in this time 
 
 ### Status
 - Commit `454acd2` on local main. The replay helper surface (Screenshots / Reload / ExportMP4FromTimeline) is now defended end-to-end: getter round-trip, nil-receiver safety, DB swap round-trip, "no frames" error semantics, error-propagation contract. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-22
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/onboarding/eula.go` and `onboarding.go` with one truly 0% function: `readEULAFromPath` (the internal helper used by the daemon RPC layer to read the canonical embedded EULA from disk). Also a partial coverage on `NewStateMachine` (66.7% — the migration-on-construct path was uncovered). Both are real product surface — `readEULAFromPath` is the entry point for the daemon's EULA RPC; `NewStateMachine` is the constructor that runs schema migration before returning.
+
+### Shipped
+- **`condura-app/internal/onboarding/eula_paths_test.go`** (~168 lines, 6 tests):
+  A. `TestReadEULAFromPath_HappyPath` — real file returns `EULADocument` with `Version=CurrentEULAVersion`, `Text=file contents`, `UpdatedAt` extracted from `**Last updated:** YYYY-MM-DD` header.
+  B. `TestReadEULAFromPath_MissingFileReturnsWrappedError` — missing file returns error wrapped with `"read EULA"` prefix for diagnostic clarity.
+  C. `TestReadEULAFromPath_PermissionDeniedReturnsWrappedError` — locked file (chmod 000) returns error wrapped with `"read EULA"`. Skipped when running as root (test would be ineffective).
+  D. `TestNewStateMachine_NilDBReturnsError` — nil DB returns error mentioning `"db is required"`; `StateMachine` is nil (not a zero-value).
+  E. `TestNewStateMachine_MigratesOnConstruction` — non-nil DB triggers schema migration; the `onboarding_state` table is created with the default row (`id=1`, `state_json='{}'`). Verified by querying the table directly.
+  F. `TestNewStateMachine_MigrationFailurePropagatesError` — closed-DB scenario: `NewStateMachine` returns error wrapped with `"migrate"` prefix. Log readers can diagnose `"onboarding: migrate: ..."` without hunting.
+
+### Discovery: EULA header format
+
+`extractUpdatedAt` parses the specific format `**Last updated:** YYYY-MM-DD` (with markdown bold syntax). Initial test fixture used `# Updated: YYYY-MM-DD` — failed. Fixed to match production. Documented in the test comment so future maintainers don't make the same mistake.
+
+### Subtle contracts discovered & pinned
+- **`UpdatedAt` is a `string`, not `time.Time`** — the EULA document is JSON-serialized for the RPC layer, and dates are kept as ISO strings rather than `time.Time` to avoid timezone ambiguity in the wire format.
+- **`readEULAFromPath` always returns `Version == CurrentEULAVersion`** — even if the on-disk file is from an older version. The embedded canonical EULA is what's served; the file is just the source for `Text` and `UpdatedAt`.
+- **`NewStateMachine` runs migration BEFORE returning** — a regression that returned the StateMachine and lazily migrated would crash on the first `State()` call. The test verifies the table exists after construction.
+
+### Deliberately NOT pinned
+- The full `migrate()` SQL schema details — pinned indirectly by `NewStateMachine_MigratesOnConstruction` (the table exists with the right default row).
+- `ValidateEULAVersion` edge cases beyond empty-string — already at 100% from existing tests.
+
+### Verification
+- `go test ./internal/onboarding/ -run "TestReadEULAFromPath_|TestNewStateMachine_" -v -count=1` → all 6 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/onboarding/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/onboarding/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (no secrets flake this run, used `-short` to skip the known intermittent secrets test)
+- Coverage deltas:
+  - `readEULAFromPath`: 0% → 100%
+  - `NewStateMachine`: 66.7% → 100%
+
+### Explicitly deferred (protect intent)
+- Wiring the full EULA markdown structure validation — the current contract is "extract date from `**Last updated:**` line", which is the only extraction in scope.
+
+### Status
+- Commit `d563d3d` on local main. The onboarding EULA-loading + StateMachine-constructor surface is now defended end-to-end: happy path + 2 error modes for `readEULAFromPath`, nil-DB + migration-success + migration-failure for `NewStateMachine`. Ready for the next cron firing.
