@@ -2280,3 +2280,49 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `16c87d3` on local main. The logger package's package-level helper delegation contract is now defended end-to-end: every one of Debug/Info/Warn/Error routes through `SetDefault`'d logger, and level filtering is respected. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-14
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/memory/memory.go` StoreManager with five 0% methods (`GetEpisodic`, `GetSemantic`, `GetProcedural`, `Cleanup`, `Close`) and `Remember` at 38.5% (only the Episodic + nil-metadata branches hit by the existing TestManager). The Manager is a thin wrapper around the Store interface; the 5 delegate methods were entirely uncovered.
+
+### Shipped
+- **`condura-app/internal/memory/memory_manager_test.go`** (~425 lines, 10 tests):
+  Helper: `fakeStore` — a function-field-based spy implementing the full Store interface. Methods called in the production code path route to the configured function field (capturing args for assertion). Methods not exercised return `errFakeStoreUnimplemented` (sentinel error) so any test that accidentally calls them fails loudly instead of silently returning nil.
+  A. `TestStoreManager_GetEpisodic_DelegatesLimit` — calls `ListEpisodes(ctx, 50)`, asserts the limit arg is forwarded unchanged.
+  B. `TestStoreManager_GetSemantic_DelegatesCategoryAndLimit` — two-arg delegation: `ListFacts(ctx, "preference", 20)`, both args verified.
+  C. `TestStoreManager_GetProcedural_DelegatesLimit` — `ListSkills(ctx, 30)` limit verified.
+  D. `TestStoreManager_Cleanup_DelegatesDuration` — `Cleanup(ctx, 24h)` duration verified; return value (count) propagated; call count pinned to 1.
+  E. `TestStoreManager_Close_DelegatesToStore` — `Close()` must call `Store.Close` exactly once and propagate any returned error. A regression that swallows the error would leak file descriptors / DB connections.
+  F. `TestStoreManager_Remember_NilMetadata` — guards against the nil-map panic in `metadata["session_id"]`.
+  G. `TestStoreManager_Remember_InvalidType` — guards against silent no-op on unknown Type values (default-branch must return `ErrInvalidMemoryType`).
+  H. `TestStoreManager_Remember_Episodic` — pins the Episode extraction: session_id from metadata, UserMessage from Content, Timestamp from memory.Timestamp.
+  I. `TestStoreManager_Remember_Semantic` — pins the Fact extraction: category from metadata, Content, CreatedAt and UpdatedAt both from memory.Timestamp.
+  J. `TestStoreManager_Remember_Procedural` — pins the Skill extraction: name from metadata, Description from Content, CreatedAt from memory.Timestamp.
+
+### Test-pattern shift
+- The existing `TestManager` in `memory_test.go` spins up a real temp-file SQLite. The new `fakeStore`-based tests are much faster (~480ms total for 10 tests vs. several seconds for SQLite setup). They isolate the Manager's delegation contract from the Store's persistence semantics — two different contracts, two different test patterns.
+
+### Deliberately NOT pinned
+- `Search` / `ListFacts` / `ListEpisodes` SQL behavior — already pinned by the existing `TestSQLiteStore` with real SQLite.
+- `IncrementSkillUsage` / `UpdateFactConfidence` — not exposed via the Manager, no high-value contract to pin here.
+
+### Verification
+- `go test ./internal/memory/ -run "TestStoreManager_" -v -count=1` → all 10 pass; existing TestSQLiteStore + TestManager + TestValidation still pass; package green
+- `go vet ./internal/memory/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/memory/...` → **0 issues** (after gofmt + nilnil fixes; nilnil was triggered by `return nil, nil` on three pointer-returning stubs — fixed by returning `errFakeStoreUnimplemented` instead)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas:
+  - `GetEpisodic`: 0% → 100%
+  - `GetSemantic`: 0% → 100%
+  - `GetProcedural`: 0% → 100%
+  - `Cleanup`: 0% → 100%
+  - `Close`: 0% → 100%
+  - `Remember`: 38.5% → 100%
+
+### Explicitly deferred (protect intent)
+- Forcing a real SQLite fixture into the Manager tests — would couple the delegation pin to the SQLite implementation, defeating the purpose of the Store interface.
+- Testing the `Search` method on the Manager (which calls `m.store.Search`) — already covered indirectly via `TestManager.remember and recall`, which goes through the real SQLite path.
+
+### Status
+- Commit `5c66d33` on local main. The memory package's StoreManager delegation + Remember branching surface is now defended end-to-end via the fakeStore spy. Ready for the next cron firing.
