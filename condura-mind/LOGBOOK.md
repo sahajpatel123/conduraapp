@@ -2246,3 +2246,37 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - Commit `617a258` on local main. The i18n catalog accessor surface is now defended end-to-end: panic-wrapper convention, per-locale key enumeration with isolation, unknown-locale fallback semantics, and defensive-copy contracts for both map and slice returns. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-13
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/logger.Debug/Info/Warn/Error` all at 0% — the four non-Context package-level convenience helpers. The existing 26 tests in `logger_test.go` cover the heavy paths (parsing, redaction, level filtering, *Context variants) but missed these four and never verified the message actually arrived at the configured default logger's output.
+
+### Shipped
+- **`condura-app/internal/logger/logger_helpers_test.go`** (~120 lines, 5 tests):
+  A. `TestDebug_DelegatesToDefault` — `SetDefault` a JSON logger writing to a buffer, call `Debug(msg, args...)`, assert the buffer contains the message JSON + the key/value pair.
+  B. `TestInfo_DelegatesToDefault` — same for `Info`.
+  C. `TestWarn_DelegatesToDefault` — same for `Warn`.
+  D. `TestError_DelegatesToDefault` — same for `Error`.
+  E. `TestHelpers_LevelFilteringRespected` — pins the level-filter contract: with default level = ERROR, `Info`/`Debug`/`Warn` MUST NOT appear in output; only `Error` does. Defends against a regression that bypassed the level filter.
+
+Each test captures the original default via `Default()` and restores it via `t.Cleanup(SetDefault(original))`, so the package-level default is preserved across the test suite.
+
+### Deliberately NOT pinned
+- The exact JSON shape of the output (key order, whitespace) — existing `TestNew_JSON` covers the JSON format shape.
+- The `*Context` variants — already at 100% via existing `TestContextHelpers`.
+- `boolPtr` / `openFileOrStderr` / `toSlogLevel` — private helpers not worth pinning directly.
+
+### Verification
+- `go test ./internal/logger/ -run "TestDebug_DelegatesToDefault|TestInfo_DelegatesToDefault|TestWarn_DelegatesToDefault|TestError_DelegatesToDefault|TestHelpers_LevelFilteringRespected" -v -count=1` → all 5 pass; existing 26 tests still pass; package green
+- `go vet ./internal/logger/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/logger/...` → **0 issues** (after `gofmt` fix)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas: `Debug` 0% → 100%, `Info` 0% → 100%, `Warn` 0% → 100%, `Error` 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Pinning the exact stderr/file-routing behavior — would require a file-system fixture and tmpdir management; the JSON buffer test verifies the same code path through `newJSONLoggerWithRedaction`.
+- Pinning the `slog.Handler` chain ordering (handler-wrapping for redaction) — already covered by `TestRedact_*`.
+
+### Status
+- Commit `16c87d3` on local main. The logger package's package-level helper delegation contract is now defended end-to-end: every one of Debug/Info/Warn/Error routes through `SetDefault`'d logger, and level filtering is respected. Ready for the next cron firing.
