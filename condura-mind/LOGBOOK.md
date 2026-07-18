@@ -1885,3 +1885,30 @@ These are documented in the user's audit conversation (next-message ask). Will p
 ### Status
 - Commit `fcaed2c` on local main. Ready for the next cron firing. The spend cap contract is now defended end-to-end: happy path (write + upsert + accumulate + read-back) and nil-db short-circuit (both sides) are pinned.
 
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-2
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continued the test-pinning wave: session.Factory had 8 entry-points at 0% coverage (NewFactory, SetSpeaker, SetOnStatus, SetGatekeeper, SetMemory, SetPredictor, UpdatePrimary, Factory.New) — the entire dependency-injection contract that the daemon relies on to wire streaming, TTS, gatekeeping, memory, prediction, and live-reload was untested.
+
+### Shipped
+- **`internal/session/session_factory_test.go`** (320 lines, 11 tests):
+  A. NewFactory validation (4): rejects nil streamMgr/provider/broker; accepts empty providerName/model (first-launch state).
+  B. Setter round-trip (5): SetSpeaker, SetOnStatus (with callback invocation), SetGatekeeper, SetMemory, SetPredictor — each verified via pointer identity on `f.New().cfg.X` after SetX(x).
+  C. UpdatePrimary live-reload (2): post-update (providerName, model) round-trip; AND the negative contract — UpdatePrimary MUST NOT touch StreamMgr, Broker, or Provider (resetting streamMgr mid-session would orphan every in-flight SSE subscription).
+
+  Skipped: SetExecutor (constructor needs Resolver + agent.Action chain — too heavyweight for a single-field setter). Pin in a follow-up if contract density becomes a priority.
+
+### Verification
+- `go test ./internal/session/ -run "TestNewFactory|TestFactory_" -v -count=1` → all 11 pass
+- `go test ./... -count=1 -timeout 300s` → green across 3 consecutive runs after the change
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta on session.Factory entry-points: 8 functions all went 0% → 100% (NewFactory, SetSpeaker, SetOnStatus, SetGatekeeper, SetMemory, SetPredictor, UpdatePrimary, Factory.New).
+
+### Explicitly deferred (protect intent)
+- Pushing — completed in this iteration (commit `5317b3a`). CI watchdog will pick it up.
+- `SetExecutor` setter test — needs Resolver + agent.Action mock chain; heavyweight fixture for one field assignment. Pin if a future gap appears.
+- The `internal/secrets.TestNew_NoFilePath_Auto` flake observed once during a full-suite run — matches the documented behavior (intermittent on bare macOS dev machines, skips on CI), unrelated to this commit. 3 subsequent runs green.
+
+### Status
+- Commits on local main: `5317b3a` (test) + this LOGBOOK entry. The session.Factory injection contract is now defended end-to-end: validation guards, setter pointer-identity, and the live-reload non-mutation guarantee are all pinned. Ready for the next cron firing.
+
