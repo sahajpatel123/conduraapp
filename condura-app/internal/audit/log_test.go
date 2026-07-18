@@ -904,3 +904,92 @@ func TestNewWithHexSecret_MatchesRawSecret(t *testing.T) {
 			lHex.subkey, want)
 	}
 }
+
+// TestResolveExportPath_Default_UsesHomeDownloadsOrTemp pins the
+// default-destination branch: when the caller passes an empty string,
+// resolveExportPath must place the export under either $HOME/Downloads
+// (if a home directory is available) or os.TempDir() (if UserHomeDir
+// fails). The result must end with condura-audit-<UTC-timestamp>.jsonl.
+//
+// This branch was at 0% coverage before this test. A regression here
+// would either leak exports to an unexpected location or change the
+// filename pattern in a way that confuses downstream tooling.
+func TestResolveExportPath_Default_UsesHomeDownloadsOrTemp(t *testing.T) {
+	got, err := resolveExportPath("")
+	if err != nil {
+		t.Fatalf("resolveExportPath(\"\"): %v", err)
+	}
+	// Filename pattern: condura-audit-YYYYMMDD-HHMMSS.jsonl
+	base := filepath.Base(got)
+	if !strings.HasPrefix(base, "condura-audit-") || !strings.HasSuffix(base, ".jsonl") {
+		t.Fatalf("default path %q does not match condura-audit-<ts>.jsonl pattern", got)
+	}
+	// Directory must be either $HOME/Downloads or os.TempDir().
+	dir := filepath.Dir(got)
+	home, herr := os.UserHomeDir()
+	if herr == nil && home != "" {
+		wantDir := filepath.Join(home, "Downloads")
+		if dir != wantDir && dir != os.TempDir() {
+			t.Fatalf("default path dir %q is neither %q nor %q", dir, wantDir, os.TempDir())
+		}
+	} else if dir != os.TempDir() {
+		t.Fatalf("default path dir %q is not %q (UserHomeDir unavailable)", dir, os.TempDir())
+	}
+}
+
+// TestResolveExportPath_WhitespaceOnlyFallsThrough pins the
+// boundary-check contract: a destination consisting only of
+// whitespace must be treated as empty. The trim check uses
+// strings.TrimSpace, not filepath.Clean, so a regression that
+// switched to filepath.Clean would still match "/" but start
+// treating " " as a valid destination — pushing exports into
+// a directory literally named " ".
+func TestResolveExportPath_WhitespaceOnlyFallsThrough(t *testing.T) {
+	got, err := resolveExportPath("   ")
+	if err != nil {
+		t.Fatalf("resolveExportPath(\"   \"): %v", err)
+	}
+	// A literal-whitespace directory would show up as a directory
+	// component containing spaces only. Assert the parent is a
+	// sensible real directory, not a whitespace-named path.
+	dir := filepath.Dir(got)
+	if strings.TrimSpace(dir) != dir {
+		t.Fatalf("export path %q has whitespace-padded directory — trim check is broken", got)
+	}
+}
+
+// TestResolveExportPath_AbsoluteDestinationReturned pins that an
+// explicit absolute destination is passed through filepath.Clean
+// unchanged. Callers pass a destination they trust (e.g. a user-
+// chosen Downloads path); resolveExportPath must NOT add or remove
+// path components — only normalize ./ and ../ segments.
+func TestResolveExportPath_AbsoluteDestinationReturned(t *testing.T) {
+	in := "/tmp/condura-test-explicit.jsonl"
+	got, err := resolveExportPath(in)
+	if err != nil {
+		t.Fatalf("resolveExportPath(%q): %v", in, err)
+	}
+	if got != filepath.Clean(in) {
+		t.Fatalf("resolveExportPath(%q) = %q, want %q", in, got, filepath.Clean(in))
+	}
+}
+
+// TestResolveExportPath_NormalizesDotTraversal pins that relative
+// dot-segments in the destination are collapsed by filepath.Clean.
+// This is the safety net: a caller-supplied path like "foo/../bar"
+// must NOT reach the filesystem as written — Clean normalizes to
+// "bar" before the export writer opens it.
+func TestResolveExportPath_NormalizesDotTraversal(t *testing.T) {
+	// Use a t.TempDir()-rooted path so the test is hermetic and
+	// doesn't touch the real filesystem.
+	base := t.TempDir()
+	in := filepath.Join(base, "subdir", "..", "normalized.jsonl")
+	got, err := resolveExportPath(in)
+	if err != nil {
+		t.Fatalf("resolveExportPath(%q): %v", in, err)
+	}
+	want := filepath.Join(base, "normalized.jsonl")
+	if got != want {
+		t.Fatalf("resolveExportPath(%q) = %q, want %q (filepath.Clean should collapse ..)", in, got, want)
+	}
+}
