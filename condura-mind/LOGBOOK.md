@@ -2743,3 +2743,48 @@ This is a deliberate UX choice: the GUI wants to show "no activity in this time 
 
 ### Status
 - Commit `d4b455b` on local main. The permissions cross-platform dispatcher is now defended end-to-end: routing to platform-specific helpers, unknown-platform fallback, default-probe safety net, and Check return-value validation. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-24
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/telemetry/reporter.go` with `sessionIDPrefix` at 66.7% — the privacy-preserving session-ID grouping function that's on the hot path of every telemetry counter write. A regression that returned 0 for all inputs would collapse every session into bucket 0, breaking the per-session aggregation that the privacy contract depends on.
+
+### Shipped
+- **`condura-app/internal/telemetry/reporter_sessionid_test.go`** (~144 lines, 7 tests + subtests):
+  A. `TestSessionIDPrefix_EmptyReturnsZero` — empty string returns 0 (early return).
+  B. `TestSessionIDPrefix_TooShortReturnsZero` — strings of length 1, 2, 3 return 0 (early return).
+  C. `TestSessionIDPrefix_ValidHexReturnsInt` — table-driven over `00000000`, `ffffffff`, `deadbeef`, `00000001`. Asserts the lower 32 bits via `uint32` cast to avoid platform-dependent int-width issues (32-bit on some systems, 64-bit on darwin dev).
+  D. `TestSessionIDPrefix_InvalidHexReturnsZero` — 5 cases of non-hex 8-char strings (`zzzzzzzz`, `1234567g`, etc.) return 0 (NOT panic). A regression that propagated the hex decode error would let invalid session IDs corrupt the counter-grouping buckets.
+  E. `TestSessionIDPrefix_LongerThanEightUsesPrefix` — pins the "use only the first 8 chars" contract. A regression that used the whole string would leak more entropy than intended (privacy contract).
+  F. `TestSessionIDPrefix_PrivacyContract` — pins the non-collapse guarantee: random-looking hex IDs MUST produce non-zero distinct prefixes (otherwise every session collapses into bucket 0).
+  G. `TestNewSessionID_FormatHex` — pins the new-session-id contract: 16 hex chars, every char valid, two calls produce different IDs (RNG is not broken/seeded).
+
+### Discovery: int width is platform-dependent
+
+Initial test draft used `int32` literals for `0xDEADBEEF` (= `-559038737`). On darwin dev (64-bit `int`), the production code produces `3735928559` (= `0xDEADBEEF` as unsigned, but stored in a 64-bit `int`). Switched to `uint32` comparison to handle both platforms. This is the right pattern for testing bit-shifted int conversions.
+
+### Subtle contracts discovered & pinned
+- **sessionIDPrefix uses ONLY the first 8 chars** (4 bytes = 32 bits): the privacy contract says "first 4 bytes", not "all of it". A regression to `id[:]` (full string) would leak more entropy than intended.
+- **sessionIDPrefix returns 0 on invalid hex** (NOT panic): invalid IDs collapse to bucket 0, which is safer than crashing the counter path.
+- **Two random-looking hex IDs produce different prefixes**: the privacy-preserving grouping depends on this — if all IDs collapsed to 0, the per-session aggregation would be useless.
+- **newSessionID returns 16 hex chars** (8 random bytes): the privacy contract depends on this exact format — anything else (base64, raw bytes) would break `sessionIDPrefix`.
+
+### Deliberately NOT pinned
+- The internal `incr` function (66.7%) — requires a real SQLite DB; deferred to a future iter with a test-DB fixture.
+- The `sendAsync` and `pinnedSend` paths (77.8% / 75%) — require a fake HTTP server + URL sanitizer setup; deferred.
+- The `Flush` no-op (0%) — intentional, not a contract to pin.
+
+### Verification
+- `go test ./internal/telemetry/ -run "TestSessionIDPrefix_|TestNewSessionID_" -v -count=1` → all 7 pass (with subtests); existing tests still pass; package green
+- `go vet ./condura-app/internal/telemetry/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/telemetry/...` → **0 issues** (after `gofmt`)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage deltas in `reporter.go`:
+  - `sessionIDPrefix`: 66.7% → 100%
+
+### Explicitly deferred (protect intent)
+- The 32-bit vs 64-bit `int` width subtlety — handled by using `uint32` casts in tests.
+- Wiring the telemetry counter DB into tests — would require a test-DB fixture; defer.
+
+### Status
+- Commit `e469a06` on local main. The telemetry privacy-preserving session-ID grouping logic is now defended end-to-end: empty/short/invalid hex → 0, valid hex → first-32-bits as int, longer-than-8 uses prefix only, two random IDs produce distinct prefixes, newSessionID returns 16 hex chars. Ready for the next cron firing.
