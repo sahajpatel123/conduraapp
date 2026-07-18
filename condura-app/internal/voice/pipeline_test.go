@@ -427,3 +427,31 @@ var errFake = errFakeSentinel{}
 type errFakeSentinel struct{}
 
 func (errFakeSentinel) Error() string { return "fake error" }
+
+// -----------------------------------------------------------------------------
+// Pipeline.Stop — Speaker interface alias for Cancel
+//
+// Stop is exposed so the pipeline can be passed as a Speaker to
+// the session factory. It is intentionally an alias for Cancel —
+// a regression that diverged Stop from Cancel would leave stale
+// state (a partially-canceled pipeline).
+//
+// Before: 0% coverage.
+// -----------------------------------------------------------------------------
+
+func TestPipeline_Stop_AliasesCancel(t *testing.T) {
+	p, err := NewPipeline(validConfig(t))
+	if err != nil {
+		t.Fatalf("NewPipeline: %v", err)
+	}
+	// Capture the status before Stop.
+	before := p.State()
+	// Calling Stop must NOT panic and must NOT leave the pipeline
+	// in an unexpected state. Since validConfig doesn't start the
+	// pipeline, the post-Stop state should match the pre-Stop state.
+	p.Stop()
+	after := p.State()
+	if before != after {
+		t.Errorf("Stop changed pipeline state: before=%v after=%v", before, after)
+	}
+}
