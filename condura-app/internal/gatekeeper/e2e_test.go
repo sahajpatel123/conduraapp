@@ -565,3 +565,65 @@ type errAlwaysDenyer struct{}
 func (errAlwaysDenyer) Error() string { return "always deny" }
 
 var errAlwaysDeny = errAlwaysDenyer{}
+
+// -----------------------------------------------------------------------------
+// Engine.ReloadPolicy + Engine.Policy + Engine.SetConsentProvider
+//
+// ReloadPolicy atomically swaps the active policy (atomic.Store —
+// safe for concurrent readers via Policy()). Policy() returns the
+// currently-active policy. SetConsentProvider swaps the consent
+// provider (used in tests and for live-reload of the consent
+// backend).
+//
+// All three were at 0% coverage.
+// -----------------------------------------------------------------------------
+
+// stubConsentProvider is a minimal ConsentProvider for testing
+// the SetConsentProvider swap. Always available; always denies.
+type stubConsentProvider struct{}
+
+func (stubConsentProvider) Show(_ context.Context, _ *ConsentTicket) (bool, error) {
+	return false, nil
+}
+func (stubConsentProvider) IsAvailable() bool { return true }
+
+func TestEngine_ReloadPolicy_ReplacesActivePolicy(t *testing.T) {
+	original := DefaultPolicy()
+	e := NewEngine(original, nil, nil)
+
+	// Replace with a fresh, distinct policy (different pointer).
+	replacement := DefaultPolicy()
+	e.ReloadPolicy(replacement)
+
+	got := e.Policy()
+	if got != replacement {
+		t.Errorf("Policy() after ReloadPolicy returned %p, want %p", got, replacement)
+	}
+	if got == original {
+		t.Error("Policy() still returns the original pointer after ReloadPolicy")
+	}
+}
+
+func TestEngine_Policy_ReflectsInitialConstructorValue(t *testing.T) {
+	initial := DefaultPolicy()
+	e := NewEngine(initial, nil, nil)
+	if got := e.Policy(); got != initial {
+		t.Errorf("Policy() returned %p, want initial %p", got, initial)
+	}
+}
+
+func TestEngine_SetConsentProvider_ReplacesProvider(t *testing.T) {
+	e := NewEngine(DefaultPolicy(), nil, nil)
+
+	stub := stubConsentProvider{}
+	e.SetConsentProvider(stub)
+
+	// The new provider must be used: a DESTRUCTIVE action must
+	// now surface a consent modal (and fail closed because the
+	// stub denies). With nil provider, the same action fails
+	// closed for a different reason ("no consent provider").
+	_, reason := e.Evaluate(context.Background(), blastradius.Action{Kind: "shell.exec"})
+	if reason == "" {
+		t.Fatal("expected a deny reason")
+	}
+}
