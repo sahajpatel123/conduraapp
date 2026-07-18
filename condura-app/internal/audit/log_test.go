@@ -1,7 +1,9 @@
 package audit
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -693,5 +695,212 @@ func TestLog_ListPhase15FiltersAndFacets(t *testing.T) {
 	}
 	if facets.BlastClasses["WRITE"] < 1 || facets.BlastClasses["NETWORK"] < 1 {
 		t.Fatalf("blast_classes = %+v", facets.BlastClasses)
+	}
+}
+
+// TestLog_Reload_NilReceiver pins the nil-safe contract on Reload.
+// Backup-restore paths can run during teardown when the receiver is
+// already nil; Reload must be a no-op in that case rather than
+// panicking. This test would catch a future change that drops the
+// `if l == nil { return }` guard at the top of the function.
+func TestLog_Reload_NilReceiver(t *testing.T) {
+	var l *Log
+	// Must not panic on nil receiver, even when db is also nil.
+	l.Reload(nil)
+}
+
+// TestLog_Reload_ReplacesHandle verifies the core contract: after
+// Reload, subsequent Append writes go to the new DB handle rather
+// than the closed old one. This is the path storage.Reload callers
+// rely on after a backup restore.
+func TestLog_Reload_ReplacesHandle(t *testing.T) {
+	ctx := context.Background()
+	l := setupTestLog(t)
+
+	// Append to the original DB.
+	if err := l.Append(ctx, Event{Actor: "u", Action: "before.reload", Result: "allow"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Open a second, distinct DB.
+	dir2 := t.TempDir()
+	db2, err := storage.Open(ctx, storage.Config{Path: filepath.Join(dir2, "second.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db2.Close() })
+
+	l.Reload(db2.SQL())
+
+	// Append after Reload must succeed and land in db2, not the
+	// original handle (which we never closed here, so this exercises
+	// the handle swap rather than a use-after-close).
+	if err := l.Append(ctx, Event{Actor: "u", Action: "after.reload", Result: "allow"}); err != nil {
+		t.Fatalf("Append after Reload: %v", err)
+	}
+
+	// The new DB should now contain exactly one event (the post-reload one).
+	got, err := l.List(ctx, Query{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d events in reloaded DB, want 1", len(got))
+	}
+	if got[0].Action != "after.reload" {
+		t.Fatalf("first event action = %q, want %q", got[0].Action, "after.reload")
+	}
+}
+
+// TestLog_Reload_InvalidatesCachedLastHMAC pins the cache-invalidation
+// invariant. After Reload, the cached last HMAC must be cleared so
+// that the next Append recomputes against the new DB's actual last
+// row instead of trusting a stale cache from the old handle — which
+// would otherwise let a backup with a different chain root be silently
+// re-chained onto the previous chain.
+func TestLog_Reload_InvalidatesCachedLastHMAC(t *testing.T) {
+	ctx := context.Background()
+	l := setupTestLog(t)
+
+	// Establish a cached last-HMAC via Append.
+	if err := l.Append(ctx, Event{Actor: "u", Action: "prime.cache", Result: "allow"}); err != nil {
+		t.Fatal(err)
+	}
+	l.mu.Lock()
+	if !l.lastHMACValid {
+		l.mu.Unlock()
+		t.Fatal("lastHMACValid should be true after Append")
+	}
+	if l.lastHMACValue == "" {
+		l.mu.Unlock()
+		t.Fatal("lastHMACValue should be non-empty after Append")
+	}
+	l.mu.Unlock()
+
+	// Reload against a fresh DB.
+	dir2 := t.TempDir()
+	db2, err := storage.Open(ctx, storage.Config{Path: filepath.Join(dir2, "fresh.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db2.Close() })
+	l.Reload(db2.SQL())
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.lastHMACValid {
+		t.Fatal("lastHMACValid must be false after Reload")
+	}
+	if l.lastHMACValue != "" {
+		t.Fatalf("lastHMACValue must be empty after Reload, got %q", l.lastHMACValue)
+	}
+}
+
+// TestNewWithHexSecret_Empty pins the empty-input error contract.
+// An empty hex secret is the canonical "no key configured" state and
+// must surface as a clear error rather than panicking inside New().
+func TestNewWithHexSecret_Empty(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{Path: filepath.Join(dir, "empty.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	l, err := NewWithHexSecret(db.SQL(), "")
+	if err == nil {
+		t.Fatal("expected error on empty hex secret, got nil")
+	}
+	if l != nil {
+		t.Fatal("expected nil Log on error, got non-nil")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("error %q should mention 'empty'", err.Error())
+	}
+}
+
+// TestNewWithHexSecret_InvalidHex pins the parse-error contract.
+// A non-hex string must surface as a wrapped error so callers can
+// diagnose misconfigured secrets without leaking internals.
+func TestNewWithHexSecret_InvalidHex(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{Path: filepath.Join(dir, "invalid.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	// "not-hex!!" contains characters outside [0-9a-f].
+	l, err := NewWithHexSecret(db.SQL(), "not-hex!!")
+	if err == nil {
+		t.Fatal("expected error on invalid hex, got nil")
+	}
+	if l != nil {
+		t.Fatal("expected nil Log on error, got non-nil")
+	}
+	if !strings.Contains(err.Error(), "hex") {
+		t.Fatalf("error %q should mention 'hex'", err.Error())
+	}
+}
+
+// TestNewWithHexSecret_ValidHex verifies the happy path: a valid hex
+// string decodes, the Log is constructed, and Append works. Without
+// this, a regression that swapped DecodeString for an empty-string
+// shortcut would pass NewWithHexSecret's empty check and only fail
+// deep inside Append.
+func TestNewWithHexSecret_ValidHex(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{Path: filepath.Join(dir, "valid.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	// 32 bytes -> 64 hex chars (auditSubKeyLen).
+	rawSecret := make([]byte, 32)
+	for i := range rawSecret {
+		rawSecret[i] = byte(i + 1)
+	}
+	hexSecret := hex.EncodeToString(rawSecret)
+
+	l, err := NewWithHexSecret(db.SQL(), hexSecret)
+	if err != nil {
+		t.Fatalf("NewWithHexSecret(valid): %v", err)
+	}
+	if l == nil {
+		t.Fatal("NewWithHexSecret returned nil Log on valid input")
+	}
+	if err := l.Append(context.Background(), Event{Actor: "u", Action: "hex.valid", Result: "allow"}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+}
+
+// TestNewWithHexSecret_MatchesRawSecret pins the equivalence contract:
+// a Log built via NewWithHexSecret(db, hex.EncodeToString(s)) must
+// derive the same HKDF subkey as New(db, s). This guards against a
+// future refactor that decodes the hex string but then forgets to
+// pass the bytes through deriveAuditSubkey — which would silently
+// desync the chain from any backup written by the raw-secret path.
+func TestNewWithHexSecret_MatchesRawSecret(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.Open(context.Background(), storage.Config{Path: filepath.Join(dir, "equiv.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	rawSecret := make([]byte, 32)
+	for i := range rawSecret {
+		rawSecret[i] = byte(i*7 + 3) // non-trivial pattern
+	}
+
+	lHex, err := NewWithHexSecret(db.SQL(), hex.EncodeToString(rawSecret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := deriveAuditSubkey(rawSecret)
+	if !bytes.Equal(lHex.subkey, want) {
+		t.Fatalf("NewWithHexSecret subkey != deriveAuditSubkey(rawSecret)\n  got:  %x\n  want: %x",
+			lHex.subkey, want)
 	}
 }
