@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // roundTripperFunc is an http.RoundTripper that calls a function.
@@ -127,4 +128,44 @@ func TestOpenAISpeaker_Stop(t *testing.T) {
 
 	// Stop should not panic even if no Speak is in progress.
 	speaker.Stop()
+}
+
+// -----------------------------------------------------------------------------
+// NewOpenAISpeaker — defaults + option application
+//
+// Defaults model to "tts-1" and voice to "alloy" when empty.
+// Applies any OpenAISpeakerOption values (e.g., WithOpenAIHTTPClient).
+// Returns Speaker (interface), so the tests exercise only the
+// public constructor contract via type assertion to *OpenAISpeaker.
+// -----------------------------------------------------------------------------
+
+func TestNewOpenAISpeaker_DefaultsModelAndVoice(t *testing.T) {
+	speaker := NewOpenAISpeaker("test-key", "", "")
+	s := speaker.(*OpenAISpeaker)
+	if s.model != "tts-1" {
+		t.Errorf("empty model = %q, want default tts-1", s.model)
+	}
+	if s.voice != "alloy" {
+		t.Errorf("empty voice = %q, want default alloy", s.voice)
+	}
+}
+
+func TestNewOpenAISpeaker_ExplicitValuesPreserved(t *testing.T) {
+	speaker := NewOpenAISpeaker("test-key", "tts-1-hd", "nova")
+	s := speaker.(*OpenAISpeaker)
+	if s.model != "tts-1-hd" {
+		t.Errorf("explicit model = %q, want tts-1-hd", s.model)
+	}
+	if s.voice != "nova" {
+		t.Errorf("explicit voice = %q, want nova", s.voice)
+	}
+}
+
+func TestNewOpenAISpeaker_WithHTTPClientApplied(t *testing.T) {
+	custom := &http.Client{Timeout: 30 * time.Second}
+	speaker := NewOpenAISpeaker("test-key", "tts-1", "alloy", WithOpenAIHTTPClient(custom))
+	s := speaker.(*OpenAISpeaker)
+	if s.httpClient != custom {
+		t.Error("WithOpenAIHTTPClient option did not apply")
+	}
 }
