@@ -210,6 +210,77 @@ func TestRedactPrivateIP_RedactsCommonPrivateIPs(t *testing.T) {
 	}
 }
 
+// TestRedactPrivateIP_IPv6Scrub pins IPv6 loopback and link-local
+// redaction. The scrub is best-effort (only [::1] and [fe80:
+// prefixes — full IPv6 CIDR matching is not attempted because
+// log lines rarely contain raw IPv6 addresses). A regression that
+// drops these replacements would leak IPv6 loopback in error
+// messages routed through this sink.
+func TestRedactPrivateIP_IPv6Scrub(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"dial tcp [::1]:8080: connection refused", "dial tcp [<v6>]:8080: connection refused"},
+		{"route via [fe80::1234]: no buffer", "route via [<v6>::1234]: no buffer"},
+		{"public [2001:db8::1]: ok", "public [2001:db8::1]: ok"}, // not redacted
+	}
+	for _, tc := range cases {
+		got := redactPrivateIP(tc.in)
+		if got != tc.want {
+			t.Errorf("redactPrivateIP(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestRedactHome_RespectsPathBoundary pins that the home substring
+// is replaced with the ~ sentinel ONLY when preceded by a path
+// boundary (start, /, space, or colon). If the home string appears
+// as a non-path substring (e.g., inside another identifier), it is
+// replaced with a \x00 sentinel of the same length to keep offsets
+// stable — the alternative (collapsing to ~) would corrupt unrelated
+// data that happens to contain the home path.
+//
+// This is the security contract: a future change that drops the
+// boundary check would silently strip home substrings from random
+// identifiers in error messages.
+func TestRedactHome_RespectsPathBoundary(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("no home dir available in this environment")
+	}
+	// "xy" + home — the 'y' before the first '/' of home is NOT a
+	// path boundary, so redactHome must NOT produce a '~' here.
+	in := "xy" + home + "suffix"
+	out := redactHome(in)
+	if strings.Contains(out, home) {
+		t.Fatalf("home substring leaked through boundary check: %q -> %q", in, out)
+	}
+	if strings.Contains(out, "~") {
+		t.Fatalf("redactHome collapsed non-boundary match to '~': %q -> %q", in, out)
+	}
+}
+
+// TestRedactHome_ReplacesMultipleOccurrences pins that the redaction
+// loop iterates past the first match. An early `return` after the
+// first replacement would leave a second occurrence of home in the
+// output — a common bug in single-shot string replacers.
+func TestRedactHome_ReplacesMultipleOccurrences(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("no home dir available in this environment")
+	}
+	in := home + "/.condura and " + home + "/.ssh: permission denied"
+	out := redactHome(in)
+	if strings.Contains(out, home) {
+		t.Fatalf("home substring leaked on second occurrence: %q -> %q", in, out)
+	}
+	want := "~/.condura and ~/.ssh: permission denied"
+	if out != want {
+		t.Fatalf("redactHome(%q) = %q, want %q", in, out, want)
+	}
+}
+
 // captureWriter is an io.Writer that invokes onWrite for each Write.
 // Used in tests that need to inspect what was logged without
 // depending on slog's handler internals.
