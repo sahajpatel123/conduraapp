@@ -230,3 +230,27 @@ func TestDownloadWakeModel_AlreadyExistsShortCircuits(t *testing.T) {
 		t.Errorf("DownloadWakeModel returned %q, want %q (must short-circuit on existing file)", got, target)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// ModelForName — coverage of the "small" branch
+//
+// The existing TestModelForName covers "base" and the unknown-name
+// error path, but not the "small" branch — leaving the function at
+// 75% coverage. This test pins the "small" dispatch.
+// -----------------------------------------------------------------------------
+
+func TestModelForName_Small(t *testing.T) {
+	spec, err := ModelForName("small")
+	if err != nil {
+		t.Fatalf("ModelForName(\"small\"): unexpected error %v", err)
+	}
+	if spec.Name != "small" {
+		t.Errorf("expected name=small, got %s", spec.Name)
+	}
+	if spec.URL == "" {
+		t.Error("small model spec has empty URL")
+	}
+	if spec.Filename == "" {
+		t.Error("small model spec has empty Filename")
+	}
+}
