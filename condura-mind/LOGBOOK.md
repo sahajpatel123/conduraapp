@@ -2142,3 +2142,36 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - File in `c25ab91` on `origin/main`. The Skills Hub publish + download wire format is now defended end-to-end. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-10
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/status.Label()` at 37.5% — the title-cased label contract that the tray menu and overlay header depend on. The existing `TestStatusLabel` in `status_test.go` only covered `StatusIdle` + `StatusListening`; the remaining 4 named states (`Thinking`, `Speaking`, `Halted`, `Error`) and the unknown-default branch had no coverage. `String()` and `IsActive()` were already at 100% from earlier coverage work, so the gap was specifically on `Label`.
+
+### Shipped
+- **`condura-app/internal/status/status_label_test.go`** (~180 lines, 5 tests):
+  A. `TestStatusLabel_NamedStates` — table-driven over all 6 named states asserting exact title-cased strings. Closes the 4 missing-state gaps.
+  B. `TestStatusLabel_UnknownDefaultsToUnknown` — pins the default-branch contract: a Status outside the named range MUST return `"Unknown"` (Title-case, matching label style). Tested across 3 boundary values (`-1`, `99`, `1<<20`).
+  C. `TestStatusLabel_ErrorHasNoEllipsis` — pins the permanent-vs-in-progress convention: permanent states (`Idle`, `Halted`, `Error`) MUST NOT end with `"..."`; in-progress states (`Listening`, `Thinking`, `Speaking`) MUST end with `"..."`. Subtle distinction — a regression that appended `"..."` to every label would mislead the user about whether the agent is actively working.
+  D. `TestStatus_StringVsLabel_CasingDivergence` — pins that `String()` is all-lowercase (audit/log/file-safe) AND `Label()` has at least one uppercase letter (UI-safe). A regression that unified the two would change every log line + every tray menu.
+  E. `TestStatus_EnumIntegrity` — pins 3 structural invariants: (1) all 6 named constants have distinct int values (no switch-case aliasing); (2) values are sequential 0..5 (the bare-iota contract — matters for metrics + int serialization); (3) `StatusIdle` is the zero value of `Status` (any uninitialized `Status` field MUST default to "idle" — the safe default).
+
+### Deliberately NOT pinned
+- `Status.String()` exact strings — already pinned by `TestStatusString` in `status_test.go` (100% coverage). The new tests assert only the casing property, not the exact strings.
+- `Status.IsActive()` exact membership — already pinned by `TestStatusIsActive` (100% coverage).
+- Adding a `MarshalJSON` / `UnmarshalJSON` for `Status` — would let the JSON wire format be `"idle"` instead of `0`, but that's a feature change (caller-facing wire format), not a contract pin.
+- Reordering or renumbering the const block — the enum-integrity test would catch any change, but the change itself isn't required.
+
+### Verification
+- `go test ./internal/status/ -v -count=1` → all 5 new tests pass; existing 3 tests still pass; package green
+- `go vet ./internal/status/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/status/...` → **0 issues**
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (secrets flake did not fire on this run)
+- Coverage delta: `Status.Label` 37.5% → ~100%
+
+### Explicitly deferred (protect intent)
+- Forcing a JSON serializer for `Status` — defer to v0.2.0 if the IPC wire format ever needs human-readable status strings.
+- Touching the const-block ordering — `TestStatus_EnumIntegrity` will catch any regression.
+
+### Status
+- Commit `c8d071c` on local main. The status enum's Label contract is now defended end-to-end: every named state, the unknown default, the permanent-vs-in-progress ellipsis convention, the String-vs-Label casing split, and the structural enum invariants (distinct values, sequential iota, zero-value-is-Idle). Ready for the next cron firing.
