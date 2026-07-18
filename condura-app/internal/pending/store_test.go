@@ -346,3 +346,77 @@ func TestStore_NewID_Unique(t *testing.T) {
 		}
 	}
 }
+
+// -----------------------------------------------------------------------------
+// Start / Stop / sweepLoop — background sweeper lifecycle
+//
+// The Store runs a background goroutine that periodically sweeps
+// expired pending actions. Bugs in the lifecycle (goroutine leaks,
+// stuck Stop, missing cleanup) are the kind that don't surface
+// until the daemon has been up for hours — exactly when you can't
+// easily restart it. These tests pin the contract at the unit level.
+// -----------------------------------------------------------------------------
+
+// TestStore_DB_ReturnsUnderlyingHandle pins the typed accessor.
+func TestStore_DB_ReturnsUnderlyingHandle(t *testing.T) {
+	store := New(newTestStorage(t))
+	if got := store.DB(); got == nil {
+		t.Fatal("Store.DB() returned nil for a freshly constructed Store")
+	}
+}
+
+// TestStore_StartStop_NoGoroutineLeak pins the happy-path
+// lifecycle: Start launches the sweeper, Stop terminates it. The
+// test verifies the stopped channel is closed within a short
+// timeout — a regression that lost the `close(s.stopped)` in
+// sweepLoop's defer would cause Stop to block forever.
+func TestStore_StartStop_NoGoroutineLeak(t *testing.T) {
+	store := New(newTestStorage(t))
+	store.Start(context.Background())
+	store.Stop()
+	// After Stop returns, the stopped channel MUST already be
+	// closed (Stop waits on it). Verify directly as a sanity check.
+	select {
+	case <-store.stopped:
+		// closed — good
+	default:
+		t.Fatal("store.stopped was not closed after Stop returned; sweeper goroutine likely leaked")
+	}
+}
+
+// TestStore_StopIsIdempotent pins that calling Stop twice does not
+// panic. The Stop body uses a select to check whether stopCh is
+// already closed before calling close(stopCh) again — without that
+// guard, the second Stop would close a closed channel and panic.
+// This is the kind of bug that shows up when the daemon's
+// shutdown handler is called twice during a graceful restart.
+func TestStore_StopIsIdempotent(t *testing.T) {
+	store := New(newTestStorage(t))
+	store.Start(context.Background())
+	store.Stop() // first call: closes stopCh, waits for stopped
+	// Second call should be a no-op (stopCh is already closed).
+	// It blocks on `<-s.stopped` which is also closed, so it
+	// returns immediately. Without the guard, close(closedChan)
+	// would panic.
+	store.Stop()
+}
+
+// TestStore_SweepLoop_RespondsToContextCancel pins that the sweeper
+// goroutine exits when its context is cancelled. Without this
+// behavior, a daemon shutdown that relies only on ctx-cancel (not
+// the explicit Stop) would leak the sweeper goroutine until
+// process exit.
+func TestStore_SweepLoop_RespondsToContextCancel(t *testing.T) {
+	store := New(newTestStorage(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	store.Start(ctx)
+	// Cancel the context — sweepLoop must observe ctx.Done() and
+	// exit. The stopped channel signals this.
+	cancel()
+	select {
+	case <-store.stopped:
+		// closed — good, sweepLoop exited
+	case <-time.After(2 * time.Second):
+		t.Fatal("sweepLoop did not exit within 2s of context cancellation")
+	}
+}
