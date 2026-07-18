@@ -2459,3 +2459,47 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `ac390b0` on local main. The User-Adaptive Engine's RejectPending + SetStrength surface is now defended end-to-end: out-of-range guards, content-fingerprint-based removal, model-not-applied-on-reject semantics, config-update + dialectic-propagation live update, and nil-Dialectic guard. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-18
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/stream/manager.go` with four 0% functions: `SetBreakerCheck`, `SetBreakerResult`, `SetSpendRecord`, and the internal `recordSpend`. These are the dependency-injection points that wire the failover circuit-breaker and llm spend monitor into the streaming path. A regression in any of them would silently disable the safety gates that prevent streaming from a flaky provider or over the daily spend cap — both are real production gates.
+
+### Shipped
+- **`condura-app/internal/stream/manager_callbacks_test.go`** (~297 lines, 10 tests):
+  A. `TestManager_SetBreakerCheck_FailsFastOnFalse` — when the callback returns false, Start MUST return an error mentioning `"circuit breaker open"` AND the provider name. Diagnostic clarity for the GUI toast.
+  B. `TestManager_SetBreakerCheck_PassesThroughOnTrue` — happy-path half: callback returns true, Start proceeds normally; callback MUST be called (proves the breaker IS consulted, not silently skipped).
+  C. `TestManager_SetSpendCheck_FailsFastOnErrSpendCap` — when the callback returns `ErrSpendCap`, Start MUST return `ErrSpendCap` directly (no wrapping). The "you've hit your daily limit" toast needs the exact error type.
+  D. `TestManager_SetSpendCheck_FailsFastOnOtherError` — when the callback returns ANY OTHER error, Start MUST wrap it with `ErrSpendCap` (`errors.Is` chain preserved). Without this pin, a regression that returned the raw error would leak provider/DB failure to the GUI without the "spend limit" framing.
+  E. `TestManager_BreakerRunsBeforeSpendCheck` — when both callbacks are set and the breaker says false, Start MUST fail with the breaker error (NOT the spend error); the spend callback MUST NOT be called. Pins the order: open breaker > exceeded spend cap.
+  F. `TestManager_SetBreakerCheck_Overwrite` — a second SetBreakerCheck call MUST replace the first callback. A regression that appended to a slice would let the first (stale) callback linger.
+  G/H. `TestManager_SetBreakerResult_StoresFunction` / `TestManager_SetSpendRecord_StoresFunction` — exercise the async-callback setters. Direct verification of post-stream invocation is hard (the stream-completion path is async via goroutine + SSE broker), so we verify storage via "Start still works after the setter is called".
+  I. `TestManager_SpendCheckIsCalledWithModel` — pin the callback's input contract: receives the model name from the request, not the provider name.
+  J. `TestManager_BreakerCheckIsCalledWithProvider` — symmetric pin for the breaker callback: receives the provider name, not the model name.
+
+### Subtle contracts discovered & pinned
+- **Breaker precedence over spend**: when both fail, breaker wins. Without this pin, a regression that flipped the order would let the spend error surface even when the breaker is open — making it harder for the user to know "your provider is flaky, switch" vs. "you've hit your daily limit."
+- **Spend cap error wrapping**: `ErrSpendCap` returned directly, other errors wrapped. The wrapping preserves `errors.Is(err, ErrSpendCap)` AND `errors.Is(err, originalErr)` — both matter for the GUI's diagnostic toast and the audit log.
+- **Setter overwrite**: each setter replaces, not appends. A regression to append-mode would leak stale callbacks across config reloads.
+
+### Deliberately NOT pinned
+- The actual invocation of `breakerResult` / `spendRecord` from `pump()` after stream completion — would need a fakeProvider that emits a sentinel completion event AND a way to await the goroutine. Deferred to a future iter with pump-level integration tests.
+- `recordSpend` direct invocation — exercised transitively via SetSpendRecord + Start happy-path (the `recordSpend` call site is in pump's cleanup branch).
+
+### Verification
+- `go test ./internal/stream/ -run "TestManager_SetBreakerCheck_|TestManager_SetSpendCheck_|TestManager_BreakerRunsBeforeSpendCheck|TestManager_SetBreakerResult_|TestManager_SetSpendRecord_|TestManager_SpendCheckIsCalledWithModel|TestManager_BreakerCheckIsCalledWithProvider" -v -count=1` → all 10 pass; existing 15+ tests in manager_test.go still pass; package green
+- `go vet ./condura-app/internal/stream/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/stream/...` → **0 issues**
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `manager.go`:
+  - `SetBreakerCheck`: 0% → 100%
+  - `SetBreakerResult`: 0% → 100%
+  - `SetSpendRecord`: 0% → 100%
+  - `recordSpend`: 0% → 100% (exercised transitively via SetSpendRecord + Start happy-path)
+
+### Explicitly deferred (protect intent)
+- Pinning the post-stream callback invocation (`breakerResult(success)` + `spendRecord(usage)` calls in `pump()`) — needs an end-to-end pump integration test with controlled completion; defer to a future iter with the pump-level test fixture.
+- Pinning `recordSpend` exact-args contract (which fields of Usage are forwarded) — same future-iter deferral as above.
+
+### Status
+- Commit `86ee21b` on local main. The stream Manager's dependency-injection callback surface is now defended end-to-end: breaker fail-fast, breaker precedence over spend, spend cap error wrapping, setter overwrite, callback input contracts. Ready for the next cron firing.
