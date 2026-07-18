@@ -2115,3 +2115,30 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - Commit `c25ab91` on local main (pushed). Three restore.go helpers defended end-to-end. The concurrent-session commit inclusion is documented above for the next reviewer. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-9 (skills archive branch)
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate, second parallel branch. Coverage scan surfaced `internal/skills` with `ParseArchive` and `MarshalArchive` at 0% — these are the Skills Hub publish/download wire-format contracts (every skill uploaded or downloaded via the Hub flows through them). Pure-function serialization = perfect test-pinning shape (table-driven, no I/O, no network).
+
+### Shipped (via inclusion in commit `c25ab91`)
+- **`condura-app/internal/skills/archive_test.go`** (~280 lines, 10 tests):
+  A. `ParseArchive` (7): full Skill archive with every field verified (12 core + 7 Phase 12C provenance + nullable PublishedAt); minimal-required boundary (only ID + Name succeeds); missing-ID / missing-name / empty-{} all rejected by the same `"missing id or name"` guard (NOT a JSON parse error — distinguishes archive-content failure from wire-format failure); malformed-JSON returns wrapped parse error; empty-bytes returns wrapped parse error (regression here would let a truncated download create a phantom skill in Store.Create).
+  B. `MarshalArchive` (3): valid skill produces non-empty JSON bytes (round-trip parse confirms valid JSON); nil skill returns clear `"nil skill"` error rather than panicking on the nil-pointer deref inside `json.Marshal`; full marshal → parse round-trip preserves every important field (strings, ints, enums, time.Time via RFC3339Nano).
+
+### Inclusion note (see iter-9 backup branch logbook entry for the commit-inclusion story)
+- This test file was staged (`git add condura-app/internal/skills/archive_test.go`) before the concurrent session's commit `c25ab91` ran, and was swept into that commit. The file content is correct; only the commit-message attribution is wrong. Splitting the commit was deferred to avoid disrupting the concurrent session's work-in-flight (the file's correctness is verified by the 10-test pass below).
+
+### Verification
+- `go test ./internal/skills/ -run "TestParseArchive_|TestMarshalArchive_" -v -count=1` → all 10 pass
+- `go vet ./internal/skills/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/skills/...` → **0 issues**
+- Coverage delta: `ParseArchive` 0% → ~100%; `MarshalArchive` 0% → ~100%
+
+### Deliberately NOT pinned
+- Skill validation against the `agentskills.io` schema (ParseArchive is structural-only; semantic schema validation is a separate concern, deferred).
+- ID format / uniqueness (the Store layer handles uniqueness; ParseArchive just parses).
+- Round-trip of `time.Time` monotonic-clock readings — RFC3339Nano round-trips at nanosecond but JSON-decoded time.Time is not always Equal() to the original due to monotonic-clock stripping; test uses second-precision timestamps where round-trip Equal() is exact.
+
+### Status
+- File in `c25ab91` on `origin/main`. The Skills Hub publish + download wire format is now defended end-to-end. Ready for the next cron firing.
