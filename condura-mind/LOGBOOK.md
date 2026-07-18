@@ -2175,3 +2175,34 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - Commit `c8d071c` on local main. The status enum's Label contract is now defended end-to-end: every named state, the unknown default, the permanent-vs-in-progress ellipsis convention, the String-vs-Label casing split, and the structural enum invariants (distinct values, sequential iota, zero-value-is-Idle). Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-11
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/halt.flag.go:NotYetResumableError.Error()` at 0% — the kill-switch cooldown error type whose message is surfaced verbatim in the GUI's "why can't I resume?" dialog. The existing `flag_test.go` covers the Flag lifecycle (Halt/Resume/Refresh) but never the typed error.
+
+### Shipped
+- **`condura-app/internal/halt/flag_error_test.go`** (~120 lines, 4 tests):
+  A. `TestNotYetResumableError_SatisfiesErrorInterface` — compile-time (`var _ error = (*NotYetResumableError)(nil)`) + runtime pin that the type implements the standard `error` interface. A regression that renamed `Error()` or changed the signature would break every `errors.As` caller.
+  B. `TestNotYetResumableError_FormatIncludesRequiredParts` — substring pins for the structured message: `"halt:"` prefix, `"resume not yet allowed"` canonical phrase, `"halted ... ago"`, `"cooldown ..."`, `"... remaining"`. Each substring is critical user-facing context.
+  C. `TestNotYetResumableError_DurationsAreRoundedToSeconds` — pins the `.Round(time.Second)` precision contract (no sub-second jitter in any duration string). A regression that dropped the rounding would surface `1m0.0000003s` to the user.
+  D. `TestNotYetResumableError_ErrorsAsDiscriminable` — pins the typed-error contract: `errors.As` can recover `*NotYetResumableError` with all three structured fields (`Remaining`, `Since`, `Cooldown`) intact. A regression that returned plain `fmt.Errorf` from `Resume()` would lose the discriminability and the GUI would fall back to a generic "could not resume" toast.
+
+### Deliberately NOT pinned
+- The exact elapsed-time string (e.g., `"45s ago"` vs `"30s ago"`) — depends on test execution timing; the contract is the structure, not the exact value.
+- `Flag.Halt` / `Flag.Resume` / `Flag.Refresh` integration paths — already pinned by the existing 3 tests in `flag_test.go`.
+- `network.go` AllowHost / DenyHost / WireToHTTPClient — separate contracts, separate future iter.
+
+### Verification
+- `go test ./internal/halt/ -run "TestNotYetResumableError_" -v -count=1` → all 4 pass; existing 3 tests still pass; package green
+- `go vet ./internal/halt/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/halt/...` → **0 issues** (after a `gofmt` reformat of the trailing-comment alignment and a SA4031 fix removing a redundant nil-check after `&StructLiteral{...}`)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage delta: `NotYetResumableError.Error()` 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Testing the `network.go.WireToHTTPClient` integration (0% coverage) — needs a working HTTP server fixture; structural logic doesn't benefit from contrived-error tests.
+- Adding a `MarshalJSON` to `State` for IPC wire-format stability — would let the JSON wire format be human-readable instead of internal-int, but that's a feature change.
+
+### Status
+- Commit `2ffde27` on local main. The kill-switch cooldown error surface is now defended end-to-end: type satisfaction, message structure, second-precision rounding, and typed-error discriminability. Ready for the next cron firing.
