@@ -1938,3 +1938,32 @@ These are documented in the user's audit conversation (next-message ask). Will p
 ### Status
 - Commit `cb8a8b3` on local main. The closer-swap contract used by `ReloadAuxiliaryDatabases` (backup.restore path) is now defended end-to-end: the primitive, both type wrappers, the nil-no-op guards, and the downstream `Subsystems.Close()` reaches-the-new-closer invariant are all pinned. Ready for the next cron firing.
 
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-4
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Branched out from the daemon surface area to the autonomy package: `autonomy.Level.String()` was at 0% coverage — the Stringer for the autonomy enum, used by the GUI tray, SSE events, audit chains, and logs everywhere the autonomy level surfaces to a human or serialized record.
+
+### Shipped
+- **`internal/autonomy/autonomy_string_test.go`** (100 lines, 4 test groups):
+  1. `TestLevel_String_KnownLevels` — table-driven over the four named constants (Block / Warn / Ask / Autonomous), asserting exact lowercase strings.
+  2. `TestLevel_String_UnsetDefaultsToWarn` — pins the sentinel behavior: `Unset` (Level = -1) falls through the switch to default, returning "warn". An unset level must never render as "" or as the raw int (-1).
+  3. `TestLevel_String_UnknownDefaultsToWarn` — pins the negative contract: any Level outside the four named constants (e.g. future enum additions without a String() update) renders as "warn" (fail-open-to-conservative).
+  4. `TestLevel_ConstantsAreDistinct` — pins enum integrity: five named constants have distinct numeric values, AND Unset is negative (so the `NewMatrix` sentinel check `if defaultLevel == Unset { defaultLevel = Warn }` cannot collide with a valid level). Deliberately does NOT pin absolute numeric values — that would block a future cleanup of the const block.
+
+### Discovery
+- The current const block evaluates to: `Unset=-1, Block=1, Warn=2, Ask=3, Autonomous=4`. There is no Level with value 0 because iota starts at 1 after the explicit `Unset = -1` line. This is not a bug (the code only switches on named constants), but it's worth recording in the test comments so a future reader doesn't "fix" the gap and accidentally regress the sentinel check.
+
+### Verification
+- `go test ./internal/autonomy/ -run "TestLevel_" -v -count=1` → all 4 groups pass
+- `go test ./... -count=1 -timeout 300s` → secrets TestNew_NoFilePath_Auto flake fired (documented intermittent, unrelated); otherwise green
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta: `Level.String()` 0% → 100%; autonomy package 65.4% → 88.5%
+
+### Explicitly deferred (protect intent)
+- Pushing — completed in this iteration (commit `05f202e`).
+- The const block iota-style refactor (`Block Level = iota` followed by bare names that inherit) would normalize the numeric values to 0..3, but it's stylistic-only and the test deliberately doesn't pin absolute values to keep that option open.
+- The secrets flake — known, documented, unrelated.
+
+### Status
+- Commit `05f202e` on local main. The autonomy enum's Stringer contract is now defended end-to-end: every named level, the Unset sentinel, the unknown-fails-open-to-warn default, and the enum integrity (distinct values + negative sentinel) are all pinned. Ready for the next cron firing.
+
