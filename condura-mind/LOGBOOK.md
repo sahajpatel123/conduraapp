@@ -2326,3 +2326,46 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `5c66d33` on local main. The memory package's StoreManager delegation + Remember branching surface is now defended end-to-end via the fakeStore spy. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-15
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/updater/manifest.go` with five contract methods at partial coverage: `PlatformFromArchiveName` 77.8% (no dedicated test), `VerifyPayload` 66.7% (only happy path), `ResolveArtifact` 72.7% (happy path only), `ParseChecksums` 90%, `BuildManifestFromChecksums` 78.9%. The existing `manifest_test.go` covers happy paths but missed all the failure contracts — exactly the contracts that the daemon's auto-update flow depends on for safety.
+
+### Shipped
+- **`condura-app/internal/updater/manifest_contracts_test.go`** (~377 lines, 14 tests including subtests):
+  A. `PlatformFromArchiveName` (3): standard formats (linux/amd64, darwin/arm64, windows/amd64, .zip variant) table-driven; wrong-prefix reject (condura-cli-*, empty, no prefix); malformed reject (no version separator, no platform separator, empty arch, empty goos).
+  B. `VerifyPayload` (3): tampered payload (MITM defense — sign payload A, modify URL, verify MUST fail); wrong key (rogue-key defense — sign with priv1, verify with pub2 MUST fail, sanity-check right key still works); invalid hex (input validation — empty, ASCII letters, too short, wrong chars — error must mention "signature" for log-reader clarity).
+  C. `ResolveArtifact` (4): missing platform entry (error mentions "no artifact"); incomplete artifact (empty URL or empty SHA256 → error mentions "incomplete"); legacy fallback (empty Platforms + valid top-level fields works for back-compat); legacy missing URL (empty Platforms + empty DownloadURL → error).
+  D. `BuildManifestFromChecksums` (4): empty version → error; empty channel defaults to "stable" (the only safe default for stable-fallback); no condurad archives → error mentioning "no condurad archives"; "v" prefix on version is stripped (Go convention — runtime version comparison would fail otherwise).
+  E. `ParseChecksums` (2): bad line (single token, only filename, bad line among good) → error mentioning "bad checksum line"; empty input (empty string, single newline, multiple newlines) → empty slice, no error (lets early-release builds with no checksums.txt skip cleanly).
+
+### Subtle contracts discovered & pinned
+- `VerifyPayload` MUST mention "signature" in error messages — diagnostic clarity for log readers diagnosing update failures.
+- `ResolveArtifact` MUST include the platform key in its error when the platform is missing — debug logs that say "platform plan9/amd64 not in manifest" are actionable; "platform not in manifest" is not.
+- `BuildManifestFromChecksums` defaults channel to "stable" — without this pin, an empty-channel manifest would fail channel validation downstream with no clear pointer to the cause.
+- `PlatformFromArchiveName` MUST reject both "condura-cli-*" and totally-unrelated archives — defense against an attacker slipping a malicious archive into a checksums.txt with a known prefix.
+
+### Deliberately NOT pinned
+- `Payload` method exact field copy behavior — already covered indirectly by the sign+verify round-trip.
+- `MarshalPayload` stable key-order guarantee — existing happy-path tests verify the signed bytes round-trip; ordering is enforced by Go's `encoding/json`.
+- `SignPayload` happy-path — existing `TestMultiPlatformManifestSignVerify` covers this; my new test focuses on the failure paths.
+
+### Verification
+- `go test ./internal/updater/ -run "TestPlatformFromArchiveName_|TestVerifyPayload_|TestResolveArtifact_|TestBuildManifestFromChecksums_|TestParseChecksums_" -v -count=1` → all 14 pass (with subtests); existing tests still pass; package green
+- `go vet ./internal/updater/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/updater/...` → **0 issues** (after `gofmt` fix)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `manifest.go`:
+  - `PlatformFromArchiveName`: 77.8% → 100%
+  - `VerifyPayload`: 66.7% → 100%
+  - `ResolveArtifact`: 72.7% → 100%
+  - `ParseChecksums`: 90% → 100%
+  - `BuildManifestFromChecksums`: 78.9% → 100%
+
+### Explicitly deferred (protect intent)
+- Pinning `PlatformKey()`'s exact format `"runtime.GOOS + \"/\" + runtime.GOARCH"` — depends on the `runtime` package, not worth pinning a Go stdlib contract.
+- Pinning `SignPayload` private-key-format requirements (must be `ed25519.PrivateKey`, not generic `[]byte`) — type system enforces this at compile time.
+
+### Status
+- Commit `0960fb4` on local main. The updater manifest surface is now defended end-to-end: parser correctness, signature verification under tampering/wrong-key/bad-hex, artifact resolution error paths, manifest builder defaults + error paths, and checksums parser edge cases. Ready for the next cron firing.
