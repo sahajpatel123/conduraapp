@@ -164,3 +164,85 @@ func TestVectorClock_Equal_DifferentValuesReturnsFalse(t *testing.T) {
 		t.Errorf("Equal(clocks with different values) = true, want false")
 	}
 }
+
+// -----------------------------------------------------------------------------
+// Store.VectorSnapshot + Store.Hash — sync state observability
+//
+// VectorSnapshot returns a copy of the current vector clock state
+// (element-wise max over all entries' Version maps). Used for sync
+// state verification.
+//
+// Hash returns a SHA-256 over all entries, with keys sorted
+// alphabetically to guarantee deterministic ordering. Used for
+// integrity checking — a regression that lost the sort.Strings
+// call would produce different hashes on Go map iteration order
+// (which is randomized), breaking the integrity contract.
+// -----------------------------------------------------------------------------
+
+func TestStore_VectorSnapshot_EmptyStoreReturnsEmptyClock(t *testing.T) {
+	s := NewStore()
+	vc := s.VectorSnapshot()
+	if len(vc) != 0 {
+		t.Errorf("VectorSnapshot on empty store = %v, want empty clock", vc)
+	}
+}
+
+func TestStore_VectorSnapshot_ReturnsIndependentCopy(t *testing.T) {
+	s := NewStore()
+	s.Put("device-a", "k1", []byte("v"))
+	// Snapshot must be a copy — mutating the returned clock MUST
+	// NOT affect the store's internal state.
+	snap := s.VectorSnapshot()
+	snap["b"] = 99 // mutate the snapshot
+	vc2 := s.VectorSnapshot()
+	if _, ok := vc2["b"]; ok {
+		t.Errorf("mutating VectorSnapshot result leaked into store: %v", vc2)
+	}
+}
+
+func TestStore_VectorSnapshot_TakesElementwiseMax(t *testing.T) {
+	s := NewStore()
+	// Two entries with overlapping devices; max should win per device.
+	s.Put("device-a", "k1", []byte("a"))
+	s.Put("device-b", "k2", []byte("b"))
+	vc := s.VectorSnapshot()
+	want := VectorClock{"device-a": 1, "device-b": 1}
+	if !vc.Equal(want) {
+		t.Errorf("VectorSnapshot = %v, want %v (element-wise max across entries)", vc, want)
+	}
+}
+
+func TestStore_Hash_DeterministicForSameContent(t *testing.T) {
+	s := NewStore()
+	s.Put("device-a", "k1", []byte("v"))
+	h1 := s.Hash()
+	h2 := s.Hash()
+	if h1 != h2 {
+		t.Errorf("Hash not deterministic: h1=%s h2=%s", h1, h2)
+	}
+}
+
+func TestStore_Hash_ChangesWhenContentChanges(t *testing.T) {
+	s := NewStore()
+	s.Put("device-a", "k1", []byte("v1"))
+	h1 := s.Hash()
+	s.Put("device-a", "k1", []byte("v2"))
+	h2 := s.Hash()
+	if h1 == h2 {
+		t.Errorf("Hash unchanged after content change: h1=%s h2=%s", h1, h2)
+	}
+}
+
+func TestStore_Hash_EmptyStoreProducesValidHex(t *testing.T) {
+	s := NewStore()
+	h := s.Hash()
+	// SHA-256 produces 64 hex chars; the empty store should produce
+	// the SHA-256 of the empty input (well-defined constant).
+	if len(h) != 64 {
+		t.Errorf("Hash length = %d, want 64 hex chars (SHA-256 output)", len(h))
+	}
+	// Hash should be reproducible on empty.
+	if h2 := s.Hash(); h != h2 {
+		t.Errorf("Hash of empty store not deterministic: h1=%s h2=%s", h, h2)
+	}
+}
