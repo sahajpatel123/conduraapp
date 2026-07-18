@@ -16,7 +16,7 @@ import path from 'node:path';
 // loads `svelte/src/index-server.js` and `mount()` throws
 // "lifecycle_function_unavailable".
 export default defineConfig({
-  plugins: [svelte({ hot: false })],
+  plugins: [svelte()],
   resolve: {
     conditions: ['browser'],
     alias: {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/svelte'
 import MeridianDock from './MeridianDock.svelte'
 import type { RouteId } from './routes'
@@ -12,10 +13,10 @@ import type { RouteId } from './routes'
 // it's an action, not a destination.
 
 describe('MeridianDock', () => {
-  let onnavigate: ReturnType<typeof vi.fn>
+  let onnavigate: Mock<(r: RouteId) => void>
 
   beforeEach(() => {
-    onnavigate = vi.fn()
+    onnavigate = vi.fn<(r: RouteId) => void>()
     // matchMedia is referenced by $effect — provide a stub for jsdom.
     Object.defineProperty(window, 'matchMedia', {
       value: (q: string) => ({

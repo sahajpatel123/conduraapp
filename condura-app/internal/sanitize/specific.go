@@ -266,23 +266,37 @@ func (s *URLSanitizer) ResolveURL(ctx context.Context, input string) (net.IP, er
 // caller to fail closed on such a record).
 //
 // TODO(rebinding): every call site that uses the result of this
-// function should pin the IP for the HTTP request. Status: DONE
-// (2026-07-17) for the two known callers (updater + telemetry).
-// Any new internal HTTP caller should follow the same pattern:
+// function should pin the IP for the HTTP request. All known
+// internal HTTP callers now pin via sanitize.ResolveAndPin:
 //
 //   - internal/updater/updater.go       (fetchAndVerifyManifest +
-//     download path) — migrated to Updater.pinnedGet which calls
+//     download path) — Updater.pinnedGet, calls
 //     sanitize.ResolveAndPin with the strict sanitizer.
 //
 //   - internal/telemetry/reporter.go    (sendAsync → pinnedSend)
-//     — migrated 2026-07-17 to Reporter.pinnedSend which calls
+//     — Reporter.pinnedSend, calls
 //     sanitize.ResolveAndPin with the strict sanitizer.
 //
-// The helper that closes the TOCTOU window is in this package:
-// `NewPinnedHTTPClient(ip, port, host, base)` returns an *http.Client
-// whose transport always dials the pinned IP while preserving the
-// original Host header (and TLS SNI). The convenience wrapper
-// `ResolveAndPin(ctx, rawURL, sanitizer)` pairs it with ResolveURL.
+//   - internal/daemon/subsystems.go     (buildHubClient)
+//     — pinned hub.Client built once at startup via
+//     sanitize.ResolveAndPin with the strict sanitizer; the
+//     pinned transport is reused for every subsequent hub request
+//     so the dial address cannot drift mid-session.
+//
+// Any new internal HTTP caller must follow the same pattern:
+// resolve through ResolveAndPin at request time (or once at
+// startup with a long-lived client) so the actual TCP dial goes
+// to the IP that passed the strict sanitizer, not whatever DNS
+// returns at dial time. The helper that closes the TOCTOU window
+// is in this package:
+//
+//   - `NewPinnedHTTPClient(ip, port, host, base)` returns an
+//     *http.Client whose transport always dials the pinned IP
+//     while preserving the original Host header (and TLS SNI).
+//
+//   - `ResolveAndPin(ctx, rawURL, sanitizer)` pairs it with
+//     ResolveURL.
+//
 // Both are unit-tested in pinned_client_test.go.
 func (s *URLSanitizer) resolveHost(ctx context.Context, host string) (net.IP, error) {
 	if !s.ResolveDNS {

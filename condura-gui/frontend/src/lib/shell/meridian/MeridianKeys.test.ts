@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/svelte'
 import MeridianKeys from './MeridianKeys.svelte'
 
@@ -10,10 +11,10 @@ import MeridianKeys from './MeridianKeys.svelte'
 // shortcuts that don't work — the worst kind of polish.
 
 describe('MeridianKeys', () => {
-  let onclose: ReturnType<typeof vi.fn>
+  let onclose: Mock<() => void>
 
   beforeEach(() => {
-    onclose = vi.fn()
+    onclose = vi.fn<() => void>()
     // jsdom defaults navigator.platform to '' — make Mac/Win branch stable.
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
   })
