@@ -1996,3 +1996,32 @@ These are documented in the user's audit conversation (next-message ask). Will p
 ### Status
 - Commit `b3e646f` on local main. The backup restore path-traversal defense is now defended end-to-end: empty/unix-absolute/windows-absolute/parent-traversal rejected; legitimate relative paths + dots-in-filenames accepted; drive-letter gap documented. Ready for the next cron firing.
 
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-6
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Branched into the conversation package: `Store.GetRecentMessages` was at 0% coverage — the function the session.Run path calls on every user query to feed recent message history into the LLM prompt.
+
+### Shipped
+- **`internal/conversation/store_recent_test.go`** (195 lines, 6 tests):
+  1. `TestStore_GetRecentMessages_NotFound` — ErrNotFound for missing conversations.
+  2. `TestStore_GetRecentMessages_AllMessagesWhenLimitZero` — limit=0 returns ALL messages (no LIMIT clause); used by session resume paths.
+  3. `TestStore_GetRecentMessages_LimitReturnsNMostRecent` — limit>0 returns the N most-recent in chronological order (function reverses SQL's DESC to ASC for the LLM).
+  4. `TestStore_GetRecentMessages_ChronologicalOrder` — explicit sort-direction contract: messages appended in order must come back in the same order. Guards against a regression that drops the reverse-slice step.
+  5. `TestStore_GetRecentMessages_LimitLargerThanHistory` — limit > number of messages returns all (LIMIT is upper bound, not target).
+  6. `TestStore_GetRecentMessages_EmptyConversation` — zero-message boundary: empty slice (not ErrNotFound).
+
+  Helper: `appendN(t, s, ctx, convID, n)` for fast population; `itoaSmall` (3-digit, no strconv import — keeps the test file self-contained).
+
+### Verification
+- `go test ./internal/conversation/ -run "TestStore_GetRecentMessages" -v -count=1` → all 6 pass
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta: `Store.GetRecentMessages` 0% → 84.6% (remaining 15.4% is the rows.Scan error branch, not worth a forced-error fixture).
+
+### Explicitly deferred (protect intent)
+- Pushing — completed in this iteration (commit `6afb8a7`).
+- Forced-error test for the rows.Scan branch — would require a corrupt-row fixture (e.g. manually inserting a row with the wrong column type), one branch for one bool.
+- The session.Run caller integration test — out of scope; the contract being pinned here is the storage-layer API, not the session orchestration.
+
+### Status
+- Commit `6afb8a7` on local main. `Store.GetRecentMessages` is now defended end-to-end: ErrNotFound guard, limit=0 / limit>0 branches, sort-direction contract, empty-conversation boundary, all pinned. Ready for the next cron firing.
+
