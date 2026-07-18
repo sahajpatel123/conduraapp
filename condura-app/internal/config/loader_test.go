@@ -865,3 +865,72 @@ func TestFallbackDataDir_Linux_NoXDG_WithHome(t *testing.T) {
 		t.Errorf("fallbackDataDir() with HOME=%s (no XDG) = %q, want %q", home, got, want)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// setVoiceBoolField — voice config bool setter (env-var dispatch)
+//
+// Called from env-var override path. Accepts "true"/"false"/"1"/"0"/
+// "t"/"f"/"T"/"F"/"TRUE"/"FALSE"/"True"/"False" via strconv.ParseBool.
+// A bad value must return an error WITHOUT mutating the config
+// (env-var injection guard). Unknown field names are a silent
+// no-op — forward-compat for fields added in newer versions but
+// not present in this build.
+//
+// Before: 0% coverage.
+// -----------------------------------------------------------------------------
+
+func TestSetVoiceBoolField_RejectsInvalidBool(t *testing.T) {
+	c := &VoiceConfig{}
+	err := setVoiceBoolField(c, fieldEnabled, "maybe")
+	if err == nil {
+		t.Fatal("setVoiceBoolField(\"maybe\") must return an error")
+	}
+	// The config must be untouched on parse failure — a regression
+	// that mutated c.Enabled before checking the parse error would
+	// leave the config in an indeterminate state on env-var failure.
+	if c.Enabled {
+		t.Error("c.Enabled was mutated despite parse failure")
+	}
+}
+
+func TestSetVoiceBoolField_DispatchesToEnabled(t *testing.T) {
+	c := &VoiceConfig{}
+	if err := setVoiceBoolField(c, fieldEnabled, "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !c.Enabled {
+		t.Error("setVoiceBoolField(fieldEnabled, \"true\") did not set c.Enabled")
+	}
+}
+
+func TestSetVoiceBoolField_DispatchesToPushToTalk(t *testing.T) {
+	c := &VoiceConfig{}
+	if err := setVoiceBoolField(c, "push_to_talk", "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !c.PushToTalk {
+		t.Error("setVoiceBoolField(\"push_to_talk\", \"true\") did not set c.PushToTalk")
+	}
+}
+
+func TestSetVoiceBoolField_DispatchesToSpeakerEnabled(t *testing.T) {
+	c := &VoiceConfig{}
+	if err := setVoiceBoolField(c, "speaker_enabled", "true"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !c.SpeakerEnabled {
+		t.Error("setVoiceBoolField(\"speaker_enabled\", \"true\") did not set c.SpeakerEnabled")
+	}
+}
+
+func TestSetVoiceBoolField_UnknownFieldIsSilentNoOp(t *testing.T) {
+	c := &VoiceConfig{Enabled: true} // pre-set
+	err := setVoiceBoolField(c, "totally_made_up_field", "true")
+	if err != nil {
+		t.Errorf("unknown field name must not return an error; got %v", err)
+	}
+	// Existing fields must not be clobbered by an unknown-field call.
+	if !c.Enabled {
+		t.Error("unknown-field call clobbered c.Enabled")
+	}
+}
