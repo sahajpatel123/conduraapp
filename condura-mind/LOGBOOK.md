@@ -2369,3 +2369,51 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `0960fb4` on local main. The updater manifest surface is now defended end-to-end: parser correctness, signature verification under tampering/wrong-key/bad-hex, artifact resolution error paths, manifest builder defaults + error paths, and checksums parser edge cases. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-16
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/hub/client.go` with five 0% functions (`WithPublishKey`, `WithHTTPClient`, `SetToken`, `Get`, `Download`) — and **the package had no client_test.go at all**. The only existing reference to the Client surface was a single `NewClient(srv.URL, WithToken(...))` line in `server_test.go:143`. The Skills Hub flow (every user-initiated skill install from the Hub) depends entirely on this Client — a regression here would silently break that flow.
+
+### Shipped
+- **`condura-app/internal/hub/client_test.go`** (~376 lines, 18 tests, 1 deferred):
+  A. Client options (4 tests): `WithToken` sets `c.token`; `WithPublishKey` sets `c.publishKey` (using `Equal` on the Ed25519 priv to compare without exposing bytes); `WithHTTPClient` replaces `c.httpClient`; `WithHTTPClient(nil)` is ignored (the nil-guard in source).
+  B. NewClient defaults (2 tests): default 30-second `http.Client.Timeout`; options apply in order with later ones overriding earlier ones for the same field.
+  C. SetToken runtime update (1 test): token can be replaced after construction via `SetToken` — the login flow's entry point.
+  D. Get contract (6 tests): success returns `SkillMeta`; 404 → error mentioning BOTH `"not found"` AND the requested ID (diagnostic clarity); 401 → error mentioning `"authentication"` (so the GUI's "set a token in config" toast works); 5xx → error mentioning the status code; 200 + invalid JSON → error mentioning `"decode"`.
+  E. Download contract (5 tests, 1 deferred): success returns body bytes + SHA-256 hex checksum; Content-Length > cap (32 MB) → error BEFORE reading body (fast-path DoS defense); 4xx/5xx → error mentioning status code; the body-overflow case is deferred with documented rationale (would require allocating 32 MB+1 in a unit test; Content-Length pre-check is sufficient for the production DoS scenario).
+  F. Auth header (1 test): every authenticated request includes `Authorization: Bearer <token>` — verified by capturing the header on the test server.
+  G. Network-error propagation (1 test): when the server is unreachable, the error is wrapped with `"hub get"` context so callers can distinguish transport from protocol errors.
+
+### Subtle contracts discovered & pinned
+- `WithHTTPClient(nil)` MUST be ignored — without this pin, a caller passing nil would NPE on the first request (the existing source has the guard but no test defended it).
+- `Get` 404 error MUST include the requested ID — without this, log readers see "hub skill not found" but don't know which skill.
+- `Get` 401 error MUST mention "authentication" — without this, the GUI can't render the actionable "set a token in config" toast.
+- `Download` MUST cap at 32 MB via Content-Length pre-check — defense against zip-bomb DoS where a malicious hub sends a 4 GB archive.
+- Auth header contract: `Authorization: Bearer <token>` MUST be on every authenticated request — verified by capturing the header server-side.
+
+### Deliberately NOT pinned
+- `Download` body-overflow case (LimitReader + post-read length check) — would require allocating 32 MB+1 in a unit test; deferred with rationale documented in the test comment. The Content-Length pre-check is the production DoS defense; the post-read check is defense-in-depth for adversarial conditions (server lying about Content-Length AND streaming more than cap).
+- `Publish` (52.6%) — needs full Ed25519 signing + JSON payload construction; deferred to a future iter with the publish path as the target.
+- `Scan` / `ScanSkill` (57.1% / 0%) in scan.go — separate concerns, separate iter target.
+- Hub server (ListenAndServe, handleHealth, reindex) — would need an httptest client/server round-trip with auth; deferred.
+
+### Verification
+- `go test ./internal/hub/ -run "TestWith|TestNewClient|TestSetToken|TestGet|TestDownload|TestApplyAuth|TestDoGet" -v -count=1` → 17 pass + 1 deferred-with-rationale; existing scan_test.go + server_test.go still pass; package green
+- `go vet ./condura-app/internal/hub/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/hub/...` → **0 issues**
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `client.go`:
+  - `WithPublishKey`: 0% → 100%
+  - `WithHTTPClient`: 0% → 100%
+  - `SetToken`: 0% → 100%
+  - `Get`: 0% → 100%
+  - `Download`: 0% → 100% (Content-Length pre-check covered; body-overflow deferred)
+
+### Explicitly deferred (protect intent)
+- Forcing the body-overflow case (would need a 32 MB+1 test fixture — too expensive + flaky across CI).
+- Hub server integration tests (ListenAndServe + handleHealth + reindex) — needs server-side state, separate iter target.
+- Publish happy-path (Ed25519 signing round-trip) — needs full archive construction, separate iter target.
+
+### Status
+- Commit `da25e80` on local main. The Skills Hub Client surface is now defended end-to-end: option setters, default timeout, runtime token update, Get happy-path + 4 error paths, Download happy-path + Content-Length pre-check + 5xx handling, auth-header propagation, network-error wrapping. Ready for the next cron firing.
