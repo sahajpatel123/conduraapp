@@ -88,3 +88,79 @@ func TestStore_ConflictsClear(t *testing.T) {
 		t.Errorf("after clear: got %d conflicts", got)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// VectorClock.Merge + VectorClock.Equal — CRDT primitives
+//
+// VectorClock is the foundation of the sync engine's causal ordering.
+// Merge computes the element-wise maximum of two clocks; Equal
+// tests structural identity. A bug in either would let the sync
+// engine either lose history (Merge taking minimum instead of
+// max) or report false-positive concurrency (Equal returning
+// true for different clocks).
+//
+// Before: Merge 0% and Equal 0% coverage. The Store-level merge
+// tests cover the higher-level "did we record a conflict?"
+// question but not these foundational CRDT operations.
+// -----------------------------------------------------------------------------
+
+func TestVectorClock_Merge_TakesElementwiseMax(t *testing.T) {
+	vc := VectorClock{"a": 1, "b": 2, "c": 3}
+	other := VectorClock{"a": 5, "b": 1, "d": 7} // "d" not in vc
+	vc.Merge(other)
+
+	want := VectorClock{"a": 5, "b": 2, "c": 3, "d": 7}
+	if !vc.Equal(want) {
+		t.Errorf("Merge result = %v, want %v (element-wise max)", vc, want)
+	}
+}
+
+func TestVectorClock_Merge_DoesNotMutateOther(t *testing.T) {
+	vc := VectorClock{"a": 1, "b": 2}
+	other := VectorClock{"a": 5, "b": 1}
+	// Snapshot of other before Merge.
+	before := VectorClock{"a": 5, "b": 1}
+
+	vc.Merge(other)
+
+	// Merge modifies vc in place; it MUST NOT touch other.
+	// A regression that wrote into both maps would silently
+	// corrupt the caller-side state.
+	if !other.Equal(before) {
+		t.Errorf("Merge mutated 'other' — caller-side state should be untouched. before=%v after=%v", before, other)
+	}
+}
+
+func TestVectorClock_Merge_EmptyOther_LeavesVcUnchanged(t *testing.T) {
+	vc := VectorClock{"a": 1, "b": 2}
+	vc.Merge(VectorClock{}) // empty merge
+
+	want := VectorClock{"a": 1, "b": 2}
+	if !vc.Equal(want) {
+		t.Errorf("Merge with empty other modified vc = %v, want %v", vc, want)
+	}
+}
+
+func TestVectorClock_Equal_IdenticalClocks(t *testing.T) {
+	a := VectorClock{"a": 1, "b": 2}
+	b := VectorClock{"a": 1, "b": 2}
+	if !a.Equal(b) {
+		t.Errorf("Equal(identical clocks) = false, want true")
+	}
+}
+
+func TestVectorClock_Equal_DifferentLengthsReturnsFalse(t *testing.T) {
+	a := VectorClock{"a": 1, "b": 2}
+	b := VectorClock{"a": 1} // missing b
+	if a.Equal(b) {
+		t.Errorf("Equal(clocks with different lengths) = true, want false")
+	}
+}
+
+func TestVectorClock_Equal_DifferentValuesReturnsFalse(t *testing.T) {
+	a := VectorClock{"a": 1, "b": 2}
+	b := VectorClock{"a": 1, "b": 3} // same length, b differs
+	if a.Equal(b) {
+		t.Errorf("Equal(clocks with different values) = true, want false")
+	}
+}
