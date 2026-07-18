@@ -745,3 +745,80 @@ func TestDefault_VoiceConfig(t *testing.T) {
 		t.Errorf("default binary_sha256 = %q, want empty", cfg.Voice.BinarySHA256)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// isUnderDir — path-traversal safety check for OverrideDataDir
+//
+// Used by OverrideDataDir to verify a caller-supplied data directory
+// is actually inside the expected root. A regression in this check
+// would let a malicious or misconfigured override escape the
+// intended data root (e.g., point data at /etc or $HOME).
+// -----------------------------------------------------------------------------
+
+func TestIsUnderDir_EmptyPath(t *testing.T) {
+	if isUnderDir("", "/some/dir") {
+		t.Fatal("isUnderDir with empty path must return false")
+	}
+}
+
+func TestIsUnderDir_EmptyDir(t *testing.T) {
+	if isUnderDir("/some/path", "") {
+		t.Fatal("isUnderDir with empty dir must return false")
+	}
+}
+
+func TestIsUnderDir_PathEqualsDir(t *testing.T) {
+	dir := t.TempDir()
+	if !isUnderDir(dir, dir) {
+		t.Fatal("isUnderDir must return true when path == dir")
+	}
+}
+
+func TestIsUnderDir_NestedPath(t *testing.T) {
+	dir := t.TempDir()
+	nested := filepath.Join(dir, "sub", "deeper", "file.json")
+	if !isUnderDir(nested, dir) {
+		t.Fatalf("isUnderDir(%q, %q) = false, want true (nested path is under dir)", nested, dir)
+	}
+}
+
+func TestIsUnderDir_EscapesViaParentTraversal(t *testing.T) {
+	dir := t.TempDir()
+	// Build a path that, after Clean, escapes the dir via "..".
+	// filepath.Clean normalizes "sub/../../escape" → "../escape", which
+	// sits OUTSIDE dir. The check MUST reject this.
+	escape := filepath.Join(dir, "sub", "..", "..", "escape")
+	if isUnderDir(escape, dir) {
+		t.Fatalf("isUnderDir(%q, %q) = true, want false (escapes via ..)", escape, dir)
+	}
+}
+
+// -----------------------------------------------------------------------------
+// PlatformIs* — runtime.GOOS wrappers
+//
+// These split out runtime.GOOS so callers (hotkey defaults, tray
+// title, code signing) don't have to import "runtime". Each function
+// returns true exactly on its target OS and false otherwise — so
+// regardless of which OS the test runs on, exactly ONE of the three
+// is true and the other two are false.
+// -----------------------------------------------------------------------------
+
+func TestPlatformIs_ExactlyOneTrue(t *testing.T) {
+	cases := []struct {
+		name string
+		fn   func() bool
+	}{
+		{"PlatformIsMac", PlatformIsMac},
+		{"PlatformIsWindows", PlatformIsWindows},
+		{"PlatformIsLinux", PlatformIsLinux},
+	}
+	trues := 0
+	for _, tc := range cases {
+		if tc.fn() {
+			trues++
+		}
+	}
+	if trues != 1 {
+		t.Fatalf("expected exactly 1 of PlatformIs{Mac,Windows,Linux} to be true on the current runtime; got %d", trues)
+	}
+}
