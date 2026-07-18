@@ -2503,3 +2503,63 @@ Each test captures the original default via `Default()` and restores it via `t.C
 
 ### Status
 - Commit `86ee21b` on local main. The stream Manager's dependency-injection callback surface is now defended end-to-end: breaker fail-fast, breaker precedence over spend, spend cap error wrapping, setter overwrite, callback input contracts. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-19
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/uninstall/manifest.go` with three contract targets: `ManifestMismatch.Error()` at 0% (pure function, well-defined but uncovered), `DefaultManifest` at 60% (the empty-DataDir-fallback branch uncovered), and `EntriesForPaths` at 90% (the empty-DataDir branch uncovered). All three are real product surface in the uninstall flow — `ManifestMismatch` is the typed error that prevents silent data leaks when the running system created files outside the manifest, and the manifest helpers feed every uninstall invocation.
+
+### Shipped
+- **`condura-app/internal/uninstall/manifest_contracts_test.go`** (~181 lines, 5 tests + 1 deferred):
+  A. `TestManifestMismatch_Error` — `Error()` returns a string mentioning BOTH the count of unknown artifacts AND the paths AND the word `"refus"` to signal refusal. Diagnostic clarity for the GUI's "refusing to uninstall" toast.
+  B. `TestManifestMismatch_ErrorEmpty` — Empty unknowns: message still mentions `"0"` and `"refus"` (defensive formatting — count of 0 is unusual but should still render correctly).
+  C. `TestUninstall_ManifestMismatchRejectsUnknownArtifacts` — **DEFERRED with documented rationale**: `ManifestMismatch` is declared + `Error()` is implemented, but `Uninstall` does NOT YET detect unknown on-disk files. This is a real production safety gap (sub-phase 11D's "complete enumeration" invariant). Test is `t.Skip`'d with a clear comment for the next implementer.
+  D. `TestDefaultManifest_EmptyDataDirUsesHome` — empty DataDir falls back to `$HOME/.condura`. Defense against the explicit-DataDir-required regression.
+  E. `TestDefaultManifest_ExplicitDataDirPinsPaths` — explicit DataDir pins all paths (defense against the `$HOME`-fallback kicking in when it shouldn't).
+  F. `TestEntriesForPaths_EmptyDataDirReturnsNil` — `EntriesForPaths("")` returns nil (not empty slice). The existing `TestEntriesForPaths` in manifest_test.go relies on this nil-return contract.
+  G. `TestEntriesForPaths_NonexistentDataDirReturnsEmpty` — `EntriesForPaths` on an empty data dir returns exactly 1 path: the data dir itself (which always exists). Adjusted after discovering the "data dir itself" entry in the manifest.
+  H. `TestEntriesForPaths_AllManifestMembersAreReturned` — happy path: all manifest entries present => all returned.
+
+### Subtle contracts discovered & pinned
+- **`ManifestMismatch.Error()` format**: must mention count AND paths AND `refus` (or `refusing`/`refused`). The `"refus"` substring check is robust to tense variation.
+- **`DefaultManifest` empty-DataDir fallback**: critical for the default-flow invocation where the user runs `condurad uninstall` with no `--data-dir` flag.
+- **`EntriesForPaths` always counts the data dir itself**: the manifest includes `{Name: "data dir itself", Path: dataDir}` which is the ONE entry that always exists. The "empty data dir" case returns 1 entry, not 0 — this is the count you assert on.
+
+### **Discovery (deferred)**: `ManifestMismatch` return path is unimplemented
+
+This is the most important finding of iter-19. The type `ManifestMismatch` is declared with a doc-comment saying "ManifestMismatch is returned when the running system has created artifacts NOT in the manifest. Refuse to uninstall — we may leave data behind." But `Uninstall` does NOT YET detect unknown on-disk files. Production code currently does not detect unknown on-disk files in the data dir. This is a real production safety gap (sub-phase 11D's "complete enumeration" invariant):
+
+```go
+// ManifestMismatch is returned when the running system has
+// created artifacts NOT in the manifest. Refuse to uninstall —
+// we may leave data behind.
+type ManifestMismatch struct {
+    Unknown []string
+}
+```
+
+But no `return &ManifestMismatch{Unknown: ...}` exists anywhere in the production code. The error type is well-defined and `Error()` is correct, but the detection-and-return path is not wired up.
+
+This is a v0.2.0 backlog item. The test pin was kept (with `t.Skip`) so that when the detection path is implemented, the assertion is ready to enable.
+
+### Deliberately NOT pinned
+- `validateUninstallOptions` (70.6%) — internal helper, low-value pin target.
+- `PostUninstallGuide` (40%) — platform-specific paths, deferred.
+- The ManifestMismatch detection path itself — deferred (see Discovery above).
+
+### Verification
+- `go test ./internal/uninstall/ -run "TestManifestMismatch_|TestUninstall_ManifestMismatchRejectsUnknownArtifacts|TestDefaultManifest_|TestEntriesForPaths_" -v -count=1` → 5 pass + 1 deferred; existing 12 tests still pass; package green
+- `go vet ./condura-app/internal/uninstall/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/uninstall/...` → **0 issues** (after `gofmt` + removing unused `asManifestMismatch` helper that the deferred test no longer needed)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `manifest.go`:
+  - `ManifestMismatch.Error()`: 0% → 100%
+  - `DefaultManifest`: 60% → 100% (empty-fallback + explicit branches pinned)
+  - `EntriesForPaths`: 90% → 100% (empty + empty-data-dir branches pinned)
+
+### Explicitly deferred (protect intent)
+- Wiring `ManifestMismatch` into `Uninstall`'s detection path — real production safety gap, v0.2.0 backlog.
+- Pinning `validateUninstallOptions` internal helper — low-value target.
+
+### Status
+- Commit `a6ee3fc` on local main. The uninstall manifest surface is now defended end-to-end: typed-error format contract, DefaultManifest fallback semantics, EntriesForPaths edge cases. **Important discovery**: the ManifestMismatch return path is documented but unwired — a v0.2.0 backlog item. Ready for the next cron firing.
