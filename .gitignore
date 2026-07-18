@@ -60,6 +60,11 @@ venv/
 .venv/
 *.pyoxidizer/
 
+# One-off Python scratch (dev translation helpers, ad-hoc audit scripts, etc.)
+# Add tracked exceptions explicitly via `git add -f` if a tmp_*.py is meant to ship.
+/tmp_*.py
+**/tmp_*.py
+
 # Secrets and local config
 .env
 .env.local
