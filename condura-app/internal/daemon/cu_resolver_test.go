@@ -354,3 +354,30 @@ func TestRequireAXForNonRead_NonReadWithoutAX_Rejects(t *testing.T) {
 		t.Fatalf("expected error wrapping computeruse.ErrNoBackend; got %v", err)
 	}
 }
+
+// -----------------------------------------------------------------------------
+// captureScreenshot — best-effort screenshot capture
+//
+// captureScreenshot MUST return "" on any failure path (nil shots,
+// nil cu, CaptureScreen error, empty image, ScreenshotStore.Put
+// error). Screenshots are advisory metadata for the replay store;
+// they must NEVER block execution.
+//
+// Before: 22.2% coverage. The nil-shots and nil-cu early-return
+// branches were untested.
+// -----------------------------------------------------------------------------
+
+func TestCUResolver_CaptureScreenshot_NilShotsReturnsEmpty(t *testing.T) {
+	cu, _ := resolverMocks()
+	r := NewCUResolver(cu, nil)
+	if got := r.captureScreenshot(context.Background(), "test"); got != "" {
+		t.Errorf("captureScreenshot with nil shots = %q, want empty", got)
+	}
+}
+
+func TestCUResolver_CaptureScreenshot_NilCuReturnsEmpty(t *testing.T) {
+	r := &CUResolver{}
+	if got := r.captureScreenshot(context.Background(), "test"); got != "" {
+		t.Errorf("captureScreenshot with nil cu = %q, want empty", got)
+	}
+}
