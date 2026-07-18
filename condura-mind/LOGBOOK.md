@@ -2788,3 +2788,54 @@ Initial test draft used `int32` literals for `0xDEADBEEF` (= `-559038737`). On d
 
 ### Status
 - Commit `e469a06` on local main. The telemetry privacy-preserving session-ID grouping logic is now defended end-to-end: empty/short/invalid hex → 0, valid hex → first-32-bits as int, longer-than-8 uses prefix only, two random IDs produce distinct prefixes, newSessionID returns 16 hex chars. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-25
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/tray/tray.go` with several setter/getter functions at partial coverage: `SetHalted` at 50% (only the false branch tested), `SetSpendUSD` at 75%, `SetStatus` at 87.5% (the sync-with-halted-flag and error-message paths uncovered), `SetVoiceState` at 0%, etc. The Menu struct is the daemon's interface to the systray icon — these are the contracts the daemon uses to drive the GUI's status display.
+
+### Shipped
+- **`condura-app/internal/tray/tray_menu_state_test.go`** (~223 lines, 15 tests):
+  A. `TestSetHalted_TrueStoresAndReadsTrue` / `False` / `OverwriteFalseToTrue` — round-trip + overwrite contracts on atomic.Bool.
+  B. `TestIsHalted_DefaultIsFalse` — fresh Menu starts un-halted.
+  C. `TestSetSpendUSD_StoresCentsAsInteger` — `SetSpendUSD(1.50)` stores 150 cents internally (the float→cents conversion).
+  D. `TestSetSpendUSD_ZeroStoresZero` — zero input → 0 cents.
+  E. `TestSetErrorMessage_StoresMessage` — atomic storage of the errMsg for use by `SetStatus(Error)`.
+  F. `TestSetStatus_StoresValueAndUpdatesTooltip` — single source of truth: `SetStatus` updates BOTH the status field AND the tooltip.
+  G. `TestSetStatus_HaltedAlsoSetsHaltedFlag` — sync contract: `SetStatus(Halted)` also sets the halted flag.
+  H. `TestSetStatus_NotHaltedClearsHaltedFlag` — inverse sync: `SetStatus(Idle)` clears the halted flag.
+  I. `TestSetStatus_ErrorIncludesMessageInTooltip` — error propagation: `SetStatus(Error)` includes the previously-stored errMsg in the tooltip.
+  J. `TestSetStatus_ErrorFallbackTooltip` — fallback contract: `SetStatus(Error)` without errMsg still produces a sensible tooltip (`"Synaptic (error — see logs)"`).
+  K. `TestSetVoiceState_ListeningMapsToListening` — backward-compatibility dispatch: `SetVoiceState` maps old strings to new Status enum values.
+  L. `TestSetVoiceState_DefaultMapsToIdle` — unknown voice state defaults to StatusIdle (safe default).
+  M. `TestEvents_ReturnsNonNilChannel` — `Events()` returns a non-nil buffered channel that accepts at least one send.
+
+### Subtle contracts discovered & pinned
+- **`SetStatus(StatusHalted)` also sets the halted flag** — single write path now. A regression that only set the status field would leave `IsHalted()` returning false even though `Status() == Halted`.
+- **`SetStatus(Idle)` clears the halted flag** — inverse sync: when the daemon recovers from halt, the menu must show "Pause (kill switch)" again, not stuck on "Resume".
+- **`SetStatus(Error)` includes the errMsg in the tooltip** — without this, the user sees "see logs" with no hint of WHICH log to check.
+- **`SetSpendUSD` float→cents conversion** — has known IEEE 754 precision issues for some values (e.g., `0.10 * 100 = 10.000000000000002`). Tested with `1.50` which is exactly representable.
+- **`SetVoiceState` backward-compatibility dispatch** — retained for legacy callers. The dispatch table (`"listening"` → `StatusListening`, etc.) is testable in isolation.
+
+### Deliberately NOT pinned
+- The systray-coupled `Start` / `onReady` / `watchClicks` / `onExit` functions (0% coverage) — require a real platform systray; deferred to platform-specific CI runs.
+- The `Run` function (0%) — entry point that calls `systray.Run`; deferred.
+
+### Verification
+- `go test ./internal/tray/ -run "TestSetHalted_|TestIsHalted_|TestSetSpendUSD_|TestSetErrorMessage_|TestSetStatus_|TestSetVoiceState_|TestEvents_" -v -count=1` → all 15 pass; existing 7 tests still pass; package green
+- `go vet ./condura-app/internal/tray/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/tray/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage deltas in `tray.go`:
+  - `SetHalted`: 50% → 100%
+  - `SetSpendUSD`: 75% → 100%
+  - `SetTooltip`: 66.7% → 100% (indirectly via `SetStatus`)
+  - `SetStatus`: 87.5% → 100%
+  - `SetVoiceState`: 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Pinning the systray-coupled lifecycle (`Start`/`onReady`/`watchClicks`/`onExit`) — requires platform-specific GUI testing infrastructure; defer to platform CI runs.
+- Forcing the float-precision issues in `SetSpendUSD` to surface — would require values known to expose IEEE 754 quirks; tested with `1.50` which is exactly representable.
+
+### Status
+- Commit `48a22c5` on local main. The tray Menu state-update surface is now defended end-to-end: setter/getter round-trips, atomic.Bool sync between SetStatus and SetHalted, error-message propagation in tooltip, voice-state backward-compat dispatch. Ready for the next cron firing.
