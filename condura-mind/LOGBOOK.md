@@ -2087,3 +2087,31 @@ These are documented in the user's audit conversation (next-message ask). Will p
 
 ### Status
 - Commit `cc5a33b` on local main. The magic-link auth surface is now defended end-to-end: URL config reset + override, email pre-validation, wire format, status-code diagnostics, JSON-decode failure, empty-email defense, session creation + provider tagging. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-8-backup
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Targeted the restore.go helper contracts: validateRestoreOptions (the missing MasterKey-length error branch), shortHash (the SHA-256 truncation helper for InspectManifest), and mustDecodeBase64 (the silent-failure decode helper).
+
+### Shipped
+- **`internal/backup/restore_helpers_test.go`** (215 lines, 10 tests):
+  A. `validateRestoreOptions` (5): happy-path, missing-ArchivePath, missing-DataDir, bad-MasterKey-length table-driven (nil/31/33/64 bytes), and a separate test pinning the `fmt.Errorf %d` contract so the error message includes the ACTUAL length.
+  B. `shortHash` (3): long-string-returns-prefix, exact-prefix-boundary (the `>=` not `>` semantics), short-string-passes-through (defensive against a future SHA-256-length validation regression).
+  C. `mustDecodeBase64` (2): valid round-trip + silent-failure contract (the name suggests panic-on-failure per Go `Must*` convention, but the implementation does NOT panic — the test name and docstring flag this divergence as intentional).
+
+### Concurrent-session note
+- A different autonomous session was active in parallel during iter-8, working on different surfaces (magic-link auth in `internal/account/`, skills archive parsing in `internal/skills/`). That session's commits `cc5a33b` (test(account): magic-link) and `64583d9` (docs(logbook): iter-8 magic-link) landed on the same `main` branch before my session's commit `c25ab91`.
+- When I ran `git add condura-app/internal/backup/restore_helpers_test.go`, an unrelated untracked file `condura-app/internal/skills/archive_test.go` (the concurrent session's test for `skills.ParseArchive`) was also picked up and committed in `c25ab91`. The file is good work (full Skill JSON unmarshalling contract pinning) — not malicious — but my commit message only describes the backup helpers work. The skills archive test deserves its own commit with its own message; future ops should consider splitting that file out into a follow-up commit if a clean history is needed.
+- This is a known hazard of running concurrent /loop iterations on the same `main` branch without isolation. The same author (`sahajpatel123`) on git config means concurrent commits are indistinguishable to git.
+
+### Verification
+- `go test ./internal/backup/ -run "TestValidateRestoreOptions|TestShortHash|TestMustDecodeBase64" -v -count=1` → all 10 pass
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta: `validateRestoreOptions` 57.1% → 100%; `mustDecodeBase64` 0% → 100%; `shortHash` 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Splitting `condura-app/internal/skills/archive_test.go` out of `c25ab91` into its own commit — would require `git reset --soft HEAD~1` + selective re-stage + re-commit, which would also re-touch the concurrently-committed work. Left as-is to avoid disrupting the other session's work-in-flight.
+- `len(got) != 0` instead of `got != nil` in `TestMustDecodeBase64_InvalidInputReturnsEmpty` — `[]byte(nil)` formats as `[]` in `%v`, so a nil-check on the formatted string would be ambiguous. The len-check matches the production reality (decode failure returns nil bytes; nil bytes have len 0).
+
+### Status
+- Commit `c25ab91` on local main (pushed). Three restore.go helpers defended end-to-end. The concurrent-session commit inclusion is documented above for the next reviewer. Ready for the next cron firing.
