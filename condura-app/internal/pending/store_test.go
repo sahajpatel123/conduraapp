@@ -402,7 +402,7 @@ func TestStore_StopIsIdempotent(t *testing.T) {
 }
 
 // TestStore_SweepLoop_RespondsToContextCancel pins that the sweeper
-// goroutine exits when its context is cancelled. Without this
+// goroutine exits when its context is canceled. Without this
 // behavior, a daemon shutdown that relies only on ctx-cancel (not
 // the explicit Stop) would leak the sweeper goroutine until
 // process exit.

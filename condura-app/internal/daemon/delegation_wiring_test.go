@@ -284,7 +284,7 @@ var _ = filepath.Base
 // client can act on. Code mapping is a security contract: callers
 // distinguish "user can fix this" (CodeInvalidParams, e.g. unknown
 // agent) from "system rejected this" (codeGatekeeperDeny, e.g.
-// autonomy policy) from "transient/cancelled" (codeCancelled) from
+// autonomy policy) from "transient/canceled" (codeCancelled) from
 // "something else broke" (CodeInternalError). A regression that
 // collapses everything to CodeInternalError would silently degrade
 // client retry logic; a regression that downgrades GatedDeny to
