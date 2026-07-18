@@ -2025,3 +2025,29 @@ These are documented in the user's audit conversation (next-message ask). Will p
 ### Status
 - Commit `6afb8a7` on local main. `Store.GetRecentMessages` is now defended end-to-end: ErrNotFound guard, limit=0 / limit>0 branches, sort-direction contract, empty-conversation boundary, all pinned. Ready for the next cron firing.
 
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-7
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Targeted the daemon's path-getter trio: `GeneralDataDir`, `MemoryDBPath`, `SkillDBPath` — all at 0% coverage. These are the "single source of truth" (per the docstring on SkillDBPath) for where the auxiliary DB files live; every caller (daemon builder buildPhase12, backup ReloadAuxiliaryDatabases, uninstall) goes through them.
+
+### Shipped
+- **`internal/daemon/subsystems_paths_test.go`** (196 lines, 7 tests):
+  A. `GeneralDataDir` (2): nil-receiver + Storage-nil guards (return empty string); returns parent directory of condura.db, NOT the .db file itself.
+  B. `MemoryDBPath` (2): same nil guards; lives alongside main DB (NOT a sibling — the classic pre-fix bug was `filepath.Dir(dataDir)/memory.db`, one level UP).
+  C. `SkillDBPath` (2): same nil guards; same alongside-not-sibling contract.
+  D. Cross-cutting (1): MemoryDBPath and SkillDBPath MUST return distinct paths — a regression aliasing one to the other would corrupt both stores on first open.
+
+  Helper: `filepathHasPrefix` uses `filepath.Rel` to normalize before the prefix check, so trailing separators and `..` segments don't fool the comparison.
+
+### Verification
+- `go test ./internal/daemon/ -run "TestGeneralDataDir|TestMemoryDBPath|TestSkillDBPath|TestPathGetters_" -v -count=1` → all 7 pass
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta: `GeneralDataDir`, `SkillDBPath`, `MemoryDBPath` all 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Pushing — completed in this iteration (commit `dc85e4a`).
+- The Windows-path edge cases (drive-letter, UNC paths) — same `filepath.Rel` behavior on Windows would change; deferred to a cross-platform test pass.
+
+### Status
+- Commit `dc85e4a` on local main. The path-getter trio that the daemon, backup, and uninstall subsystems all rely on is now defended end-to-end. Ready for the next cron firing.
+
