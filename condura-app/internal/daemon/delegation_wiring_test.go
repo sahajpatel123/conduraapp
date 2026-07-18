@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/blastradius"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/delegation"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/gatekeeper"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/pending"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/storage"
@@ -274,3 +276,66 @@ func (r *recordingGatekeeper) Evaluate(_ context.Context, a blastradius.Action) 
 // import stays live across future tidy runs even if the only
 // usage at the bottom of the file disappears.
 var _ = filepath.Base
+
+// -----------------------------------------------------------------------------
+// mapSpawnError — delegation error → IPC error mapping
+//
+// Translates delegation sentinel errors into IPC error codes that the
+// client can act on. Code mapping is a security contract: callers
+// distinguish "user can fix this" (CodeInvalidParams, e.g. unknown
+// agent) from "system rejected this" (codeGatekeeperDeny, e.g.
+// autonomy policy) from "transient/cancelled" (codeCancelled) from
+// "something else broke" (CodeInternalError). A regression that
+// collapses everything to CodeInternalError would silently degrade
+// client retry logic; a regression that downgrades GatedDeny to
+// CodeInvalidParams would let clients retry forever on policy
+// denials.
+// -----------------------------------------------------------------------------
+
+func TestMapSpawnError_AgentNotFound_InvalidParams(t *testing.T) {
+	got := mapSpawnError(delegation.ErrAgentNotFound)
+	if got == nil {
+		t.Fatal("mapSpawnError returned nil")
+	}
+	if got.Code != ipc.CodeInvalidParams {
+		t.Errorf("AgentNotFound → Code %d, want CodeInvalidParams (%d)", got.Code, ipc.CodeInvalidParams)
+	}
+}
+
+func TestMapSpawnError_RecursionLimit_InvalidParams(t *testing.T) {
+	got := mapSpawnError(delegation.ErrRecursionLimit)
+	if got.Code != ipc.CodeInvalidParams {
+		t.Errorf("RecursionLimit → Code %d, want CodeInvalidParams (%d)", got.Code, ipc.CodeInvalidParams)
+	}
+}
+
+func TestMapSpawnError_BudgetExceeded_InvalidParams(t *testing.T) {
+	got := mapSpawnError(delegation.ErrBudgetExceeded)
+	if got.Code != ipc.CodeInvalidParams {
+		t.Errorf("BudgetExceeded → Code %d, want CodeInvalidParams (%d)", got.Code, ipc.CodeInvalidParams)
+	}
+}
+
+func TestMapSpawnError_GatedDeny_GatekeeperDenyCode(t *testing.T) {
+	got := mapSpawnError(delegation.ErrGatedDeny)
+	if got.Code != codeGatekeeperDeny {
+		t.Errorf("GatedDeny → Code %d, want codeGatekeeperDeny (%d)", got.Code, codeGatekeeperDeny)
+	}
+}
+
+func TestMapSpawnError_ContextCanceled_CancelledCode(t *testing.T) {
+	got := mapSpawnError(context.Canceled)
+	if got.Code != codeCancelled {
+		t.Errorf("context.Canceled → Code %d, want codeCancelled (%d)", got.Code, codeCancelled)
+	}
+}
+
+func TestMapSpawnError_Unknown_InternalError(t *testing.T) {
+	got := mapSpawnError(errors.New("some unexpected failure"))
+	if got == nil {
+		t.Fatal("mapSpawnError returned nil for unknown error")
+	}
+	if got.Code != ipc.CodeInternalError {
+		t.Errorf("Unknown error → Code %d, want CodeInternalError (%d)", got.Code, ipc.CodeInternalError)
+	}
+}
