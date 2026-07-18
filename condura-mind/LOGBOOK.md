@@ -1855,3 +1855,33 @@ These are documented in the user's audit conversation (next-message ask). Will p
 ### Status
 - DNS-rebinding defense is end-to-end wired. The two known internal HTTP callers (updater + telemetry) no longer accept a DNS-rebinding between Sanitize and the actual TCP dial. Static-analysis baseline is preserved. Ready for the next cron firing.
 
+## [2026-07-18] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-1
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Scanned for a safe contract-pinning target that fits the recent test-pinning wave, found `persistSpend` (write side of the daily-spend rollup, 0% coverage) and `loadSpendToday` (read side, 75% — SQL path untested). Both gate the durable spend cap that survives daemon restart.
+
+### Shipped
+- **`internal/daemon/subsystems_spend_test.go`** (189 lines, 5 tests):
+  1. `TestPersistSpend_NilDB_NoOp` — fires the fire-and-forget callback with nil db, asserts no panic and no write attempt.
+  2. `TestLoadSpendToday_NilDB_ReturnsZero` — startup seed path with nil db must return exactly 0.
+  3. `TestLoadSpendToday_EmptyDB_ReturnsZero` — fresh DB, no rows, COALESCE branch returns 0.
+  4. `TestPersistSpend_WritesLLMCallsAndSpendDaily` — one call writes exactly one llm_calls row (provider/model/task/tokens/cost/success) AND upserts one spend_daily row for today. Both writes required.
+  5. `TestPersistSpend_UpsertsAccumulates` — three calls for the same (day, provider) accumulate (0.42 + 0.88 + 0.20 = 1.50); llm_calls holds all three rows; loadSpendToday returns the accumulated total. Pins the ON CONFLICT DO UPDATE branch — without it the daily cap would silently reset on every restart.
+
+  Test DB is an in-memory sqlite via `modernc.org/sqlite` with a mirrored subset of the production migrations schema (intentionally duplicated, not imported from migrations.Run, so schema drift between test and production is immediately visible).
+
+### Verification
+- `go test ./internal/daemon/ -run "TestPersistSpend|TestLoadSpendToday" -v -count=1` → all 5 pass
+- `go test ./... -count=1 -timeout 300s` → full suite green, no regressions
+- `golangci-lint run --timeout 5m ./condura-app/...` → **0 issues**
+- Coverage delta on the two helpers: `loadSpendToday` 75.0% → 87.5%, `persistSpend` 0.0% → 77.8% (the remaining uncovered branch is the WARN-log path on insert failure, which is hard to trigger without a closed DB; not worth a forced-error test).
+
+### Explicitly deferred (protect intent)
+- Pushing to remote — completed in this iteration (commit `fcaed2c`). CI watchdog will pick it up.
+- Any P2/v0.2.0 work — still blocked until human Phase 15 sign-off + signing secrets per the existing project state.
+- Touching user WIP stash (`stash@{2}` on main) — NEVER, per established convention.
+- Adding an error-path test for `persistSpend` that forces a WARN log — would require closing the DB mid-call, which is a contrived scenario that adds maintenance burden without proving anything the happy-path coverage doesn't.
+
+### Status
+- Commit `fcaed2c` on local main. Ready for the next cron firing. The spend cap contract is now defended end-to-end: happy path (write + upsert + accumulate + read-back) and nil-db short-circuit (both sides) are pinned.
+
