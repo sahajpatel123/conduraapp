@@ -2563,3 +2563,46 @@ This is a v0.2.0 backlog item. The test pin was kept (with `t.Skip`) so that whe
 
 ### Status
 - Commit `a6ee3fc` on local main. The uninstall manifest surface is now defended end-to-end: typed-error format contract, DefaultManifest fallback semantics, EntriesForPaths edge cases. **Important discovery**: the ManifestMismatch return path is documented but unwired — a v0.2.0 backlog item. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-20
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/ipc/client.go` with three 0% functions: `Addr` (the configured-address getter), `ReadAddrFile` (the daemon's IPC discovery path — reads `<dataDir>/condurad.addr`), and `DefaultDataDir` (returns `~/.condura`). All three are entry-point helpers used by the GUI and daemon for IPC discovery. A regression in any of them would silently break the GUI's ability to find the daemon.
+
+### Shipped
+- **`condura-app/internal/ipc/client_helpers_test.go`** (~141 lines, 9 tests):
+  A. `TestClient_Addr_ReturnsConfigured` — Addr() returns the configured address (round-trip).
+  B. `TestClient_Addr_EmptyForUnconfigured` — zero-value Client returns Addr() == `""` (defensive — protects against nil-receiver regression).
+  C. `TestReadAddrFile_ReadsExistingFile` — happy path: file exists, returns trimmed contents. The GUI's IPC discovery path.
+  D. `TestReadAddrFile_TrimsWhitespace` — leading/trailing whitespace (newlines from `echo`) MUST be stripped. Without this, the GUI would dial `"127.0.0.1:9999\n"` and fail.
+  E. `TestReadAddrFile_MissingFileReturnsEmpty` — missing file returns `""` (NOT an error). The GUI checks for `""` to decide "daemon not running" vs "daemon running on X".
+  F. `TestReadAddrFile_EmptyFileReturnsEmpty` — empty file returns `""`.
+  G. `TestReadAddrFile_DirectoryNotFoundReturnsEmpty` — non-existent directory returns `""` (NOT panic, NOT error).
+  H. `TestDefaultDataDir_ReturnsHomeSlashCondura` — default is `$HOME/.condura`.
+  I. `TestDefaultDataDir_PathSeparatorIsCorrect` — uses the OS-native path separator (forward slash on Unix, backslash on Windows). Defense against the hardcoded `/` regression that would fail on Windows.
+
+### Subtle contracts discovered & pinned
+- **`ReadAddrFile` returns `""` (not error) on every failure mode**: missing file, empty file, missing directory. The GUI's discovery path depends on this — returning errors would force every caller into error-handling boilerplate.
+- **`DefaultDataDir` uses OS-native separator**: a hardcoded `/` would fail on Windows where the data dir is `C:\Users\X\.condura`. The test pins this via `filepath.Base` + `filepath.Dir` checks (both separator-agnostic).
+
+### Deliberately NOT pinned
+- The deeper `Dial` function path (74.4% → could go higher) — needs a fake HTTP server; complex enough to defer.
+- `IsConnRefused` 75% → 100% — needs contrived network errors; deferred.
+- `Call` function's error wrapping paths — needs a real HTTP server returning malformed JSON; deferred.
+
+### Verification
+- `go test ./internal/ipc/ -run "TestClient_Addr_|TestReadAddrFile_|TestDefaultDataDir_" -v -count=1` → all 9 pass; existing 18+ tests still pass; package green
+- `go vet ./condura-app/internal/ipc/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/ipc/...` → **0 issues** (after `gofmt` + `staticcheck` S1021 fix — merged `var c *Client; c = &Client{}` into `c := &Client{}`)
+- Full repo suite (`go test ./... -count=1 -timeout 300s`) → exit 0 (no secrets flake this run)
+- Coverage deltas in `client.go`:
+  - `Addr`: 0% → 100%
+  - `ReadAddrFile`: 0% → 100%
+  - `DefaultDataDir`: 0% → 100%
+
+### Explicitly deferred (protect intent)
+- Wiring the deeper `Dial` paths and `Call` error wrappers — would require a real HTTP test server; defer to a future iter with the HTTP-fixture infrastructure.
+- `IsConnRefused` partial — needs contrived network errors.
+
+### Status
+- Commit `bcb526b` on local main. The IPC client helper surface (Addr / ReadAddrFile / DefaultDataDir) is now defended end-to-end: getter round-trip, file discovery happy-path + every failure mode, home-dir fallback, OS-native separator. Ready for the next cron firing.
