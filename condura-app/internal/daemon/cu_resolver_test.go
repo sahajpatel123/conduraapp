@@ -303,3 +303,54 @@ func (s *sequencedAXBackend) GetAXTree(_ context.Context) (*computeruse.AXTree, 
 func (s *sequencedAXBackend) Execute(_ context.Context, a *computeruse.Action) (*computeruse.ActionResult, error) {
 	return &computeruse.ActionResult{Success: true, Action: a, Duration: time.Millisecond}, nil
 }
+
+// -----------------------------------------------------------------------------
+// requireAXForNonRead — security guardrail for computer-use actions
+//
+// The function refuses to execute non-READ computer-use actions when the
+// pre-action AX tree snapshot is nil (capture failed — no Accessibility
+// permission or no AX backend). Without this guard, the agent could
+// click/type/launch arbitrary targets without verification of what's
+// actually on screen, turning the computer-use flow into a foot-gun.
+// -----------------------------------------------------------------------------
+
+func TestRequireAXForNonRead_AXSnapshotPresent_Passes(t *testing.T) {
+	r := &CUResolver{}
+	pre := &computeruse.Snapshot{} // non-nil = AX captured successfully
+	action := &computeruse.Action{Type: computeruse.ActionClick}
+	if err := r.requireAXForNonRead(pre, action); err != nil {
+		t.Fatalf("requireAXForNonRead with non-nil pre should pass; got %v", err)
+	}
+}
+
+func TestRequireAXForNonRead_NilAction_Passes(t *testing.T) {
+	r := &CUResolver{}
+	pre := (*computeruse.Snapshot)(nil)
+	if err := r.requireAXForNonRead(pre, nil); err != nil {
+		t.Fatalf("requireAXForNonRead with nil action should pass; got %v", err)
+	}
+}
+
+func TestRequireAXForNonRead_EmptyActionType_Passes(t *testing.T) {
+	r := &CUResolver{}
+	pre := (*computeruse.Snapshot)(nil)
+	action := &computeruse.Action{Type: ""}
+	if err := r.requireAXForNonRead(pre, action); err != nil {
+		t.Fatalf("requireAXForNonRead with empty Type should pass; got %v", err)
+	}
+}
+
+func TestRequireAXForNonRead_NonReadWithoutAX_Rejects(t *testing.T) {
+	r := &CUResolver{}
+	pre := (*computeruse.Snapshot)(nil)
+	// ActionClick is non-READ (it modifies UI state) and the AX
+	// snapshot is nil. The guard MUST refuse to execute.
+	action := &computeruse.Action{Type: computeruse.ActionClick}
+	err := r.requireAXForNonRead(pre, action)
+	if err == nil {
+		t.Fatal("requireAXForNonRead must reject non-READ action without AX snapshot")
+	}
+	if !errors.Is(err, computeruse.ErrNoBackend) {
+		t.Fatalf("expected error wrapping computeruse.ErrNoBackend; got %v", err)
+	}
+}
