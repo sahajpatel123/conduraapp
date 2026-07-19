@@ -1013,8 +1013,38 @@ func cmdDoctor(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fix := fs.Bool("fix", false, "include generic init instructions when the data dir is missing")
 	check := fs.String("check", "", "run only the named check (e.g. main_db, config, lock) and skip the rest")
+	remediation := fs.String("remediation", "", "print the fix: line for the named check WITHOUT running the check (similar to 'condura explain <code>' for the doctor table)")
 	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
 		return err
+	}
+
+	// --remediation: print just the fix: line for the named
+	// check. No validate.Run(), no filesystem stats, no
+	// DB opens. Pure map lookup. Useful when the operator
+	// knows the failure and just wants the next step.
+	//
+	// Symmetric to `condura explain <code>` for the IPC
+	// error table: both translate a name to a next-step
+	// without doing the underlying check.
+	if *remediation != "" {
+		fix, ok := remediations[*remediation]
+		if !ok {
+			// Build the valid list from the remediations
+			// map itself. No hardcoding, no drift.
+			var valid []string
+			for k := range remediations {
+				valid = append(valid, k)
+			}
+			return fmt.Errorf("condura doctor: unknown check %q (valid: %s)", *remediation, strings.Join(valid, ", "))
+		}
+		if gf.jsonOut {
+			return printJSON(map[string]any{
+				"check":       *remediation,
+				"remediation": fix,
+			})
+		}
+		fmt.Printf("%s: %s\n", *remediation, fix)
+		return nil
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
