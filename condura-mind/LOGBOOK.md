@@ -3874,3 +3874,45 @@ The `TestTake_NoSecretsInSnapshot` test is the most valuable one in the file. It
 
 ### Status
 - Commit `2fee629` on local main (pushed). The full local-only support-tool trio is now live: `condura diag` (what does this look like?), `condura backup list/inspect` (what backups exist?), and `condura validate` (is it healthy?). Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-7
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: add IPC parity for the two iter-5 / iter-15 features. The GUI needs the same diagnostic / validate data the CLI has — `system.diag` and `system.validate` IPC methods close that gap.
+
+### Shipped (commit `695fea0`)
+- **2 NEW IPC METHODS** in `internal/daemon/methods.go`:
+  - `system.diag` — returns `diag.Snapshot` (same shape as `condura diag --json`). GUI's "Support" panel calls this to populate the support-ticket form.
+  - `system.validate` — returns `validate.Report` (same shape as `condura validate`). GUI's "First-run diagnostics" panel calls this on startup to show per-check pass/fail.
+
+- **Helper function extraction** (same pattern as iter-12 `gate()`):
+  - `systemDiagHandler(ctx, subs, params)` — package-private, called by both the IPC `srv.Register` and the test file.
+  - `systemValidateHandler(ctx, subs, params)` — same pattern.
+  - Inline closures in `srv.Register` are now 1-liners that delegate to the helpers. The duplication-vs-extraction tradeoff: handlers that need their own test (or might be called from elsewhere in the future) should be extracted. Both `system.diag` and `system.validate` pass that bar.
+
+- **4 NEW TESTS** in `internal/daemon/system_diag_ipc_test.go`:
+  1. `TestSystemDiagIPC_ReturnsSnapshot` — pins the snapshot contract (data_dir matches `GeneralDataDir()`, Version + Timestamp populated, JSON shape correct).
+  2. `TestSystemValidateIPC_ReturnsReport` — pins the report contract (data_dir matches, 7 checks populated).
+  3. `TestSystemDiagIPC_JSONRoundTrip` — the snapshot must marshal cleanly and unmarshal back (the public IPC contract).
+  4. `TestSystemValidateIPC_JSONRoundTrip` — the report must marshal cleanly and unmarshal back.
+
+- **Test helper** `newTestSubsystemsWithDataDir(t, dir)` — constructs a minimal `*Subsystems` with a real `storage.DB` at `dir`, so `GeneralDataDir()` returns the expected value. Uses the same `storage.Open` pattern as the other daemon tests.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (small targeted IPC addition)
+- **Performance polish**: ✓ (the handlers are 1-line delegations, no allocations)
+- **Real feature addition**: ✓ — 2 new IPC methods + the GUI can now call them
+- **Doc hardening**: ✓ — package-private helpers with clear doc-comments
+- **Test-pinning (real gap)**: ✓ — 4 contract tests pin the IPC contract (data shape, JSON round-trip, field population)
+
+### Verification
+- `go test ./internal/daemon/ -run "TestSystemDiagIPC|TestSystemValidateIPC" -v -count=1` → all 4 pass.
+- `go test ./... -count=1 -timeout 300s` → no failures.
+- `golangci-lint run --timeout 5m ./condura-app/internal/daemon/...` → **0 issues**.
+
+### Explicitly deferred (protect intent)
+- An `errors.As` structured-error chain in the `validate` package (currently uses sentinel-style errors). Out of scope; the current contract is fine for the IPC consumer.
+- A `validate` IPC method that returns a list of `Failed` check names (for the GUI to highlight). The full `Report` is already there; the GUI can iterate `Checks` and pull out the failures. A derived method is one line of code in the GUI.
+
+### Status
+- Commit `695fea0` on local main (pushed). The local-only support trio now has GUI parity: `condura diag` / `system.diag` and `condura validate` / `system.validate` share the same data shape. Ready for the next cron firing.
