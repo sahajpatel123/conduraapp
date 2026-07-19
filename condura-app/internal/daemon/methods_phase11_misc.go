@@ -44,8 +44,8 @@ func registerUninstallMethods(srv *ipc.Server, subs *Subsystems) {
 			ConfirmToken string `json:"confirm_token"`
 			SkipBackup   bool   `json:"skip_backup"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if !subs.GatekeeperAllow(ctx, "uninstall.execute", "Uninstall Condura from this machine") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
@@ -199,8 +199,8 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 			Status string `json:"status"`
 			Data   string `json:"data"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		return subs.Onboarding.SetStepStatus(ctx, onboarding.Step(p.Step), onboarding.Status(p.Status), p.Data)
 	})
@@ -233,8 +233,8 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Step string `json:"step"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if subs.Onboarding == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "onboarding subsystem not available"}
@@ -258,8 +258,8 @@ func registerOnboardingMethods(srv *ipc.Server, subs *Subsystems) {
 			EULAVersion        string `json:"eula_version"`
 			PermissionsSkipped bool   `json:"permissions_skipped"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if subs.Onboarding == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: "onboarding subsystem not available"}

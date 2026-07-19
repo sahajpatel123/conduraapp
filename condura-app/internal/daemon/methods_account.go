@@ -57,8 +57,8 @@ func accountOAuthURLHandler(subs *Subsystems) ipc.HandlerFunc {
 		var p struct {
 			Provider string `json:"provider"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		url, state, err := subs.Account.GenerateAuthURL(p.Provider, OAuthRedirectURI)
 		if err != nil {
@@ -77,8 +77,8 @@ func accountOAuthCallbackHandler(subs *Subsystems) ipc.HandlerFunc {
 			CodeVerifier string `json:"code_verifier"`
 			RedirectURI  string `json:"redirect_uri"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.Provider == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "missing provider"}
@@ -119,8 +119,8 @@ func accountMagicLinkHandler(subs *Subsystems) ipc.HandlerFunc {
 			Locale      string `json:"locale"`
 			RedirectURL string `json:"redirect_url"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.Locale == "" {
 			p.Locale = "en"
