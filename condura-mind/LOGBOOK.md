@@ -4182,3 +4182,45 @@ The user explicitly asked: "Is there any function that you have added for simpli
 
 ### Status
 - Commit `6ef2484` on local main (pushed). `condura explain` is live; this is the first command I added that directly helps a confused end-user without requiring them to read source code. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-2
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread (after `condura explain` in iter 22). Target: another simple, user-facing command. The backup-management loop (list → inspect → ?) was missing the delete step. `condura backup delete` closes it.
+
+### Shipped (commit `f80bbec`)
+- **NEW SUBCOMMAND `condura backup delete <archive> [--force]`**:
+  - Closes the "manage my backups" loop: list (iter-9), inspect (iter-9), now delete. No daemon IPC required.
+  - Local-only: reads the filesystem directly via `os.Lstat` + `os.Remove`. Same code path works whether the daemon is running or not.
+  - Safety: requires an EXPLICIT `.zip` basename. Rejects anything with slashes, `..`, or leading `.` (blocks path-traversal attempts like `../etc/passwd`). `Lstat` (not `Stat`) catches symlink-following exploits.
+  - Size-based confirmation: archives > 1 GiB prompt for `y/N` confirmation on stdin, OR `--force` to skip. Matches the `rm -i` / `trash` UX.
+  - Human-readable size output: "6 B", "1.5 KB", "12.3 MB", "1.2 GB". The confirmation prompt and the success message both use this format.
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura backup delete` is the missing CRUD step in the backup-management loop. The operator can already see what backups exist (`condura backup list`) and inspect one (`condura backup inspect <archive>`), but couldn't actually remove one without SSH + `rm`. This command lets them do it from the same shell, with the same safety story as the rest of the CLI.
+
+The "explicit name only" rule is the key safety property: a glob or date range would let the operator delete more than intended (`rm -rf` style). Requiring a single `.zip` name from the list output means the operator has to LOOK at the list, copy the exact name, and paste it back. The 1 GiB threshold catches the "I meant to delete the old small backup but typed the wrong filename and got the new 4 GB one" scenario.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI subcommand)
+- **Performance polish**: ✗ (single os.Remove call)
+- **Real feature addition**: ✓ — new `condura backup delete` subcommand; closes the backup-management loop
+- **Doc hardening**: ✓ — usage block at the top of the function explains the safety story; the "explicit name only" rule is documented inline
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration test pattern covers the CLI; the new subcommand is small enough that a single smoke test in the commit message is sufficient)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke: 3 paths verified:
+  - `condura backup delete test-1.zip` (small file) → "Deleted test-1.zip (6 B freed)"
+  - `condura backup delete ../etc/passwd` (path traversal attempt) → "invalid archive name" error
+  - `condura backup delete nonexistent.zip` (missing file) → "no such archive" error
+- `git push origin main` → `bc41a24..f80bbec`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `--older-than 30d` or `--keep-last 5` flag for retention-based bulk delete. Useful but adds API surface; the current "explicit name only" rule is the right safety default. A future iter can add retention-based delete as a separate command (`condura backup prune` or similar) so the safety story stays simple: `delete` = explicit, `prune` = retention-based.
+- A `--dry-run` flag that prints what would be deleted without actually deleting. Useful for paranoia checks; the size-based confirmation prompt + explicit-name rule already provide safety. A dry-run is an extra layer; defer until a use case appears.
+
+### Status
+- Commit `f80bbec` on local main (pushed). The backup-management loop is now complete: list → inspect → delete. All three are local-only (no daemon required). Ready for the next cron firing.
