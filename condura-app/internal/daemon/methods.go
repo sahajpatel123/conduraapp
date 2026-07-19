@@ -15,11 +15,13 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/api_key"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/audit"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/config"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/diag"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/failover"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/halt"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/llm"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/sanitize"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/validate"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
@@ -92,6 +94,20 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 	})
 	srv.Register("health.snapshot", func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return subs.Health.Snapshot(ctx), nil
+	})
+	// system.diag returns the local diagnostic snapshot (same
+	// shape as `condura diag --json`). GUI parity with the CLI:
+	// the "Support" panel in the GUI calls this to populate
+	// the support-ticket form.
+	srv.Register("system.diag", func(ctx context.Context, params json.RawMessage) (any, error) {
+		return systemDiagHandler(ctx, subs, params)
+	})
+	// system.validate runs the local install health checks
+	// (same shape as `condura validate`). GUI parity: the
+	// "First-run diagnostics" panel runs this on startup and
+	// shows the per-check pass/fail summary.
+	srv.Register("system.validate", func(ctx context.Context, params json.RawMessage) (any, error) {
+		return systemValidateHandler(ctx, subs, params)
 	})
 	// providers.list returns the full known catalog (for Settings) with
 	// models + available=true when the provider is registered for live calls.
@@ -418,4 +434,18 @@ func redactConfigSecrets(m map[string]any) {
 		}
 		providers[name] = p
 	}
+}
+
+// systemDiagHandler is the package-private IPC handler for
+// `system.diag`. Extracted from the inline closure so the
+// test file can invoke it directly without spinning up an
+// ipc.Server. The production registration calls this with
+// the IPC params (currently nil — no input needed).
+func systemDiagHandler(_ context.Context, subs *Subsystems, _ json.RawMessage) (any, error) {
+	return diag.Take(subs.GeneralDataDir()), nil
+}
+
+// systemValidateHandler is the same pattern for `system.validate`.
+func systemValidateHandler(ctx context.Context, subs *Subsystems, _ json.RawMessage) (any, error) {
+	return validate.Run(ctx, subs.GeneralDataDir()), nil
 }
