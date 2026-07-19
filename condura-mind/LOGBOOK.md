@@ -4692,3 +4692,64 @@ The valid list is built from `r.Checks` (the actual report), not from a hardcode
 
 ### Status
 - Commit `f75a579` on local main (pushed). `condura doctor --check <name>` is live; the focused-check mode operators have been asking for is now available. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-12
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura doctor --check` (iter 32), the natural next simple thing: `condura doctor --remediation <name>`. The operator knows the failure and just wants the next step — running the actual check is slow (7 stats, PRAGMA integrity_check, etc.).
+
+### Shipped (commit `e45c7f9`)
+- **NEW FLAG: `condura doctor --remediation <name>`** prints the `fix:` line for the named check WITHOUT running the check.
+
+- **Symmetric to `condura explain <code>` for the IPC error table**:
+  - `condura explain <code>` translates a decimal error code to a human description + next step
+  - `condura doctor --remediation <name>` translates a check name to a human fix command
+  - Both are pure lookups; both short-circuit before any expensive operation
+
+- **Implementation in `cmd/condura/main.go`** (`cmdDoctor`):
+  1. The new `--remediation` flag is parsed in `cmdDoctor` (before the `validate.Run()` call)
+  2. If set, look up the `fix:` line in the existing `remediations` map
+  3. On miss, error with the valid list (built from the map itself — no hardcoding)
+  4. On hit, print the line: text mode prints "<key>: <fix>", JSON mode prints `{"check": <key>, "remediation": <fix>}`
+  5. Return without calling `validate.Run()` — saves 7 filesystem stats + 3 SQLite integrity checks
+
+- **Why filter in the CLI, not the package**: the same pattern as `--check` (iter 32). The `validate` package runs all 7 checks unconditionally; the CLI filters the result. Adding per-check skipping to the validate API would be more code with no benefit.
+
+### Why this target
+The operator's flow:
+1. Operator reads a support ticket: "Your main_db is corrupt"
+2. Operator wants the fix: `condura doctor --remediation main_db`
+3. Output: `main_db: run 'condurad --init' to recreate the main database`
+4. Operator runs the fix command, problem solved
+
+Without `--remediation`, the operator would have to:
+1. Run `condura doctor` (which takes ~100ms for 7 stats + integrity checks)
+2. Find the `fix:` line in the output
+3. Copy it
+
+The `--remediation` shortcut saves time on every "I know what's wrong, tell me how to fix it" workflow.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI flag, single file)
+- **Performance polish**: ✓ (short-circuits before `validate.Run()` — saves 7 filesystem stats + 3 SQLite integrity checks. The lookup is O(1) map access, microseconds)
+- **Real feature addition**: ✓ — `condura doctor --remediation <name>` is the "I know what's broken, tell me the fix" mode operators have been asking for
+- **Doc hardening**: ✓ — the valid-list-from-map design (no hardcoding) is self-documenting: comment explains why the list is built from `remediations` keys
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; smoke tests in the commit message are sufficient for this 1-flag addition)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (4 paths verified):
+  - `condura doctor --remediation main_db` → "main_db: run 'condurad --init' to recreate the main database"
+  - `condura doctor --remediation config` → "config: edit the config file (see detail above for the YAML parser error); defaults apply if missing"
+  - `condura --json doctor --remediation lock` → `{"check": "lock", "remediation": "the lock file is held by a non-running daemon (stale lock); remove it after confirming no condurad is running"}`
+  - `condura doctor --remediation bogus` → "unknown check 'bogus' (valid: skills_db, config, lock, backups, data_dir, main_db, memory_db)" — valid list from the map
+- `git push origin main` → `15caab7..e45c7f9`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `--only-failed` flag (run all checks, but only show the failures). The current default behavior is similar — passes are silent in text mode. Defer until a JSON-mode equivalent is needed.
+- A `--format <text|json|yaml>` flag for the doctor output. JSON already exists via `--json`; text is the default. Defer unless a use case for YAML/other surfaces appears.
+
+### Status
+- Commit `e45c7f9` on local main (pushed). `condura doctor --remediation <name>` is live; the "I know what's broken, tell me the fix" workflow is now a single command. Ready for the next cron firing.
