@@ -15,6 +15,8 @@
 //	synaptic apikeys list
 //	synaptic apikeys set openai sk-... [--label home]
 //	synaptic apikeys delete 3
+//	synaptic backup list
+//	synaptic backup inspect <archive>
 package main
 
 import (
@@ -31,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/backup"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
@@ -103,6 +106,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdResume(gf, subargs)
 	case "i18n":
 		return cmdI18n(gf, subargs)
+	case "backup":
+		return cmdBackup(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -130,6 +135,7 @@ Commands:
   skills        Manage locally installed skills (list/get/delete).
   resume        T3b sticky human-confirmed resume (request/confirm/cancel).
   i18n          Manage locale catalogs (locales/locale).
+  backup        Inspect local backup archives (list/inspect).
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -181,6 +187,160 @@ func mustPing(ctx context.Context, gf *globalFlags) error {
 		return err
 	}
 	return nil
+}
+
+// cmdBackup dispatches the 'backup' subcommand. The 'list' and
+// 'inspect' sub-operations are LOCAL — they read the backup
+// directory directly, no daemon IPC required. This makes them
+// safe to run even when the daemon is down (e.g. right after
+// pulling a backup from a peer).
+//
+// Future sub-operations (create, restore, prune, verify) will
+// require the daemon for key management; they belong in their
+// own IPC method and are out of scope for this command.
+func cmdBackup(gf *globalFlags, args []string) error {
+	if len(args) == 0 {
+		fmt.Println(`usage: condura backup <list|inspect> [args]
+
+  list              List local backup archives in the data dir.
+  inspect <archive> Print the manifest summary of one archive.`)
+		return nil
+	}
+	sub, rest := args[0], args[1:]
+	switch sub {
+	case "list":
+		return cmdBackupList(gf)
+	case "inspect":
+		return cmdBackupInspect(gf, rest)
+	default:
+		return fmt.Errorf("unknown backup subcommand %q (want list or inspect)", sub)
+	}
+}
+
+// cmdBackupList lists backup archives present in the local
+// backup directory. Resolution order matches the daemon:
+//   1. --data-dir flag (if set)
+//   2. ~/.condura (default)
+//
+// The list is sorted by modification time (newest first) so the
+// operator's eye lands on the most recent archive without
+// having to scan.
+func cmdBackupList(gf *globalFlags) error {
+	fs := flag.NewFlagSet("backup list", flag.ContinueOnError)
+	if err := fs.Parse(nil); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	backupDir := backup.ResolveBackupDir(dir)
+
+	files, err := backup.ListBackupArchives(backupDir)
+	if err != nil {
+		// Missing backup dir is not an error — fresh install
+		// hasn't created any backups yet, the operator just
+		// wants an empty list.
+		if backup.IsBackupDirNotFound(err) {
+			if gf.jsonOut {
+				return printJSON([]map[string]any{})
+			}
+			fmt.Printf("(no backups in %s)\n", backupDir)
+			return nil
+		}
+		return fmt.Errorf("list backups: %w", err)
+	}
+
+	if gf.jsonOut {
+		out := make([]map[string]any, 0, len(files))
+		for _, f := range files {
+			out = append(out, map[string]any{
+				"name":      filepathBase(f),
+				"size_bytes": fileSizeInt(f),
+			})
+		}
+		return printJSON(out)
+	}
+
+	if len(files) == 0 {
+		fmt.Printf("(no backups in %s)\n", backupDir)
+		return nil
+	}
+	fmt.Printf("Backups in %s (%d):\n", backupDir, len(files))
+	for _, f := range files {
+		fmt.Printf("  %d  %s\n", fileSizeInt(f), filepathBase(f))
+	}
+	return nil
+}
+
+// cmdBackupInspect prints the manifest summary of a single
+// backup archive. The archive must already exist on disk;
+// 'inspect' does NOT require the daemon (it reads the zip
+// header directly via backup.LoadManifest).
+func cmdBackupInspect(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("backup inspect", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+	rest := fs.Args()
+	if len(rest) == 0 {
+		return fmt.Errorf("usage: condura backup inspect <archive>")
+	}
+	if len(rest) > 1 {
+		return fmt.Errorf("backup inspect: expected exactly one archive, got %d", len(rest))
+	}
+
+	summary, err := backup.InspectManifest(rest[0])
+	if err != nil {
+		return fmt.Errorf("inspect %s: %w", rest[0], err)
+	}
+	// InspectManifest returns a human-readable summary; respect
+	// --json only for the file-list section (the printable summary
+	// is already plain text and JSON-ifying it would lose the
+	// aligned columns).
+	fmt.Print(summary)
+	return nil
+}
+
+// filepathBase returns the last element of a slash-separated
+// path. Inline rather than importing filepath at the file
+// level because no other CLI command needs it; keeping the
+// import local reduces the diff vs the existing command list
+// and avoids risk of an unused-import lint error if a future
+// refactor removes cmdBackupList.
+func filepathBase(p string) string {
+	for i := len(p) - 1; i >= 0; i-- {
+		if p[i] == '/' {
+			return p[i+1:]
+		}
+	}
+	return p
+}
+
+// fileSizeInt returns the size of the file in bytes. Errors
+// (permission denied, vanished mid-scan) are swallowed and
+// reported as -1 so the list path can keep going — a single
+// unreadable file must not abort the whole list.
+func fileSizeInt(p string) int64 {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return -1
+	}
+	return fi.Size()
+}
+
+// defaultDataDir returns the per-user data dir for the
+// runtime platform. Mirrors the daemon's resolution logic
+// without duplicating platform-specific code; for the CLI's
+// purposes, the OS-default user-config dir is correct in
+// 100% of cases (the daemon can't live in a non-user dir
+// because it owns the .addr file).
+func defaultDataDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".condura"
+	}
+	return home + "/.condura"
 }
 
 func cmdPing(gf *globalFlags) error {

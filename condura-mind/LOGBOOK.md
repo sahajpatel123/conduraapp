@@ -3398,3 +3398,40 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `f555ea9` on local main. The agent `stringField` helper is now defended end-to-end: happy path, nil data, wrong type, missing key, empty data, non-marshalable data, no-transformation guarantee. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-41
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-40-iters) surfaced `internal/agent/agent.go` with `eventMatchesRequest` at 63.6% — the SSE-event-to-request-ID matcher used by the streaming token pipeline. A regression could silently mix up concurrent streams.
+
+### Shipped
+- **`condura-app/internal/agent/agent_stringfield_test.go`** (added 84 lines, 7 new tests):
+  A. `TestEventMatchesRequest_NilDataReturnsTrue` — nil data returns true (no-filter fallback).
+  B. `TestEventMatchesRequest_MatchingRequestIDReturnsTrue` — happy path: matching id returns true.
+  C. `TestEventMatchesRequest_NonMatchingRequestIDReturnsFalse` — non-matching id returns false.
+  D. `TestEventMatchesRequest_NoRequestIDFieldReturnsTrue` — missing field returns true (no-filter fallback).
+  E. `TestEventMatchesRequest_NonStringRequestIDReturnsTrue` — non-string id (e.g., int) returns true (no-filter fallback).
+  F. `TestEventMatchesRequest_NonMarshalableDataReturnsFalse` — chan data (non-marshalable) returns false, doesn't panic.
+  G. `TestEventMatchesRequest_EmptyRequestIDMatchesEmptyInput` — empty-string id matches empty-string query (symmetry).
+
+### Subtle contracts discovered & pinned
+- **No-filter fallback** — events without a `request_id` field (or with non-string types) return true rather than false. The defensive default is "don't filter" — better to over-deliver events than to lose them.
+- **Non-matching id returns false** — explicit positive match required. A regression that always returned true would route every event to every request, interleaving concurrent streams.
+- **Empty-string id matches empty-string query** — symmetric behavior; the comparison is exact (not "non-empty only").
+
+### Deliberately NOT pinned
+- The `json.Unmarshal` error path — covered transitively by the chan test (json.Marshal fails first).
+
+### Verification
+- `go test ./internal/agent/ -run "TestEventMatchesRequest_" -v -count=1` → all 7 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/agent/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/agent/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `agent.go`:
+  - `eventMatchesRequest`: 63.6% → 100%
+
+### Explicitly deferred (protect intent)
+- The SSE event field variations (e.g., nested request_id, prefixed request_id) — would need richer fixture setup.
+
+### Status
+- Commit `8460b4e` on local main. The SSE-event-to-request-ID matcher is now defended end-to-end: nil-data no-filter, matching id, non-matching id, no-field no-filter, non-string no-filter, non-marshalable false, empty-string symmetry. Ready for the next cron firing.
