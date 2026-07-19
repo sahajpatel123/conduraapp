@@ -3295,3 +3295,34 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `25ad4e3` on local main. The account `NewSession` method is now defended end-to-end: empty-email rejection, ExpiresAt timing, Provider field population, round-trip persistence. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-38
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-37-iters) surfaced `internal/account/account.go` with `Store.Save` at 80% — the SQL upsert that persists every authenticated session. The 20% gap covered the nil-session branch.
+
+### Shipped
+- **`condura-app/internal/account/account_test.go`** (added 16 lines, 1 new test):
+  - `TestStore_Save_NilSessionReturnsError` — `Store.Save(nil)` returns an error mentioning `"nil session"`. Defense against the SQL exec deref and against silently writing NULL rows.
+
+### Subtle contracts discovered & pinned
+- **Nil-session rejection with diagnostic message** — `"nil session"` in the error message helps callers distinguish this from other save errors (DB lock, schema mismatch, etc.).
+- **Input-validation guard is real, not just paranoid** — the SQL exec would either panic on the nil deref OR write a NULL row, both bad outcomes. The explicit guard is the right design.
+
+### Deliberately NOT pinned
+- The `s.db.ExecContext` error path — covered transitively by the existing `TestStore_SaveAndLoad` test.
+- The `ON CONFLICT(id) DO UPDATE` upsert path — covered by `TestStore_UpsertReplacesOld`.
+
+### Verification
+- `go test ./internal/account/ -run "TestStore_Save_NilSessionReturnsError" -v -count=1` → 1 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/account/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/account/...` → 1 false-positive gofmt warning (on the previously-formatted keychain_crypto_test.go from iter-33; gofmt -d shows no actual diff — stale cache)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `account.go`:
+  - `Save`: 80% → 100%
+
+### Explicitly deferred (protect intent)
+- Forcing the SQL exec error path — would need a closed or mocked DB; covered transitively by other tests.
+
+### Status
+- Commit `de20a8d` on local main. The account `Store.Save` nil-session input-validation guard is now defended end-to-end. Ready for the next cron firing.
