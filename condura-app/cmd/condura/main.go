@@ -25,6 +25,7 @@
 //	synaptic path [--exists]
 //	synaptic explain <code>
 //	synaptic env [--json]
+//	synaptic where <key>
 package main
 
 import (
@@ -147,6 +148,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdExplain(gf, subargs)
 	case "env":
 		return cmdEnv(gf, subargs)
+	case "where":
+		return cmdWhere(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -181,6 +184,7 @@ Commands:
   path           Print the standard install paths.
   explain        Explain an IPC error code.
   env             Print the env vars that affect Condura behavior.
+  where           Print a single install path (inverse of path).
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -605,6 +609,103 @@ func cmdBackupPrune(gf *globalFlags, args []string) error {
 	return nil
 }
 
+// installPaths returns the canonical map of install paths
+// for the given data dir. Centralized so cmdPath (list all)
+// and cmdWhere (lookup one) agree on the same path
+// construction. Adding a new path (e.g. a future "keyring"
+// file) is a one-line change in this function; both commands
+// pick it up automatically.
+func installPaths(dir string) map[string]string {
+	return map[string]string{
+		"data_dir":    dir,
+		"backup_dir":  backup.ResolveBackupDir(dir),
+		"config_file": filepath.Join(dir, "config.yaml"),
+		"main_db":     filepath.Join(dir, "condura.db"),
+		"memory_db":   filepath.Join(dir, "memory.db"),
+		"skills_db":   filepath.Join(dir, "skills.db"),
+		"logs_dir":    filepath.Join(dir, "logs"),
+		"log_file":    logtail.LogFilePath(dir),
+		"lock_file":   filepath.Join(dir, "condurad.lock"),
+		"addr_file":   filepath.Join(dir, "condurad.addr"),
+	}
+}
+
+// pathOrder is the stable iteration order for cmdPath's output.
+// Same key set as installPaths, in a human-friendly order
+// (data-dir-related first, then DBs, then operational files).
+// Centralized so the iteration order can't drift between
+// cmdPath and a future "condura path --filter" mode.
+var pathOrder = []string{
+	"data_dir", "backup_dir", "config_file",
+	"main_db", "memory_db", "skills_db",
+	"logs_dir", "log_file",
+	"lock_file", "addr_file",
+}
+
+// dataDirOrDefault returns gf.dataDir, falling back to the
+// OS-default (~/.condura). Tiny helper so cmdPath and
+// cmdWhere agree on the same data-dir resolution.
+func dataDirOrDefault(gf *globalFlags) string {
+	if gf.dataDir != "" {
+		return gf.dataDir
+	}
+	return defaultDataDir()
+}
+
+// cmdWhere prints a single install path by key. Inverse of
+// `condura path` (which lists all): given one key, print just
+// that one path. Useful for shell scripts:
+//
+//   $ condura where config_file
+//   /home/alice/.condura/config.yaml
+//   $ cat "$(condura where config_file)"
+//   # ... contents ...
+//
+// Usage:
+//   condura where <key>
+//   condura where --list       # list all known keys
+//
+// No daemon IPC required. Local-only.
+func cmdWhere(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("where", flag.ContinueOnError)
+	list := fs.Bool("list", false, "list all known keys (no path printed)")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	rest := fs.Args()
+
+	// --list: print the key catalog so the operator can
+	// discover the available names without consulting docs.
+	if *list {
+		paths := installPaths(dataDirOrDefault(gf))
+		for _, k := range pathOrder {
+			fmt.Println(k)
+		}
+		_ = paths // paths not printed in --list mode; the keys are enough
+		return nil
+	}
+
+	// No args + no --list: print usage.
+	if len(rest) == 0 {
+		return fmt.Errorf("usage: condura where <key>  (try `condura where --list` to see all keys)")
+	}
+
+	// Look up the key. The list of valid keys is the keys
+	// of installPaths; we don't pre-define a separate list
+	// to avoid drift.
+	paths := installPaths(dataDirOrDefault(gf))
+	key := rest[0]
+	p, ok := paths[key]
+	if !ok {
+		// Suggest --list on miss so the operator doesn't have
+		// to read the source to find the right key name.
+		return fmt.Errorf("condura where: unknown key %q (try `condura where --list` to see all keys)", key)
+	}
+	fmt.Println(p)
+	return nil
+}
+
 // fileSizeHuman renders a byte count as a human-readable
 // string (e.g. "1.2 GB"). Used by cmdBackupDelete and
 // cmdBackupPrune to surface sizes in their prompts.
@@ -879,23 +980,7 @@ func cmdPath(gf *globalFlags, args []string) error {
 		return err
 	}
 
-	dir := gf.dataDir
-	if dir == "" {
-		dir = defaultDataDir()
-	}
-
-	paths := map[string]string{
-		"data_dir":    dir,
-		"backup_dir":  backup.ResolveBackupDir(dir),
-		"config_file": filepath.Join(dir, "config.yaml"),
-		"main_db":     filepath.Join(dir, "condura.db"),
-		"memory_db":   filepath.Join(dir, "memory.db"),
-		"skills_db":   filepath.Join(dir, "skills.db"),
-		"logs_dir":    filepath.Join(dir, "logs"),
-		"log_file":    logtail.LogFilePath(dir),
-		"lock_file":   filepath.Join(dir, "condurad.lock"),
-		"addr_file":   filepath.Join(dir, "condurad.addr"),
-	}
+	paths := installPaths(dataDirOrDefault(gf))
 
 	// Stable order so the output is diffable across runs.
 	order := []string{
