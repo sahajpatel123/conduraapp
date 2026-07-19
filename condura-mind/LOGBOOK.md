@@ -4314,3 +4314,46 @@ The `<PROVIDER>` placeholder matches the daemon's reading of `CONDURA_ACCOUNT_OA
 
 ### Status
 - Commit `8c4c0b6` on local main (pushed). `condura env` is live; the debugging workflow for "why isn't my config being picked up?" is now a single command. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-5
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura env` (iter 25), the natural next "I wish the CLI just did this" thing: `condura --version`. The existing `condura version` subcommand required daemon IPC — slow, unreliable. Add a global flag (Unix convention) and a `--local` subcommand flag.
+
+### Shipped (commit `28c6666`)
+- **TWO NEW WAYS to get the CLI version without daemon IPC**:
+  1. `condura --version` (GLOBAL FLAG, Unix convention) — Standard `tool --version` UX that every CLI tool follows (git, go, cargo, npm, etc.). The user types ONE thing and gets the answer; no subcommand to remember. Short-circuits BEFORE subcommand dispatch — prints the build version and exits 0.
+  2. `condura version --local` (SUBCOMMAND FLAG) — The same output as `condura --version`, but as a subcommand flag for users who already know the `condura version` subcommand.
+
+- **Both paths use `internal/version.Version`**, a build-time constant set at compile time. The output format is `condura <version> (built with <go-version>)` — same format as `go version` and `git --version`.
+
+- **The default `condura version` (no `--local`) still calls IPC** — returns the daemon version, commit hash, build date. This is the operator's way to check "is my daemon up to date?" — different from "what version of the CLI is running?". Both questions are valid; both paths are now supported.
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura --version` is the most fundamental CLI affordance: every well-designed CLI tool (git, go, cargo, npm, python) supports it. The existing `condura version` subcommand required daemon IPC — which made the simple "what version of the CLI am I running?" question slow (network round-trip) and unreliable (returned error if the daemon wasn't running). `condura --version` is the daemon-independent answer.
+
+The `condura version --local` variant matters when CLI and daemon are out of sync — e.g. the operator upgraded the CLI binary but the daemon hasn't been restarted yet. The default `condura version` reports the daemon's running version (which might be OLDER than the CLI); `condura version --local` reports the CLI's build version. Both pieces of information are useful in different scenarios.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single global flag + single subcommand flag)
+- **Performance polish**: ✓ (avoids the IPC round-trip on the common "what version am I running?" question)
+- **Real feature addition**: ✓ — new `condura --version` global flag, `condura version --local` subcommand flag
+- **Doc hardening**: ✓ (both flags have clear usage comments in the global flag table and the function header)
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration test pattern covers the CLI; smoke tests in the commit message are sufficient for this 2-flag addition)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (no daemon running):
+  - `condura --version` → `condura v0.0.0-dev (built with go1.26.4)` ✓
+  - `condura version --local` → same output ✓
+  - `condura version` (default) → fails with "connection refused" (expected, daemon isn't running) ✓
+- `git push origin main` → `e6e0884..28c6666`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `condura version --json` mode for tooling. The current output is human-readable only; a future iter can add a JSON variant for scripts that want to log the version programmatically.
+- A "compare two CLIs" command: `condura version --compare <other-binary>` to detect "is this CLI newer than the daemon's?" Useful but adds API surface; defer until a use case appears.
+
+### Status
+- Commit `28c6666` on local main (pushed). `condura --version` is live; the most fundamental CLI affordance (Unix-convention version reporting) is now daemon-independent. Ready for the next cron firing.
