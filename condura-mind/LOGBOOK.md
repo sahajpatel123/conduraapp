@@ -4753,3 +4753,72 @@ The `--remediation` shortcut saves time on every "I know what's wrong, tell me h
 
 ### Status
 - Commit `e45c7f9` on local main (pushed). `condura doctor --remediation <name>` is live; the "I know what's broken, tell me the fix" workflow is now a single command. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-13
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura doctor --remediation` (iter 34), the natural next simple thing: `condura help --all` for the full cheatsheet. The operator can get the complete list of commands at once.
+
+### Shipped (commit `8bbeaf8`)
+- **NEW FLAG: `condura help --all`** prints the full cheatsheet of every command + its description in tabular form.
+
+- **Use case**: "I just installed this CLI — what can I do?" The operator types `condura help --all` once and sees the complete list of commands, each with a one-line description and a tag indicating whether it requires a running daemon.
+
+- **Symmetric to the existing**:
+  - `condura help` (no args) — global usage
+  - `condura help <subcommand>` — per-command usage
+  - `condura help --all` (NEW) — every command, one screen
+
+- **The cheatsheet is the same data** the "no help for X" fallback in helpFor uses internally. `helpAll()` extracts the same iteration as a public function so the fallback and the explicit mode stay in lockstep.
+
+- **Implementation in `cmd/condura/main.go`**:
+  1. The new "help" case in `runSubcommand` dispatches:
+     - `subargs[0] == "--all"` → call `helpAll()`
+     - `subargs[0] == <name>` → call `helpFor(name)` (existing)
+     - no subargs → `printUsage()` (existing)
+  2. `helpAll()` prints every command in `helpOrder` order (the canonical "first the daemon-required, then the local-only" grouping)
+  3. Each row includes the `(local-only)` / `(requires daemon)` tag, so the operator can immediately see which commands work when the daemon is broken
+
+- **The fallback "no help for X" output already uses this pattern** (it prints "known commands:" + the list), so the data is the same — only the framing is different. `helpAll()` formalizes the "show me everything" mode.
+
+- **Output is one command per line, two columns**:
+  ```
+  condura help --all
+  Condura CLI cheatsheet (all commands):
+  
+    ping          ping                              Send a JSON-RPC ping; ...
+    version       version [--local]               ...
+    ...
+    doctor        doctor [--json] [--fix]        ...
+  ```
+
+- **The commandHelp registry stays the single source of truth**: the cheatsheet reads from it directly, so adding a new subcommand is 1 line (in `commandHelp`) plus the case in `runSubcommand`.
+
+### Why this target
+The `condura help <subcommand>` (iter 29) added per-command help. The natural complement: per-ALL-command help. The user types `condura help --all` once and sees the full cheatsheet, instead of running `condura help <each-command>` 19 times.
+
+This is also the answer to the "I just installed this CLI, where do I start?" question. The global usage (`condura help`) shows the syntax; the per-command help shows one command; `--all` shows everything at once.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI flag, single file)
+- **Performance polish**: ✗ (one map iteration; trivial)
+- **Real feature addition**: ✓ — `condura help --all` is the "one-glance" cheatsheet operators have been asking for since iter 29
+- **Doc hardening**: ✓ — the `commandHelp` registry itself is the documentation; the cheatsheet just renders it in tabular form
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; smoke tests in the commit message are sufficient for this 1-flag addition)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (3 paths verified):
+  - `condura help` → global usage (unchanged)
+  - `condura help --all` → full cheatsheet of 19 commands, tabular form
+  - `condura help explain` → per-command usage for `explain`
+- `git push origin main` → `d1359b5..8bbeaf8`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `--format <text|json|yaml>` flag for the cheatsheet output. The default is text (columnar); a JSON variant would be useful for tooling. Defer until there's a use case.
+- Per-tag filtering (`--only local-only` or `--only requires-daemon`). Useful for the operator who is in a post-incident situation and only cares about local commands. Defer until there's a use case.
+
+### Status
+- Commit `8bbeaf8` on local main (pushed). `condura help --all` is live; the "give me everything" mode operators have been asking for is now available. Ready for the next cron firing.
