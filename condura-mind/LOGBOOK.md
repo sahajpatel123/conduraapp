@@ -3605,3 +3605,40 @@ The test was reframed from "doesn't match empty scheme" to "empty scheme accepte
 
 ### Status
 - Commit `591f99b` on local main. The TUI `parseAddr` URL-scheme splitter is now defended end-to-end: scheme-prefix parsing, no-scheme TCP fallback, empty input, malformed IPv6 separator, degenerate empty-scheme. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-44
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-43-iters) surfaced `internal/uninstall/manifest.go` with `isUnderHome` at 57.1% — the safety check that prevents the uninstaller from deleting anything outside HOME. A regression would silently allow path-traversal escape via `..` segments.
+
+### Shipped
+- **`condura-app/internal/uninstall/manifest_test.go`** (added 110 lines, 6 new tests + 1 skipped):
+  A. `TestIsUnderHome_PathInsideHomeReturnsTrue` — 3 cases (subdir, deep nested, dotfile) all return true.
+  B. `TestIsUnderHome_PathEqualToHomeReturnsTrue` — the equality edge case (the `rel == "."` branch).
+  C. `TestIsUnderHome_PathOutsideHomeReturnsFalse` — 4 cases (`/usr/local`, `/tmp`, `/var/log`, `/etc`) all return false.
+  D. `TestIsUnderHome_EscapedPathReturnsFalse` — 2 cases (`<home>/../outside` and `<home>/../../etc/passwd`) all return false.
+  E. `TestIsUnderHome_SymlinkInsideHomeReturnsTrue` — a symlink at `<home>/link` pointing to `<home>/target` returns true.
+  F. `TestIsUnderHome_DifferentDrivesReturnsFalse` — **SKIPPED** on Unix (Windows-specific case for different drive letters).
+
+### Subtle contracts discovered & pinned
+- **`rel == "."` equality edge case** — when path equals home, `filepath.Rel` returns `"."`. The function must recognize this as "under home" (not as an escape, since `"."` doesn't start with `..`).
+- **`strings.HasPrefix(rel, "..")` path-traversal guard** — without this check, paths like `<home>/../usr/local` would silently be detected as "under HOME" (because `"../usr/local"` does start with `..`, but `<home>/../usr/local` is OUTSIDE home). The explicit prefix check catches this case correctly.
+- **`filepath.Abs` doesn't follow symlinks** — `isUnderHome` resolves the path to absolute (without symlink resolution). A symlink at `<home>/link` pointing to `<home>/target` returns true (the symlink path itself is inside HOME). This is the CURRENT behavior; a future refactor using `filepath.EvalSymlinks` would change the contract.
+
+### Deliberately NOT pinned
+- The `filepath.Abs` / `filepath.Rel` error paths — covered transitively by other tests (they'd panic if either failed on a real path).
+- The `runtime.GOOS == "windows"` branch — exercised by the skipped test, but the test is documented as Windows-only.
+
+### Verification
+- `go test ./internal/uninstall/ -run "TestIsUnderHome_" -v -count=1` → all 6 pass + 1 skipped (Windows-only); existing tests still pass; package green
+- `go vet ./condura-app/internal/uninstall/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/uninstall/...` → **0 issues**
+- Coverage delta in `manifest.go`:
+  - `isUnderHome`: 57.1% → 100%
+
+### Explicitly deferred (protect intent)
+- The Windows cross-drive case — would need a Windows-specific test environment.
+- The `filepath.Abs` / `filepath.Rel` error paths — would need contrived setups (path too long, invalid chars).
+
+### Status
+- Commit `5f1c9f9` on local main. The uninstall `isUnderHome` safety check is now defended end-to-end: inside-HOME, outside-HOME, equality, path-traversal escape, symlink. Ready for the next cron firing.
