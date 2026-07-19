@@ -20,6 +20,7 @@
 //	synaptic diag [--json]
 //	synaptic validate [--json]
 //	synaptic logs [--lines N] [--follow]
+//	synaptic path [--exists]
 package main
 
 import (
@@ -31,6 +32,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -120,6 +122,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdValidate(gf, subargs)
 	case "logs":
 		return cmdLogs(gf, subargs)
+	case "path":
+		return cmdPath(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -151,6 +155,7 @@ Commands:
   diag          Dump local diagnostic snapshot for support.
   validate      Run local install health checks.
   logs           Read the last N lines of the daemon log.
+  path           Print the standard install paths.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -550,6 +555,84 @@ func logFilePathForCLI(gf *globalFlags) string {
 		dir = defaultDataDir()
 	}
 	return logtail.LogFilePath(dir)
+}
+
+// cmdPath prints the standard install paths. Pairs with
+// condura diag (which lists the same paths in its output) —
+// the difference: condura path is a quick standalone command
+// for "where is the data dir?", "where does the daemon log
+// to?", etc. without dumping the full snapshot.
+//
+// Output modes:
+//   - default: one line per path, key + value, no decoration
+//   - --exists: append "exists"/"missing" so the operator
+//              can spot a partial install at a glance
+//   - --json:   structured {"data_dir": "...", "exists": true, ...}
+func cmdPath(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("path", flag.ContinueOnError)
+	exists := fs.Bool("exists", false, "append (exists) or (missing) after each path")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+
+	paths := map[string]string{
+		"data_dir":    dir,
+		"backup_dir":  backup.ResolveBackupDir(dir),
+		"config_file": filepath.Join(dir, "config.yaml"),
+		"main_db":     filepath.Join(dir, "condura.db"),
+		"memory_db":   filepath.Join(dir, "memory.db"),
+		"skills_db":   filepath.Join(dir, "skills.db"),
+		"logs_dir":    filepath.Join(dir, "logs"),
+		"log_file":    logtail.LogFilePath(dir),
+		"lock_file":   filepath.Join(dir, "condurad.lock"),
+		"addr_file":   filepath.Join(dir, "condurad.addr"),
+	}
+
+	// Stable order so the output is diffable across runs.
+	order := []string{
+		"data_dir", "backup_dir", "config_file",
+		"main_db", "memory_db", "skills_db",
+		"logs_dir", "log_file",
+		"lock_file", "addr_file",
+	}
+
+	if gf.jsonOut {
+		// JSON mode: nest the existence check into a sub-object
+		// so the GUI can show "data_dir": "/path" + "data_dir
+		// exists": true without re-running the existence check.
+		out := make(map[string]any, len(paths))
+		for _, k := range order {
+			if *exists {
+				_, err := os.Stat(paths[k])
+				out[k] = map[string]any{
+					"path":  paths[k],
+					"exists": err == nil,
+				}
+			} else {
+				out[k] = paths[k]
+			}
+		}
+		return printJSON(out)
+	}
+
+	for _, k := range order {
+		if *exists {
+			_, err := os.Stat(paths[k])
+			suffix := "(exists)"
+			if err != nil {
+				suffix = "(missing)"
+			}
+			fmt.Printf("%-12s  %s  %s\n", k, paths[k], suffix)
+		} else {
+			fmt.Printf("%-12s  %s\n", k, paths[k])
+		}
+	}
+	return nil
 }
 
 func cmdPing(gf *globalFlags) error {
