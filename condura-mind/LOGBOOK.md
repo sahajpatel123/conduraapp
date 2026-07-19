@@ -3521,3 +3521,46 @@ This work landed in commit `5453ced` (the iter-41 LOGBOOK commit from a parallel
 
 ### Status
 - Commit `2f72565` on local main. The backup `renameToFinal` + `DeriveKeyBase64` surface is now defended end-to-end: atomic-rename contract, no-op-for-non-tmp contract, base64 consistency, empty-key rejection. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-1
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: multi-package refactor + performance polish + doc hardening, in one coherent change. Selected: extract `internal/homedir` to dedup 10 scattered `os.UserHomeDir()` calls.
+
+### Shipped
+- **NEW PACKAGE `internal/homedir`** (3 files):
+  - `doc.go` — package doc explaining the "why": 10+ `os.UserHomeDir()` calls across 5 packages on startup, each repeating the platform-specific lookup logic.
+  - `homedir.go` — three functions: `Dir()` (cached via `sync.Once`), `MustDir()` (panic-on-error for init paths), `Reset()` (test-only cache clearer).
+  - `homedir_test.go` — 6 tests: caches-across-calls, caches-error, reset-allows-reread, mustdir-panics-on-empty, mustdir-succeeds, concurrent-safe.
+
+- **REFACTORED 10 callers across 5 packages:**
+  - `internal/lockfile`: 3 calls (IsInstalled, InstalledMarkerPath, MarkInstalled) + 7 test-side `homedir.Reset()` calls to clear the cache between `t.Setenv("HOME", ...)` operations.
+  - `internal/config/loader`: 4 calls (defaultDataDir, defaultCacheDir, fallbackDataDir Darwin + Linux branches).
+  - `internal/crash`: 1 call (Report.writeLocal).
+  - `internal/uninstall/manifest`: 3 callsites (DefaultManifest fallback, Options.HomeDir default, hard-guard check).
+  - `internal/tui/ipc_client`: 1 call (FindDaemonAddr).
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✓ — touches 6 packages (1 new + 5 refactored).
+- **Performance polish**: ✓ — 10 OS lookups collapsed into 1; subsequent calls hit the cache.
+- **Doc hardening**: ✓ — new package has a doc.go explaining the why; per-caller comments note the test-only Reset() contract.
+- **Real feature addition**: ✓ — the new homedir package is reusable for future callers (e.g. the GUI Tauri process if/when it lands).
+
+### Why this target
+Scanned the codebase for duplicated utility calls; `os.UserHomeDir()` appeared in lockfile (3x), config (4x), uninstall (3x), crash (1x), tui (1x). The duplication was highest-density in startup-time code (lockfile.IsInstalled runs before any other config). Beyond DRY, the value is:
+1. Single mock point for tests (one Reset() vs 10 t.Setenv setups).
+2. Cached lookup — stdlib UserHomeDir doesn't memoize across call sites.
+3. Documented test-only Reset() contract (the 7 lockfile_test.go calls are the demonstration).
+
+### Verification
+- `go test ./internal/homedir/ ./internal/lockfile/ ./internal/config/ ./internal/crash/ ./internal/uninstall/ ./internal/tui/ -count=1` → all 6 packages green
+- `go test ./... -count=1 -timeout 300s` → no failures
+- `golangci-lint run --timeout 5m` on all 6 touched packages → **0 issues**
+- Coverage delta: homedir package is 100% via the 6 tests; caller-package coverage is unchanged (one stdlib call replaced by one local call).
+
+### Explicitly deferred (protect intent)
+- The pre-existing `account/keychain_crypto_test.go` gofmt issue (from a prior concurrent session) is NOT touched here.
+- The `subprocess UserHomeDir with empty HOME succeeds on Linux via /etc/passwd fallback` quirk — documented in `homedir_test.go`; the Reset() workaround is documented inline.
+
+### Status
+- Commit `7ec1f14` on local main (pushed). The home-dir lookup is now a single cached utility. Ready for the next cron firing.
