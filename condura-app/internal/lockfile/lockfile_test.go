@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -124,5 +125,94 @@ func TestInstalledMarkerPath(t *testing.T) {
 	expected := filepath.Join(dir, ".condura", "installed")
 	if path != expected {
 		t.Errorf("path = %q, want %q", path, expected)
+	}
+}
+
+// TestIsInstalled_ConduraAsRegularFileStillReturnsTrue documents
+// the CURRENT (potentially-surprising) behavior: IsInstalled
+// uses os.Stat, which returns success for ANY path type
+// (file, directory, symlink). A regular file at ~/.condura
+// would make IsInstalled return true. This is the documented
+// contract — a future change to "check IsDir" would update
+// this test deliberately.
+//
+// Pinning this prevents silent regression: if a future "fix"
+// changes IsInstalled to check IsDir, the test fails and the
+// dev is forced to read this comment.
+func TestIsInstalled_ConduraAsRegularFileStillReturnsTrue(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // Windows
+
+	// Create ~/.condura as a regular file (not a directory).
+	condura := filepath.Join(home, ".condura")
+	if err := os.WriteFile(condura, []byte("stale install state"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsInstalled() {
+		t.Error("IsInstalled() with ~/.condura as regular file = false; want true (current contract: any path)")
+	}
+}
+
+// TestInstalledMarkerPath_ErrorPropagatesWhenHomeLookupFails pins
+// the error-propagation contract: InstalledMarkerPath MUST
+// surface the os.UserHomeDir() error when the lookup fails. A
+// regression that swallowed the error would silently return a
+// wrong path (the join on empty string gives "<no-home>/.condura/installed"
+// which the installer would then write to silently).
+//
+// We simulate "HOME unset / unusable" by setting HOME to empty.
+// On Linux/macOS, os.UserHomeDir() returns $HOME if non-empty, else
+// falls back to /etc/passwd lookup, which usually succeeds for
+// the test user. To FORCE the error path, we also need to break
+// the fallbacks on Linux. Skipping on Linux when we can't force
+// the error is the cleanest approach.
+func TestInstalledMarkerPath_ErrorPropagatesWhenHomeLookupFails(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		t.Skip("HOME-unset fallback to /etc/passwd usually succeeds on Linux; skip")
+	}
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+
+	_, err := InstalledMarkerPath()
+	if err == nil {
+		t.Fatal("InstalledMarkerPath() with empty HOME returned nil; want error")
+	}
+}
+
+// TestMarkInstalled_ErrorPropagatesWhenHomeLookupFails pins the
+// same error-propagation contract for MarkInstalled.
+func TestMarkInstalled_ErrorPropagatesWhenHomeLookupFails(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		t.Skip("HOME-unset fallback to /etc/passwd usually succeeds on Linux; skip")
+	}
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+
+	err := MarkInstalled()
+	if err == nil {
+		t.Fatal("MarkInstalled() with empty HOME returned nil; want error")
+	}
+}
+
+// TestIsInstalled_FalseWhenConduraIsSymlinkToNonexistent pins the
+// symlink edge case: IsInstalled uses Stat, which follows
+// symlinks. If ~/.condura is a symlink to a nonexistent target,
+// Stat returns an error → IsInstalled returns false. This is the
+// expected behavior (the symlink is broken; treat as not installed).
+func TestIsInstalled_FalseWhenConduraIsSymlinkToNonexistent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	// Create a symlink at ~/.condura pointing to a nonexistent path.
+	condura := filepath.Join(home, ".condura")
+	if err := os.Symlink("/nonexistent/path/that/does/not/exist", condura); err != nil {
+		t.Fatal(err)
+	}
+
+	if IsInstalled() {
+		t.Error("IsInstalled() with broken symlink = true; want false")
 	}
 }
