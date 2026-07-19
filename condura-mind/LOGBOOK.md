@@ -4460,3 +4460,47 @@ The `--fix` mode is the "I have NO idea what's wrong" mode for fresh installs: t
 
 ### Status
 - Commit `af0b1a7` on local main (pushed). `condura doctor` is live; the "I see the failure, now what?" workflow is now a single command with a concrete `fix:` line for each issue. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-8
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura doctor` (iter 28), the natural next simple thing: `condura help <subcommand>`. The existing `condura help` (no args) shows the global usage; the new `condura help explain` shows per-command usage. Unix-standard pattern (`git help`, `npm help`, `cargo help`).
+
+### Shipped (commit `cff4de7`)
+- **NEW BEHAVIOR: `condura help <subcommand>`** prints per-command usage. `condura help` (no args) still prints the global usage, same as `--help` / `-h`.
+- **`helpFor` is a new function** (~30 lines) that:
+  - Looks up the command in the `commandHelp` registry
+  - Prints its usage line
+  - Falls back to "no help for X" + a list of all known commands (so the operator can discover what's available without reading docs)
+- **`commandHelp` is a 19-entry map** (all current subcommands). Each entry includes a "(requires daemon)" or "(local-only)" tag — the key categorization for operator workflow: "what can I run when the daemon is broken?" → look for the "(local-only)" tag.
+- **`helpOrder` is a slice** that determines the iteration order of the "known commands" list in helpFor's fallback. Matches the order in printUsage so the operator gets a consistent view from both entry points.
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura help <subcommand>` is the Unix-standard pattern that every well-designed CLI tool follows (`git help`, `npm help`, `cargo help`). The operator types `condura help explain` and gets a one-line description of what `explain` does, no need to read docs or grep the CLI. It's the same minimalist UX as `git --version` (iter 26) — a Unix convention we were missing.
+
+The "no help for X" fallback is a discovery feature: the operator types `condura help foo` (typo or unknown command), gets a "no help for foo" message + the list of known commands. They can see the correct command name from the error itself. No need to read the source or docs to find the right name.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI command, single file)
+- **Performance polish**: ✗ (no hot path)
+- **Real feature addition**: ✓ — `condura help <subcommand>` is the per-command extension of the existing `condura help`
+- **Doc hardening**: ✓ — the `commandHelp` registry itself is the documentation; each entry's "requires daemon" or "local-only" tag teaches the operator which commands survive post-incident
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; smoke tests in the commit message are sufficient for this small enhancement)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (4 paths verified):
+  - `condura help` → global usage
+  - `condura help explain` → `usage: condura explain <code>  Explain an IPC error code (local-only)`
+  - `condura help backup` → `usage: condura backup <list|inspect|delete|prune>  Manage local backup archives (local-only)`
+  - `condura help bogus` → `no help for "bogus"` + the 19-command list
+- `git push origin main` → `dce3aa9..cff4de7`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `condura help --all` mode that prints the full registry in tabular form. Useful for "give me a one-page cheatsheet" but the per-command `condura help <subcommand>` is the more common workflow. Defer until a use case appears.
+- Per-flag help: `condura help doctor --fix` showing the doctor command's `--fix` flag specifically. The current behavior shows the whole `condura doctor` usage. Defer until operators want per-flag help (most don't).
+
+### Status
+- Commit `cff4de7` on local main (pushed). `condura help <subcommand>` is live; the most fundamental CLI affordance (Unix-convention per-command help) is now daemon-independent. Ready for the next cron firing.
