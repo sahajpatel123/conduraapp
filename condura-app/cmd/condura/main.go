@@ -18,6 +18,7 @@
 //	synaptic backup list
 //	synaptic backup inspect <archive>
 //	synaptic backup delete <archive> [--force]
+//	synaptic backup prune [--keep-last N] [--older-than D] [--dry-run]
 //	synaptic diag [--json]
 //	synaptic validate [--json]
 //	synaptic logs [--lines N] [--follow]
@@ -155,7 +156,7 @@ Commands:
   skills        Manage locally installed skills (list/get/delete).
   resume        T3b sticky human-confirmed resume (request/confirm/cancel).
   i18n          Manage locale catalogs (locales/locale).
-  backup        Inspect local backup archives (list/inspect/delete).
+  backup        Inspect local backup archives (list/inspect/delete/prune).
   diag          Dump local diagnostic snapshot for support.
   validate      Run local install health checks.
   logs           Read the last N lines of the daemon log.
@@ -239,8 +240,10 @@ func cmdBackup(gf *globalFlags, args []string) error {
 		return cmdBackupInspect(gf, rest)
 	case "delete":
 		return cmdBackupDelete(gf, rest)
+	case "prune":
+		return cmdBackupPrune(gf, rest)
 	default:
-		return fmt.Errorf("unknown backup subcommand %q (want list or inspect)", sub)
+		return fmt.Errorf("unknown backup subcommand %q (want list, inspect, delete, or prune)", sub)
 	}
 }
 
@@ -415,10 +418,177 @@ func cmdBackupDelete(gf *globalFlags, args []string) error {
 	return nil
 }
 
+// cmdBackupPrune removes old backup archives in bulk by
+// retention policy. The "I don't care about old ones" workflow
+// — instead of deleting archives one-at-a-time with
+// `condura backup delete <archive>`, the operator declares a
+// retention policy and the prune decides what to delete.
+//
+// Two mutually-compatible filter modes:
+//   --keep-last N  keep the N most-recent archives; delete the rest
+//   --older-than D delete archives whose mtime is older than D
+//                (e.g. "30d", "12h", "1y")
+//
+// If BOTH are set, the union is kept: an archive survives if
+// it's in the most-recent N OR newer than D. This matches the
+// "either condition" intuition: "keep the most recent 5 OR the
+// last 30 days, whichever is more."
+//
+// Local-only (no daemon IPC). Reads the filesystem directly
+// via backup.ListBackupArchives (newest-first from iter-9).
+//
+// Default: --dry-run. The command PRINTS what it would delete
+// without actually deleting. The operator must pass --force
+// (without --dry-run) to actually delete. This is the "look
+// before you leap" UX — the operator sees the exact list of
+// archives that will be deleted, the count, and the total size
+// freed, BEFORE the deletion happens.
+//
+// Safety: the same name-validation rules as cmdBackupDelete
+// (plain .zip basename, no path traversal). The filter logic
+// is in cmdBackupPrune itself, not in os.RemoveAll, so we
+// always delete specific files, not directories.
+//
+// Usage:
+//   condura backup prune --keep-last 5
+//   condura backup prune --older-than 30d
+//   condura backup prune --keep-last 5 --older-than 30d
+//   condura backup prune --keep-last 5 --force   # actually delete
+func cmdBackupPrune(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("backup prune", flag.ContinueOnError)
+	keepLast := fs.Int("keep-last", 0, "keep the N most-recent archives (0 = don't apply this filter)")
+	olderThan := fs.Duration("older-than", 0, "delete archives older than this duration (0 = don't apply this filter)")
+	dryRun := fs.Bool("dry-run", true, "print what would be deleted without actually deleting (use --force to actually delete)")
+	force := fs.Bool("force", false, "actually delete; overrides --dry-run")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	// Validate filter inputs: at least one filter must be set.
+	if *keepLast == 0 && *olderThan == 0 {
+		return fmt.Errorf("usage: condura backup prune --keep-last N | --older-than D (at least one filter required)")
+	}
+	if *keepLast < 0 {
+		return fmt.Errorf("--keep-last must be >= 0 (got %d)", *keepLast)
+	}
+
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	backupDir := backup.ResolveBackupDir(dir)
+
+	paths, err := backup.ListBackupArchives(backupDir)
+	if err != nil {
+		if backup.IsBackupDirNotFound(err) {
+			return fmt.Errorf("condura backup prune: no backup directory at %s (fresh install)", backupDir)
+		}
+		return err
+	}
+	if len(paths) == 0 {
+		fmt.Println("(no backups to prune)")
+		return nil
+	}
+
+	// The retention filter: walk the newest-first list, decide
+	// which ones survive, collect the rest. We use the
+	// file's modification time (mtime) for the age check.
+	//
+	// keep-last: the first *keepLast* entries in the
+	// newest-first list survive.
+	//
+	// older-than: entries with mtime >= cutoff (now - olderThan)
+	// survive. The cutoff is computed once at the start of the
+	// prune so the time window is consistent.
+	cutoff := time.Time{}
+	if *olderThan > 0 {
+		cutoff = time.Now().Add(-*olderThan)
+	}
+
+	survive := make([]string, 0, len(paths))
+	delete := make([]string, 0, len(paths))
+	for i, p := range paths {
+		// keep-last check: the first N entries in the
+		// newest-first list survive unconditionally.
+		if *keepLast > 0 && i < *keepLast {
+			survive = append(survive, p)
+			continue
+		}
+		// older-than check: the entry survives if its mtime
+		// is at or after the cutoff.
+		if *olderThan > 0 {
+			fi, err := os.Stat(p)
+			if err != nil {
+				// Stat error: treat as "should be deleted"
+				// (the safer action; if the file is unreadable,
+				// we don't want to keep it).
+				delete = append(delete, p)
+				continue
+			}
+			if fi.ModTime().After(cutoff) {
+				survive = append(survive, p)
+				continue
+			}
+		}
+		delete = append(delete, p)
+	}
+
+	// Print the decision so the operator can verify.
+	fmt.Printf("Retention policy: ")
+	if *keepLast > 0 {
+		fmt.Printf("keep-last=%d ", *keepLast)
+	}
+	if *olderThan > 0 {
+		fmt.Printf("older-than=%s ", *olderThan)
+	}
+	fmt.Println()
+	fmt.Println()
+	fmt.Printf("Will keep (%d):\n", len(survive))
+	for _, p := range survive {
+		fmt.Printf("  %s\n", filepathBase(p))
+	}
+	fmt.Println()
+	fmt.Printf("Will delete (%d):\n", len(delete))
+	var totalFreed int64
+	for _, p := range delete {
+		fi, _ := os.Stat(p)
+		if fi != nil {
+			totalFreed += fi.Size()
+		}
+		fmt.Printf("  %s\n", filepathBase(p))
+	}
+	fmt.Println()
+	fmt.Printf("Total: %d kept, %d to delete, %s would be freed\n", len(survive), len(delete), fileSizeHuman(totalFreed))
+
+	// No-op if nothing to delete.
+	if len(delete) == 0 {
+		return nil
+	}
+
+	// Default: dry-run. The operator must pass --force to
+	// actually delete. This is the safety story: you see the
+	// exact list, the count, the size, then you opt in.
+	actuallyDelete := *force || !*dryRun
+	if !actuallyDelete {
+		fmt.Println()
+		fmt.Println("(dry-run; pass --force to actually delete)")
+		return nil
+	}
+
+	// Actually delete.
+	for _, p := range delete {
+		if err := os.Remove(p); err != nil {
+			return fmt.Errorf("prune: remove %s: %w", filepathBase(p), err)
+		}
+	}
+	fmt.Println()
+	fmt.Printf("Deleted %d archive(s), %s freed.\n", len(delete), fileSizeHuman(totalFreed))
+	return nil
+}
+
 // fileSizeHuman renders a byte count as a human-readable
-// string (e.g. "1.2 GB"). Used by cmdBackupDelete's
-// confirmation prompt so the operator sees the size before
-// committing to the delete.
+// string (e.g. "1.2 GB"). Used by cmdBackupDelete and
+// cmdBackupPrune to surface sizes in their prompts.
 func fileSizeHuman(b int64) string {
 	const (
 		KiB = 1 << 10
