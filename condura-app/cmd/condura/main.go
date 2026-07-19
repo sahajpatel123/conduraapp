@@ -18,6 +18,7 @@
 //	synaptic backup list
 //	synaptic backup inspect <archive>
 //	synaptic diag [--json]
+//	synaptic validate [--json]
 package main
 
 import (
@@ -37,6 +38,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/backup"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/diag"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/validate"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
@@ -112,6 +114,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdBackup(gf, subargs)
 	case "diag":
 		return cmdDiag(gf, subargs)
+	case "validate":
+		return cmdValidate(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -141,6 +145,7 @@ Commands:
   i18n          Manage locale catalogs (locales/locale).
   backup        Inspect local backup archives (list/inspect).
   diag          Dump local diagnostic snapshot for support.
+  validate      Run local install health checks.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -421,6 +426,63 @@ func printFileInfo(label string, fi diag.FileInfo) {
 		mtime = "?"
 	}
 	fmt.Printf("%s%d bytes  %s  mtime=%s\n", label, fi.Size, filepathBase(fi.Path), mtime)
+}
+
+// cmdValidate runs the local install health checks and prints
+// the report. Local-only (no daemon IPC required); useful as a
+// pre-flight before launching the daemon, or as a post-mortem
+// when the daemon won't start.
+//
+// Exit code:
+//   - 0 if all required checks pass (Summary.Fail == 0)
+//   - 1 if any required check fails (Summary.Fail > 0)
+//   - Skipped checks do NOT affect the exit code — fresh
+//     installs will have many skips, and that's fine.
+//
+// Output modes:
+//   - default: aligned text with a summary line
+//   - --json: structured Report JSON for ticketing pipelines
+func cmdValidate(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	r := validate.Run(ctx, dir)
+
+	if gf.jsonOut {
+		return printJSON(r)
+	}
+
+	// Text layout: per-check status + detail, then summary.
+	statusGlyph := map[validate.Status]string{
+		validate.StatusOK:   " OK ",
+		validate.StatusWarn: "WARN",
+		validate.StatusFail: "FAIL",
+		validate.StatusSkip: "SKIP",
+	}
+	fmt.Printf("Condura validate — %s\n", r.Time)
+	fmt.Printf("data_dir: %s\n", r.DataDir)
+	fmt.Println()
+	for _, c := range r.Checks {
+		fmt.Printf("  [%s] %-12s %s\n", statusGlyph[c.Status], c.Name, c.Detail)
+	}
+	fmt.Println()
+	fmt.Printf("Summary: %d ok, %d warn, %d fail, %d skip\n",
+		r.Summary.OK, r.Summary.Warn, r.Summary.Fail, r.Summary.Skip)
+
+	// Exit non-zero if any required check failed.
+	if r.Summary.Fail > 0 {
+		return fmt.Errorf("%d check(s) failed", r.Summary.Fail)
+	}
+	return nil
 }
 
 func cmdPing(gf *globalFlags) error {
