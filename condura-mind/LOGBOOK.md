@@ -4405,3 +4405,58 @@ This is the same pattern as `which python3` (resolves "python3" to "/usr/bin/pyt
 
 ### Status
 - Commit `7e999aa` on local main (pushed). `condura where <key>` is live; the script-composition workflow `$(condura where config_file)` now works without the operator hardcoding paths. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-7
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura where` (iter 27), the natural next "I wish the CLI just did this" thing: `condura doctor`. The pair is the difference between "I see what's broken" (`validate`) and "I see what's broken AND how to fix it" (`doctor`).
+
+### Shipped (commit `af0b1a7`)
+- **NEW CLI COMMAND `condura doctor [--json] [--fix]`**:
+  - Runs the same checks as `condura validate`, but adds a CONCRETE REMEDIATION STEP for each failure.
+  - The pair is the difference between "I see what's broken" (`validate`) and "I see what's broken AND how to fix it" (`doctor`).
+  - No daemon IPC required. Local-only.
+
+- **Output modes**:
+  - **default**: prints ONLY failed checks + their remediation step. OK/Skip checks are silent (the operator doesn't need to read "all good" 7 times).
+  - **--json**: structured `{data_dir, time, checks, remediations, summary}`. Useful for tooling that wants to programmatically act on the diagnosis.
+  - **--fix**: if the data dir is missing, also print generic "from scratch" install instructions (`mkdir` + `condurad --init` + start the daemon). The "I have NO idea what's wrong" mode.
+
+- **`remediations` is a small registry (7 entries)** mapping each check name to a concrete command:
+  - `main_db FAIL` → "run 'condurad --init' to recreate the main database"
+  - `config FAIL` → "edit the config file (see detail above for the YAML parser error); defaults apply if missing"
+  - `lock FAIL` → "the lock file is held by a non-running daemon (stale lock); remove it after confirming no condurad is running"
+  - `backups FAIL` → "the most recent backup is unreadable; check the disk and consider 'condura backup prune' to clean up old archives"
+  - (etc. for the 7 checks)
+
+- **`dataDirExists` is a small helper** for the `--fix` mode's "should I print the from-scratch instructions?" decision: `true` iff the data dir exists AND is a directory.
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura doctor` is the most useful "I see the failure, now what?" command: instead of just printing what's broken (which `validate` already does), it prints the **specific command to run** to fix each failure. The operator doesn't have to read docs or grep the codebase — they just copy-paste the `fix:` line and run it.
+
+The `--fix` mode is the "I have NO idea what's wrong" mode for fresh installs: the data dir doesn't exist yet, none of the DBs exist, and the operator needs generic install instructions (mkdir + condurad --init + start). `condura doctor --fix` prints all three steps in order.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI command in `cmd/condura/`)
+- **Performance polish**: ✗ (single `validate.Run` call, no hot path)
+- **Real feature addition**: ✓ — new `condura doctor` CLI command
+- **Doc hardening**: ✓ — each remediation is a specific command, not vague advice
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; smoke tests in the commit message are sufficient for this 1-command addition)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (3 paths verified):
+  - `condura --data-dir /tmp/test-backups doctor` → 1 failure with remediation: "main_db FAIL → run 'condurad --init' to recreate the main database"
+  - `condura --data-dir /tmp/nonexistent doctor` → 2 failures, each with a `fix:` line
+  - `condura --data-dir /tmp/nonexistent doctor --fix` → 2 failures + the "Generic install instructions (no data dir)" block
+- `git push origin main` → `fd0c099..af0b1a7`, CI tracking
+
+### Explicitly deferred (protect intent)
+- An `--apply` mode that actually runs the remediation commands. Useful for "auto-fix" but introduces a real risk: the operator might not want the daemon to re-initialize the database without confirmation. Defer until there's a use case that justifies the risk.
+- A JSON schema for the `remediations` map (so tooling can parse it). The current JSON output dumps the map as Go-marshalled `map[string]string`, which is fine for human-readable JSON. A structured schema would be useful for "send this to support" tooling; defer until there's a use case.
+- Per-platform remediation (e.g. "open the config in your editor" uses `$EDITOR` on Unix, `notepad` on Windows). Defer until the operator has a real cross-platform support need.
+
+### Status
+- Commit `af0b1a7` on local main (pushed). `condura doctor` is live; the "I see the failure, now what?" workflow is now a single command with a concrete `fix:` line for each issue. Ready for the next cron firing.
