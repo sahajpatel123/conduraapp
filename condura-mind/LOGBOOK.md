@@ -3220,3 +3220,42 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `51ff5cf` on local main. The adaptive `truncate` helper is now defended end-to-end: short-input no-op, equal-length no-op, long-input ellipsis, empty-input empty, n=0 ellipsis-only. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-36
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-35-iters) surfaced `internal/adaptive/engine.go` with `applyToModel` at 66.7% — the model-update dispatcher that routes dialectic proposals to the right `UserModel` field. A regression in any route could silently mix preference types (e.g., communication preferences routed into the Style field).
+
+### Shipped
+- **`condura-app/internal/adaptive/dialectic_parse_test.go`** (added 159 lines, 7 new tests):
+  A. `TestApplyToModel_VerbosityRoutesToStyle` — verbosity proposals set `model.Style` (NOT Communication, NOT Preferences).
+  B. `TestApplyToModel_ResponseLengthAlsoRoutesToStyle` — `response_length` also routes to `Style` (alias for verbosity).
+  C. `TestApplyToModel_CommunicationStyleRoutesToCommunication` — `communication_style` routes to `model.Communication` (NOT Style).
+  D. `TestApplyToModel_RiskToleranceRoutesToRiskTolerance` — `risk_tolerance` routes to `model.RiskTolerance`.
+  E. `TestApplyToModel_UnknownCategoryAppendsToPreferences` — unknown categories append to `model.Preferences` (extensibility path).
+  F. `TestApplyToModel_MultipleUnknownsAccumulateInPreferences` — multiple unknown categories all accumulate (no overwrites).
+  G. `TestApplyToModel_AllFieldsPopulated` — the `InferredField` MUST copy `Value`, `Confidence`, `Source`, AND set `LastSeen` (otherwise the predictor loses the freshness signal for decay).
+
+### Subtle contracts discovered & pinned
+- **`verbosity` AND `response_length` both route to `Style`** — they're aliases in the routing table. A regression that separated them would create two competing style fields.
+- **`communication_style` routes to `Communication` (NOT `Style`)** — without this separation, communication preferences would be mixed into the general style field.
+- **Unknown categories append to `Preferences`** — the extensibility path. New LLM categories automatically become preferences until a typed routing is defined.
+- **LastSeen MUST be set** — the freshness signal that the predictor uses for decay. Without `LastSeen`, the predictor couldn't distinguish a 1-hour-old preference from a 1-year-old one.
+
+### Deliberately NOT pinned
+- The `propose` / `criticize` / `Run` higher-level orchestration — covered by the existing E2E tests (`TestE2E_Engine_LearnsAndPredicts`, `TestE2E_Engine_PendingConfirmations`).
+- The `decay` / `pruneList` / `prunePatterns` / `pruneWorkflows` helpers — internal, low-value pin targets.
+
+### Verification
+- `go test ./internal/adaptive/ -run "TestApplyToModel_" -v -count=1` → all 7 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/adaptive/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/adaptive/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `engine.go`:
+  - `applyToModel`: 66.7% → 100%
+
+### Explicitly deferred (protect intent)
+- The dialectic LLM interaction (`propose` / `criticize`) — covered transitively by the E2E tests with a mock LLM.
+
+### Status
+- Commit `68217f9` on local main. The adaptive model-update dispatcher is now defended end-to-end: all 4 typed routes + the fallback to Preferences + accumulation + field completeness. Ready for the next cron firing.
