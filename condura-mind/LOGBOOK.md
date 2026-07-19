@@ -3143,3 +3143,45 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `ecc57f3` on local main. The account keychain crypto primitives are now defended end-to-end: round-trip correctness, nonce randomness, empty-input handling, GCM tamper detection, short-ciphertext validation, key-size enforcement. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-34
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-33-iters) surfaced `internal/adaptive/dialectic.go` with `parseProposals` at 70% — the LLM-output parser that turns raw model text into structured `Proposal` values. A regression in any of the parsing paths would silently break adaptive inference.
+
+### Shipped
+- **`condura-app/internal/adaptive/dialectic_parse_test.go`** (~210 lines, 9 tests with subtests):
+  A. `TestParseProposals_EmptyInputReturnsNil` — empty string returns nil (the `len() > 0` guard).
+  B. `TestParseProposals_ValidJSONArrayReturnsProposals` — happy path: valid JSON array unmarshals into `[]Proposal`.
+  C. `TestParseProposals_InvalidJSONReturnsNil` — 4 cases of malformed JSON all return nil (defensive guard for LLM output failures).
+  D. `TestParseProposals_MissingConfidenceDefaultsToHalf` — confidence `== 0` → `0.5`.
+  E. `TestParseProposals_NegativeConfidenceDefaultsToHalf` — confidence `< 0` → `0.5` (the guard is `<= 0`, not `== 0`).
+  F. `TestParseProposals_MultipleProposalsAllReturned` — N entries in → N proposals out (no drops).
+  G. `TestParseProposals_ExtractsJSONBlock` — 4 cases verifying that markdown fences (`\`\`\`json`, `\`\`\``) and surrounding text are stripped before parsing.
+  H. `TestExtractJSONBlock_PureJSONUnchanged` — pass-through contract: pure JSON (no fences, no surrounding text) is returned unchanged.
+  I. `TestExtractJSONBlock_StripsMarkdownFences` + `_StripsSurroundingText` — the stripping contracts pinned separately for clarity.
+
+### Subtle contracts discovered & pinned
+- **Markdown fence stripping**: real LLM outputs (per `proposerSysPrompt`: "Return ONLY valid JSON array") often include `\`\`\`json ... \`\`\`` fences anyway. A regression that required exact JSON would silently drop every proposal that includes fences.
+- **Confidence `<= 0` defaults to 0.5**: the guard is `<= 0`, not `== 0`. Negative confidence is also handled (LLM might return `-1.5` from a regression).
+- **Empty input returns nil** (not empty slice): `len() > 0` guard — empty slice would cause subtle bugs in code that uses `proposals != nil` vs `len(proposals) > 0` differently.
+- **Malformed JSON returns nil** (defensive): the LLM might return malformed JSON; the parser MUST fail safely, not panic.
+
+### Deliberately NOT pinned
+- The `applyProposals` / `applyToModel` engine-level integration — covered transitively by the existing E2E tests.
+- The `extractJSONBlock` source code (only the test pins its contract; the source is what it is).
+
+### Verification
+- `go test ./internal/adaptive/ -run "TestParseProposals_|TestExtractJSONBlock_" -v -count=1` → all 9 pass (with subtests); existing tests still pass; package green
+- `go vet ./condura-app/internal/adaptive/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/adaptive/...` → **0 issues** (after `gofmt`)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage deltas in `dialectic.go`:
+  - `parseProposals`: 70.0% → 100%
+  - `extractJSONBlock`: partial → 100%
+
+### Explicitly deferred (protect intent)
+- The actual LLM response cycle (mock LLM + proposer + adjudicator) — covered by existing E2E tests; this iter focused on the parser in isolation.
+
+### Status
+- Commit `33bd1f9` on local main. The adaptive LLM-output parser is now defended end-to-end: empty-input, valid-JSON, invalid-JSON, missing/negative-confidence defaults, multi-proposal preservation, markdown-fence stripping, surrounding-text stripping. Ready for the next cron firing.
