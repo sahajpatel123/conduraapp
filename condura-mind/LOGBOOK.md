@@ -4633,3 +4633,62 @@ This is the difference between "watch the log" and "watch the right part of the 
 
 ### Status
 - Commit `7714a26` on local main (pushed). `condura logs --level/--grep` is live; the operator can now see just the parts of the log they care about. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-11
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura logs --level/--grep` (iter 31), the natural next simple thing: `condura doctor --check <name>`. The operator often wants to run just one of the 7 health checks, not all of them.
+
+### Shipped (commit `f75a579`)
+- **NEW FLAG: `condura doctor --check <name>`** runs only the named check (e.g. `main_db`, `config`, `lock`), prints the result + remediation, and skips the rest.
+
+- **Why filter in the CLI, not the validate package**: The `validate` package runs all 7 checks unconditionally (it's a one-shot `Run()` call). Adding per-check skipping to the package's API would be more code with no benefit — the CLI can filter the returned `Report` after the fact. This is the "do the work once, filter where it's used" principle.
+
+- **Implementation in `cmd/condura/main.go`** (`cmdDoctor`):
+  1. The new `--check` flag is parsed in `cmdDoctor`.
+  2. After `validate.Run` returns the full Report, `cmdDoctor` filters `r.Checks` to the single named check (if `--check` was given). The filtered Report is what the JSON / text output paths use.
+  3. The Summary is recomputed from the filtered check (so the count matches what's shown, not what was run).
+  4. On an unknown `--check` name, the error message lists the valid check names — **the list is BUILT FROM the report itself**, not hardcoded. Future additions to the validate package (new check names) automatically appear in the error message. No drift.
+
+- **The Summary line in `--check` mode** is rebuilt from the single check's status:
+  - `[OK]` → `1 ok, 0 warn, 0 fail, 0 skip`
+  - `[FAIL]` → `0 ok, 0 warn, 1 fail, 0 skip`
+  - `[SKIP]` → `0 ok, 0 warn, 0 fail, 1 skip`
+  - `[WARN]` → `0 ok, 1 warn, 0 fail, 0 skip`
+
+  This means a single-check run is the same shape as a multi-check run, just with one check instead of 7. Tools that consume the JSON output don't need to special-case single-check mode.
+
+### Why this target
+The operator often knows which check is failing — "I think my main_db is broken, just check that one thing." Running all 7 checks is overkill. With `--check`, the operator gets JUST the result for the named check, faster and with less output to scan.
+
+The error message on an unknown `--check` name is also useful:
+```
+$ condura doctor --check bogus
+condura: condura doctor: unknown check "bogus" (valid: data_dir, main_db, memory_db, skills_db, config, lock, backups)
+```
+
+The valid list is built from `r.Checks` (the actual report), not from a hardcoded constant. If a future contributor adds an 8th check, it appears in the error message automatically. No drift between the valid list and the actual checks.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI flag, single file)
+- **Performance polish**: ✗ (filter is one map lookup + one slice copy; trivial)
+- **Real feature addition**: ✓ — `condura doctor --check <name>` is the focused-check mode operators have been asking for
+- **Doc hardening**: ✓ — the "valid list built from report" design is self-documenting: there's a comment in the code explaining why this pattern (not a hardcoded list)
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; smoke tests in the commit message are sufficient for this 1-flag addition)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke (3 paths verified):
+  - `condura doctor` (no flags) → all 7 checks run, only failures shown
+  - `condura doctor --check main_db` → only the main_db check, 1 fail in summary
+  - `condura doctor --check bogus` → "unknown check 'bogus' (valid: data_dir, main_db, memory_db, ...)" — valid list from the report
+- `git push origin main` → `72a8ad6..f75a579`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `--only-failed` flag (run all checks, but only show the failures). Useful for "tell me what's broken, not what's fine"; defer until a use case appears (the existing default behavior is similar — passing checks are silent).
+- A `--format <text|json|yaml>` flag for the doctor output. JSON already exists via `--json`; text is the default. Defer unless a use case for YAML/other surfaces appears.
+
+### Status
+- Commit `f75a579` on local main (pushed). `condura doctor --check <name>` is live; the focused-check mode operators have been asking for is now available. Ready for the next cron firing.
