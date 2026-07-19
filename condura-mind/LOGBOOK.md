@@ -3825,3 +3825,52 @@ The `TestTake_NoSecretsInSnapshot` test is the most valuable one in the file. It
 
 ### Status
 - Commit `6535886` on local main (pushed). `condura diag` is live; support can now ask users to paste the output of `condura diag --json` into a ticket. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-6
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: real feature addition — `condura validate` for install health checks. Pairs with iter-5 `condura diag` (which dumps state) to form a "is this install healthy?" / "what does this install look like?" duo.
+
+### Shipped (commit `2fee629`)
+- **NEW PACKAGE `internal/validate`** (3 files):
+  - `doc.go` — package doc that documents the four design constraints: no panics on missing files, no sensitive data, independent checks (a failure in one does not stop others), local-only (no daemon IPC required).
+  - `validate.go` — `Status` (ok/warn/fail/skip), `Check`, `Report` structs + `Run(ctx, dirInput)` function. Uses `homedir.Dir` (iter-10) and `backup.ListBackupArchives` (iter-9) for cross-package composition.
+  - `validate_test.go` — 8 contract tests.
+
+- **NEW CLI COMMAND `condura validate [--json]`**:
+  - Local-only (no daemon required).
+  - Exit code: 0 if all required checks pass, 1 if any required check failed.
+  - Default output: aligned text with [ OK /WARN/FAIL/SKIP] glyphs + summary line.
+  - `--json` output: structured Report JSON for ticketing pipelines.
+
+### Why this target
+`condura diag` answers "what does this machine look like?" — but the operator still has to *interpret* the snapshot to know if it's healthy. `condura validate` answers the next question: "is this install actually working?" It runs 7 health checks (data_dir exists, main DB passes integrity_check, config parses as YAML, backups are readable, etc.) and reports a structured pass/fail. Together, diag + validate are the support-ticket duo: diag shows what the install looks like, validate shows whether it's actually working.
+
+### 7 health checks implemented
+1. **data_dir** — must exist as a directory (StatusFail if missing). The first check; everything else depends on it.
+2. **main_db** — must exist AND pass `PRAGMA integrity_check` in read-only mode. StatusFail on corruption.
+3. **memory_db** — optional (StatusSkip on missing), StatusFail on corruption.
+4. **skills_db** — optional (StatusSkip on missing), StatusFail on corruption.
+5. **config** — parses as YAML. StatusFail on broken YAML. StatusSkip on missing (defaults apply).
+6. **lock** — StatusSkip if absent (daemon not running), StatusOK if present.
+7. **backups** — StatusSkip if no backup dir, StatusFail if any archive's manifest is unreadable.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (feature add, not dedup)
+- **Performance polish**: ✓ (`QueryRowContext` instead of `QueryRow` so the integrity_check is cancellable via the run context — SIGINT → clean exit, not a hung validate)
+- **Real feature addition**: ✓ — new internal package + new CLI command
+- **Doc hardening**: ✓ — package doc + per-function doc-comments document the design constraints
+- **Test-pinning (real gap)**: ✓ — 8 contract tests pin fresh-install, nonexitent-dir, broken-YAML, optional-DB, required-DB, corrupt-DB, empty-input cases
+
+### Verification
+- `go test ./internal/validate/ -v -count=1` → all 8 pass.
+- `go test ./... -count=1 -timeout 300s` → no failures.
+- `golangci-lint run --timeout 5m` on touched packages → **0 issues** (goconst/gocritic/gosec/noctx all addressed via constants, combined-append, nolint comment, and QueryRowContext respectively).
+
+### Explicitly deferred (protect intent)
+- A `lockfile` check that distinguishes live vs stale locks (would require reading the PID from the lock content and calling os.FindProcess). Out of scope; the current "present → OK, absent → Skip" is correct for fresh installs and the operator can verify staleness with `condura status`.
+- IPC parity (`system.validate` daemon method). Useful for GUI; out of scope. The local-only CLI covers the pre-flight case.
+- An auto-repair mode (`condura validate --repair`) that re-creates missing optional DBs from defaults. Out of scope; the current `condura --init` covers that path with explicit operator consent.
+
+### Status
+- Commit `2fee629` on local main (pushed). The full local-only support-tool trio is now live: `condura diag` (what does this look like?), `condura backup list/inspect` (what backups exist?), and `condura validate` (is it healthy?). Ready for the next cron firing.
