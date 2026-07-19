@@ -4000,3 +4000,45 @@ A future iter can finish the migration; the daemon will then have ZERO inline `j
 
 ### Status
 - Commit `eb640fe` on local main (pushed). 18 sites migrated; ~5 remain. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-10
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: real feature addition — `condura logs` for support diagnostics. Operators needed a way to read the daemon's log file without SSHing to the machine and running `tail -F` themselves.
+
+### Shipped (commit `d9bdc0b`)
+- **NEW PACKAGE `internal/logtail`** (3 files):
+  - `doc.go` — package doc that documents the four design constraints: missing file returns (nil, nil), newest-first ordering, rotated siblings merged in time order, O(n + chunkSize) memory.
+  - `logtail.go` — `LogFilePath(dataDir)` returns the canonical `<dataDir>/logs/condura.log`. `Tail(path, n)` returns the last n lines newest-first, transparently merging rotated siblings (condura.log.1, .2, ...) when more lines are needed.
+  - `logtail_test.go` — 7 contract tests.
+
+- **NEW CLI COMMAND `condura logs [--lines N] [--follow]`**:
+  - Local-only (no daemon IPC required).
+  - Default: last 100 lines newest-first.
+  - `--lines N`: override line count.
+  - `--follow`: reserved for a future iter (tail -F behavior); current implementation errors out cleanly with a message pointing to `tail -F`.
+  - Missing log file: prints "(no log file at <path>; has the daemon ever started?)" and exits 0.
+
+### Why this target
+Support tickets were bottlenecked on log access. The current operator workflow is: SSH to the user's machine, find the right log file, run `tail -F` or `cat` the most recent N lines, paste into the ticket. `condura logs` collapses this to: paste the output of `condura --data-dir <path> logs` into the ticket. Same data, less friction.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single new package + single new CLI command)
+- **Performance polish**: ✓ (O(n + chunkSize) memory, not O(filesize); 64KB reverse-seek chunks)
+- **Real feature addition**: ✓ — new `condura logs` CLI + new `internal/logtail` package
+- **Doc hardening**: ✓ — package doc + 4 design constraints documented inline
+- **Test-pinning (real gap)**: ✓ — 7 contract tests including the missing-file, zero-lines, rotated-siblings, and "no more rotations" boundary cases
+
+### Verification
+- `go test ./internal/logtail/ -v -count=1` → all 7 pass.
+- `go test ./... -count=1 -timeout 300s` → no failures.
+- `golangci-lint run --timeout 5m ./condura-app/internal/logtail/... ./condura-app/cmd/condura/...` → **0 issues**.
+- Manual smoke: created `/tmp/test-logs/logs/condura.log` with 5 lines + `.1` with 5 lines + `.2` with 3 lines, ran `condura --data-dir /tmp/test-logs logs --lines 7` → got the last 5 from active + last 2 from .1 in newest-first order. Rotation merge worked correctly.
+
+### Explicitly deferred (protect intent)
+- `--follow` (tail -F) behavior. The infrastructure is in place (the file is opened read-only and scanned; switching to a streaming mode is a few lines), but the IPC contract (does the GUI want to subscribe to log streams?) needs product input. Reserved as a `--follow` flag that errors out cleanly for now.
+- Log-level filtering (`--level error` to show only errors). Useful but adds API surface; the operator can pipe to `grep ERROR` for now.
+- Log rotation marker rendering (a divider like "--- condura.log.1 ---" between rotation files in the output). The current output is the plain text lines; the operator can infer rotations by timestamp patterns. A divider would be a small UX win.
+
+### Status
+- Commit `d9bdc0b` on local main (pushed). The local-only support quartet is now: `condura diag` (snapshot) + `condura validate` (health checks) + `condura backup list/inspect` (backup state) + `condura logs` (recent daemon activity). All four are daemon-independent and work post-incident. Ready for the next cron firing.
