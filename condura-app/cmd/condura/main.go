@@ -24,6 +24,7 @@
 //	synaptic logs [--lines N] [--follow]
 //	synaptic path [--exists]
 //	synaptic explain <code>
+//	synaptic env [--json]
 package main
 
 import (
@@ -129,6 +130,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdPath(gf, subargs)
 	case "explain":
 		return cmdExplain(gf, subargs)
+	case "env":
+		return cmdEnv(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -162,6 +165,7 @@ Commands:
   logs           Read the last N lines of the daemon log.
   path           Print the standard install paths.
   explain        Explain an IPC error code.
+  env             Print the env vars that affect Condura behavior.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -915,6 +919,143 @@ func cmdPath(gf *globalFlags, args []string) error {
 			fmt.Printf("%-12s  %s  %s\n", k, paths[k], suffix)
 		} else {
 			fmt.Printf("%-12s  %s\n", k, paths[k])
+		}
+	}
+	return nil
+}
+
+// envVar is one row in the condura env registry. Each row
+// documents an env var the operator might want to check or
+// override, with a one-line description of what it does.
+//
+// Order roughly mirrors "what does the operator most often
+// want to know?" — the data-dir-related vars first, then the
+// daemon-address / connection vars, then the per-feature
+// overrides.
+type envVar struct {
+	name        string
+	description string
+}
+
+// knownEnvVars is the registry. When the daemon or backup
+// subsystem adds a new env-var lookup, the entry should be
+// added here too — the test (TestEnv_KnowsAllLookups) pins
+// this invariant so the registry can't drift.
+//
+// We list only env vars the codebase ACTUALLY reads (per
+// the os.Getenv / os.LookupEnv calls in internal/ + cmd/).
+// Listing every theoretically-possible env var would
+// overwhelm the operator with noise.
+var knownEnvVars = []envVar{
+	{
+		name:        "HOME",
+		description: "User home directory. Resolves ~/.condura/ for the data dir (Unix/macOS).",
+	},
+	{
+		name:        "USERPROFILE",
+		description: "User home directory (Windows). Takes precedence over HOME on Windows.",
+	},
+	{
+		name:        "XDG_CONFIG_HOME",
+		description: "Linux config base. Resolves ~/.config/condura/ for the data dir when HOME is empty.",
+	},
+	{
+		name:        "APPDATA",
+		description: "Windows roaming config base. Resolves %APPDATA%/condura/ for the data dir when USERPROFILE is empty.",
+	},
+	{
+		name:        "CONDURA_ADDR",
+		description: "Override the daemon's listen address (default: read from <data_dir>/condurad.addr).",
+	},
+	{
+		name:        "CONDURA_BACKUP_DIR",
+		description: "Override the standard backup location (default: ~/Documents/condura-backups, per MISSION §24.1).",
+	},
+	{
+		name:        "CONDURA_FILE_PASSPHRASE",
+		description: "Secrets manager file-mode passphrase fallback (used when the OS keyring is unavailable).",
+	},
+	{
+		name:        "CONDURA_RESUME_SECRET",
+		description: "Resume ticket signing key (default: a random key generated at daemon startup).",
+	},
+	{
+		name:        "CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_ID",
+		description: "OAuth client ID per provider (PROVIDER uppercased). Overrides config.yaml account.oauth.<provider>.client_id.",
+	},
+	{
+		name:        "CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_SECRET",
+		description: "OAuth client secret per provider. Overrides config.yaml account.oauth.<provider>.client_secret.",
+	},
+}
+
+// envValues returns the current process env as a name→value
+// map. Values for unset vars are "" (the lookup convention).
+//
+// We read from os.Environ() rather than os.Getenv in a loop
+// because the former is O(1) per call after the first read
+// (Go's runtime caches the env). For ~10 vars, the difference
+// is negligible, but the function is the single point of access
+// and easy to optimize later if needed.
+func envValues() map[string]string {
+	pairs := os.Environ()
+	out := make(map[string]string, len(pairs))
+	for _, p := range pairs {
+		// os.Environ returns "KEY=VALUE" pairs.
+		for i := 0; i < len(p); i++ {
+			if p[i] == '=' {
+				out[p[:i]] = p[i+1:]
+				break
+			}
+		}
+	}
+	return out
+}
+
+// cmdEnv prints all env vars that affect Condura's behavior,
+// with their current values. Designed for the operator who's
+// debugging "why is my data dir wrong?" or "why isn't the
+// daemon reading my config?" — instead of grepping the
+// codebase for env-var lookups, run `condura env` and see
+// the full list at a glance.
+//
+// Output modes:
+//   - default: aligned text, "NAME  (unset)" or "NAME  VALUE"
+//   - --json:   structured {name, value, set} per row
+//
+// Env values are NOT sanitized: if the operator set
+// CONDURA_FILE_PASSPHRASE to a real passphrase, it'll show
+// up in the output. This is intentional — the operator
+// KNOWS their own env. The point of this command is "tell
+// me what I have set", not "tell me what a safe default is".
+func cmdEnv(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("env", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	vals := envValues()
+
+	if gf.jsonOut {
+		out := make([]map[string]any, 0, len(knownEnvVars))
+		for _, e := range knownEnvVars {
+			v, set := vals[e.name]
+			out = append(out, map[string]any{
+				"name":        e.name,
+				"description": e.description,
+				"value":       v,
+				"set":         set,
+			})
+		}
+		return printJSON(out)
+	}
+
+	for _, e := range knownEnvVars {
+		v, set := vals[e.name]
+		if set {
+			fmt.Printf("%-45s  %s\n", e.name, v)
+		} else {
+			fmt.Printf("%-45s  (unset)\n", e.name)
 		}
 	}
 	return nil
