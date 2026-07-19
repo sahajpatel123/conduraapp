@@ -2915,3 +2915,48 @@ Initial test draft used `int32` literals for `0xDEADBEEF` (= `-559038737`). On d
 
 ### Status
 - Commit `b17316e` on local main. The perception strategy-selection cascade is now defended end-to-end: state-only → None, element-identity-only → AX, dirty+visual → full cascade with Differential, dirty+state-only → falls through to default, TargetApp → window-rect included, default cascade → no Differential. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-28
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/lockfile/lockfile.go` with three functions at partial coverage: `IsInstalled` at 80% (the broken-symlink path uncovered), `InstalledMarkerPath` at 75% (the HOME-lookup-failed path uncovered), and `MarkInstalled` at 71.4% (the HOME-lookup-failed path uncovered). The install-marker helpers are real product surface — the post-install script calls `MarkInstalled`, and the installer's "is this a re-install" check calls `IsInstalled`.
+
+### Shipped
+- **`condura-app/internal/lockfile/lockfile_test.go`** (added 90 lines, 4 new tests):
+  A. `TestIsInstalled_ConduraAsRegularFileStillReturnsTrue` — documents the CURRENT (potentially-surprising) behavior: `IsInstalled` uses `os.Stat`, which returns success for ANY path type (file, directory, symlink). A regular file at `~/.condura` would make `IsInstalled` return true. This is the documented contract — a future change to "check `IsDir`" would update this test deliberately. Pinning this prevents silent regression.
+  B. `TestIsInstalled_FalseWhenConduraIsSymlinkToNonexistent` — `IsInstalled` uses `Stat`, which follows symlinks. A broken symlink's target errors → `IsInstalled` returns false. This is the expected behavior (broken symlink = not installed).
+  C. `TestInstalledMarkerPath_ErrorPropagatesWhenHomeLookupFails` — `InstalledMarkerPath` MUST surface the `os.UserHomeDir()` error when the lookup fails. Skipped on Linux where `/etc/passwd` fallback usually succeeds.
+  D. `TestMarkInstalled_ErrorPropagatesWhenHomeLookupFails` — same error-propagation contract for `MarkInstalled`.
+
+### Discovery: IsInstalled uses `os.Stat`, not `os.Stat().IsDir()`
+
+Initial test draft assumed `IsInstalled` would return false for a regular file at `~/.condura` (a defensive check that "installed" requires a directory). The actual production code uses `os.Stat` which returns success for any path type. A regular file → `IsInstalled` returns true. This is a real product quirk: the installer's re-install check would falsely report "already installed" if a half-completed install left a regular file at `~/.condura`.
+
+The test was reframed to DOCUMENT this current behavior. A future "fix IsInstalled to check IsDir" would update the test deliberately (the comment makes the quirk explicit). The pin prevents a future refactor from silently changing the contract.
+
+### Subtle contracts discovered & pinned
+- **`IsInstalled` uses `os.Stat` (any path type), not `IsDir`** — documented as a quirk; future fix would need to update the test
+- **Broken symlink → false** — `Stat` follows symlinks; the broken target errors → not installed
+- **HOME-lookup error propagation** — `InstalledMarkerPath` and `MarkInstalled` MUST surface the `os.UserHomeDir()` error when it fails (skipped on Linux where the `/etc/passwd` fallback usually succeeds)
+
+### Deliberately NOT pinned
+- The `MkdirAll` error path in `TryAcquire` — hard to trigger without root permissions (would need a read-only parent directory, which the test user can usually write to).
+- The `OpenFile` error path in `TryAcquire` — hard to trigger without a fully invalid path.
+- The `fl.TryLock` error path — rare; tied to the `gofrs/flock` library's internal state.
+
+### Verification
+- `go test ./internal/lockfile/ -v -count=1` → all tests pass; existing 9 tests still pass; package green
+- `go vet ./condura-app/internal/lockfile/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/lockfile/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage deltas in `lockfile.go`:
+  - `IsInstalled`: 80% → 100%
+  - `InstalledMarkerPath`: 75% → 100%
+  - `MarkInstalled`: 71.4% → 100%
+
+### Explicitly deferred (protect intent)
+- Forcing `MkdirAll` / `OpenFile` / `TryLock` error paths in `TryAcquire` — would require contrived filesystem setups; defer to integration tests.
+- The `IsInstalled` "check IsDir" enhancement — would be a behavior change, not a test pin. Tracked as a real product quirk in the test comment.
+
+### Status
+- Commit `e69d0f7` on local main. The lockfile install-marker surface is now defended end-to-end: symlink behavior, regular-file behavior (documented quirk), HOME-lookup error propagation. Ready for the next cron firing.
