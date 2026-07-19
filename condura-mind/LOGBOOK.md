@@ -3783,3 +3783,45 @@ The `if err := json.Unmarshal(params, &p); err != nil { return nil, &ipc.Error{.
 
 ### Status
 - Commit `ff5c85d` on local main (pushed). The two helpers exist, are tested, and 5 call-sites in methods_phase11_backup.go use them. Future iter can migrate the remaining sites opportunistically. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-5
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: real feature addition — `condura diag` for support tickets. Local-only (no daemon required) so it works even when the daemon won't start.
+
+### Shipped (commit `6535886`)
+- **NEW PACKAGE `internal/diag`** (3 files):
+  - `doc.go` — package doc that documents the three design constraints: no panics on missing files, no sensitive data in output, stable JSON shape.
+  - `diag.go` — `Snapshot`, `Paths`, `FileInfo` structs + `Take(dataDir)` function. Uses `backup.ListBackupArchives` (iter-9) for the backup list, `homedir.Dir` (iter-10) for the data-dir default.
+  - `diag_test.go` — 5 contract tests including the no-secrets pin.
+
+- **NEW CLI COMMAND `condura diag [--json]`**:
+  - Local-only (no daemon required).
+  - Default output: aligned text (paths + file sizes/mtimes + backups).
+  - `--json` output: structured `Snapshot` JSON for ticketing pipelines.
+  - Uses `--data-dir` global flag like other commands.
+  - Uses `backup.ListBackupArchives` (iter-9) so the snapshot reflects what `condura backup list` shows.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (this was a feature add, not a refactor)
+- **Performance polish**: ✓ (minor — JSON marshaling uses default encoders; no allocations beyond what json.Marshal needs)
+- **Real feature addition**: ✓ (the primary goal — a CLI command that didn't exist before, plus a new internal package)
+- **Doc hardening**: ✓ (the diag package doc explicitly documents the three design constraints)
+- **Test-pinning (real gap)**: ✓ (5 contract tests, including the secrets-stay-out pin and the JSON-shape stability pin)
+
+### Security notes
+The `TestTake_NoSecretsInSnapshot` test is the most valuable one in the file. It writes a config containing `"supersecretvalue12345"`, takes a snapshot, marshals it to JSON, and asserts the secret string does NOT appear anywhere in the output. This pins the privacy contract: future contributors cannot accidentally start echoing config-file contents into the snapshot without this test failing.
+
+### Verification
+- `go test ./internal/diag/ -v -count=1` → all 5 pass.
+- `go test ./... -count=1 -timeout 300s` → no failures.
+- `golangci-lint run --timeout 5m ./condura-app/internal/diag/... ./condura-app/cmd/condura/...` → **0 issues**.
+- Manual smoke: `condura --data-dir /tmp/nonexistent diag` produces a clean snapshot showing all paths + missing-file indicators + the developer's real `~/Documents/condura-backups/` archives (newest-first).
+
+### Explicitly deferred (protect intent)
+- Adding a `system.diag` IPC method that returns the same snapshot via the daemon. Useful for GUI; out of scope for this iteration. The local-only CLI covers the post-incident-triage case where the daemon can't start.
+- A `condura diag --upload <ticket-id>` flag that POSTs the snapshot to a support endpoint. Out of scope; privacy + auth considerations need product input first.
+- A `--since <duration>` flag that limits the snapshot to recent changes. The current snapshot is small (paths + sizes + mtimes), so trimming isn't needed yet.
+
+### Status
+- Commit `6535886` on local main (pushed). `condura diag` is live; support can now ask users to paste the output of `condura diag --json` into a ticket. Ready for the next cron firing.
