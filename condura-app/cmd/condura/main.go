@@ -1012,6 +1012,7 @@ var remediations = map[string]string{
 func cmdDoctor(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fix := fs.Bool("fix", false, "include generic init instructions when the data dir is missing")
+	check := fs.String("check", "", "run only the named check (e.g. main_db, config, lock) and skip the rest")
 	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
 		return err
 	}
@@ -1024,6 +1025,49 @@ func cmdDoctor(gf *globalFlags, args []string) error {
 		dir = defaultDataDir()
 	}
 	r := validate.Run(ctx, dir)
+
+	// --check: filter the report to a single check by name.
+	// The validate package runs all 7 checks unconditionally;
+	// the filter happens here in the CLI, so the package
+	// stays simple (no per-check skipping needed).
+	if *check != "" {
+		var found *validate.Check
+		for i := range r.Checks {
+			if r.Checks[i].Name == *check {
+				found = &r.Checks[i]
+				break
+			}
+		}
+		if found == nil {
+			// Build a list of valid check names from the
+			// report itself (don't hardcode them — they
+			// could change in future validate versions).
+			var valid []string
+			for _, c := range r.Checks {
+				valid = append(valid, c.Name)
+			}
+			return fmt.Errorf("condura doctor: unknown check %q (valid: %s)", *check, strings.Join(valid, ", "))
+		}
+		// Build a single-check report so the JSON / text
+		// output paths handle --check uniformly.
+		r.Checks = []validate.Check{*found}
+		r.Summary = struct {
+			OK   int `json:"ok"`
+			Warn int `json:"warn"`
+			Fail int `json:"fail"`
+			Skip int `json:"skip"`
+		}{}
+		switch found.Status {
+		case validate.StatusOK:
+			r.Summary.OK = 1
+		case validate.StatusWarn:
+			r.Summary.Warn = 1
+		case validate.StatusFail:
+			r.Summary.Fail = 1
+		case validate.StatusSkip:
+			r.Summary.Skip = 1
+		}
+	}
 
 	// JSON output: the full report + the remediations map.
 	// Useful for tooling that wants to programmatically act on
