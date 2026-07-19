@@ -443,10 +443,15 @@ func cmdBackupInspect(gf *globalFlags, args []string) error {
 	if err != nil {
 		return fmt.Errorf("inspect %s: %w", rest[0], err)
 	}
-	// InspectManifest returns a human-readable summary; respect
-	// --json only for the file-list section (the printable summary
-	// is already plain text and JSON-ifying it would lose the
-	// aligned columns).
+	if gf.jsonOut {
+		return printJSON(map[string]any{
+			"archive": rest[0],
+			"summary": summary,
+		})
+	}
+	// InspectManifest returns a human-readable summary; the
+	// printable summary is plain text and aligned columns work
+	// better in text mode than in JSON.
 	fmt.Print(summary)
 	return nil
 }
