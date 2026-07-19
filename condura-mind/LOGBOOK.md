@@ -3034,3 +3034,39 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `5b14303` on local main. The overlay SetState contract is now defended end-to-end: store, overwrite, all-defined-states. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-31
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-30-iters) surfaced `internal/sensitive/sensitive.go` with `isAllDigits` at 75% — the helper used in credit-card and SSN-like pattern matching. The 25% gap covered multibyte digits, empty strings, and ASCII boundary cases.
+
+### Shipped
+- **`condura-app/internal/sensitive/sensitive_test.go`** (added 63 lines, 5 new tests):
+  A. `TestIsAllDigits_AllDigitsReturnsTrue` — strings of all ASCII digits return true (happy path).
+  B. `TestIsAllDigits_EmptyStringReturnsFalse` — empty string returns false (the `len(s) > 0` guard).
+  C. `TestIsAllDigits_ContainsNonDigitReturnsFalse` — strings with at least one non-digit return false (letters, punctuation, special chars, emoji).
+  D. `TestIsAllDigits_BoundaryChars` — boundary ASCII chars `/` (47, just below `'0'`=48) and `:` (58, just above `'9'`=57) MUST be rejected. The function uses byte comparisons, not rune-category checks.
+  E. `TestIsAllDigits_MultibyteDigitReturnsFalse` — multi-byte UTF-8 digits (e.g., Arabic-Indic digit U+0661) return false because the first byte is > `'9'`. Pins the ASCII-only contract.
+
+### Subtle contracts discovered & pinned
+- **Empty string returns false**: the `len(s) > 0` guard is a real defensive check. A regression that returned `true` for empty would silently match empty patterns.
+- **ASCII-only contract**: the function uses byte comparisons (`c < '0' || c > '9'`), not rune-category checks. Multi-byte UTF-8 digits (Arabic-Indic, etc.) return false because their first byte is > `'9'`. A future "fix" using `unicode.IsDigit` would change this contract — the test pins the current ASCII-only behavior.
+- **ASCII boundary correctness**: characters at byte values 47 (`/`) and 58 (`:`) are exactly one less/greater than the digit range. The function correctly rejects them.
+
+### Deliberately NOT pinned
+- The `Match` / `MatchDomain` functions — already at 100% from existing tests.
+- The `extractHost` / `cleanDomain` / `matchDomain` helpers — already at 100%.
+
+### Verification
+- `go test ./internal/sensitive/ -run "TestIsAllDigits_" -v -count=1` → all 5 pass; existing 11 tests still pass; package green
+- `go vet ./condura-app/internal/sensitive/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/sensitive/...` → **0 issues** (after `gofmt`)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `sensitive.go`:
+  - `isAllDigits`: 75% → 100%
+
+### Explicitly deferred (protect intent)
+- The `Match` integration with `isAllDigits` — already covered transitively by the existing `TestMatch_Combined`.
+
+### Status
+- Commit `c8f7bcc` on local main. The sensitive-data detector's `isAllDigits` helper is now defended end-to-end: all-digits, empty-string guard, non-digit rejection, ASCII boundary correctness, multibyte-digits rejection (ASCII-only). Ready for the next cron firing.
