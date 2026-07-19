@@ -17,6 +17,7 @@
 //	synaptic apikeys delete 3
 //	synaptic backup list
 //	synaptic backup inspect <archive>
+//	synaptic backup delete <archive> [--force]
 //	synaptic diag [--json]
 //	synaptic validate [--json]
 //	synaptic logs [--lines N] [--follow]
@@ -154,7 +155,7 @@ Commands:
   skills        Manage locally installed skills (list/get/delete).
   resume        T3b sticky human-confirmed resume (request/confirm/cancel).
   i18n          Manage locale catalogs (locales/locale).
-  backup        Inspect local backup archives (list/inspect).
+  backup        Inspect local backup archives (list/inspect/delete).
   diag          Dump local diagnostic snapshot for support.
   validate      Run local install health checks.
   logs           Read the last N lines of the daemon log.
@@ -236,6 +237,8 @@ func cmdBackup(gf *globalFlags, args []string) error {
 		return cmdBackupList(gf)
 	case "inspect":
 		return cmdBackupInspect(gf, rest)
+	case "delete":
+		return cmdBackupDelete(gf, rest)
 	default:
 		return fmt.Errorf("unknown backup subcommand %q (want list or inspect)", sub)
 	}
@@ -324,6 +327,114 @@ func cmdBackupInspect(gf *globalFlags, args []string) error {
 	// aligned columns).
 	fmt.Print(summary)
 	return nil
+}
+
+// cmdBackupDelete removes a single backup archive by name.
+// Local-only (no daemon IPC): reads the filesystem directly.
+// Closes the "manage my backups" loop — the operator can
+// list backups (cmdBackupList), inspect one (cmdBackupInspect),
+// and now remove one. No round trip to the daemon, no IPC
+// auth, no JSON-RPC envelope.
+//
+// Safety: the command requires an EXPLICIT archive name (not
+// a glob or a date range). With archives > 1 GB, the command
+// prints a confirmation prompt and waits for stdin unless
+// --force is set. This matches the "rm -i" / "trash" UX —
+// the operator MUST look at the size before deleting.
+//
+// Usage:
+//   condura backup delete condura-backup-2026-06-14.zip
+//   condura backup delete condura-backup-2026-06-14.zip --force
+//
+// Use `condura backup list` to discover the archive name
+// (the leftmost column). Use `condura backup inspect <archive>`
+// to verify it's the right one before deleting.
+func cmdBackupDelete(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("backup delete", flag.ContinueOnError)
+	force := fs.Bool("force", false, "skip the size-based confirmation prompt for large archives")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+	rest := fs.Args()
+	if len(rest) == 0 {
+		return fmt.Errorf("usage: condura backup delete <archive> [--force]")
+	}
+	name := rest[0]
+
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	backupDir := backup.ResolveBackupDir(dir)
+
+	// Reject names that try to escape the backup dir (e.g.
+	// "../etc/passwd"). The basename must be a plain .zip
+	// filename — no slashes, no "..", no absolute paths.
+	if strings.ContainsAny(name, "/\\") || name == ".." || strings.HasPrefix(name, ".") {
+		return fmt.Errorf("condura backup delete: invalid archive name %q (must be a plain .zip basename)", name)
+	}
+	if !strings.HasSuffix(name, ".zip") {
+		return fmt.Errorf("condura backup delete: archive name must end in .zip (got %q)", name)
+	}
+
+	target := filepath.Join(backupDir, name)
+
+	// Verify the target actually exists in the backup dir.
+	// os.Lstat (not Stat) so a symlink to /etc/passwd is
+	// caught — the deletion would follow the symlink.
+	fi, err := os.Lstat(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("condura backup delete: no such archive %q in %s", name, backupDir)
+		}
+		return err
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("condura backup delete: %s is not a regular file (mode=%s); refusing to delete", name, fi.Mode())
+	}
+
+	// Size-based confirmation: archives > 1 GB require explicit
+	// --force OR a typed "yes" on stdin. Smaller archives delete
+	// without prompting (the operator already typed the exact
+	// filename).
+	const largeThreshold int64 = 1 << 30 // 1 GiB
+	if fi.Size() > largeThreshold && !*force {
+		fmt.Printf("Archive %q is %s (>1 GiB). Delete? [y/N]: ", name, fileSizeHuman(fi.Size()))
+		var answer string
+		fmt.Scanln(&answer)
+		if answer != "y" && answer != "Y" && answer != "yes" {
+			fmt.Println("aborted")
+			return nil
+		}
+	}
+
+	if err := os.Remove(target); err != nil {
+		return fmt.Errorf("condura backup delete: %w", err)
+	}
+	fmt.Printf("Deleted %s (%s freed)\n", name, fileSizeHuman(fi.Size()))
+	return nil
+}
+
+// fileSizeHuman renders a byte count as a human-readable
+// string (e.g. "1.2 GB"). Used by cmdBackupDelete's
+// confirmation prompt so the operator sees the size before
+// committing to the delete.
+func fileSizeHuman(b int64) string {
+	const (
+		KiB = 1 << 10
+		MiB = 1 << 20
+		GiB = 1 << 30
+	)
+	switch {
+	case b >= GiB:
+		return fmt.Sprintf("%.1f GB", float64(b)/float64(GiB))
+	case b >= MiB:
+		return fmt.Sprintf("%.1f MB", float64(b)/float64(MiB))
+	case b >= KiB:
+		return fmt.Sprintf("%.1f KB", float64(b)/float64(KiB))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 // filepathBase returns the last element of a slash-separated
