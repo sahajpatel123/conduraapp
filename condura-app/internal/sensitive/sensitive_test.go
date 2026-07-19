@@ -180,3 +180,66 @@ func TestMatchDomain(t *testing.T) {
 		}
 	}
 }
+
+// TestIsAllDigits_AllDigitsReturnsTrue pins the happy-path
+// contract: a string of all ASCII digits returns true.
+func TestIsAllDigits_AllDigitsReturnsTrue(t *testing.T) {
+	cases := []string{"0", "1", "9", "1234567890", "00000"}
+	for _, c := range cases {
+		if !isAllDigits(c) {
+			t.Errorf("isAllDigits(%q) = false; want true", c)
+		}
+	}
+}
+
+// TestIsAllDigits_EmptyStringReturnsFalse pins the empty-string
+// guard: isAllDigits("") MUST return false. A regression that
+// returned true for empty would silently match empty patterns.
+func TestIsAllDigits_EmptyStringReturnsFalse(t *testing.T) {
+	if isAllDigits("") {
+		t.Error("isAllDigits(\"\") = true; want false (empty string is not 'all digits')")
+	}
+}
+
+// TestIsAllDigits_ContainsNonDigitReturnsFalse pins the
+// input-validation contract: a string with at least one
+// non-digit MUST return false. The detector iterates runes;
+// first non-digit short-circuits.
+func TestIsAllDigits_ContainsNonDigitReturnsFalse(t *testing.T) {
+	cases := []string{
+		"a", "1a", "a1", "123a456", "abc", "12.3",
+		"12-34", "12 34", "1!", "🦀", // space + special + emoji
+	}
+	for _, c := range cases {
+		if isAllDigits(c) {
+			t.Errorf("isAllDigits(%q) = true; want false", c)
+		}
+	}
+}
+
+// TestIsAllDigits_BoundaryChars pins the ASCII-range boundary:
+// characters just below '0' (e.g., '/' = 0x2F) and just above '9'
+// (e.g., ':' = 0x3A) MUST be rejected. The function uses ASCII
+// bounds, not rune-category checks.
+func TestIsAllDigits_BoundaryChars(t *testing.T) {
+	// '/' is ASCII 47, just below '0' (ASCII 48).
+	// ':' is ASCII 58, just above '9' (ASCII 57).
+	if isAllDigits("/") {
+		t.Error("isAllDigits(\"/\") = true; want false ('/' is ASCII 47 < '0'=48)")
+	}
+	if isAllDigits(":") {
+		t.Error("isAllDigits(\":\") = true; want false (':' is ASCII 58 > '9'=57)")
+	}
+}
+
+// TestIsAllDigits_MultibyteDigitReturnsFalse pins the ASCII-only
+// contract: isAllDigits uses byte comparisons (`c < '0' || c > '9'`),
+// not rune-category checks. A multi-byte UTF-8 digit (e.g., Arabic-Indic
+// digit "١" = U+0661) has its first byte > '9' (it's 0xD9 in UTF-8),
+// so isAllDigits returns false. The detector is ASCII-only by design.
+func TestIsAllDigits_MultibyteDigitReturnsFalse(t *testing.T) {
+	// "١" is U+0661 (Arabic-Indic digit one). Encoded as 0xD9 0xA1 in UTF-8.
+	if isAllDigits("١") {
+		t.Error("isAllDigits(\"١\") = true; want false (multibyte UTF-8 digit, ASCII-only check)")
+	}
+}
