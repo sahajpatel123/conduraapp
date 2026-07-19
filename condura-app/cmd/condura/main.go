@@ -19,6 +19,7 @@
 //	synaptic backup inspect <archive>
 //	synaptic diag [--json]
 //	synaptic validate [--json]
+//	synaptic logs [--lines N] [--follow]
 package main
 
 import (
@@ -38,6 +39,7 @@ import (
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/backup"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/diag"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/logtail"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/validate"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
@@ -116,6 +118,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdDiag(gf, subargs)
 	case "validate":
 		return cmdValidate(gf, subargs)
+	case "logs":
+		return cmdLogs(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -146,6 +150,7 @@ Commands:
   backup        Inspect local backup archives (list/inspect).
   diag          Dump local diagnostic snapshot for support.
   validate      Run local install health checks.
+  logs           Read the last N lines of the daemon log.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -483,6 +488,68 @@ func cmdValidate(gf *globalFlags, args []string) error {
 		return fmt.Errorf("%d check(s) failed", r.Summary.Fail)
 	}
 	return nil
+}
+
+// cmdLogs reads the last N lines of the daemon's log file.
+// Local-only (no daemon IPC required): reads the file directly
+// via internal/logtail. Useful for support tickets — paste the
+// last 100 lines into the ticket and the engineer can see
+// what the daemon was doing when it crashed.
+//
+// Output: lines printed newest-first (one per line). The
+// operator can pipe to `head` or `less` for interactive use.
+//
+// Exit code: 0 on success, 1 on file read error.
+//
+// The log file location matches the daemon's writer: <dataDir>/
+// logs/condura.log. Rotated siblings (condura.log.1, .2, ...)
+// are merged transparently when more lines are needed.
+func cmdLogs(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
+	lines := fs.Int("lines", 100, "number of lines to read from the end of the log (default 100)")
+	follow := fs.Bool("follow", false, "(reserved) follow the log like tail -f; not yet implemented")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	if *follow {
+		// Reserved for a future iter. The implementation would
+		// tail -F the file: open, seek to end, read new lines
+		// as they appear, print. For now, error out cleanly so
+		// the operator knows the flag isn't live yet.
+		return fmt.Errorf("condura logs --follow: not yet implemented (use tail -F %s)", logFilePathForCLI(gf))
+	}
+
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	logPath := logtail.LogFilePath(dir)
+
+	lines_out, err := logtail.Tail(logPath, *lines)
+	if err != nil {
+		return fmt.Errorf("condura logs: %w", err)
+	}
+	if lines_out == nil {
+		fmt.Printf("(no log file at %s; has the daemon ever started?)\n", logPath)
+		return nil
+	}
+	for _, l := range lines_out {
+		fmt.Println(l)
+	}
+	return nil
+}
+
+// logFilePathForCLI returns the canonical log path for a given
+// globalFlags config. Tiny wrapper around logtail.LogFilePath
+// so the "not yet implemented" error message is consistent
+// with the actual reader.
+func logFilePathForCLI(gf *globalFlags) string {
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	return logtail.LogFilePath(dir)
 }
 
 func cmdPing(gf *globalFlags) error {
