@@ -110,3 +110,54 @@ func TestOverlayState_String(t *testing.T) {
 		}
 	}
 }
+
+// TestNoopController_SetState_StoresValue pins the SetState
+// contract: SetState(state) MUST update c.state. The presence
+// orchestrator (4.3) uses this accessor to drive state changes
+// from external subsystems (e.g., "user is idle, show listening").
+// A regression that silently dropped the SetState call would
+// break the orchestrator-driven state machine.
+func TestNoopController_SetState_StoresValue(t *testing.T) {
+	c := NewNoopController().(*noopController)
+	c.SetState(StateListening)
+	if got := c.State(); got != StateListening {
+		t.Errorf("State() after SetState(Listening) = %v, want StateListening", got)
+	}
+}
+
+// TestNoopController_SetState_Overwrite pins the overwrite
+// contract: a second SetState call MUST replace the first. The
+// state machine can transition back and forth (e.g.,
+// StateListening -> StateThinking -> StateListening on
+// consecutive turns); a regression that early-returned would
+// leave the state stuck at the first value.
+func TestNoopController_SetState_Overwrite(t *testing.T) {
+	c := NewNoopController().(*noopController)
+	c.SetState(StateListening)
+	c.SetState(StateThinking)
+	if got := c.State(); got != StateThinking {
+		t.Errorf("State() after SetState(Listening) then SetState(Thinking) = %v, want StateThinking",
+			got)
+	}
+}
+
+// TestNoopController_SetState_AllDefinedStates pin the
+// all-defined-states contract: SetState MUST accept every
+// State value (Hidden, Listening, Thinking, Speaking,
+// Error). A regression that added a new State constant without
+// handling it in SetState would crash the orchestrator.
+func TestNoopController_SetState_AllDefinedStates(t *testing.T) {
+	allStates := []State{
+		StateHidden,
+		StateListening,
+		StateThinking,
+		StateSpeaking,
+	}
+	for _, s := range allStates {
+		c := NewNoopController().(*noopController)
+		c.SetState(s)
+		if got := c.State(); got != s {
+			t.Errorf("State() after SetState(%v) = %v, want %v", s, got, s)
+		}
+	}
+}
