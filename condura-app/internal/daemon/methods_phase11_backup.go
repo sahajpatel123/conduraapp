@@ -70,11 +70,11 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Path string `json:"path"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
-		if p.Path == "" {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
+		if err := requireField("path", p.Path); err != nil {
+			return nil, err
 		}
 		// Gated: backup.preview reads an arbitrary filesystem path
 		// (the path lives in IPC params, not the daemon's data dir),
@@ -142,11 +142,11 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Path string `json:"path"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
-		if p.Path == "" {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
+		if err := requireField("path", p.Path); err != nil {
+			return nil, err
 		}
 		if err := gate(ctx, subs, "backup.restore", "Restore backup from "+p.Path); err != nil {
 			return nil, err
@@ -334,11 +334,11 @@ func backupInspect(ctx context.Context, subs *Subsystems, params json.RawMessage
 	var p struct {
 		Path string `json:"path"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
-	if p.Path == "" {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
+	if err := requireField("path", p.Path); err != nil {
+		return nil, err
 	}
 	if err := gate(ctx, subs, "backup.inspect", "Preview backup summary from "+p.Path); err != nil {
 		return nil, err
