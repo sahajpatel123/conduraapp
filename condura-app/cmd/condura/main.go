@@ -26,6 +26,7 @@
 //	synaptic explain <code>
 //	synaptic env [--json]
 //	synaptic where <key>
+//	synaptic doctor [--json] [--fix]
 package main
 
 import (
@@ -150,6 +151,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdEnv(gf, subargs)
 	case "where":
 		return cmdWhere(gf, subargs)
+	case "doctor":
+		return cmdDoctor(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -185,6 +188,7 @@ Commands:
   explain        Explain an IPC error code.
   env             Print the env vars that affect Condura behavior.
   where           Print a single install path (inverse of path).
+  doctor         Run validate + print remediation steps for each failure.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -898,6 +902,125 @@ func cmdValidate(gf *globalFlags, args []string) error {
 		return fmt.Errorf("%d check(s) failed", r.Summary.Fail)
 	}
 	return nil
+}
+
+// remediations is the registry mapping each check name to a
+// concrete fix-the-problem command. Used by cmdDoctor to print
+// the next-step AFTER each failure (validate just says "what
+// broke"; doctor says "what to do about it").
+//
+// Order roughly mirrors the check's importance: data-dir and
+// main-db first (the daemon can't run without them), then the
+// optional DBs, then the operational files.
+var remediations = map[string]string{
+	validate.CheckNameDataDir:  "run 'condurad --init' to create the data directory",
+	validate.CheckNameMainDB:   "run 'condurad --init' to recreate the main database",
+	validate.CheckNameMemoryDB: "run 'condurad' once to auto-create the memory DB (created on first start)",
+	validate.CheckNameSkillsDB: "run 'condurad' once to auto-create the skills DB (created on first start)",
+	validate.CheckNameConfig:   "edit the config file (see detail above for the YAML parser error); defaults apply if missing",
+	validate.CheckNameLock:     "the lock file is held by a non-running daemon (stale lock); remove it after confirming no condurad is running",
+	validate.CheckNameBackups:  "the most recent backup is unreadable; check the disk and consider 'condura backup prune' to clean up old archives",
+}
+
+// cmdDoctor runs validate + prints a remediation step for each
+// failure. The pair is the difference between "I see what's
+// broken" (validate) and "I see what's broken AND how to fix it"
+// (doctor). Both are local-only (no daemon IPC required).
+//
+// Usage:
+//   condura doctor              # run all checks + remediation
+//   condura doctor --json       # structured output
+//   condura doctor --fix        # also print generic init
+//                                # instructions if data-dir is
+//                                # missing
+//
+// Default behavior: ONLY prints remediation for FAIL/OK
+// statuses (the operator doesn't need "run condurad" for
+// passes). The summary line at the end is the same as
+// condura validate.
+func cmdDoctor(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	fix := fs.Bool("fix", false, "include generic init instructions when the data dir is missing")
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+	r := validate.Run(ctx, dir)
+
+	// JSON output: the full report + the remediations map.
+	// Useful for tooling that wants to programmatically act on
+	// the diagnosis (e.g. "open a GitHub issue with the
+	// failed-check names + their remediation steps").
+	if gf.jsonOut {
+		out := map[string]any{
+			"data_dir":     r.DataDir,
+			"time":         r.Time,
+			"checks":       r.Checks,
+			"remediations": remediations,
+			"summary":      r.Summary,
+		}
+		return printJSON(out)
+	}
+
+	// Text output: print ONLY the failed checks + their
+	// remediation. Passing checks (OK/Skip) are silent — the
+	// operator doesn't need to read "all good" 7 times.
+	fmt.Printf("Condura doctor — %s\n", r.Time)
+	fmt.Printf("data_dir: %s\n\n", r.DataDir)
+	anyFails := false
+	for _, c := range r.Checks {
+		if c.Status != validate.StatusFail {
+			continue
+		}
+		anyFails = true
+		fmt.Printf("  [FAIL] %-12s  %s\n", c.Name, c.Detail)
+		if fix, ok := remediations[c.Name]; ok {
+			fmt.Printf("             fix: %s\n", fix)
+		}
+	}
+	if !anyFails {
+		fmt.Println("(no failures — install is healthy)")
+	}
+	fmt.Println()
+	fmt.Printf("Summary: %d ok, %d warn, %d fail, %d skip\n",
+		r.Summary.OK, r.Summary.Warn, r.Summary.Fail, r.Summary.Skip)
+
+	// --fix mode: also print generic init instructions
+	// when the data dir is missing. This is the "I have NO
+	// idea what's wrong" mode — start from scratch.
+	if *fix && !dataDirExists(dir) {
+		fmt.Println()
+		fmt.Println("Generic install instructions (no data dir):")
+		fmt.Println("  1. mkdir -p", dir)
+		fmt.Println("  2. condurad --init --data-dir", dir)
+		fmt.Println("  3. condurad --data-dir", dir, "  (start the daemon)")
+	}
+
+	// Exit non-zero if any required check failed (same as
+	// condura validate's behavior — scripts can use either
+	// command for "is this install healthy?").
+	if r.Summary.Fail > 0 {
+		return fmt.Errorf("%d check(s) failed", r.Summary.Fail)
+	}
+	return nil
+}
+
+// dataDirExists is a small helper that returns true if the
+// data dir exists AND is a directory. Used by --fix mode to
+// decide whether to print the "from scratch" instructions.
+func dataDirExists(dir string) bool {
+	fi, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	return fi.IsDir()
 }
 
 // cmdLogs reads the last N lines of the daemon's log file.
