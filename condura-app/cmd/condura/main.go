@@ -158,7 +158,14 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		// when the operator passes a subcommand name. condura
 		// help (no args) shows the global usage (same as
 		// --help / -h). Unix-standard: `git help`, `npm help`.
+		//
+		// condura help --all: dump the full cheatsheet (every
+		// command + its description) in tabular form. Useful
+		// for "what can I do with this CLI?" in one glance.
 		if len(subargs) > 0 {
+			if subargs[0] == "--all" {
+				return helpAll()
+			}
 			return helpFor(subargs[0])
 		}
 		printUsage()
@@ -232,6 +239,20 @@ func helpFor(name string) error {
 		return nil
 	}
 	fmt.Printf("usage: condura %s\n\n", usage)
+	return nil
+}
+
+// helpAll prints the full cheatsheet: every command + its
+// description, in tabular form. The "no help for ..." fallback
+// in helpFor ALSO uses this pattern (the "known commands"
+// list at the bottom of the error message) — but this
+// version is the explicit "give me everything" mode.
+func helpAll() error {
+	fmt.Println("Condura CLI cheatsheet (all commands):")
+	fmt.Println()
+	for _, n := range helpOrder {
+		fmt.Printf("  %-12s  %s\n", n, commandHelp[n])
+	}
 	return nil
 }
 
