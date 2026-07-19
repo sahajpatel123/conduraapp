@@ -3435,3 +3435,48 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `8460b4e` on local main. The SSE-event-to-request-ID matcher is now defended end-to-end: nil-data no-filter, matching id, non-matching id, no-field no-filter, non-string no-filter, non-marshalable false, empty-string symmetry. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-resumed-1
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate, after user re-authorization. Target: real feature addition per the 'improvement approach' mandate — add `condura backup list` and `condura backup inspect` subcommands so the operator can inspect local backup archives WITHOUT a running daemon.
+
+### Shipped (now in commit `5453ced`)
+The feature landed in the concurrent-session commit `5453ced docs(logbook): record iter-41 agent eventMatchesRequest pin` — same contamination pattern as iter-8. The code is in main; the commit message describes the OTHER session's work (agent). My commit was consumed during the parallel git-add.
+
+**New public APIs in `internal/backup`:**
+- `ListBackupArchives(dir)` returns absolute paths to `.zip` archives, sorted newest-first by mtime. Cheap extension filter (avoids Stat on sidecars); skips unreadable entries; returns a structured `*backupDirError` for missing-dir / not-a-directory cases.
+- `IsBackupDirNotFound(err)` is the caller switch on the structured error — fresh-install returns `(nil, IsBackupDirNotFound=true)`, real I/O errors bubble.
+- `archiveExt` constant centralizes the `.zip` filter (was implicitly assumed by callers).
+
+**New CLI subcommands in `condura backup`:**
+- `condura backup list [--json]` — table (default) or JSON array of `{name, size_bytes}`. Resolution matches the daemon: `CONDURA_BACKUP_DIR` env var → `~/Documents/condura-backups` → `<data-dir>/backups`. Missing dir renders "(no backups in <path>)" — not an error.
+- `condura backup inspect <archive>` — calls `backup.InspectManifest` (the existing 0%-covered function). Reads the zip header directly via `backup.LoadManifest`; no daemon required.
+
+**6 focused tests for `ListBackupArchives`:**
+1. `TestListBackupArchives_NotFoundIsNotAnError` — fresh-install contract.
+2. `TestListBackupArchives_NotADirectory` — misconfig safety.
+3. `TestListBackupArchives_FiltersByExtension` — `.zip` filter.
+4. `TestListBackupArchives_NewestFirst` — mtime-desc sort, explicit `Chtimes` for FS-resolution portability.
+5. `TestListBackupArchives_EmptyDir` — empty slice (NOT nil) for JSON stability.
+6. `TestListBackupArchives_SkipsUnreadableEntries` — fault tolerance; one symlink-to-/nonexistent must not abort the list. Skips on Windows.
+
+**3 small helpers in `main.go`:** `filepathBase` (inline, no top-level `path/filepath` import), `fileSizeInt` (returns `int64` so JSON output carries the byte count), `defaultDataDir` (`~/.condura` with a relative `.condura` fallback on `UserHomeDir` error).
+
+### Behavior decisions documented inline
+- **Local-only**: `list` and `inspect` do not require `condurad` to be running. Future `create` / `restore` / `prune` / `verify` will need IPC methods.
+- **Missing-dir is not an error**: fresh-install case.
+- **JSON shape for `list`**: array of `{name, size_bytes}` (full path reconstructable as `backupDir + "/" + name`; basename keeps the JSON portable across hosts).
+- **Inspect is plain text only** (ignores `--json`): the summary is already human-aligned; JSON-ifying it would lose the columns. Documented inline.
+
+### Verification
+- `go test ./internal/backup/ ./cmd/condura/ -count=1` → all pass (incl. the 6 new ListBackupArchives tests).
+- `golangci-lint run --timeout 5m` on both packages → **0 issues**. Project-wide lint shows a pre-existing gofmt issue in `account/keychain_crypto_test.go` from the iter-33 concurrent session (not my code).
+- `go build ./cmd/condura/` → clean (21.7 MB binary).
+- Manual smoke: `condura backup list --json` on a test dir with 3 `.zip` files emits well-formed JSON; `condura backup inspect <archive>` on a missing file surfaces a clear `backup: open: ... no such file or directory` error.
+
+### Concurrent-session note
+This work landed in commit `5453ced` (the iter-41 LOGBOOK commit from a parallel session). The commit message describes the agent work, but the diff includes my 477 lines of backup list/inspect code. This is the same contamination pattern as iter-8 (`skills/archive_test.go` got pulled into my commit there). Future ops: if a clean history is needed, the backup code could be `git reset --soft HEAD~1 && git restore --staged <other-files> && git commit -m "feat(backup): ..."` to extract it into its own commit. Left as-is to avoid disrupting the parallel session's work-in-flight.
+
+### Status
+- My code is live on `main` via `5453ced` (3 files, 477 lines added). The user has explicitly authorized pushing to origin/main for this resumed loop.
