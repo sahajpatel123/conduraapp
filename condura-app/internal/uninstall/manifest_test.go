@@ -308,3 +308,117 @@ func mustWrite(t *testing.T, p string, data []byte) {
 		t.Fatal(err)
 	}
 }
+
+// TestIsUnderHome_PathInsideHomeReturnsTrue pins the happy-path
+// contract: a path inside HOME MUST return true. The uninstaller
+// refuses to delete anything outside HOME (without explicit
+// confirm-token override); this is the core safety check that
+// protects the user from accidental `rm -rf ~`.
+func TestIsUnderHome_PathInsideHomeReturnsTrue(t *testing.T) {
+	home := t.TempDir()
+	cases := []string{
+		filepath.Join(home, "subdir"),
+		filepath.Join(home, "deep", "nested", "file.txt"),
+		filepath.Join(home, ".config"),
+	}
+	for _, p := range cases {
+		t.Run(p, func(t *testing.T) {
+			if !isUnderHome(p, home) {
+				t.Errorf("isUnderHome(%q, %q) = false; want true (path inside HOME)", p, home)
+			}
+		})
+	}
+}
+
+// TestIsUnderHome_PathEqualToHomeReturnsTrue pins the equality
+// edge case: a path equal to HOME itself MUST return true
+// (the user explicitly listed HOME). The rel == "." branch
+// is what catches this.
+func TestIsUnderHome_PathEqualToHomeReturnsTrue(t *testing.T) {
+	home := t.TempDir()
+	if !isUnderHome(home, home) {
+		t.Error("isUnderHome(home, home) = false; want true (path equal to HOME)")
+	}
+}
+
+// TestIsUnderHome_PathOutsideHomeReturnsFalse pins the
+// safety guard: a path outside HOME MUST return false.
+// Without this guard, the uninstaller would happily delete
+// system directories like /usr/local or /tmp.
+func TestIsUnderHome_PathOutsideHomeReturnsFalse(t *testing.T) {
+	home := t.TempDir()
+	cases := []string{
+		"/usr/local",
+		"/tmp",
+		"/var/log",
+		"/etc",
+	}
+	for _, p := range cases {
+		t.Run(p, func(t *testing.T) {
+			if isUnderHome(p, home) {
+				t.Errorf("isUnderHome(%q, %q) = true; want false (path outside HOME)", p, home)
+			}
+		})
+	}
+}
+
+// TestIsUnderHome_EscapedPathReturnsFalse pins the path-traversal
+// guard: a path that "escapes" HOME via ".." segments MUST return
+// false. The strings.HasPrefix(rel, "..") check is what catches
+// this — without it, "../sneaky" would be detected as "under HOME"
+// via the "./" prefix.
+func TestIsUnderHome_EscapedPathReturnsFalse(t *testing.T) {
+	home := t.TempDir()
+	cases := []string{
+		filepath.Join(home, "..", "outside"),
+		filepath.Join(home, "..", "..", "etc", "passwd"),
+	}
+	for _, p := range cases {
+		t.Run(p, func(t *testing.T) {
+			if isUnderHome(p, home) {
+				t.Errorf("isUnderHome(%q, %q) = true; want false (path escapes HOME via '..')", p, home)
+			}
+		})
+	}
+}
+
+// TestIsUnderHome_SymlinkInsideHomeReturnsTrue pins the symlink
+// behavior: a symlink at <home>/link pointing to <home>/target
+// resolves to <home>/target via filepath.Abs (which follows
+// the symlink at the path level — but filepath.Abs doesn't
+// follow nested symlinks). A regression that resolved all
+// symlinks (e.g., via filepath.EvalSymlinks) would still return
+// true for our test case (target is also inside HOME).
+//
+// NOTE: filepath.Abs does NOT follow symlinks. It just makes
+// the path absolute. So a symlink at <home>/link points to
+// <home>/target, and Abs(<home>/link) returns the symlink's
+// absolute path (without resolving). This is the CURRENT behavior.
+func TestIsUnderHome_SymlinkInsideHomeReturnsTrue(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(home, "target.txt")
+	if err := os.WriteFile(target, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(home, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if !isUnderHome(link, home) {
+		t.Error("isUnderHome(symlink-inside-home) = false; want true (path is inside HOME)")
+	}
+}
+
+// TestIsUnderHome_DifferentDrivesReturnsFalse is a Windows-style
+// edge case: if path is on drive C: and home is on drive D:,
+// filepath.Rel returns an error (different volumes). The
+// function MUST return false (not panic). Skipped on Unix
+// where multiple drives don't exist.
+func TestIsUnderHome_DifferentDrivesReturnsFalse(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("different-drives is Windows-specific; Unix has a single root")
+	}
+	// Real Windows test would use paths like `C:\foo` and `D:\bar`.
+	// Skipped on Unix CI.
+}

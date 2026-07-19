@@ -25,36 +25,6 @@ func base64Encode(b []byte) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// readDirNames returns the names of files in dir.
-// Returns an empty slice (not an error) if dir does not exist;
-// the caller can decide whether "no backups yet" is a real
-// error or a normal state.
-func readDirNames(dir string) ([]string, error) {
-	f, err := os.Open(dir) //nolint:gosec // path is from trusted backup dir config
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-	names, err := f.Readdirnames(0)
-	if err != nil {
-		return nil, err
-	}
-	return names, nil
-}
-
-// fileSize returns the size of path in bytes, or 0 if the file
-// is missing. Best-effort: callers use this for display only.
-func fileSize(path string) (int64, error) {
-	fi, err := os.Stat(path) //nolint:gosec // path is from trusted backup dir config
-	if err != nil {
-		return 0, err
-	}
-	return fi.Size(), nil
-}
-
 // buildAuditEvent is a Phase-11-specific audit event builder
 // that returns a fully-populated audit.Event the caller can
 // tweak and Append. We avoid clashing with the existing

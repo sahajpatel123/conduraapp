@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/backup"
@@ -24,6 +22,7 @@ import (
 // Method names:
 //   - backup.list          — list local backup archives
 //   - backup.preview       — describe a backup without decrypting
+//   - backup.inspect       — human-readable summary (CLI parity)
 //   - backup.derive_key    — return the on-first-backup key (base64)
 //   - backup.create        — create a new encrypted backup
 //   - backup.restore       — restore a backup (gated)
@@ -40,6 +39,7 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		}
 		srv.Register("backup.list", notAvailable)
 		srv.Register("backup.preview", notAvailable)
+		srv.Register("backup.inspect", notAvailable)
 		srv.Register("backup.derive_key", notAvailable)
 		srv.Register("backup.create", notAvailable)
 		srv.Register("backup.restore", notAvailable)
@@ -56,6 +56,12 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			return nil, err
 		}
 		return entries, nil
+	})
+
+	// backup.inspect — human-readable summary of one archive.
+	// Parity with `condura backup inspect` on the CLI.
+	srv.Register("backup.inspect", func(ctx context.Context, params json.RawMessage) (any, error) {
+		return backupInspect(ctx, subs, params)
 	})
 
 	// backup.preview — describe a backup archive (manifest
@@ -309,8 +315,59 @@ func backupDir(subs *Subsystems) string {
 	return backup.ResolveBackupDir(subs.GeneralDataDir())
 }
 
-// listBackupArchives returns a sorted list of .zip files in
-// the backup dir along with their size in bytes.
+// backupInspect is the IPC handler for `backup.inspect`. It returns
+// the human-readable manifest summary via backup.InspectManifest.
+//
+// Gated: like backup.preview, this reads an arbitrary filesystem
+// path (the path comes from IPC params, not the daemon's data dir)
+// — a local peer could use it as an arbitrary-read primitive.
+// Gatekeeper prompts the user.
+//
+// Unlike backup.preview (which returns the raw Manifest struct as
+// JSON), backup.inspect returns a plain-text summary. JSON-ifying
+// the aligned summary would lose the column layout; the GUI is
+// expected to render the text inside a <pre> block.
+//
+// Extracted as a file-level function so it can be unit-tested
+// without spinning up the whole Subsystems fixture.
+func backupInspect(ctx context.Context, subs *Subsystems, params json.RawMessage) (any, error) {
+	var p struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	}
+	if p.Path == "" {
+		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
+	}
+	if !subs.GatekeeperAllow(ctx, "backup.inspect", "Preview backup summary from "+p.Path) {
+		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+	}
+	summary, err := backup.InspectManifest(p.Path)
+	if err != nil {
+		return nil, fmt.Errorf("backup: inspect: %w", err)
+	}
+	// JSON envelope wraps the text so the client can still parse
+	// a structured response (with 'summary' as a string field).
+	return map[string]string{"summary": summary}, nil
+}
+
+// listBackupArchives returns a list of .zip files in the backup
+// dir along with their size in bytes, newest-first.
+//
+// Thin wrapper over backup.ListBackupArchives (which does the
+// dir-scan + .zip-filter + mtime sort + fault tolerance). The
+// daemon-specific add here is per-archive size lookup.
+//
+// A missing or empty backup dir is NOT an error here — it
+// returns an empty slice so the GUI shows "no backups yet"
+// instead of a red error toast.
+
+// backupEntry is the per-archive JSON shape the GUI sees.
+// Name is the basename (human-readable); Path is the full
+// filesystem path (for the GUI to pass back to backup.preview /
+// backup.restore); Size is bytes (for the GUI's "5.2 GB"
+// display).
 type backupEntry struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -321,19 +378,32 @@ func listBackupArchives(dir string) ([]backupEntry, error) {
 	if dir == "" {
 		return []backupEntry{}, nil
 	}
-	entries, err := readDirNames(dir)
+	paths, err := backup.ListBackupArchives(dir)
 	if err != nil {
+		// 'Not found' (fresh install, no backups directory yet)
+		// and 'not a directory' (operator misconfig) both mean
+		// "no backups to list" — surface as an empty slice, not
+		// an error.
+		if backup.IsBackupDirNotFound(err) {
+			return []backupEntry{}, nil
+		}
 		return nil, fmt.Errorf("backup: list: %w", err)
 	}
-	sort.Strings(entries)
-	out := make([]backupEntry, 0, len(entries))
-	for _, name := range entries {
-		if !strings.HasSuffix(name, ".zip") {
-			continue
+	out := make([]backupEntry, 0, len(paths))
+	for _, p := range paths {
+		// Already filtered to .zip by ListBackupArchives; this
+		// Stat is for the size field. Errors are swallowed
+		// (size stays 0) — a single unreadable archive must
+		// not abort the list.
+		size := int64(0)
+		if fi, err := os.Stat(p); err == nil {
+			size = fi.Size()
 		}
-		full := filepath.Join(dir, name)
-		size, _ := fileSize(full)
-		out = append(out, backupEntry{Name: name, Path: full, Size: size})
+		out = append(out, backupEntry{
+			Name: filepath.Base(p),
+			Path: p,
+			Size: size,
+		})
 	}
 	return out, nil
 }
