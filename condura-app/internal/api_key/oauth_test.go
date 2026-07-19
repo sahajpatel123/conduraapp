@@ -2,6 +2,7 @@ package api_key
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -386,3 +387,55 @@ func TestNewGoogleProvider_Defaults(t *testing.T) {
 
 // Ensure all imports are used.
 var _ = strings.NewReader
+
+// TestGenerateState_AllCharsAreValidHex pins the format contract:
+// every character in the returned state MUST be a valid hex
+// digit (0-9, a-f). The OAuth callback handler parses the state
+// with hex.DecodeString; invalid chars would corrupt the CSRF
+// check.
+func TestGenerateState_AllCharsAreValidHex(t *testing.T) {
+	s, err := GenerateState()
+	require.NoError(t, err)
+	for i, c := range s {
+		isDigit := c >= '0' && c <= '9'
+		isLowerHex := c >= 'a' && c <= 'f'
+		isUpperHex := c >= 'A' && c <= 'F'
+		if !isDigit && !isLowerHex && !isUpperHex {
+			t.Errorf("state[%d] = %q; want a valid hex digit (0-9, a-f, A-F)", i, c)
+		}
+	}
+}
+
+// TestGenerateState_HexDecodeRoundTrip pins the format symmetry:
+// the returned state MUST be decodable as 16 bytes via
+// hex.DecodeString. The OAuth callback handler does this; a
+// regression to non-hex output would break CSRF validation.
+func TestGenerateState_HexDecodeRoundTrip(t *testing.T) {
+	s, err := GenerateState()
+	require.NoError(t, err)
+	decoded, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatalf("hex.DecodeString(%q) = %v; want no error", s, err)
+	}
+	if len(decoded) != 16 {
+		t.Errorf("hex.DecodeString(%q) returned %d bytes; want 16", s, len(decoded))
+	}
+}
+
+// TestGenerateState_HighEntropy pins the entropy contract: 1000
+// calls should produce 1000 unique states. With 16 bytes = 128
+// bits of entropy, the probability of a collision in 1000 calls
+// is astronomically low (~10^-33). A regression that used a
+// weak RNG (e.g., time-seeded) would produce duplicates.
+func TestGenerateState_HighEntropy(t *testing.T) {
+	const N = 1000
+	seen := make(map[string]bool, N)
+	for i := 0; i < N; i++ {
+		s, err := GenerateState()
+		require.NoError(t, err)
+		if seen[s] {
+			t.Errorf("duplicate state at iteration %d: %q", i, s)
+		}
+		seen[s] = true
+	}
+}
