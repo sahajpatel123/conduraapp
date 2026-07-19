@@ -3001,3 +3001,36 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `270738c` on local main. The onboarding StateMachine's step-status + completion surface is now defended end-to-end: persistence, lazy init, completion-time recording, completion-vs-skip distinction. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-30
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/overlay/noop_controller.go` with `SetState` at 0% — the setter that the presence orchestrator (4.3) uses to drive overlay state transitions from external subsystems. No existing tests covered `SetState` (the test file iter-17 tests covered `Show`/`Hide`/`Toggle`/`State`/`OnDismiss` but not `SetState`).
+
+### Shipped
+- **`condura-app/internal/overlay/noop_controller_test.go`** (added 51 lines, 3 new tests):
+  A. `TestNoopController_SetState_StoresValue` — `SetState(Listening)` makes `c.State()` return `StateListening`.
+  B. `TestNoopController_SetState_Overwrite` — the state machine can transition back and forth (`Listening` → `Thinking` → `Listening`); a second `SetState` call MUST replace the first.
+  C. `TestNoopController_SetState_AllDefinedStates` — `SetState` MUST accept every State value (`Hidden`, `Listening`, `Thinking`, `Speaking`). A regression that added a new State constant without handling it in `SetState` would crash the orchestrator.
+
+### Subtle contracts discovered & pinned
+- **All defined States must be settable**: defense against the "add a State, forget to handle it in SetState" regression. The 4-state enum (`StateHidden`, `StateListening`, `StateThinking`, `StateSpeaking`) is the source of truth.
+- **SetState must overwrite** (no early-return on `state == c.state`): the state machine can transition through the same state twice (e.g., user starts a query, listens, thinks, then starts a NEW query, listens again). A regression that early-returned on equal states would lose the second transition.
+
+### Deliberately NOT pinned
+- The `Show` / `Hide` / `Toggle` lifecycle — already covered by iter-17 tests.
+- The actual overlay rendering — out of scope (the test pin covers the state setter, not the rendering).
+
+### Verification
+- `go test ./internal/overlay/ -run "TestNoopController_SetState_" -v -count=1` → all 3 pass; existing 8 tests still pass; package green
+- `go vet ./condura-app/internal/overlay/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/overlay/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `noop_controller.go`:
+  - `SetState`: 0% → 100%
+
+### Explicitly deferred (protect intent)
+- The orchestrator integration test (testing that SetState is called with the right values from a real orchestrator) — would require orchestrator fixtures; defer.
+
+### Status
+- Commit `5b14303` on local main. The overlay SetState contract is now defended end-to-end: store, overwrite, all-defined-states. Ready for the next cron firing.
