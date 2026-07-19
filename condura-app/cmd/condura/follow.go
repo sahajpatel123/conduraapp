@@ -19,6 +19,10 @@ import (
 //
 // Used by cmdLogs --follow. Local-only (no daemon IPC required).
 //
+// filter is applied to every line: both the initial N lines
+// AND new lines that arrive during the watch. nil filter
+// (or a zero-value filter) is a pass-through.
+//
 // Implementation notes:
 //   - Polling at 250ms intervals (rather than fsnotify) so
 //     the function works on all platforms without adding a
@@ -28,7 +32,7 @@ import (
 //     rotation check falls back to "trust the file size".
 //   - Honors SIGINT (Ctrl+C) via the caller's context. The
 //     signal.NotifyContext in cmdLogs wires this up.
-func tailFollow(ctx context.Context, path string, initialLines int) error {
+func tailFollow(ctx context.Context, path string, initialLines int, filter *logtail.Filter) error {
 	// Print the last N lines first (the "starting state" of
 	// `tail -F`). This matches `tail -n N` so the operator
 	// sees the recent context before new lines arrive.
@@ -38,7 +42,9 @@ func tailFollow(ctx context.Context, path string, initialLines int) error {
 			return fmt.Errorf("condura logs --follow: initial tail: %w", err)
 		}
 		for _, l := range start {
-			fmt.Println(l)
+			if filter.Matches(l) {
+				fmt.Println(l)
+			}
 		}
 	}
 
@@ -72,7 +78,9 @@ func tailFollow(ctx context.Context, path string, initialLines int) error {
 			if err != nil {
 				return fmt.Errorf("condura logs --follow: read: %w", err)
 			}
-			fmt.Print(line)
+			if filter.Matches(line) {
+				fmt.Print(line)
+			}
 		}
 
 		// Check for rotation: dev or inode change means the

@@ -1119,8 +1119,22 @@ func cmdLogs(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
 	lines := fs.Int("lines", 100, "number of lines to read from the end of the log (default 100)")
 	follow := fs.Bool("follow", false, "follow the log like tail -F; prints new lines as they appear")
+	level := fs.String("level", "", "minimum log level to show: debug, info, warn, error (default: all levels)")
+	grep := fs.String("grep", "", "show only lines matching this regular expression (default: all lines)")
 	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
 		return err
+	}
+
+	// Validate the --level flag early. Empty string means
+	// "no filter" (all levels). A non-empty string must be
+	// one of the four slog levels.
+	minLevel := logtail.LevelDebug
+	if *level != "" {
+		var ok bool
+		minLevel, ok = logtail.ParseLevel(*level)
+		if !ok {
+			return fmt.Errorf("condura logs: --level must be one of: debug, info, warn, error (got %q)", *level)
+		}
 	}
 
 	dir := gf.dataDir
@@ -1128,6 +1142,10 @@ func cmdLogs(gf *globalFlags, args []string) error {
 		dir = defaultDataDir()
 	}
 	logPath := logtail.LogFilePath(dir)
+
+	// Build the filter once, reuse across the static and
+	// follow paths. nil filter means "no filter".
+	filter := logtail.NewFilter(minLevel, *grep)
 
 	// --follow: print the initial N lines (the "tail -n N"
 	// starting state), then watch for new lines. The signal
@@ -1137,7 +1155,7 @@ func cmdLogs(gf *globalFlags, args []string) error {
 		ctx, cancel := signal.NotifyContext(context.Background(),
 			syscall.SIGINT, syscall.SIGTERM)
 		defer cancel()
-		return tailFollow(ctx, logPath, *lines)
+		return tailFollow(ctx, logPath, *lines, filter)
 	}
 
 	lines_out, err := logtail.Tail(logPath, *lines)
@@ -1149,7 +1167,9 @@ func cmdLogs(gf *globalFlags, args []string) error {
 		return nil
 	}
 	for _, l := range lines_out {
-		fmt.Println(l)
+		if filter.Matches(l) {
+			fmt.Println(l)
+		}
 	}
 	return nil
 }
