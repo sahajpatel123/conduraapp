@@ -1103,6 +1103,13 @@ func dataDirExists(dir string) bool {
 // Output: lines printed newest-first (one per line). The
 // operator can pipe to `head` or `less` for interactive use.
 //
+// With --follow: prints the last N lines (initial context),
+// then watches the file for new lines and prints them as they
+// appear. Implements `tail -F` semantics: if the file is
+// rotated, the watch re-opens the new file and continues.
+// Honors SIGINT (Ctrl+C) — the signal handler closes the
+// context, tailFollow returns nil, the CLI exits 0.
+//
 // Exit code: 0 on success, 1 on file read error.
 //
 // The log file location matches the daemon's writer: <dataDir>/
@@ -1111,17 +1118,9 @@ func dataDirExists(dir string) bool {
 func cmdLogs(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
 	lines := fs.Int("lines", 100, "number of lines to read from the end of the log (default 100)")
-	follow := fs.Bool("follow", false, "(reserved) follow the log like tail -f; not yet implemented")
+	follow := fs.Bool("follow", false, "follow the log like tail -F; prints new lines as they appear")
 	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
 		return err
-	}
-
-	if *follow {
-		// Reserved for a future iter. The implementation would
-		// tail -F the file: open, seek to end, read new lines
-		// as they appear, print. For now, error out cleanly so
-		// the operator knows the flag isn't live yet.
-		return fmt.Errorf("condura logs --follow: not yet implemented (use tail -F %s)", logFilePathForCLI(gf))
 	}
 
 	dir := gf.dataDir
@@ -1129,6 +1128,17 @@ func cmdLogs(gf *globalFlags, args []string) error {
 		dir = defaultDataDir()
 	}
 	logPath := logtail.LogFilePath(dir)
+
+	// --follow: print the initial N lines (the "tail -n N"
+	// starting state), then watch for new lines. The signal
+	// handler wires SIGINT/SIGTERM to the context, so Ctrl+C
+	// exits cleanly.
+	if *follow {
+		ctx, cancel := signal.NotifyContext(context.Background(),
+			syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
+		return tailFollow(ctx, logPath, *lines)
+	}
 
 	lines_out, err := logtail.Tail(logPath, *lines)
 	if err != nil {
