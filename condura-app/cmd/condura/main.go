@@ -21,6 +21,7 @@
 //	synaptic validate [--json]
 //	synaptic logs [--lines N] [--follow]
 //	synaptic path [--exists]
+//	synaptic explain <code>
 package main
 
 import (
@@ -124,6 +125,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdLogs(gf, subargs)
 	case "path":
 		return cmdPath(gf, subargs)
+	case "explain":
+		return cmdExplain(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -156,6 +159,7 @@ Commands:
   validate      Run local install health checks.
   logs           Read the last N lines of the daemon log.
   path           Print the standard install paths.
+  explain        Explain an IPC error code.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
