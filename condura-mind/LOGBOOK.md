@@ -2839,3 +2839,40 @@ Initial test draft used `int32` literals for `0xDEADBEEF` (= `-559038737`). On d
 
 ### Status
 - Commit `48a22c5` on local main. The tray Menu state-update surface is now defended end-to-end: setter/getter round-trips, atomic.Bool sync between SetStatus and SetHalted, error-message propagation in tooltip, voice-state backward-compat dispatch. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-26
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/presence/detector.go` with `parseHIDIdleTime` at 91.7% (the macOS ioreg HIDIdleTime parser — extracts user-idle time in nanoseconds). The existing test covered the happy-path contract; this iter adds edge cases that the existing test missed.
+
+### Shipped
+- **`condura-app/internal/presence/detector_idle_test.go`** (added 86 lines, 5 new tests):
+  A. `TestParseHIDIdleTime_AmongOtherLines` — multi-line search: real ioreg has many lines; the right one must be found. Different from the existing "OtherProperty" test which is just a single line.
+  B. `TestParseHIDIdleTime_NoEqualsReturnsFalse` — malformed line: a line containing "HIDIdleTime" but without "=" MUST return ok=false. A regression that tried to slice past the non-existent "=" would panic.
+  C. `TestParseHIDIdleTime_HandlesLeadingAndTrailingWhitespace` — ioreg is column-aligned, so the value has whitespace. `parseHIDIdleTime` MUST trim before parsing.
+  D. `TestParseHIDIdleTime_FirstHitWins` — multiple HIDIdleTime lines (shouldn't happen in real ioreg but possible in malformed input) MUST return the first one. A regression that returned the last would silently report wrong idle time.
+  E. `TestParseHIDIdleTime_HIDIdleTimeAsSubstringNotFullKey` — pins the current `strings.Contains`-based behavior (not `strings.HasPrefix`). A regression to a stricter match would be a defensive win, but the test pins the CURRENT contract so a refactor can change it explicitly.
+
+### Subtle contracts discovered & pinned
+- **First-match-wins**: the parser returns the first HIDIdleTime line found, not the last. A regression to `last` would silently report wrong idle time on multi-line input.
+- **Substring match (not exact key)**: the parser uses `strings.Contains` to find "HIDIdleTime", not exact key match. So `"MyHIDIdleTime" = 42` would be accepted. This is a non-obvious production decision worth pinning.
+- **Whitespace tolerance**: `parseHIDIdleTime` trims the value after "=" before parsing. ioreg's column alignment means values have leading/trailing whitespace.
+
+### Deliberately NOT pinned
+- The `checkActiveOnDarwin` / `checkLockedDarwin` / `checkActiveOnWindows` / `checkLockedWindows` functions (0% coverage) — require real platform binaries; deferred to platform-specific CI runs.
+- The `Start` / `Stop` / `loop` / `poll` lifecycle (0% coverage) — async event loop, deferred to integration tests.
+
+### Verification
+- `go test ./internal/presence/ -run "TestParseHIDIdleTime" -v -count=1` → all 6 pass (1 existing + 5 new); existing tests still pass; package green
+- `go vet ./condura-app/internal/presence/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/presence/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `detector.go`:
+  - `parseHIDIdleTime`: 91.7% → 100%
+
+### Explicitly deferred (protect intent)
+- The `checkActiveOnLinux` fail-closed test already exists (`TestCheckActiveOnLinux_FailClosed`).
+- Pinning the lifecycle methods — async event loop tests would require a real orchestrator fixture.
+
+### Status
+- Commit `fd9d660` on local main. The presence detector's HIDIdleTime parser is now defended end-to-end: among-other-lines, no-equals, whitespace-tolerance, first-match-wins, substring-match. Ready for the next cron firing.
