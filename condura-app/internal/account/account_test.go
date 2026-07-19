@@ -880,3 +880,19 @@ func TestNewSession_PersistsViaStore(t *testing.T) {
 		t.Errorf("loaded.Provider = %q, want %q", loaded.Provider, original.Provider)
 	}
 }
+
+// TestStore_Save_NilSessionReturnsError pins the input-validation
+// guard: Store.Save MUST reject a nil session with a clear error
+// rather than panicking on the nil deref inside the SQL exec. A
+// regression that silently accepted nil would write a NULL row to
+// the database.
+func TestStore_Save_NilSessionReturnsError(t *testing.T) {
+	s := newTestStore(t)
+	err := s.Save(context.Background(), nil)
+	if err == nil {
+		t.Fatal("Store.Save(nil) = nil error; want error")
+	}
+	if !strings.Contains(err.Error(), "nil session") {
+		t.Errorf("error %q should mention 'nil session'", err.Error())
+	}
+}
