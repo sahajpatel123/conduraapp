@@ -4266,3 +4266,51 @@ The user explicitly asked for simple, user-facing commands. `condura backup prun
 
 ### Status
 - Commit `bc3c100` on local main (pushed). The backup-management CRUD loop is now fully complete: list, inspect, delete, prune. All four are local-only (no daemon required). Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-4
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After completing the backup-management CRUD loop (iter 24: prune), the natural next "I wish the CLI just did this" thing: **`condura env`**. When "my config isn't being picked up" happens, the operator has to grep through the codebase. A single command that lists all the env vars and their current values solves that.
+
+### Shipped (commit `8c4c0b6`)
+- **NEW CLI COMMAND `condura env [--json]`**:
+  - Prints all env vars that affect Condura's behavior, with their current values. Designed for the operator who's debugging "why is my data dir wrong?" or "why isn't the daemon reading my config?" — instead of grepping the codebase for env-var lookups, run `condura env` and see the full list at a glance.
+  - Default output: aligned text, `NAME  (unset)` or `NAME  VALUE`. The width is set so the longest env var name (45 chars) fits without truncation.
+  - `--json`: structured `{name, description, value, set}` per row. Useful for tooling that wants to log the env state or check for "is X set?" programmatically.
+
+- **Env values are NOT sanitized**: if the operator set `CONDURA_FILE_PASSPHRASE` to a real passphrase, it'll show up in the output. This is intentional — the operator KNOWS their own env. The point of this command is "tell me what I have set", not "tell me what a safe default is". If the operator wants to share the output with support, they should redact sensitive values first.
+
+- **10 registry entries** (the env vars the codebase ACTUALLY reads, per the `os.Getenv` / `os.LookupEnv` calls in `internal/` + `cmd/`):
+  - `HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, `APPDATA`
+  - `CONDURA_ADDR`, `CONDURA_BACKUP_DIR`
+  - `CONDURA_FILE_PASSPHRASE`, `CONDURA_RESUME_SECRET`
+  - `CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_ID`, `CONDURA_ACCOUNT_OAUTH_<PROVIDER>_CLIENT_SECRET`
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura env` is the debugging command for the most common operator question: "why isn't my config being picked up?" The answer is usually "your env var is wrong" but finding WHICH env var requires grepping the codebase. A single `condura env` command solves that — the operator sees the full list of env vars and their current values in one shot.
+
+We list only env vars the codebase ACTUALLY reads (not every theoretically-possible env var). Listing theoretically-possible vars would overwhelm the operator with noise — the point is "tell me what affects this program", not "list every UNIX env var ever".
+
+The `<PROVIDER>` placeholder matches the daemon's reading of `CONDURA_ACCOUNT_OAUTH_GOOGLE_CLIENT_ID` (etc.). The operator substitutes their actual provider name (uppercased). This is documented in the description, not as a literal env var name.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI command in `cmd/condura/`)
+- **Performance polish**: ✗ (single `os.Environ()` call)
+- **Real feature addition**: ✓ — new `condura env` CLI command
+- **Doc hardening**: ✓ — each registry entry includes a one-line description
+- **Test-pinning (real gap)**: ✗ (the registry is small enough to be self-documenting; a future test can pin "every os.Getenv call in the codebase has a matching entry" by grepping the env var name and asserting the registry contains it)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke: `condura env` prints 10 lines, all with descriptions; `condura --json env` emits structured JSON with `{name, description, value, set}` per row
+- `git push origin main` → `2a4ba6d..8c4c0b6`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A test that pins "every `os.Getenv` call has a matching registry entry". The infrastructure (a `go test -run TestEnv_KnowsAllLookups` that greps the codebase) is straightforward but requires a stable way to map function-call sites to env var names. Defer until the registry has 15+ entries where the manual-tracking cost is high enough to justify the test.
+- A `--diff` mode that compares the current env against a saved baseline. Useful for "did anything change since last time I checked?"; defer until a use case appears.
+- A `condura config` command that shows the EFFECTIVE config (after env overrides, defaults, file merge). The daemon already has `config.get` IPC; the local-only equivalent would call `config.Loader.Load()` directly. Defer until the operator has a real "I changed an env var and want to see what config the daemon would see" need.
+
+### Status
+- Commit `8c4c0b6` on local main (pushed). `condura env` is live; the debugging workflow for "why isn't my config being picked up?" is now a single command. Ready for the next cron firing.
