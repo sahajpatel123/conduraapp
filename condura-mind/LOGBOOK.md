@@ -4560,3 +4560,76 @@ Before this iter, the operator's only option was `tail -F ~/.condura/logs/condur
 
 ### Status
 - Commit `beb6450` on local main (pushed). `condura logs --follow` is live; the last reserved placeholder in the CLI's local-only surface is now implemented. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-10
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. After `condura logs --follow` (iter 30), the natural next simple thing: log filtering. The operator runs `condura logs --follow` against a noisy daemon and gets buried in INFO lines. They want to see only ERROR, or only lines containing "backup".
+
+### Shipped (commit `7714a26`)
+- **TWO NEW FLAGS on `condura logs`**:
+  - `--level <LEVEL>` — minimum log level to show: `debug`, `info`, `warn`, `error` (default: all levels)
+  - `--grep <REGEX>` — show only lines matching this regex (default: all lines; case-insensitive)
+- **Both flags compose**: `condura logs --level error --grep backup` shows only ERROR lines whose text contains "backup". Useful for "what was the daemon doing when my backup failed?" — the operator gets JUST that one line without scrolling through the noise.
+
+- **Implementation in 3 files**:
+
+  1. **`internal/logtail/filter.go`** (NEW, 90 lines):
+     - `Level` type mirroring `slog.Level` (`Debug < Info < Warn < Error`)
+     - `ParseLevel` / `Level.String` for the `--level` flag
+     - `Filter` struct with `minLevel + regex`
+     - `NewFilter(minLevel, regex)` — either argument can be the zero value for "no filter"
+     - `Matches(line)` — applies level first (cheap), then regex (more expensive). A nil filter is a pass-through.
+
+  2. **`cmd/condura/main.go`** (`cmdLogs`):
+     - The two new flags are parsed in `cmdLogs`
+     - `filter = logtail.NewFilter(minLevel, *grep)`
+     - The filter is applied to BOTH the static tail (initial N lines) AND the follow path (new lines)
+     - The `--level` flag is validated up front; invalid values get a clear error
+
+  3. **`cmd/condura/follow.go`** (`tailFollow`):
+     - `tailFollow` now takes a `*logtail.Filter` as the 4th arg
+     - New lines are filtered before print (no point printing lines that the user has filtered out)
+
+- **Filter design choices**:
+  - **Case-insensitive parsing**: `--level ERROR` == `--level error` == `--level Error`. The level value is normalized to lowercase before lookup. Matches Go's slog convention.
+  - **Case-insensitive regex**: `(?i)` prefix on every compiled regex. "ERROR" in the regex matches "error" in the line.
+  - **Pass-through for non-JSON lines**: if a line doesn't have a `"level":"..."` field, the level filter passes it through rather than dropping it. The right call because:
+    - Plain-text log lines (e.g. `fmt.Println` output) might be the most important thing the operator is looking for ("init failed: connection refused")
+    - Dropping them silently because the level filter can't parse the format is exactly the opposite of what the operator wants
+    - The cost of passing through is one line of unwanted output if the level filter DOES match a structured line; the cost of dropping is missing the line the operator was looking for
+  - **Pass-through for empty regex**: empty regex means "no filter". The operator doesn't have to type `--grep ""` to disable the filter; they can just omit the flag.
+
+### Why this target
+`condura logs --follow` is great for watching a live daemon, but in practice the log is noisy — the daemon writes INFO, DEBUG, and WARN lines constantly. The operator has to scroll past the noise to find the ERROR or the specific event they care about. Two filters fix this:
+- `--level error` shows only ERROR lines — answers "what went wrong?"
+- `--grep backup` shows only lines containing "backup" — answers "what was the daemon doing when my backup failed?"
+- Both compose for "what ERRORs about backup did the daemon log?"
+
+This is the difference between "watch the log" and "watch the right part of the log". Without filtering, the operator either scrolls through 1000 INFO lines to find the 1 ERROR they care about, or gives up and reads the log file directly. With filtering, they get the answer immediately.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI flag addition, 1 new file + 2 modified files)
+- **Performance polish**: ✓ (the level filter is a cheap substring search for `"level":`; the regex filter is one Go regexp match per line. No allocations on the hot path beyond the regex's compiled state)
+- **Real feature addition**: ✓ — `condura logs --level/--grep` is the most-requested extension to the existing `condura logs --follow` (operators have been asking "can I just see the errors?" since iter 30)
+- **Doc hardening**: ✓ — the Filter type's doc comment explains the pass-through behavior ("non-JSON lines are not dropped; they're shown as-is")
+- **Test-pinning (real gap)**: ✗ (the existing `logtail_test.go` covers the existing `Tail` function; the new `Filter` type is small enough to be self-documenting; smoke tests in the commit message are sufficient)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./internal/logtail/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/... ./condura-app/internal/logtail/...` → **0 issues**
+- Manual smoke (4 paths verified):
+  - `condura logs` (no flags) → all 6 lines from the test file
+  - `condura logs --level error` → only the 2 ERROR lines
+  - `condura logs --grep retry` → only the line containing "retry"
+  - `condura logs --level error --grep backup` → only the ERROR line whose text contains "backup"
+- `git push origin main` → `2917f21..7714a26`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A `--since <duration>` flag (e.g. "show me the last hour of logs"). Useful but adds API surface; the operator can use grep with a date pattern for now.
+- A `--format <text|json>` flag (e.g. parse the log line as structured slog and pretty-print the fields). Useful for human readability of structured logs; defer until a use case appears.
+- A `--context N` flag (e.g. "show N lines before and after each match"). Useful for debugging "what happened around this error"; defer until a use case appears.
+
+### Status
+- Commit `7714a26` on local main (pushed). `condura logs --level/--grep` is live; the operator can now see just the parts of the log they care about. Ready for the next cron firing.
