@@ -4224,3 +4224,45 @@ The "explicit name only" rule is the key safety property: a glob or date range w
 
 ### Status
 - Commit `f80bbec` on local main (pushed). The backup-management loop is now complete: list → inspect → delete. All three are local-only (no daemon required). Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-3
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Continuing the user-feedback thread. The natural follow-up to `condura backup delete` (iter-23): **retention-based bulk delete** so the operator doesn't have to delete archives one-by-one. `condura backup prune` is the "I don't care about old ones" workflow.
+
+### Shipped (commit `bc3c100`)
+- **NEW SUBCOMMAND `condura backup prune [--keep-last N] [--older-than D] [--dry-run|--force]`**:
+  - Closes the LAST CRUD gap in backup management: the operator now has list (iter-9), inspect (iter-9), delete (iter-23), and now prune (this iter). All four are local-only.
+  - Two mutually-compatible filter modes:
+    - `--keep-last N` — keep the N most-recent archives
+    - `--older-than D` — keep archives newer than duration D (e.g. "30d", "12h", "1y")
+  - If BOTH set, the union is kept: an archive survives if it's in the most-recent N OR newer than D. This matches the "either condition" intuition: "keep the most recent 5 OR the last 30 days, whichever is more."
+
+### Safety story (3 layers)
+1. **At least one filter required**: `--keep-last=0` AND `--older-than=0` → "usage: ... at least one filter required". Prevents "delete everything" accidents.
+2. **Default `--dry-run`**: the command PRINTS what would be deleted without actually deleting. The operator must pass `--force` (without `--dry-run`) to actually delete. The "look before you leap" UX — the operator sees the exact list of archives, the count, and the total size freed, BEFORE the deletion happens.
+3. **The dry-run output includes the retention policy line** ("keep-last=2 older-than=30d") so the operator can verify the rules match their intent.
+
+### Why this target
+The user explicitly asked for simple, user-facing commands. `condura backup prune` is the natural follow-up to `condura backup delete`: the operator can now manage their backup retention policy from the CLI, not from a cron job or a manual SSH session. The "explicit archive name" rule from `cmdBackupDelete` is preserved here too — prune deletes specific files by basename, not directories, so path traversal is impossible.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single CLI subcommand)
+- **Performance polish**: ✗ (single os.Remove per file)
+- **Real feature addition**: ✓ — new `condura backup prune` subcommand; closes the last CRUD gap
+- **Doc hardening**: ✓ — usage block at the top of the function explains the 3 safety layers
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration pattern covers the CLI; the new subcommand is small enough that smoke tests in the commit message are sufficient)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke: dry-run prints "Will keep (1)" / "Will delete (1)" / "(dry-run; pass --force to actually delete)"; --force actually deletes; "condura backup prune --keep-last 0 --older-than 0" errors with "at least one filter required"
+- `git push origin main` → `1b5a5bf..bc3c100`, CI tracking
+
+### Explicitly deferred (protect intent)
+- A cron-like background loop (`condura backup prune --watch`) that runs the prune on a schedule. The daemon already handles scheduled backups; adding the prune to that scheduler is a separate feature.
+- A `--dry-run + --json` mode for tooling. The current dry-run output is human-readable only; a future iter can add a JSON variant for scripts that want to log the would-delete list.
+
+### Status
+- Commit `bc3c100` on local main (pushed). The backup-management CRUD loop is now fully complete: list, inspect, delete, prune. All four are local-only (no daemon required). Ready for the next cron firing.
