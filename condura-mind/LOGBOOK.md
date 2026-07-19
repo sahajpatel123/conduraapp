@@ -3564,3 +3564,44 @@ Scanned the codebase for duplicated utility calls; `os.UserHomeDir()` appeared i
 
 ### Status
 - Commit `7ec1f14` on local main (pushed). The home-dir lookup is now a single cached utility. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-43
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-42-iters) surfaced `internal/tui/ipc_client.go` with `parseAddr` at 0% — the URL-scheme splitter used by the TUI's IPC client to parse daemon addresses like `unix:///path` or `http://host:port`. A regression could silently break daemon discovery.
+
+### Shipped
+- **`condura-app/internal/tui/ipc_client_parse_test.go`** (~107 lines, 5 tests + 4 subtests):
+  A. `TestParseAddr_WithSchemeReturnsParsedParts` — 4 cases (unix, http, https, ws) verifying scheme + host split.
+  B. `TestParseAddr_NoSchemeDefaultsToTCP` — 3 cases of plain `host:port` addresses all return `('tcp', full-address)`.
+  C. `TestParseAddr_EmptyStringReturnsEmptyTCP` — empty input returns `('tcp', '')` without panicking.
+  D. `TestParseAddr_MalformedSchemeSeparatorReturnsTCP` — IPv6-style addresses with `:` but no `://` fall back to the no-scheme path (no panic on `:`).
+  E. `TestParseAddr_EmptySchemeAcceptedAsIs` — degenerate `"://host:9999"` returns `("", "host:9999")`; the current contract accepts empty scheme (degenerate but documented).
+
+### Discovery: my initial test assumption was wrong
+
+I assumed `parseAddr("://host:9999")` should reject empty scheme (pin the defensive contract). The actual behavior is that it returns `("", "host:9999")` — empty scheme is accepted. The downstream code uses the scheme only to switch transport ("unix" vs default HTTP), so empty scheme just falls through to the default path.
+
+The test was reframed from "doesn't match empty scheme" to "empty scheme accepted as is" with a comment explaining the degenerate-but-accepted behavior. A future "fix" that rejects empty scheme would update this test deliberately.
+
+### Subtle contracts discovered & pinned
+- **`://` separator (not just `:`)** — the function requires the `:` to be followed by `//`. Plain `host:port` falls through to the no-scheme path. IPv6 addresses (which have multiple `:`) are handled correctly.
+- **`tcp` default** — addresses without `://` default to `tcp`. This is the IPC client's expected default (daemon listens on a TCP socket by default; `unix://` is for local dev).
+- **Empty scheme accepted** — degenerate `"://host"` returns empty scheme, not an error. Pinning this prevents a future "fix" that silently breaks callers passing such addresses.
+
+### Deliberately NOT pinned
+- The downstream transport-switch logic (`if scheme == "unix" { ... }`) — covered transitively by the IPC client integration tests.
+
+### Verification
+- `go test ./internal/tui/ -run "TestParseAddr_" -v -count=1` → all 5 pass + 4 subtests; existing 3 tests still pass; package green
+- `go vet ./condura-app/internal/tui/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/tui/...` → **0 issues**
+- Coverage delta in `ipc_client.go`:
+  - `parseAddr`: 0% → 100%
+
+### Explicitly deferred (protect intent)
+- The `NewIPCClient` constructor path — covered transitively by the existing tests.
+- The `Call` / `Notify` roundtrip — covered by integration tests (requires a live daemon).
+
+### Status
+- Commit `591f99b` on local main. The TUI `parseAddr` URL-scheme splitter is now defended end-to-end: scheme-prefix parsing, no-scheme TCP fallback, empty input, malformed IPv6 separator, degenerate empty-scheme. Ready for the next cron firing.
