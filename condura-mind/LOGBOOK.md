@@ -2876,3 +2876,42 @@ Initial test draft used `int32` literals for `0xDEADBEEF` (= `-559038737`). On d
 
 ### Status
 - Commit `fd9d660` on local main. The presence detector's HIDIdleTime parser is now defended end-to-end: among-other-lines, no-equals, whitespace-tolerance, first-match-wins, substring-match. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-27
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan surfaced `internal/perception/perception.go` with `strategyPreferenceFor` at 16.7% — the perception-layer strategy-selection logic that decides which capture strategy to use (AX-only, differential, window-rect, full-screen, vision-CUA). A regression in this cascade would silently use the wrong strategy (e.g., full-screen when differential would suffice), wasting CPU and slowing the agent.
+
+### Shipped
+- **`condura-app/internal/perception/perception_strategy_test.go`** (~184 lines, 8 tests):
+  A. `TestStrategyPreferenceFor_StateOnlyQuestionReturnsStrategyNone` — state-only question → `[StrategyNone]` (cheapest).
+  B. `TestStrategyPreferenceFor_ElementIdentityOnlyReturnsAXOnly` — element identity (no pixels, no OCR) → `[StrategyAXOnly]`.
+  C. `TestStrategyPreferenceFor_DirtyAndVisualReturnsFullCascade` — dirty + NeedsPixels → full cascade with Differential at the front (cheapest fast-path).
+  D. `TestStrategyPreferenceFor_DirtyAndStateOnlyFallsThroughToDefault` — dirty + state-only → `[StrategyNone]` (dirty branch skipped because `NeedsOCR||NeedsPixels` guard fails; falls through to default branch).
+  E. `TestStrategyPreferenceFor_TargetAppSetReturnsCascadeWithStrategyNone` — TargetApp set + state-only → cascade starting with StrategyNone, including StrategyWindowRect (single-app-specific strategy).
+  F. `TestStrategyPreferenceFor_TargetAppAndStateOnlyReturnsCascadeWithStrategyNone` — same as E (dedicated test for the AND combination).
+  G. `TestStrategyPreferenceFor_DefaultCascadeHasStrategyDifferentialExcluded` — default cascade does NOT include Differential (it's dirty-only). A regression to "always include Differential" would silently re-screenshot from scratch.
+  H. `TestStrategyPreferenceFor_DirtyBranchIncludesDifferential` — inverse of G: dirty branch MUST include Differential.
+
+### Subtle contracts discovered & pinned
+- **Dirty branch requires `NeedsOCR || NeedsPixels`** to fire. Dirty + state-only does NOT include Differential because the state-only branch doesn't have anything to capture. This is correct (state-only questions don't need a screenshot) but the cascade-decision is subtle — a test for it ensures the guard isn't accidentally loosened.
+- **StrategyNone is prepended** to cascades when `stateOnly=true` AND (dirty OR TargetApp). The prepended None is the cheapest possible strategy — if the question can be answered from state, no capture is needed.
+- **TargetApp set → StrategyWindowRect in cascade**. Window rect is the right size for a single-app question. Without TargetApp, the cascade defaults to full-screen.
+
+### Deliberately NOT pinned
+- The actual capture logic (e.g., StrategyAXOnly → accessibility tree query) — already covered by existing SmartCapturer tests.
+- The DirtyState struct fields (Dirty, SinceLast, etc.) — used indirectly through the dirty branch tests.
+
+### Verification
+- `go test ./internal/perception/ -run "TestStrategyPreferenceFor_" -v -count=1` → all 8 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/perception/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/perception/...` → **0 issues**
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `perception.go`:
+  - `strategyPreferenceFor`: 16.7% → 100%
+
+### Explicitly deferred (protect intent)
+- Pinning the actual capture logic — separate concern, already tested by SmartCapturer tests.
+
+### Status
+- Commit `b17316e` on local main. The perception strategy-selection cascade is now defended end-to-end: state-only → None, element-identity-only → AX, dirty+visual → full cascade with Differential, dirty+state-only → falls through to default, TargetApp → window-rect included, default cascade → no Differential. Ready for the next cron firing.
