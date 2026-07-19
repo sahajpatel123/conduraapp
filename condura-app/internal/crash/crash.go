@@ -17,6 +17,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
 
@@ -47,7 +48,7 @@ func Capture(recovered any) *Report {
 
 // writeLocal persists the crash dump to ~/.condura/crashes/.
 func (r *Report) writeLocal() {
-	home, err := os.UserHomeDir()
+	home, err := homedir.Dir()
 	if err != nil {
 		return
 	}

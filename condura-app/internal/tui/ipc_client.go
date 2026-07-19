@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 )
 
@@ -153,7 +154,7 @@ func (c *IPCClient) Close() error { return nil }
 
 // FindDaemonAddr discovers the daemon's IPC address.
 func FindDaemonAddr() string {
-	home, err := os.UserHomeDir()
+	home, err := homedir.Dir()
 	if err != nil {
 		return ""
 	}

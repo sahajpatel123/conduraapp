@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 
 	"github.com/gofrs/flock"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 )
 
 // ErrLocked is returned by TryAcquire when another process holds the
@@ -90,7 +92,7 @@ func (l *Lock) Release() error {
 // by looking for the data directory. Used by the installer to block
 // a second installation (§22.5).
 func IsInstalled() bool {
-	home, err := os.UserHomeDir()
+	home, err := homedir.Dir()
 	if err != nil {
 		return false
 	}
@@ -100,7 +102,7 @@ func IsInstalled() bool {
 
 // InstalledMarkerPath returns the path to the installed-marker file.
 func InstalledMarkerPath() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := homedir.Dir()
 	if err != nil {
 		return "", err
 	}
@@ -110,7 +112,7 @@ func InstalledMarkerPath() (string, error) {
 // MarkInstalled writes the installed marker. Call this from the
 // post-install script so IsInstalled returns true on the next run.
 func MarkInstalled() error {
-	home, err := os.UserHomeDir()
+	home, err := homedir.Dir()
 	if err != nil {
 		return err
 	}

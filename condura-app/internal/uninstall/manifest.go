@@ -37,6 +37,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 )
 
 // ManifestEntry is one artifact category in the uninstall plan.
@@ -72,7 +74,7 @@ type Manifest []ManifestEntry
 // outside it.
 func DefaultManifest(dataDir string) Manifest {
 	if dataDir == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := homedir.Dir()
 		dataDir = filepath.Join(home, ".condura")
 	}
 	// Every artifact (main DB, memory DB, skills DB, and all
@@ -124,7 +126,7 @@ type Options struct {
 	// unless this is set. Format: 32-char hex string.
 	ConfirmToken string
 	// HomeDir is the user's home directory. Used by the hard
-	// guard. Defaults to os.UserHomeDir() if empty.
+	// guard. Defaults to homedir.Dir() if empty.
 	HomeDir string
 	// Now is the timestamp for the manifest. If zero, time.Now().UTC().
 	Now time.Time
@@ -267,7 +269,7 @@ func validateUninstallOptions(opts Options) error {
 	home := opts.HomeDir
 	if home == "" {
 		var err error
-		home, err = os.UserHomeDir()
+		home, err = homedir.Dir()
 		if err != nil {
 			// Conservative: refuse if we can't determine HOME.
 			return fmt.Errorf("uninstall: cannot determine HOME: %w", err)

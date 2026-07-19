@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 )
 
 func TestTryAcquire_Fresh(t *testing.T) {
@@ -98,6 +100,7 @@ func TestTryAcquire_NilSafe(t *testing.T) {
 func TestIsInstalled_NotInstalled(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	homedir.Reset()
 	t.Setenv("USERPROFILE", dir) // Windows
 	if IsInstalled() {
 		t.Fatal("should not be installed on fresh temp dir")
@@ -106,6 +109,7 @@ func TestIsInstalled_NotInstalled(t *testing.T) {
 
 func TestMarkInstalled_ThenIsInstalled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	homedir.Reset()
 	if err := MarkInstalled(); err != nil {
 		t.Fatalf("MarkInstalled: %v", err)
 	}
@@ -117,6 +121,7 @@ func TestMarkInstalled_ThenIsInstalled(t *testing.T) {
 func TestInstalledMarkerPath(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	homedir.Reset()
 	t.Setenv("USERPROFILE", dir) // Windows
 	path, err := InstalledMarkerPath()
 	if err != nil {
@@ -142,6 +147,7 @@ func TestInstalledMarkerPath(t *testing.T) {
 func TestIsInstalled_ConduraAsRegularFileStillReturnsTrue(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	homedir.Reset()
 	t.Setenv("USERPROFILE", home) // Windows
 
 	// Create ~/.condura as a regular file (not a directory).
@@ -173,6 +179,7 @@ func TestInstalledMarkerPath_ErrorPropagatesWhenHomeLookupFails(t *testing.T) {
 		t.Skip("HOME-unset fallback to /etc/passwd usually succeeds on Linux; skip")
 	}
 	t.Setenv("HOME", "")
+	homedir.Reset()
 	t.Setenv("USERPROFILE", "")
 
 	_, err := InstalledMarkerPath()
@@ -188,6 +195,7 @@ func TestMarkInstalled_ErrorPropagatesWhenHomeLookupFails(t *testing.T) {
 		t.Skip("HOME-unset fallback to /etc/passwd usually succeeds on Linux; skip")
 	}
 	t.Setenv("HOME", "")
+	homedir.Reset()
 	t.Setenv("USERPROFILE", "")
 
 	err := MarkInstalled()
@@ -204,6 +212,7 @@ func TestMarkInstalled_ErrorPropagatesWhenHomeLookupFails(t *testing.T) {
 func TestIsInstalled_FalseWhenConduraIsSymlinkToNonexistent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	homedir.Reset()
 	t.Setenv("USERPROFILE", home)
 
 	// Create a symlink at ~/.condura pointing to a nonexistent path.

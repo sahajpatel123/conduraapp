@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/watchdog"
 )
 
@@ -392,7 +393,7 @@ func defaultDataDir() string {
 	// for cross-platform consistency, with the OS-conventional location as a
 	// secondary option. We do NOT use the OS-conventional location by default
 	// because users explicitly want ~/.condura/ in the docs.
-	if home, err := os.UserHomeDir(); err == nil {
+	if home, err := homedir.Dir(); err == nil {
 		return filepath.Join(home, ".condura")
 	}
 	// Fallback to OS-conventional location.
@@ -400,7 +401,7 @@ func defaultDataDir() string {
 }
 
 func defaultCacheDir() string {
-	if home, err := os.UserHomeDir(); err == nil {
+	if home, err := homedir.Dir(); err == nil {
 		return filepath.Join(home, ".condura", "cache")
 	}
 	return filepath.Join(fallbackDataDir(), "cache")
@@ -409,7 +410,7 @@ func defaultCacheDir() string {
 func fallbackDataDir() string {
 	switch runtime.GOOS {
 	case "darwin":
-		if home, err := os.UserHomeDir(); err == nil {
+		if home, err := homedir.Dir(); err == nil {
 			return filepath.Join(home, "Library", "Application Support", "condura")
 		}
 	case "windows":
@@ -420,7 +421,7 @@ func fallbackDataDir() string {
 		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 			return filepath.Join(xdg, "condura")
 		}
-		if home, err := os.UserHomeDir(); err == nil {
+		if home, err := homedir.Dir(); err == nil {
 			return filepath.Join(home, ".config", "condura")
 		}
 	}
