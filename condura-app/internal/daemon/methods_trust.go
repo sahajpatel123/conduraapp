@@ -59,8 +59,8 @@ func registerTrustMethods(srv *ipc.Server, subs *Subsystems) {
 			Label       string `json:"label"`
 			AppScope    string `json:"app_scope"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.WorkspaceID == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "workspace_id is required"}
@@ -80,8 +80,8 @@ func registerTrustMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			WorkspaceID string `json:"workspace_id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := store.Revoke(p.WorkspaceID); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -93,8 +93,8 @@ func registerTrustMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Path string `json:"path"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		// Expand ~ to home for the convenience of the GUI.
 		if strings.HasPrefix(p.Path, "~/") {

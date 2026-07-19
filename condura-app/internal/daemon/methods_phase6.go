@@ -87,8 +87,8 @@ func registerVoiceMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Text string `json:"text"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Voice.Speak(ctx, p.Text); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -180,8 +180,8 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 			ConversationID int64  `json:"conversation_id"`
 			Query          string `json:"query"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.Query == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "query is required"}
@@ -229,8 +229,8 @@ func registerAgentMethods(srv *ipc.Server, subs *Subsystems) {
 			UserMessage    string `json:"user_message"`
 			AssistantReply string `json:"assistant_reply"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		subs.Extractor.AfterSession(ctx, p.UserMessage, p.AssistantReply, p.ConversationID)
 		return auditOK(), nil
