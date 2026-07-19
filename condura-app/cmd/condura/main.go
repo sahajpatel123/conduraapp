@@ -37,6 +37,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -75,6 +76,13 @@ func run(args []string) error {
 	fs.StringVar(&gf.dataDir, "data-dir", "", "data dir (default: ~/.condura)")
 	fs.StringVar(&gf.token, "token", "", "bearer token for the daemon")
 	fs.BoolVar(&gf.jsonOut, "json", false, "output as JSON")
+	// --version: print the CLI's build version and exit 0.
+	// Standard Unix convention; matches `git --version`, `go version`, etc.
+	// Doesn't require a running daemon (uses the build-time version
+	// constant from internal/version). Useful for scripts that
+	// detect the CLI version without contacting condurad.
+	var showVersion bool
+	fs.BoolVar(&showVersion, "version", false, "print CLI version and exit")
 	// Subcommand is the first non-flag arg; the rest are passed to the
 	// subcommand's own FlagSet.
 	fs.Usage = func() { printUsage() }
@@ -86,6 +94,13 @@ func run(args []string) error {
 		return err
 	}
 	rest := fs.Args()
+	// --version: short-circuit before subcommand dispatch. Print
+	// the CLI's build version (from internal/version, a build-
+	// time constant) and exit 0. No daemon IPC required.
+	if showVersion {
+		fmt.Printf("condura %s (built with %s)\n", version.Version, runtime.Version())
+		return nil
+	}
 	if len(rest) == 0 {
 		fs.Usage()
 		return nil
@@ -1085,12 +1100,27 @@ func cmdPing(gf *globalFlags) error {
 
 func cmdVersion(gf *globalFlags, args []string) error {
 	fs := flag.NewFlagSet("version", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Println("usage: condura version") }
+	// --local: print the build-time CLI version, no daemon IPC.
+	// The build-time version is the version of the CLI binary
+	// the operator is running, NOT the version of the daemon
+	// (which may differ if the CLI was upgraded but the daemon
+	// wasn't restarted). For daemon version, use the default
+	// (daemon IPC) flow.
+	local := fs.Bool("local", false, "print the CLI's build-time version without contacting the daemon")
+	fs.Usage = func() { fmt.Println("usage: condura version [--local]") }
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
+	}
+	// --local short-circuit: print the build-time version, no IPC.
+	// Useful for scripts that want to detect the CLI version
+	// without contacting the daemon (e.g. "is this CLI new
+	// enough to support command X?").
+	if *local {
+		fmt.Printf("condura %s (built with %s)\n", version.Version, runtime.Version())
+		return nil
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
