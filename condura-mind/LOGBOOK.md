@@ -3070,3 +3070,37 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `c8f7bcc` on local main. The sensitive-data detector's `isAllDigits` helper is now defended end-to-end: all-digits, empty-string guard, non-digit rejection, ASCII boundary correctness, multibyte-digits rejection (ASCII-only). Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-32
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-31-iters) surfaced `internal/permissions/permissions.go` with `OpenSettings` at 80% (the nil-context fallback branch uncovered). OpenSettings is the entry point the GUI uses to launch the OS privacy settings pane — a regression that removed the nil-context guard would panic on the first call from any caller that forgot to thread the context through.
+
+### Shipped
+- **`condura-app/internal/permissions/permissions_dispatcher_test.go`** (added 69 lines, 3 new tests with subtests):
+  A. `TestOpenSettings_NilContextFallback` — passes `nil` ctx, verifies guide is returned (no panic). Pinned with `//nolint:staticcheck` since the lint warns against passing nil ctx (intentional, to test the fallback).
+  B. `TestOpenSettings_ValidContextWorks` — uses `context.Background()`, verifies guide is returned and OS open is attempted.
+  C. `TestRequestGuide_ReturnsNonEmptyStepsForEachKind` — table-driven over all 5 Kinds (`Accessibility`, `Microphone`, `ScreenRecording`, `Automation`, `Notifications`). Each Kind MUST return a non-empty `Steps` slice on the current platform.
+
+### Subtle contracts discovered & pinned
+- **Nil-context fallback**: `OpenSettings` MUST accept `ctx == nil` and fall back to `context.Background()`. A regression that removed the `if ctx == nil { ctx = context.Background() }` guard would pass nil to `exec.CommandContext`, which would panic on the first call.
+- **Per-kind content completeness**: every Kind on every platform MUST return a non-empty `Steps` slice. A regression that returned an empty Steps for one Kind would leave the GUI showing "no instructions" for that permission type.
+- **The `//nolint:staticcheck` directive for the nil-ctx test** is a legitimate pattern: the lint is correct that production code should never pass nil ctx, but the test specifically tests the fallback for nil ctx. The directive documents the intent.
+
+### Deliberately NOT pinned
+- The `openDeepLink` platform-specific branches (darwin, windows, linux) — already exercised transitively by the OpenSettings tests.
+- The `RequestGuide` per-platform branches — tested via the platform-specific helpers (darwinSteps, windowsSteps, linuxSteps) in iter-23.
+
+### Verification
+- `go test ./internal/permissions/ -run "TestOpenSettings_|TestRequestGuide_" -v -count=1` → all 3 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/permissions/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/permissions/...` → **0 issues** (after `gofmt` + `//nolint:staticcheck` for the intentional nil-ctx test)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `permissions.go`:
+  - `OpenSettings`: 80% → 100%
+
+### Explicitly deferred (protect intent)
+- The `openDeepLink` actual `exec.Command` invocation — covered transitively by the happy-path test on darwin (where `open` succeeds); platform-specific behavior on Windows/Linux is exercised by their respective CI runs.
+
+### Status
+- Commit `93de4b8` on local main. The permissions OpenSettings + RequestGuide surface is now defended end-to-end: nil-context fallback, valid-context happy path, per-kind content completeness. Ready for the next cron firing.
