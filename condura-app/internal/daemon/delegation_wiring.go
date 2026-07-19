@@ -194,8 +194,8 @@ func pendingList(subs *Subsystems, params json.RawMessage) (any, error) {
 		Limit  int    `json:"limit"`
 	}
 	if len(params) > 0 {
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 	}
 	rows, err := subs.Pending.List(context.Background(), pending.Status(p.Status), p.Limit)
@@ -218,8 +218,8 @@ func pendingGet(subs *Subsystems, params json.RawMessage) (any, error) {
 	var p struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
 	if p.ID == "" {
 		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id is required"}
@@ -249,8 +249,8 @@ func pendingDecide(ctx context.Context, subs *Subsystems, params json.RawMessage
 		Note      string `json:"note"`
 		AutoRun   bool   `json:"auto_run"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
 	if p.ID == "" || p.Decision == "" {
 		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id and decision are required"}
@@ -292,8 +292,8 @@ func pendingExecute(ctx context.Context, subs *Subsystems, params json.RawMessag
 	var p struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
 	if p.ID == "" {
 		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id is required"}

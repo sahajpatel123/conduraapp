@@ -59,8 +59,8 @@ func registerConversationMethods(
 		var p struct {
 			ID int64 `json:"id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		c, err := store.Get(ctx, p.ID)
 		if err != nil {
@@ -72,8 +72,8 @@ func registerConversationMethods(
 		var p struct {
 			Title string `json:"title"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		m, err := store.Create(ctx, p.Title)
 		if err != nil {
@@ -97,8 +97,8 @@ func registerConversationMethods(
 		var p struct {
 			ID int64 `json:"id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := store.Delete(ctx, p.ID); err != nil {
 			return nil, err
@@ -121,8 +121,8 @@ func registerConversationMethods(
 			ID    int64  `json:"id"`
 			Title string `json:"title"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.ID == 0 {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "id is required"}
@@ -148,8 +148,8 @@ func registerConversationMethods(
 			Content string               `json:"content"`
 			Message conversation.Message `json:"message"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.Message.Role == "" {
 			p.Message.Role = p.Role
@@ -198,8 +198,8 @@ func handleLLMStream(
 		ConversationID int64           `json:"conversation_id"`
 		Request        llm.ChatRequest `json:"request"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
 	if p.Provider == "" {
 		// Convenience: if exactly one provider is configured,
@@ -249,8 +249,8 @@ func handleLLMCancel(
 		RequestID      string `json:"request_id"`
 		ConversationID int64  `json:"conversation_id"`
 	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+	if err := parseParams(params, &p); err != nil {
+		return nil, err
 	}
 	if p.RequestID == "" && p.ConversationID == 0 {
 		return nil, &ipc.Error{
@@ -333,8 +333,8 @@ type auditListParams struct {
 func parseAuditQuery(params json.RawMessage) (audit.Query, string, error) {
 	var p auditListParams
 	if len(params) > 0 && string(params) != "null" {
-		if err := json.Unmarshal(params, &p); err != nil {
-			return audit.Query{}, "", &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return audit.Query{}, "", err
 		}
 	}
 	q := audit.Query{
@@ -495,8 +495,8 @@ func registerHaltMethods(
 		var p struct {
 			Reason string `json:"reason"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		_, _ = haltFlag.Halt(ctx, p.Reason)
 		// N3: toggle the network guard so a halted agent cannot make outbound calls.
@@ -562,8 +562,8 @@ func registerHaltMethods(
 			Ticket string `json:"ticket"`
 			Secret string `json:"secret"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if p.Ticket == "" || p.Secret == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "ticket and secret are required"}

@@ -29,8 +29,8 @@ func registerAdaptiveMethods(srv *ipc.Server, subs *Subsystems) {
 			Field string `json:"field"`
 			Value string `json:"value"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Adaptive.Visibility.Forget(ctx, p.Field, p.Value); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -54,8 +54,8 @@ func registerAdaptiveMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Strength string `json:"strength"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		switch adaptive.Strength(p.Strength) {
 		case adaptive.StrengthOff, adaptive.StrengthCautious, adaptive.StrengthBalanced, adaptive.StrengthAggressive:

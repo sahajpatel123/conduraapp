@@ -37,8 +37,8 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			ID int64 `json:"id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if subs.Replay == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}
@@ -68,8 +68,8 @@ func registerPhase11Methods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Destination string `json:"destination"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeParseError, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if subs.Replay == nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: errReplayNotAvailable}

@@ -22,8 +22,8 @@ func registerReachMethods(srv *ipc.Server, subs *Subsystems) {
 			Channel string `json:"channel"`
 			Token   string `json:"token"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if !subs.GatekeeperAllow(ctx, "reach.connect", "Connect "+p.Channel+" messaging channel") {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
@@ -35,8 +35,8 @@ func registerReachMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Channel string `json:"channel"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if err := subs.Reach.Disconnect(ctx, p.Channel); err != nil {
 			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: err.Error()}
@@ -48,8 +48,8 @@ func registerReachMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Channel string `json:"channel"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		return subs.Reach.Status(ctx, p.Channel)
 	})

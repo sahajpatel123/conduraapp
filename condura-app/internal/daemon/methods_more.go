@@ -133,8 +133,8 @@ func registerControlMethods(srv *ipc.Server, cfg *config.Config, subs *Subsystem
 		var p struct {
 			Enabled bool `json:"enabled"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		cfg.Telemetry.Enabled = p.Enabled
 		subs.Telemetry.SetEnabled(p.Enabled)

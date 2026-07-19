@@ -111,8 +111,8 @@ func registerPermissionMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			Kind string `json:"kind"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return "", &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return "", err
 		}
 		for _, k := range []permissions.Kind{
 			permissions.KindAccessibility,

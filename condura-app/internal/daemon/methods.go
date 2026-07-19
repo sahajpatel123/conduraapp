@@ -160,8 +160,8 @@ func registerMethods(srv *ipc.Server, log *slog.Logger, cfg *config.Config, subs
 		var p struct {
 			Provider string `json:"provider"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		if prov, ok := subs.LLM.Get(p.Provider); ok {
 			models := prov.Models()
@@ -244,8 +244,8 @@ func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
 			Label    string `json:"label"`
 			Secret   string `json:"secret"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		// Phase 19 / audit 2026-06-28: apikeys.set is a WRITE-class
 		// action (it persists a secret to disk). Per the default
@@ -303,8 +303,8 @@ func registerAPIKeyMethods(srv *ipc.Server, subs *Subsystems) {
 		var p struct {
 			ID int64 `json:"id"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		return nil, akm.Delete(ctx, p.ID)
 	})
@@ -321,8 +321,8 @@ func registerLLMMethods(srv *ipc.Server, registry *llm.Registry, mon *failover.S
 			Model    string          `json:"model"`
 			Request  llm.ChatRequest `json:"request"`
 		}
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: err.Error()}
+		if err := parseParams(params, &p); err != nil {
+			return nil, err
 		}
 		prov, ok := registry.Get(p.Provider)
 		if !ok {
