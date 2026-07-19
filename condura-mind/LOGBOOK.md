@@ -3104,3 +3104,42 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `93de4b8` on local main. The permissions OpenSettings + RequestGuide surface is now defended end-to-end: nil-context fallback, valid-context happy path, per-kind content completeness. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-33
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-32-iters) surfaced `internal/account/keychain.go` with `encrypt` at 70% and `decrypt` at 72.7% — the AES-256-GCM crypto primitives that protect every OAuth token, master key, and API secret stored on disk. A regression in either could silently weaken token protection.
+
+### Shipped
+- **`condura-app/internal/account/keychain_crypto_test.go`** (~148 lines, 6 tests):
+  A. `TestEncryptDecryptRoundtrip` — encrypt then decrypt returns the original plaintext.
+  B. `TestEncryptUsesRandomNonce` — two encryptions of the same plaintext produce different ciphertexts (and different nonces).
+  C. `TestEncryptEmptyPlaintext` — encrypt of empty plaintext returns valid ciphertext that decrypts back to empty.
+  D. `TestDecryptTamperedCiphertextFails` — flipping one bit of ciphertext causes decrypt to fail (GCM integrity guarantee).
+  E. `TestDecryptTooShortCiphertextReturnsError` — decrypt rejects ciphertexts shorter than 12 bytes (the GCM nonce size).
+  F. `TestEncryptWrongKeySizeReturnsError` — keys of 8, 20, or 40 bytes all error (only 16/24/32 are valid AES sizes).
+
+### Subtle contracts discovered & pinned
+- **Random nonce**: two encryptions of the same plaintext MUST produce different ciphertexts. A regression that used a fixed nonce would leak information about repeated encryptions of the same data (a classic cryptographic mistake).
+- **GCM integrity**: flipping even one bit of ciphertext (or nonce) MUST cause decrypt to fail. AES-GCM provides AEAD (authenticated encryption with associated data); without it, an attacker could silently modify tokens on disk.
+- **Key size validation**: encrypt MUST reject keys that aren't 16, 24, or 32 bytes. A regression that silently truncated/zero-padded would weaken encryption.
+- **Empty input handling**: encrypt of empty plaintext MUST succeed (empty ciphertexts are valid). A regression that errored would break the empty-token case.
+
+### Deliberately NOT pinned
+- The actual byte-level layout of the ciphertext (nonce prepended, then ciphertext+tag) — covered transitively by the round-trip and nonce-randomness tests.
+- AES internals (e.g., counter-mode block alignment) — the standard library's correctness is assumed.
+
+### Verification
+- `go test ./internal/account/ -run "TestEncrypt|TestDecrypt" -v -count=1` → all 6 pass; existing tests still pass; package green
+- `go vet ./condura-app/internal/account/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/account/...` → 1 false-positive gofmt warning (gofmt -d shows no diff; likely a stale cache issue with `goimports` reporting on already-formatted file). Tests pass cleanly.
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage deltas in `keychain.go`:
+  - `encrypt`: 70.0% → 100%
+  - `decrypt`: 72.7% → 100%
+
+### Explicitly deferred (protect intent)
+- The keychain adapter (`keychainAdapter.Get/Set/Delete`) — already covered by existing tests at the adapter layer; the underlying crypto primitives were the gap.
+
+### Status
+- Commit `ecc57f3` on local main. The account keychain crypto primitives are now defended end-to-end: round-trip correctness, nonce randomness, empty-input handling, GCM tamper detection, short-ciphertext validation, key-size enforcement. Ready for the next cron firing.
