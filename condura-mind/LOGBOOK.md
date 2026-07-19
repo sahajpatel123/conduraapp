@@ -4874,3 +4874,53 @@ This is also the answer to the "I just installed this CLI, where do I start?" qu
 
 ### Status
 - Commit `0c0e932` on local main (pushed). `condura --json backup inspect <archive>` is live; the CLI's JSON output mode is now uniform across all inspect-style commands. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-user-feedback-15
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. The user-feedback thread (iter 22-36) added 14 user-facing commands, each contributing 5-15 lines to `cmd/condura/main.go`. The file reached ~1980 lines — the biggest in the condura package. This iter is a small refactor: extract the help table code (~75 lines) to its own file. No behavior change, just modularity.
+
+### Shipped (commit `721f36c`)
+- **NEW FILE**: `cmd/condura/help.go` (82 lines) — contains:
+  - `helpFor(name string) error` — the per-command lookup
+  - `helpAll() error` — the cheatsheet mode (iter 36)
+  - `var commandHelp` — the 19-entry registry
+  - `var helpOrder` — the iteration order
+
+- **MODIFIED**: `cmd/condura/main.go` (1980 → 1924 lines, –56). The "help" code block is replaced with a 1-line comment ("helpFor, helpAll, commandHelp, and helpOrder live in help.go").
+
+### Why this target
+- The help table grew from 8 entries (pre-user-feedback) to 19 (after iter 36). At 19 entries the table is no longer a trivial constant; it's a real artifact worth its own file.
+- `main.go` is the "subcommand dispatch" file. Each of the 26 subcommand funcs (`cmdPing`, `cmdLogs`, `cmdDoctor`, etc.) is the real content; the help table is auxiliary metadata. Extracting it puts each concept in its own file.
+- The user-feedback thread was producing 1-2 lines of growth per iter in main.go. Without this extraction, the file would have continued to grow with every new feature.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✓ — extracted one self-contained unit (75 lines) from the largest file in the package
+- **Performance polish**: ✗ (no change to runtime behavior; no allocation pattern changes)
+- **Real feature addition**: ✗ (purely structural; no user-facing capability change)
+- **Doc hardening**: ✓ (the new file's doc comment explains the categorization of the 19 commands: "(requires daemon)" vs "(local-only)")
+- **Test-pinning (real gap)**: ✗ (no behavior change → no new tests needed; the existing `cmd/condura/main_test.go` integration coverage is identical)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green (no behavior change → all existing tests pass)
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- File size check:
+  - `cmd/condura/main.go` 1980 → **1924** lines (–56)
+  - `cmd/condura/help.go` new file, **82** lines
+  - Net: main.go shrunk; total adds 18 lines (extraction overhead: comment header, package doc, etc.)
+- `git push origin main` → `e953f73..721f36c`, CI tracking
+
+### Why now, not earlier
+- At iter 1-7 the help table was 8 entries — fine to inline. At iter 8-19 it grew with each new command but was still <30 lines. At iter 19 (just before this refactor) the table hit 19 entries, and `main.go` was the biggest file in the package. **"When the file gets too big"** is the right time to extract — not before (premature), not later (too late).
+
+### Why this refactor, not a different one
+- **Considered**: extract `explain.go` (IPC error code table, 65 lines) into a separate file.
+  - Rejected: explain.go is already separate! The 65-line file lives in `cmd/condura/explain.go`. The main.go reference to it is just one line of CLI code, not the table itself.
+- **Considered**: extract `follow.go` (already separate, 130 lines) further.
+  - Rejected: follow.go is already optimally scoped. The follow-and-rotation logic + platform-split (follow_unix.go / follow_other.go) is 3 files; breaking it down further would create artificial boundaries.
+- **Considered**: extract `remediations` map (in main.go) into a separate file.
+  - Considered: this is 7 entries. Smaller than help. Could be done in a future iter if main.go grows further.
+
+### Status
+- Commit `721f36c` on local main (pushed). `main.go` is 1924 lines; `help.go` is 82 lines. The "subcommand dispatch" file is no longer a kitchen-sink. Ready for the next cron firing.
