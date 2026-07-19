@@ -3,6 +3,7 @@ package adaptive
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestParseProposals_EmptyInputReturnsNil pins the empty-input
@@ -281,5 +282,163 @@ func TestTruncate_EmptyStringWithPositiveNReturnsEmpty(t *testing.T) {
 		if got != "" {
 			t.Errorf("truncate(\"\", %d) = %q, want \"\"", n, got)
 		}
+	}
+}
+
+// TestApplyToModel_VerbosityRoutesToStyle pins the routing
+// contract: a Proposal with Category="verbosity" MUST set
+// model.Style (not model.Communication, not model.Preferences).
+// A regression that routed to the wrong field would silently
+// mix communication preferences into verbosity preferences.
+func TestApplyToModel_VerbosityRoutesToStyle(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{
+		Category: "verbosity", Field: "preferred",
+		Value: "concise", Confidence: 0.9,
+	})
+
+	if m.Style.Value != "concise" {
+		t.Errorf("Style.Value = %q, want \"concise\" (verbosity should route to Style)", m.Style.Value)
+	}
+	if m.Style.Confidence != 0.9 {
+		t.Errorf("Style.Confidence = %v, want 0.9", m.Style.Confidence)
+	}
+	if m.Style.Source != "dialectic" {
+		t.Errorf("Style.Source = %q, want \"dialectic\"", m.Style.Source)
+	}
+	if len(m.Preferences) != 0 {
+		t.Errorf("Preferences should be empty; got %d entries", len(m.Preferences))
+	}
+}
+
+// TestApplyToModel_ResponseLengthAlsoRoutesToStyle pins the
+// alias: a Proposal with Category="response_length" MUST also
+// set model.Style (same field as verbosity). The two are
+// related preferences — both shape the user's communication
+// style.
+func TestApplyToModel_ResponseLengthAlsoRoutesToStyle(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{
+		Category: "response_length", Field: "max",
+		Value: "short", Confidence: 0.7,
+	})
+
+	if m.Style.Value != "short" {
+		t.Errorf("Style.Value = %q, want \"short\" (response_length should route to Style)", m.Style.Value)
+	}
+}
+
+// TestApplyToModel_CommunicationStyleRoutesToCommunication pins
+// the routing for communication_style: routes to
+// model.Communication (NOT Style). A regression would conflate
+// communication style with general style.
+func TestApplyToModel_CommunicationStyleRoutesToCommunication(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{
+		Category: "communication_style", Field: "tone",
+		Value: "direct", Confidence: 0.8,
+	})
+
+	if m.Communication.Value != "direct" {
+		t.Errorf("Communication.Value = %q, want \"direct\"", m.Communication.Value)
+	}
+	if m.Style.Value != "" {
+		t.Errorf("Style.Value should be empty; got %q (communication should NOT route to Style)", m.Style.Value)
+	}
+}
+
+// TestApplyToModel_RiskToleranceRoutesToRiskTolerance pins the
+// routing for risk_tolerance: routes to model.RiskTolerance.
+func TestApplyToModel_RiskToleranceRoutesToRiskTolerance(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{
+		Category: "risk_tolerance", Field: "level",
+		Value: "moderate", Confidence: 0.6,
+	})
+
+	if m.RiskTolerance.Value != "moderate" {
+		t.Errorf("RiskTolerance.Value = %q, want \"moderate\"", m.RiskTolerance.Value)
+	}
+	if m.Style.Value != "" {
+		t.Errorf("Style.Value should be empty; got %q", m.Style.Value)
+	}
+}
+
+// TestApplyToModel_UnknownCategoryAppendsToPreferences pins the
+// fallback: an unknown Category MUST be appended to
+// model.Preferences (not routed to a typed field). This is the
+// extensibility path — new categories added in the future
+// automatically become preferences until a typed routing is
+// defined.
+func TestApplyToModel_UnknownCategoryAppendsToPreferences(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{
+		Category: "new_category_from_future_llm", Field: "value",
+		Value: "test-value", Confidence: 0.5,
+	})
+
+	if len(m.Preferences) != 1 {
+		t.Fatalf("Preferences should have 1 entry; got %d", len(m.Preferences))
+	}
+	if m.Preferences[0].Value != "test-value" {
+		t.Errorf("Preferences[0].Value = %q, want \"test-value\"", m.Preferences[0].Value)
+	}
+}
+
+// TestApplyToModel_MultipleUnknownsAccumulateInPreferences pins
+// the accumulation contract: multiple proposals with unknown
+// categories MUST all be appended (in order) to model.Preferences.
+// A regression that overwrote instead of appended would lose
+// prior preferences.
+func TestApplyToModel_MultipleUnknownsAccumulateInPreferences(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	e.applyToModel(m, Proposal{Category: "x", Field: "x", Value: "first", Confidence: 0.5})
+	e.applyToModel(m, Proposal{Category: "y", Field: "y", Value: "second", Confidence: 0.5})
+	e.applyToModel(m, Proposal{Category: "z", Field: "z", Value: "third", Confidence: 0.5})
+
+	if len(m.Preferences) != 3 {
+		t.Fatalf("Preferences should have 3 entries; got %d", len(m.Preferences))
+	}
+	wantValues := []string{"first", "second", "third"}
+	for i, want := range wantValues {
+		if m.Preferences[i].Value != want {
+			t.Errorf("Preferences[%d].Value = %q, want %q", i, m.Preferences[i].Value, want)
+		}
+	}
+}
+
+// TestApplyToModel_AllFieldsPopulated pins the field-copy
+// contract: the InferredField created from the Proposal MUST
+// copy Value, Confidence, Source, AND set LastSeen. A regression
+// that didn't set LastSeen (left as zero time) would lose the
+// freshness signal that the predictor uses for decay.
+func TestApplyToModel_AllFieldsPopulated(t *testing.T) {
+	e := &Engine{}
+	m := &UserModel{}
+	before := time.Now().UTC()
+	e.applyToModel(m, Proposal{
+		Category: "verbosity", Field: "x",
+		Value: "y", Confidence: 0.42,
+	})
+	after := time.Now().UTC()
+
+	f := m.Style
+	if f.Value != "y" {
+		t.Errorf("Value = %q, want \"y\"", f.Value)
+	}
+	if f.Confidence != 0.42 {
+		t.Errorf("Confidence = %v, want 0.42", f.Confidence)
+	}
+	if f.Source != "dialectic" {
+		t.Errorf("Source = %q, want \"dialectic\"", f.Source)
+	}
+	if f.LastSeen.Before(before) || f.LastSeen.After(after.Add(time.Second)) {
+		t.Errorf("LastSeen = %v, want in [%v, %v]", f.LastSeen, before, after)
 	}
 }
