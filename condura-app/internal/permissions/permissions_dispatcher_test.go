@@ -1,6 +1,7 @@
 package permissions
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -113,5 +114,73 @@ func TestCheck_ReturnsValidStatus(t *testing.T) {
 		if !valid[Check(k)] {
 			t.Errorf("Check(%v) returned invalid Status %v", k, Check(k))
 		}
+	}
+}
+
+// TestOpenSettings_NilContextFallback pins the nil-context
+// guard: OpenSettings MUST accept a nil context and fall back
+// to context.Background(). A regression that removed this
+// guard would pass a nil ctx to exec.CommandContext, which
+// would panic on the first call from any caller that
+// forgot to thread the context through.
+//
+// This is the most-tested surface for permissions and the
+// nil-context path is easy to miss in caller code (the RPC
+// handler chains contexts through several layers).
+func TestOpenSettings_NilContextFallback(t *testing.T) {
+	//nolint:staticcheck // SA1012: testing the nil-context fallback on purpose
+	g, opened, err := OpenSettings(nil, KindAccessibility)
+	if err != nil {
+		t.Fatalf("OpenSettings(nil, KindAccessibility) returned error: %v", err)
+	}
+	// The guide is returned even when the OS open fails
+	// (caller can still show the steps).
+	if len(g.Steps) == 0 {
+		t.Error("Guide has no steps; caller would show empty state")
+	}
+	// On darwin (where this runs), 'open' should succeed and
+	// 'opened' should be true. On other platforms it may fail
+	// but should never panic.
+	_ = opened
+}
+
+// TestOpenSettings_ValidContextWorks pins the happy path:
+// OpenSettings with a real context returns the guide and
+// attempts the OS open. On darwin this should succeed.
+func TestOpenSettings_ValidContextWorks(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	g, opened, err := OpenSettings(ctx, KindMicrophone)
+	if err != nil {
+		t.Fatalf("OpenSettings(ctx, KindMicrophone) returned error: %v", err)
+	}
+	if len(g.Steps) == 0 {
+		t.Error("Guide has no steps")
+	}
+	// 'opened' is platform-dependent; on darwin it should be true
+	// (the 'open' command exists), on Linux it depends on xdg-open.
+	_ = opened
+}
+
+// TestRequestGuide_ReturnsNonEmptyStepsForEachKind pins the
+// per-kind content contract: RequestGuide MUST return a non-empty
+// Steps slice for every Kind on the current platform. A regression
+// that returned an empty Steps for one Kind would leave the GUI
+// showing "no instructions" for that permission type.
+func TestRequestGuide_ReturnsNonEmptyStepsForEachKind(t *testing.T) {
+	for _, k := range []Kind{
+		KindAccessibility,
+		KindMicrophone,
+		KindScreenRecording,
+		KindAutomation,
+		KindNotifications,
+	} {
+		t.Run(string(k), func(t *testing.T) {
+			g := RequestGuide(k)
+			if len(g.Steps) == 0 {
+				t.Errorf("RequestGuide(%v).Steps is empty; want >= 1 actionable step", k)
+			}
+		})
 	}
 }
