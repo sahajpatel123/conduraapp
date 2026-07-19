@@ -3957,3 +3957,46 @@ These can be migrated in future iters opportunistically. Each migration is small
 
 ### Status
 - Commit `abb2137` on local main (pushed). Mechanical migration continuing; ~7 sites remain. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-9
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: continue the parseParams migration. 6 more sites in methods_trust.go (3) and methods_phase6.go (3).
+
+### Shipped (commit `eb640fe`)
+- **6 sites migrated to parseParams** (2 files):
+  - `internal/daemon/methods_trust.go` — 3 sites
+  - `internal/daemon/methods_phase6.go` — 3 sites
+
+- **Net effect**: 6 inline 4-line blocks collapsed into 6 3-line `parseParams` + return-nil calls. All 6 sites now produce the same parse-error contract (CodeInvalidParams + `json.Unmarshal`'s verbatim error message) via the helper.
+
+### Migration tally across the loop
+| iter | sites | files |
+|---|---|---|
+| 13 | 5 | methods_phase11_backup.go |
+| 17 | 7 | methods_phase11_misc.go (4) + methods_account.go (3) |
+| 18 | 6 | methods_trust.go (3) + methods_phase6.go (3) |
+| **Total** | **18** | **5 files** |
+
+18 sites migrated. ~5 sites remain:
+- `internal/daemon/methods_phase11.go` (2)
+- `internal/daemon/methods_phase12.go` (1)
+- `internal/daemon/methods_more.go` (1)
+- `internal/daemon/methods_phase11_misc.go` (1 `_ = json.Unmarshal` — intentional, do not migrate)
+
+A future iter can finish the migration; the daemon will then have ZERO inline `json.Unmarshal(params, &p)` calls (modulo the 1 intentional `_ = json.Unmarshal` for the optional-Destination case in `backup.create`).
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single-package continuation)
+- **Performance polish**: ✓ (fewer `&ipc.Error{...}` allocations on the parse-error path — same win as iter-17)
+- **Real feature addition**: ✗ (mechanical migration)
+- **Doc hardening**: ✓ (call-sites are now self-documenting via the helper name)
+- **Test-pinning (real gap)**: ✗ (no new tests — the existing `params_test.go` contract tests cover the helper)
+
+### Verification
+- `go test ./internal/daemon/ -count=1 -timeout 60s` → green, no regressions.
+- `go test ./... -count=1 -timeout 300s` → no failures.
+- `golangci-lint run --timeout 5m ./condura-app/internal/daemon/...` → **0 issues**.
+
+### Status
+- Commit `eb640fe` on local main (pushed). 18 sites migrated; ~5 remain. Ready for the next cron firing.
