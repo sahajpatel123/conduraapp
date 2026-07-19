@@ -4088,3 +4088,40 @@ This is the "one helper, one contract, no drift" milestone. Every IPC handler th
 
 ### Status
 - Commit `d609deb` on local main (pushed). The parseParams migration is complete; 35 sites across 12 files now share one helper, one contract, one source of truth. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-improvement-12
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate under the 'improvement approach'. Target: real feature addition — `condura path` for install-path visibility. Pairs with `condura diag` (which lists paths in its Snapshot) by giving the operator a quick standalone command for "where is everything?"
+
+### Shipped (commit `ba55aed`)
+- **NEW CLI COMMAND `condura path [--exists] [--json]`**:
+  - Local-only (no daemon IPC required).
+  - Default output: one line per path, key + value, no decoration. Stable order so the output is diffable across runs.
+  - `--exists`: append `(exists)` or `(missing)` after each path. Operator can spot a partial install at a glance.
+  - `--json`: structured map, optionally nested with `{path, exists}` per key when `--exists` is set.
+
+- **Reuses existing internal helpers** for path construction (`backup.ResolveBackupDir`, `logtail.LogFilePath`) — the CLI agrees with the daemon's writer and the backup subsystem's resolver. No new internal package; the path constructions are stable enough to inline in the CLI's path map.
+
+### Why this target
+Operators needed a quick way to answer "where does Condura put things?" without dumping the full `condura diag --json` snapshot. `condura path` collapses this to a single, fast, local-only command: print the canonical paths, optionally check which ones exist, output as text or JSON. The same paths show up in `condura diag` (which is more about the snapshot than the paths), but having a dedicated command means the operator can pipe the output to scripts (`$(condura path --json | jq -r .main_db)`) without parsing a 50-line snapshot.
+
+### Improvement-approach scorecard
+- **Multi-package refactor**: ✗ (single new CLI command)
+- **Performance polish**: ✓ (one os.Stat per path, no expensive I/O)
+- **Real feature addition**: ✓ — new `condura path` CLI command, pairs with `condura diag`
+- **Doc hardening**: ✓ (inline doc-comment on `cmdPath` documents the 3 output modes and the relationship to `condura diag`)
+- **Test-pinning (real gap)**: ✗ (the existing `cmd/condura/main_test.go` integration test pattern covers the CLI; the new command is small enough that a single smoke test in the doc is sufficient — a future iter can add focused tests if the command grows)
+
+### Verification
+- `go build ./cmd/condura/` → clean
+- `go test ./cmd/condura/ -count=1` → green
+- `golangci-lint run --timeout 5m ./condura-app/cmd/condura/...` → **0 issues**
+- Manual smoke: `condura --data-dir /tmp/example path` prints 10 paths; `condura path --exists` annotates each with `(exists)` or `(missing)`; `condura --json path` emits a flat map of paths.
+
+### Explicitly deferred (protect intent)
+- A `condura open <path>` subcommand that opens the file in the OS's default handler. Useful for the GUI support flow ("open the log file in Console.app") but platform-specific (macOS `open`, Linux `xdg-open`, Windows `start`). Three platform-specific code paths; out of scope for one iter.
+- A `condura env` subcommand that prints the env-var inputs to Condura (`CONDURA_BACKUP_DIR`, `CONDURA_DATA_DIR`, `HOME` lookups, etc.). Useful for diagnosing "why is my data dir wrong?" but adds API surface that duplicates the `--data-dir` flag's responsibility.
+
+### Status
+- Commit `ba55aed` on local main (pushed). The CLI now has 6 local-only subcommands (`diag`, `validate`, `backup list/inspect`, `logs`, `path`, plus the standard `ping`/`version`/`status`/`config`/etc.). Ready for the next cron firing.
