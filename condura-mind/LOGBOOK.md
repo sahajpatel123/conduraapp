@@ -3359,3 +3359,42 @@ The test was reframed to DOCUMENT this current behavior. A future "fix IsInstall
 
 ### Status
 - Commit `8e69734` on local main. The OAuth state generator is now defended end-to-end: all-hex format, decode roundtrip, high entropy. Ready for the next cron firing.
+
+## [2026-07-19] AI Model: z-ai/glm-5.2
+**Session ID:** autonomous-loop-iter-40
+**Branch:** main
+**Task:** One cron iteration of the /loop mandate. Coverage scan (fresh, post-39-iters) surfaced `internal/agent/agent.go` with `stringField` at 70% — the JSON-to-string field extraction helper used by the agent's tool-call argument pipeline. A regression in any of the uncovered paths would silently corrupt tool-call argument handling.
+
+### Shipped
+- **`condura-app/internal/agent/agent_stringfield_test.go`** (~128 lines, 7 tests with 5 subtests):
+  A. `TestStringField_HappyPath` — `{key: 'value'}` returns `('value', true)`.
+  B. `TestStringField_NilDataReturnsFalse` — nil data returns `('', false)`.
+  C. `TestStringField_WrongTypeReturnsFalse` — non-string values (int, bool, []any) all return `('', false)`.
+  D. `TestStringField_MissingKeyReturnsFalse` — missing key returns `('', false)`.
+  E. `TestStringField_EmptyDataReturnsFalse` — empty map with any key returns `('', false)`.
+  F. `TestStringField_NonMarshalableDataReturnsFalse` — chan (not JSON-serializable) returns `('', false)`, doesn't panic.
+  G. `TestStringField_StringValueExtractedCorrectly` — 5 subtests verifying no transformation (empty, simple, with-spaces, with-unicode, with-special-chars like `<script>`).
+
+### Subtle contracts discovered & pinned
+- **Non-string values rejected** — a regression that returned `42` as `"42"` would silently corrupt downstream string operations (concatenation, length, etc.).
+- **Non-marshalable data (chan, func) handled** — `json.Marshal` returns an error for these types; the function MUST catch that error and return ok=false rather than panicking.
+- **Missing key ≠ empty string** — both return ok=false but for different reasons. A regression that returned ok=true for missing keys would mislead callers into thinking the empty string was intentional.
+- **No transformation** — string values pass through verbatim. A regression that applied trim/lower/etc would corrupt values like `"<script>"` (XSS-safe expected behavior preserved).
+
+### Deliberately NOT pinned
+- The `fields[key].(string)` type-assertion error path — covered transitively by the "wrong-type" tests (which exercise the `ok=false` branch).
+- The `json.Marshal`/`json.Unmarshal` roundtrip through `map[string]any` — exercised by every test that uses a `map[string]any` literal.
+
+### Verification
+- `go test ./internal/agent/ -run "TestStringField_" -v -count=1` → all 7 pass + 5 subtests (10 total); existing tests still pass; package green
+- `go vet ./condura-app/internal/agent/` → clean
+- `golangci-lint run --timeout 5m ./condura-app/internal/agent/...` → **0 issues** (after `gofmt`)
+- `go test ./... -count=1 -timeout 300s -short` → exit 0 (secrets flake did NOT fire this run)
+- Coverage delta in `agent.go`:
+  - `stringField`: 70% → 100%
+
+### Explicitly deferred (protect intent)
+- The `json.Marshal` failure for `func` values — covered transitively by the chan test; chan and func both fail json.Marshal.
+
+### Status
+- Commit `f555ea9` on local main. The agent `stringField` helper is now defended end-to-end: happy path, nil data, wrong type, missing key, empty data, non-marshalable data, no-transformation guarantee. Ready for the next cron firing.
