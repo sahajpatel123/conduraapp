@@ -81,8 +81,8 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		// so it could be used as an arbitrary-read primitive by a
 		// local IPC peer. The Gatekeeper prompts the user, mirroring
 		// backup.restore and backup.rollback.
-		if !subs.GatekeeperAllow(ctx, "backup.preview", "Preview backup manifest from "+p.Path) {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+		if err := gate(ctx, subs, "backup.preview", "Preview backup manifest from "+p.Path); err != nil {
+			return nil, err
 		}
 		m, err := backup.LoadManifest(p.Path)
 		if err != nil {
@@ -124,8 +124,8 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 			// write a backup archive anywhere the daemon's UID can
 			// write. Mirrors the Gatekeeper pattern on backup.restore
 			// and backup.rollback.
-			if !subs.GatekeeperAllow(ctx, "backup.create", "Copy backup to "+p.Destination) {
-				return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+			if err := gate(ctx, subs, "backup.create", "Copy backup to "+p.Destination); err != nil {
+				return nil, err
 			}
 			if err := copyFile(path, p.Destination); err != nil {
 				return nil, fmt.Errorf("backup: copy to destination: %w", err)
@@ -148,8 +148,8 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 		if p.Path == "" {
 			return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
 		}
-		if !subs.GatekeeperAllow(ctx, "backup.restore", "Restore backup from "+p.Path) {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+		if err := gate(ctx, subs, "backup.restore", "Restore backup from "+p.Path); err != nil {
+			return nil, err
 		}
 		mk, err := subs.MasterKey()
 		if err != nil || len(mk) != 32 {
@@ -224,8 +224,8 @@ func registerBackupMethods(srv *ipc.Server, subs *Subsystems) {
 	// backup.rollback — revert the last session's writes via
 	// the rollback checkpoint. GATED through the Gatekeeper.
 	srv.Register("backup.rollback", func(ctx context.Context, _ json.RawMessage) (any, error) {
-		if !subs.GatekeeperAllow(ctx, "backup.rollback", "Revert last session") {
-			return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+		if err := gate(ctx, subs, "backup.rollback", "Revert last session"); err != nil {
+			return nil, err
 		}
 		memDB := OpenRollbackDB(subs.MemoryDBPath())
 		skillDB := OpenRollbackDB(subs.SkillDBPath())
@@ -340,8 +340,8 @@ func backupInspect(ctx context.Context, subs *Subsystems, params json.RawMessage
 	if p.Path == "" {
 		return nil, &ipc.Error{Code: ipc.CodeInvalidParams, Message: "path is required"}
 	}
-	if !subs.GatekeeperAllow(ctx, "backup.inspect", "Preview backup summary from "+p.Path) {
-		return nil, &ipc.Error{Code: ipc.CodeInternalError, Message: msgDeniedBySafetyPolicy}
+	if err := gate(ctx, subs, "backup.inspect", "Preview backup summary from "+p.Path); err != nil {
+		return nil, err
 	}
 	summary, err := backup.InspectManifest(p.Path)
 	if err != nil {
