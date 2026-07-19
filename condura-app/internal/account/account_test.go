@@ -797,3 +797,86 @@ func TestDefaultProviderConfigs_NoEmptyClientIDs(t *testing.T) {
 		}
 	}
 }
+
+// TestNewSession_EmptyEmailRejects pins the input-validation
+// guard: NewSession MUST reject an empty email with a clear
+// error (not panic, not return a session with empty email). A
+// regression that allowed empty email would create a session
+// bound to no real user.
+func TestNewSession_EmptyEmailRejects(t *testing.T) {
+	m, _ := newTestManager(t)
+	_, err := m.NewSession(context.Background(), "", "magic_link")
+	if err == nil {
+		t.Fatal("NewSession(empty email) = nil; want error")
+	}
+	if !strings.Contains(err.Error(), "empty email") {
+		t.Errorf("error %q should mention 'empty email'", err.Error())
+	}
+}
+
+// TestNewSession_ExpiresAtInFuture pins the TTL contract:
+// NewSession MUST set ExpiresAt to time.Now() + m.sessionTTL.
+// A regression that didn't set ExpiresAt would leave the
+// session without an expiration, making Status() return
+// non-expired forever.
+func TestNewSession_ExpiresAtInFuture(t *testing.T) {
+	m, _ := newTestManager(t)
+	before := time.Now().UTC()
+	sess, err := m.NewSession(context.Background(), "alice@example.com", "magic_link")
+	if err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	after := time.Now().UTC()
+
+	// sessTTL is 1 hour in newTestManager, so ExpiresAt should be
+	// approximately 1 hour from "now".
+	expectedMin := before.Add(1 * time.Hour)
+	expectedMax := after.Add(1 * time.Hour)
+	if sess.ExpiresAt.Before(expectedMin) || sess.ExpiresAt.After(expectedMax) {
+		t.Errorf("ExpiresAt = %v, want in [%v, %v]", sess.ExpiresAt, expectedMin, expectedMax)
+	}
+}
+
+// TestNewSession_SetsProviderField pins the Provider field
+// population: NewSession MUST set sess.Provider to the value
+// passed in. A regression that left Provider empty would lose
+// the audit-trail signal that the Status() consumers read.
+func TestNewSession_SetsProviderField(t *testing.T) {
+	m, _ := newTestManager(t)
+	for _, provider := range []string{"magic_link", "oauth_google", "oauth_github"} {
+		sess, err := m.NewSession(context.Background(), "alice@example.com", provider)
+		if err != nil {
+			t.Fatalf("NewSession(%q): %v", provider, err)
+		}
+		if sess.Provider != provider {
+			t.Errorf("Provider = %q, want %q", sess.Provider, provider)
+		}
+	}
+}
+
+// TestNewSession_PersistsViaStore pins the persistence contract:
+// after NewSession returns successfully, the session MUST be
+// stored (i.e., a subsequent Load returns the same session).
+// A regression that returned a session without persisting would
+// leave Status() unable to find it.
+func TestNewSession_PersistsViaStore(t *testing.T) {
+	m, _ := newTestManager(t)
+	original, err := m.NewSession(context.Background(), "alice@example.com", "magic_link")
+	if err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+
+	loaded, err := m.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if loaded == nil {
+		t.Fatal("Status returned nil after NewSession; session was not persisted")
+	}
+	if loaded.Email != original.Email {
+		t.Errorf("loaded.Email = %q, want %q", loaded.Email, original.Email)
+	}
+	if loaded.Provider != original.Provider {
+		t.Errorf("loaded.Provider = %q, want %q", loaded.Provider, original.Provider)
+	}
+}
