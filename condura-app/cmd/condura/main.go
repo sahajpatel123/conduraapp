@@ -17,6 +17,7 @@
 //	synaptic apikeys delete 3
 //	synaptic backup list
 //	synaptic backup inspect <archive>
+//	synaptic diag [--json]
 package main
 
 import (
@@ -34,6 +35,7 @@ import (
 	"time"
 
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/backup"
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/diag"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/ipc"
 	"github.com/sahajpatel123/conduraapp/condura-app/internal/version"
 )
@@ -108,6 +110,8 @@ func runSubcommand(gf *globalFlags, sub string, subargs []string) error {
 		return cmdI18n(gf, subargs)
 	case "backup":
 		return cmdBackup(gf, subargs)
+	case "diag":
+		return cmdDiag(gf, subargs)
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
@@ -136,6 +140,7 @@ Commands:
   resume        T3b sticky human-confirmed resume (request/confirm/cancel).
   i18n          Manage locale catalogs (locales/locale).
   backup        Inspect local backup archives (list/inspect).
+  diag          Dump local diagnostic snapshot for support.
 
 Global flags:
   --addr HOST:PORT    explicit daemon address
@@ -219,8 +224,8 @@ func cmdBackup(gf *globalFlags, args []string) error {
 
 // cmdBackupList lists backup archives present in the local
 // backup directory. Resolution order matches the daemon:
-//   1. --data-dir flag (if set)
-//   2. ~/.condura (default)
+//  1. --data-dir flag (if set)
+//  2. ~/.condura (default)
 //
 // The list is sorted by modification time (newest first) so the
 // operator's eye lands on the most recent archive without
@@ -255,7 +260,7 @@ func cmdBackupList(gf *globalFlags) error {
 		out := make([]map[string]any, 0, len(files))
 		for _, f := range files {
 			out = append(out, map[string]any{
-				"name":      filepathBase(f),
+				"name":       filepathBase(f),
 				"size_bytes": fileSizeInt(f),
 			})
 		}
@@ -341,6 +346,81 @@ func defaultDataDir() string {
 		return ".condura"
 	}
 	return home + "/.condura"
+}
+
+// cmdDiag prints a structured diagnostic snapshot for support
+// tickets. Local-only (no daemon IPC): reads the filesystem
+// directly via diag.Take so it works even when the daemon
+// can't start.
+//
+// The snapshot is intentionally secret-free (no master key,
+// no OAuth tokens, no API key material). It reports paths,
+// sizes, and mtimes — enough for support to triage "the
+// daemon won't start" without leaking credentials.
+//
+// Output modes:
+//   - default (text): aligned columns, human-readable
+//   - --json:          machine-readable JSON for ticketing
+//     pipelines that ingest diag output
+func cmdDiag(gf *globalFlags, args []string) error {
+	fs := flag.NewFlagSet("diag", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil && !errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+	dir := gf.dataDir
+	if dir == "" {
+		dir = defaultDataDir()
+	}
+
+	snap := diag.Take(dir)
+
+	if gf.jsonOut {
+		return printJSON(snap)
+	}
+
+	// Human-readable layout: header, paths, files (size + mtime),
+	// then backups. Kept terse so the operator can paste it into
+	// a chat without reformatting.
+	fmt.Printf("Condura %s — diagnostic snapshot (%s)\n", snap.Version, snap.Timestamp)
+	fmt.Println()
+	fmt.Println("Paths:")
+	fmt.Printf("  data_dir    %s\n", snap.Paths.DataDir)
+	fmt.Printf("  backup_dir  %s\n", snap.Paths.BackupDir)
+	fmt.Printf("  config      %s\n", snap.Paths.ConfigFile)
+	fmt.Printf("  main_db     %s\n", snap.Paths.MainDB)
+	fmt.Printf("  memory_db   %s\n", snap.Paths.MemoryDB)
+	fmt.Printf("  skills_db   %s\n", snap.Paths.SkillsDB)
+	fmt.Println()
+	fmt.Println("Files:")
+	printFileInfo("  main_db   ", snap.MainDB)
+	printFileInfo("  memory_db ", snap.MemoryDB)
+	printFileInfo("  skills_db ", snap.SkillsDB)
+	printFileInfo("  config    ", snap.Config)
+	fmt.Println()
+	fmt.Printf("Backups (%d):\n", len(snap.Backups))
+	if len(snap.Backups) == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for _, b := range snap.Backups {
+			fmt.Printf("  %d  %s\n", b.Size, filepathBase(b.Path))
+		}
+	}
+	return nil
+}
+
+// printFileInfo renders one FileInfo row, suppressing the
+// empty-mtime line when the file is missing. The leading
+// label is supplied so the row aligns with the table layout.
+func printFileInfo(label string, fi diag.FileInfo) {
+	if fi.Size == 0 && fi.MTime == "" {
+		fmt.Printf("%s(missing)\n", label)
+		return
+	}
+	mtime := fi.MTime
+	if mtime == "" {
+		mtime = "?"
+	}
+	fmt.Printf("%s%d bytes  %s  mtime=%s\n", label, fi.Size, filepathBase(fi.Path), mtime)
 }
 
 func cmdPing(gf *globalFlags) error {
