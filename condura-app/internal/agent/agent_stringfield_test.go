@@ -2,6 +2,8 @@ package agent
 
 import (
 	"testing"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/sse"
 )
 
 // TestStringField_HappyPath pins the basic contract: when data
@@ -124,5 +126,87 @@ func TestStringField_StringValueExtractedCorrectly(t *testing.T) {
 				t.Errorf("value = %q, want %q (no transformation)", v, tc.value)
 			}
 		})
+	}
+}
+
+// TestEventMatchesRequest_NilDataReturnsTrue pins the
+// null-data-as-no-filter contract: when ev.Data is nil, the
+// function MUST return true (the event matches any request).
+// This is the legacy/non-stream path where the event doesn't
+// have a request_id field.
+func TestEventMatchesRequest_NilDataReturnsTrue(t *testing.T) {
+	ev := sse.Event{Data: nil}
+	if !eventMatchesRequest(ev, "any-request-id") {
+		t.Error("eventMatchesRequest(ev with nil Data) = false; want true (null-data-as-no-filter)")
+	}
+}
+
+// TestEventMatchesRequest_MatchingRequestIDReturnsTrue pins the
+// happy-path contract: when ev.Data contains request_id == X
+// and we ask "is this for request X?", the function returns true.
+func TestEventMatchesRequest_MatchingRequestIDReturnsTrue(t *testing.T) {
+	ev := sse.Event{Data: map[string]any{"request_id": "req-123", "type": "delta"}}
+	if !eventMatchesRequest(ev, "req-123") {
+		t.Error("eventMatchesRequest(matching request_id) = false; want true")
+	}
+}
+
+// TestEventMatchesRequest_NonMatchingRequestIDReturnsFalse pins
+// the negative-match contract: when ev.Data contains request_id
+// != X, the function returns false. A regression that always
+// returned true would route every event to every request, mixing
+// up concurrent streams.
+func TestEventMatchesRequest_NonMatchingRequestIDReturnsFalse(t *testing.T) {
+	ev := sse.Event{Data: map[string]any{"request_id": "req-A", "type": "delta"}}
+	if eventMatchesRequest(ev, "req-B") {
+		t.Error("eventMatchesRequest(non-matching request_id) = true; want false")
+	}
+}
+
+// TestEventMatchesRequest_NoRequestIDFieldReturnsTrue pins the
+// no-filter fallback: when ev.Data doesn't contain request_id,
+// the function returns true (no-filter). This matches the
+// nil-data case: events without request_id are assumed to be
+// for any request.
+func TestEventMatchesRequest_NoRequestIDFieldReturnsTrue(t *testing.T) {
+	ev := sse.Event{Data: map[string]any{"type": "delta"}}
+	if !eventMatchesRequest(ev, "req-123") {
+		t.Error("eventMatchesRequest(no request_id field) = false; want true (no-filter fallback)")
+	}
+}
+
+// TestEventMatchesRequest_NonStringRequestIDReturnsTrue pins the
+// type-discrimination fallback: when request_id is a non-string
+// type (e.g., int), the function returns true (no-filter).
+// A regression that returned false would drop events with
+// non-string request IDs (which would be a bug somewhere
+// upstream, but the safe default is to not filter).
+func TestEventMatchesRequest_NonStringRequestIDReturnsTrue(t *testing.T) {
+	ev := sse.Event{Data: map[string]any{"request_id": 42}}
+	if !eventMatchesRequest(ev, "any-id") {
+		t.Error("eventMatchesRequest(non-string request_id) = false; want true (no-filter fallback)")
+	}
+}
+
+// TestEventMatchesRequest_NonMarshalableDataReturnsFalse pins
+// the defensive guard: data that can't be marshaled (e.g.,
+// contains a func) returns false. The function catches the
+// json.Marshal error and returns false (rather than panicking).
+func TestEventMatchesRequest_NonMarshalableDataReturnsFalse(t *testing.T) {
+	// Channels are not JSON-marshalable.
+	ev := sse.Event{Data: make(chan int)}
+	if eventMatchesRequest(ev, "any-id") {
+		t.Error("eventMatchesRequest(chan data) = true; want false")
+	}
+}
+
+// TestEventMatchesRequest_EmptyRequestIDMatchesEmptyInput pins
+// the edge case: an event with request_id == "" matches a query
+// for "". This is consistent with the no-filter fallback when
+// values are empty strings.
+func TestEventMatchesRequest_EmptyRequestIDMatchesEmptyInput(t *testing.T) {
+	ev := sse.Event{Data: map[string]any{"request_id": ""}}
+	if !eventMatchesRequest(ev, "") {
+		t.Error("eventMatchesRequest(empty request_id matching empty query) = false; want true")
 	}
 }
