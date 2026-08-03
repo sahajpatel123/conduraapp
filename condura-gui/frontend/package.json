@@ -27,7 +27,7 @@
     "svelte-check": "^4.0.0",
     "tslib": "^2.6.0",
     "typescript": "^7.0.2",
-    "vite": "^8.1.5",
+    "vite": "^8.2.0",
     "vitest": "^4.1.10"
   },
   "packageManager": "npm@10.9.0"
