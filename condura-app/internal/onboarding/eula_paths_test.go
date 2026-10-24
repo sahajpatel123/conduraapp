@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -71,20 +70,18 @@ func TestReadEULAFromPath_PermissionDeniedReturnsWrappedError(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root; permission test is ineffective")
 	}
-	// Windows does not map 0o000 onto "unreadable": Go's os.WriteFile
-	// passes the mode to the platform layer, which ignores POSIX read bits,
-	// so the file stays readable and the permission-denied branch is not
-	// reachable this way. There is no Windows equivalent of this fixture.
-	if runtime.GOOS == "windows" {
-		t.Skip("windows does not deny reads for 0o000 files; see eula.go's os.ReadFile path")
-	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "locked-eula.txt")
-	if err := os.WriteFile(path, []byte("body"), 0o000); err != nil {
+	if err := os.WriteFile(path, []byte("body"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Restore permissions on cleanup so t.TempDir can clean up.
-	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	// "Cannot read" is expressed by each platform's own mechanism
+	// (see denyRead in denyread_unix_test.go / denyread_windows_test.go):
+	// mode 0000 on POSIX, an explicit deny ACE on Windows, where POSIX
+	// read bits are not honoured. Both assert the denial took effect,
+	// so this test exercises the read-failure path on every platform
+	// rather than being skipped on one.
+	denyRead(t, path)
 
 	_, err := readEULAFromPath(path)
 	if err == nil {
