@@ -35,7 +35,12 @@ func denyRead(t *testing.T, path string) {
 	}
 
 	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{{
-		AccessPermissions: windows.GENERIC_READ,
+		// FILE_GENERIC_READ, not GENERIC_READ: an ACE must carry the
+		// specific access bits. GENERIC_* is only expanded for the
+		// access a caller *requests* at open time, never for the bits
+		// stored in a DACL, so a GENERIC_READ ACE silently matches
+		// nothing and denies nothing.
+		AccessPermissions: windows.FILE_GENERIC_READ,
 		AccessMode:        windows.DENY_ACCESS,
 		Inheritance:       windows.NO_INHERITANCE,
 		Trustee: windows.TRUSTEE{
@@ -71,8 +76,15 @@ func denyRead(t *testing.T, path string) {
 	})
 
 	// Fail loudly here if the deny did not take effect, instead of
-	// letting the caller report a misleading "no error" result.
+	// letting the caller report a misleading "no error" result. The
+	// message re-reads the file's DACL so that a missing ACE and a
+	// volume that does not enforce DACLs are distinguishable.
 	if _, err := os.ReadFile(path); err == nil {
-		t.Fatalf("deny-read ACE on %q did not prevent a read; the permission path is not being exercised", path)
+		dacl := "<unreadable>"
+		if sd, serr := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION); serr == nil {
+			dacl = sd.String()
+		}
+		t.Fatalf("deny-read ACE on %q did not prevent a read; DACL=%s user=%s; the permission path is not being exercised",
+			path, dacl, user.User.Sid.String())
 	}
 }
