@@ -4,7 +4,6 @@ package onboarding
 
 import (
 	"os"
-	"runtime"
 	"testing"
 
 	"golang.org/x/sys/windows"
@@ -12,15 +11,27 @@ import (
 
 // denyRead makes path unreadable by this process on Windows.
 //
-// Windows has no per-file read bits for os.Chmod to clear: mode
-// 0000 only sets the read-only attribute, so the file stays
-// readable and this test used to be skipped there. The Windows
-// equivalent of "this user has no read permission" is an explicit
-// DENY ACE in the file's DACL, which the access check evaluates
-// before any allow ACE and which applies to administrators too.
-// Because this process created the file it remains its owner, and
-// an owner always holds READ_CONTROL and WRITE_DAC implicitly, so
-// cleanup can restore the DACL.
+// Windows has no per-file read bits for os.Chmod to clear: mode 0000
+// only sets the read-only attribute, so the file stays readable. Two
+// stronger mechanisms are applied here because neither is sufficient
+// on its own on every host:
+//
+//   - An explicit DENY FILE_GENERIC_READ ACE in the file's DACL, the
+//     Windows equivalent of "this account has no read permission".
+//     Note FILE_GENERIC_READ, not GENERIC_READ: generic rights are
+//     only expanded for the access a caller requests at open time,
+//     never for the bits stored in an ACE.
+//   - A mandatory byte-range lock over the whole file. Windows file
+//     locks are enforced by the I/O manager, not by the security
+//     reference monitor, so they deny reads even to a token that is
+//     not subject to the DACL: the CI runner runs the tests as the
+//     built-in Administrator, which keeps reading a file whose DACL
+//     denies it (observed: DACL "D:PAI(D;;FR;;;LA)", read allowed).
+//
+// Either mechanism alone yields a genuine "cannot read this path", and
+// the caller only asserts that the read fails and that the error is
+// wrapped. The file's owner keeps READ_CONTROL and WRITE_DAC
+// implicitly, so cleanup can restore the DACL and drop the lock.
 func denyRead(t *testing.T, path string) {
 	t.Helper()
 
@@ -35,11 +46,6 @@ func denyRead(t *testing.T, path string) {
 	}
 
 	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{{
-		// FILE_GENERIC_READ, not GENERIC_READ: an ACE must carry the
-		// specific access bits. GENERIC_* is only expanded for the
-		// access a caller *requests* at open time, never for the bits
-		// stored in a DACL, so a GENERIC_READ ACE silently matches
-		// nothing and denies nothing.
 		AccessPermissions: windows.FILE_GENERIC_READ,
 		AccessMode:        windows.DENY_ACCESS,
 		Inheritance:       windows.NO_INHERITANCE,
@@ -49,7 +55,6 @@ func denyRead(t *testing.T, path string) {
 			TrusteeValue: windows.TrusteeValueFromSID(user.User.Sid),
 		},
 	}}, nil)
-	runtime.KeepAlive(user)
 	if err != nil {
 		t.Fatalf("build deny-read ACL for %q: %v", path, err)
 	}
@@ -64,8 +69,6 @@ func denyRead(t *testing.T, path string) {
 	); err != nil {
 		t.Fatalf("apply deny-read ACL to %q: %v", path, err)
 	}
-	// Hand the file back with an unrestricted DACL before t.TempDir
-	// removes it (this cleanup is registered later, so it runs first).
 	t.Cleanup(func() {
 		_ = windows.SetNamedSecurityInfo(
 			path,
@@ -75,16 +78,36 @@ func denyRead(t *testing.T, path string) {
 		)
 	})
 
-	// Fail loudly here if the deny did not take effect, instead of
+	h, err := windows.CreateFile(
+		windows.StringToUTF16Ptr(path),
+		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil,
+		windows.OPEN_EXISTING,
+		windows.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("open %q to lock it: %v", path, err)
+	}
+	t.Cleanup(func() { _ = windows.CloseHandle(h) })
+
+	// Whole-file exclusive lock: any other handle reading the range
+	// fails with ERROR_LOCK_VIOLATION.
+	if err := windows.LockFileEx(h, windows.LOCKFILE_EXCLUSIVE_LOCK, 0, ^uint32(0), ^uint32(0), new(windows.Overlapped)); err != nil {
+		t.Fatalf("lock %q: %v", path, err)
+	}
+
+	// Fail loudly here if the denial did not take effect, instead of
 	// letting the caller report a misleading "no error" result. The
 	// message re-reads the file's DACL so that a missing ACE and a
-	// volume that does not enforce DACLs are distinguishable.
+	// host that ignores it stay distinguishable.
 	if _, err := os.ReadFile(path); err == nil {
 		dacl := "<unreadable>"
 		if sd, serr := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION); serr == nil {
 			dacl = sd.String()
 		}
-		t.Fatalf("deny-read ACE on %q did not prevent a read; DACL=%s user=%s; the permission path is not being exercised",
+		t.Fatalf("deny-read ACE plus whole-file lock on %q still allowed a read; DACL=%s user=%s; the read-failure path is not being exercised",
 			path, dacl, user.User.Sid.String())
 	}
 }
