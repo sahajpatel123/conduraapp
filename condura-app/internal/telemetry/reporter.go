@@ -16,6 +16,7 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -235,8 +236,19 @@ func (r *Reporter) sendAsync(ev Event) {
 // --- helpers ---
 
 func newSessionID() string {
-	now := time.Now().UnixNano()
-	h := sha256.Sum256([]byte(fmt.Sprintf("%d", now)))
+	// Derive the ID from crypto/rand, not from the clock: a clock-only
+	// derivation (the previous implementation hashed time.Now().UnixNano())
+	// collides whenever two calls land in the same clock tick, which is
+	// routine on Windows and virtualised hosts where the timer resolution
+	// is far coarser than a nanosecond. Two sessions of the same user must
+	// never share an ID.
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err == nil {
+		return hex.EncodeToString(b[:])
+	}
+	// crypto/rand unavailable (should not happen): fall back to the clock so
+	// the caller still gets a well-formed 16-character ID.
+	h := sha256.Sum256([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
 	return hex.EncodeToString(h[:8])
 }
 

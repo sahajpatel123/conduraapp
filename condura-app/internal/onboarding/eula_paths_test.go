@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -69,6 +70,13 @@ func TestReadEULAFromPath_MissingFileReturnsWrappedError(t *testing.T) {
 func TestReadEULAFromPath_PermissionDeniedReturnsWrappedError(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root; permission test is ineffective")
+	}
+	// Windows does not map 0o000 onto "unreadable": Go's os.WriteFile
+	// passes the mode to the platform layer, which ignores POSIX read bits,
+	// so the file stays readable and the permission-denied branch is not
+	// reachable this way. There is no Windows equivalent of this fixture.
+	if runtime.GOOS == "windows" {
+		t.Skip("windows does not deny reads for 0o000 files; see eula.go's os.ReadFile path")
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "locked-eula.txt")
