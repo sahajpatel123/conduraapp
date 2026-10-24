@@ -14,7 +14,12 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.25.12"
+  # 1.26.10 (not 1.25.12): the older pin carried 16 standard-library
+  # advisories that govulncheck correctly reports as reachable, all fixed
+  # in go1.26.9/go1.26.10 (GO-2026-6809, -6617, -6613, -6612, -6611,
+  # -6610, -6608, -6607, -6605, -6603, ...). Bump this pin when new
+  # stdlib advisories land; govulncheck must stay compatible with it.
+  GO_VERSION: "1.26.10"
   GOLANGCI_LINT_VERSION: "v2.12.2"
 
 jobs:
@@ -417,4 +422,8 @@ jobs:
           cache: true
 
       - name: Run govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')
+        # Pinned, not @latest: the unpinned form silently moved to v1.9.0,
+        # which needs go >= 1.26.0 and could not build under the old
+        # 1.25.12 toolchain ("requires go >= 1.26.0"). Keep this in step
+        # with GO_VERSION.
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 $(go list ./... | grep -v -E 'internal/hotkey|internal/tray')

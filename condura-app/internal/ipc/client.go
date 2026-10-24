@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -158,7 +159,7 @@ func DefaultDataDir() string {
 	if err != nil {
 		return ""
 	}
-	return home + "/.condura"
+	return filepath.Join(home, ".condura")
 }
 
 // IsConnRefused reports whether err indicates the daemon is not

@@ -114,8 +114,8 @@ func TestDecryptTooShortCiphertextReturnsError(t *testing.T) {
 	for _, ct := range [][]byte{
 		nil,
 		{},
-		[]byte{0x01, 0x02, 0x03}, // 3 bytes < 12
-		make([]byte, 11),         // 11 bytes < 12
+		{0x01, 0x02, 0x03}, // 3 bytes < 12
+		make([]byte, 11),   // 11 bytes < 12
 	} {
 		_, err := decrypt(ct, key)
 		if err == nil {

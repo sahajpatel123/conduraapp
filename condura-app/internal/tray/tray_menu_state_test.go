@@ -1,4 +1,12 @@
+//go:build !linux
+
 package tray
+
+// This test file exercises the menu state setters/getters in tray.go,
+// which is itself //go:build !linux. Without the matching constraint,
+// the package has no non-test Go files on Linux and this file fails to
+// compile there (undefined: New), which breaks `golangci-lint run` on
+// the Linux lint job.
 
 import (
 	"strings"

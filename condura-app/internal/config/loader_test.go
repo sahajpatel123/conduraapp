@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sahajpatel123/conduraapp/condura-app/internal/homedir"
 )
 
 // -----------------------------------------------------------------------------
@@ -859,6 +861,13 @@ func TestFallbackDataDir_Linux_NoXDG_WithHome(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// homedir.Dir() caches its first lookup for the lifetime of the
+	// process, so a HOME change only takes effect after a reset. Without
+	// this the assertion below sees whatever home an earlier package test
+	// primed (on the Linux CI runner: /home/runner) instead of the temp
+	// dir this test just set.
+	homedir.Reset()
+	t.Cleanup(homedir.Reset)
 	got := fallbackDataDir()
 	want := filepath.Join(home, ".config", "condura")
 	if got != want {
