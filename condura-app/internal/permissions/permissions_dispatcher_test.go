@@ -117,6 +117,15 @@ func TestCheck_ReturnsValidStatus(t *testing.T) {
 	}
 }
 
+// errNoOpener reports whether err is the documented "no opener
+// available" outcome from openDeepLink. That error is a legitimate
+// result on a host with no desktop handler (a headless Linux CI
+// runner without gnome-control-center); it is not a violation of the
+// contracts these tests pin. Any other error is a real failure.
+func errNoOpener(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "no opener available")
+}
+
 // TestOpenSettings_NilContextFallback pins the nil-context
 // guard: OpenSettings MUST accept a nil context and fall back
 // to context.Background(). A regression that removed this
@@ -124,23 +133,28 @@ func TestCheck_ReturnsValidStatus(t *testing.T) {
 // would panic on the first call from any caller that
 // forgot to thread the context through.
 //
-// This is the most-tested surface for permissions and the
-// nil-context path is easy to miss in caller code (the RPC
-// handler chains contexts through several layers).
+// Whether the OS handler actually launches is environment-
+// dependent (it needs `open`, `gnome-control-center` or
+// `xdg-open` on PATH), so only the documented "no opener
+// available" error is tolerated here; the guard this test
+// pins is that a nil ctx never panics and the guide is still
+// returned.
 func TestOpenSettings_NilContextFallback(t *testing.T) {
 	//nolint:staticcheck // SA1012: testing the nil-context fallback on purpose
 	g, opened, err := OpenSettings(nil, KindAccessibility)
-	if err != nil {
+	if err != nil && !errNoOpener(err) {
 		t.Fatalf("OpenSettings(nil, KindAccessibility) returned error: %v", err)
+	}
+	if err != nil && opened {
+		t.Errorf("OpenSettings reported opened=true together with error %v", err)
 	}
 	// The guide is returned even when the OS open fails
 	// (caller can still show the steps).
 	if len(g.Steps) == 0 {
 		t.Error("Guide has no steps; caller would show empty state")
 	}
-	// On darwin (where this runs), 'open' should succeed and
-	// 'opened' should be true. On other platforms it may fail
-	// but should never panic.
+	// 'opened' depends on the host having a desktop handler; the
+	// contract pinned here is that it never panics.
 	_ = opened
 }
 
@@ -152,14 +166,15 @@ func TestOpenSettings_ValidContextWorks(t *testing.T) {
 	defer cancel()
 
 	g, opened, err := OpenSettings(ctx, KindMicrophone)
-	if err != nil {
+	if err != nil && !errNoOpener(err) {
 		t.Fatalf("OpenSettings(ctx, KindMicrophone) returned error: %v", err)
 	}
 	if len(g.Steps) == 0 {
 		t.Error("Guide has no steps")
 	}
 	// 'opened' is platform-dependent; on darwin it should be true
-	// (the 'open' command exists), on Linux it depends on xdg-open.
+	// (the 'open' command exists), on Linux it depends on xdg-open
+	// and gnome-control-center being installed.
 	_ = opened
 }
 
