@@ -182,7 +182,10 @@ func TestTail_StopsAtMissingRotation(t *testing.T) {
 // Rotate writer convention.
 func TestLogFilePath(t *testing.T) {
 	got := LogFilePath("/var/lib/condura")
-	want := "/var/lib/condura/logs/condura.log"
+	// Build the expectation with filepath.Join too: LogFilePath composes
+	// the path OS-natively, so on Windows the result uses backslashes.
+	// Comparing against a POSIX literal made this test fail on Windows.
+	want := filepath.Join("/var/lib/condura", "logs", "condura.log")
 	if got != want {
 		t.Errorf("LogFilePath = %q, want %q", got, want)
 	}

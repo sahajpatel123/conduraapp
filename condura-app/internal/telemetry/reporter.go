@@ -235,27 +235,21 @@ func (r *Reporter) sendAsync(ev Event) {
 
 // --- helpers ---
 
-// newSessionID returns the reporter's session identifier: 8
-// cryptographically random bytes, hex-encoded (16 characters).
-//
-// The bytes come from crypto/rand and NOT from the clock. An
-// identifier derived from time.Now().UnixNano() is a pure function
-// of a single clock reading, so it is not unique: Windows' timer
-// granularity is coarser than Linux's nanosecond clock, and two
-// readings inside the same tick produce the exact same ID (this
-// broke two successive newSessionID() calls on the windows CI
-// leg), as do several processes that start together and a clock
-// stepped backwards by NTP. A timestamp is also guessable, and
-// sessionIDPrefix derives the counter grouping key from this ID,
-// so a clock-derived ID would let an uploaded prefix be mapped
-// back to the moment a session started. Random bytes have neither
-// property.
 func newSessionID() string {
+	// Derive the ID from crypto/rand, not from the clock: a clock-only
+	// derivation (the previous implementation hashed time.Now().UnixNano())
+	// collides whenever two calls land in the same clock tick, which is
+	// routine on Windows and virtualised hosts where the timer resolution
+	// is far coarser than a nanosecond. Two sessions of the same user must
+	// never share an ID.
 	var b [8]byte
-	// rand.Read never returns an error and always fills b: on
-	// failure the runtime aborts rather than degrading.
-	_, _ = rand.Read(b[:])
-	return hex.EncodeToString(b[:])
+	if _, err := rand.Read(b[:]); err == nil {
+		return hex.EncodeToString(b[:])
+	}
+	// crypto/rand unavailable (should not happen): fall back to the clock so
+	// the caller still gets a well-formed 16-character ID.
+	h := sha256.Sum256([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	return hex.EncodeToString(h[:8])
 }
 
 // sessionIDPrefix returns the first 4 bytes of the session ID as

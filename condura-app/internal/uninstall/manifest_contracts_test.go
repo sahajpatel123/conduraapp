@@ -99,7 +99,10 @@ func TestDefaultManifest_ExplicitDataDirPinsPaths(t *testing.T) {
 	t.Setenv("HOME", tmpHome)
 	t.Setenv("USERPROFILE", tmpHome)
 
-	const customDir = "/custom/data/dir"
+	// Build the path with filepath.Join rather than a POSIX literal:
+	// DefaultManifest uses filepath.Join, which emits "\\" on Windows,
+	// so a hardcoded "/custom/data/dir" prefix never matches there.
+	customDir := filepath.Join("custom", "data", "dir")
 	m := DefaultManifest(customDir)
 	if len(m) == 0 {
 		t.Fatal("DefaultManifest returned empty manifest")

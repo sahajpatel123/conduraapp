@@ -62,12 +62,10 @@ func TestReadEULAFromPath_MissingFileReturnsWrappedError(t *testing.T) {
 // TestReadEULAFromPath_PermissionDeniedReturnsWrappedError pins
 // the permission-denied edge case: a path the process can't
 // read MUST return an error wrapped with the "read EULA" prefix.
-//
-// "Can't read" is produced by denyRead, because each platform
-// expresses it differently: POSIX clears the read bits, while
-// Windows has no per-file read bit for os.Chmod to clear (mode
-// 0000 there only sets the read-only attribute, and the file stays
-// readable, which is why this test failed on the windows CI leg).
+// (Skipped on platforms where chmod 000 still allows root to read
+// — e.g., root in CI Linux. We use 0o000 here, which denies
+// read for non-root users; on macOS dev where the test user is
+// not root, this works.)
 func TestReadEULAFromPath_PermissionDeniedReturnsWrappedError(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root; permission test is ineffective")
@@ -77,6 +75,12 @@ func TestReadEULAFromPath_PermissionDeniedReturnsWrappedError(t *testing.T) {
 	if err := os.WriteFile(path, []byte("body"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// "Cannot read" is expressed by each platform's own mechanism
+	// (see denyRead in denyread_unix_test.go / denyread_windows_test.go):
+	// mode 0000 on POSIX, an explicit deny ACE on Windows, where POSIX
+	// read bits are not honoured. Both assert the denial took effect,
+	// so this test exercises the read-failure path on every platform
+	// rather than being skipped on one.
 	denyRead(t, path)
 
 	_, err := readEULAFromPath(path)

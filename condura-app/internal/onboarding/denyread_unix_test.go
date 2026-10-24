@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// denyRead makes path unreadable by this process on POSIX systems
-// by clearing every read bit. The file is restored to mode 0600 on
+// denyRead makes path unreadable by this process on POSIX systems by
+// clearing every read bit. The file is restored to mode 0600 on
 // cleanup so that t.TempDir can remove it again.
 func denyRead(t *testing.T, path string) {
 	t.Helper()
@@ -16,4 +16,10 @@ func denyRead(t *testing.T, path string) {
 		t.Fatalf("chmod 000 %q: %v", path, err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	// Fail loudly here if the mode did not take effect, instead of
+	// letting the caller report a misleading "no error" result.
+	if _, err := os.ReadFile(path); err == nil {
+		t.Fatalf("chmod 000 on %q did not prevent a read; the permission path is not being exercised", path)
+	}
 }
