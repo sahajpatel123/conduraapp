@@ -62,21 +62,22 @@ func TestReadEULAFromPath_MissingFileReturnsWrappedError(t *testing.T) {
 // TestReadEULAFromPath_PermissionDeniedReturnsWrappedError pins
 // the permission-denied edge case: a path the process can't
 // read MUST return an error wrapped with the "read EULA" prefix.
-// (Skipped on platforms where chmod 000 still allows root to read
-// — e.g., root in CI Linux. We use 0o000 here, which denies
-// read for non-root users; on macOS dev where the test user is
-// not root, this works.)
+//
+// "Can't read" is produced by denyRead, because each platform
+// expresses it differently: POSIX clears the read bits, while
+// Windows has no per-file read bit for os.Chmod to clear (mode
+// 0000 there only sets the read-only attribute, and the file stays
+// readable, which is why this test failed on the windows CI leg).
 func TestReadEULAFromPath_PermissionDeniedReturnsWrappedError(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root; permission test is ineffective")
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "locked-eula.txt")
-	if err := os.WriteFile(path, []byte("body"), 0o000); err != nil {
+	if err := os.WriteFile(path, []byte("body"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Restore permissions on cleanup so t.TempDir can clean up.
-	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	denyRead(t, path)
 
 	_, err := readEULAFromPath(path)
 	if err == nil {
